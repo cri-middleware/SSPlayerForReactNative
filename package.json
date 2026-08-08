@@ -21,7 +21,8 @@
     "deploy-examples": "node scripts/deploy-examples.js",
     "generate-nitro-code": "node scripts/generate-nitro-code.js",
     "check-framedata": "bash tools/check-framedata.sh",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "generate-fbs-code": "node scripts/generate-fbs-code.js"
   },
   "engines": {
     "node": ">=20"

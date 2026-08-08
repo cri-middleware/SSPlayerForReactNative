@@ -65,7 +65,14 @@ Pod::Spec.new do |s|
   # cbindgen's ssruntime.h, which cpp/ includes directly and so is load-bearing:
   # without a `download-sdk` / `build-runtime` run this fails at compile, naming
   # the missing header, instead of at link with an undefined symbol.
-  header_search_paths = ["\"$(PODS_TARGET_SRCROOT)/native/include\""]
+  header_search_paths = [
+    "\"$(PODS_TARGET_SRCROOT)/native/include\"",
+    # FlatBuffers, header-only: cpp/format/ssab.h (flatc output, committed) pulls
+    # in flatbuffers/flatbuffers.h and its reachable set is all inline, so nothing
+    # links against flatc's own translation units and flatbuffers/src stays off
+    # the path. Same arrangement as SSPlayerForGodot's ss_player/sources.py.
+    "\"$(PODS_TARGET_SRCROOT)/third_party/flatbuffers/include\"",
+  ]
   if skia_direct
     header_search_paths += [
       "\"#{skia_dir}/cpp\"",       # JsiSkCanvas.h, JsiSkPaint.h

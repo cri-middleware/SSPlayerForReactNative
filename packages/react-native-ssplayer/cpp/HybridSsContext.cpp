@@ -204,6 +204,45 @@ double HybridSsContext::findPartIndex(const std::string& partName) {
   return static_cast<double>(ss_runtime_find_part_index(ctx_, partName.c_str()));
 }
 
+sscore::SsAnimeBinaryView HybridSsContext::ssab() const {
+  if (ctx_ == nullptr) return {};
+  // Read straight out of the Brain's own copy. Nothing is copied here and
+  // nothing is retained: the view is a pair of pointers into a buffer the bound
+  // resource owns, built fresh for each of these load-time queries.
+  return sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(ctx_),
+                                   ss_runtime_get_ssab_len(ctx_));
+}
+
+std::vector<SsTextureInfo> HybridSsContext::getTextures() {
+  const sscore::SsAnimeBinaryView view = ssab();
+  std::vector<SsTextureInfo> out;
+  if (!view.valid()) return out;
+
+  const uint32_t count = view.textureCount();
+  out.reserve(count);
+  for (uint32_t i = 0; i < count; ++i) {
+    const sscore::SsTextureEntry entry = view.textureAt(i);
+    out.emplace_back(static_cast<double>(entry.textureHash), std::string(entry.name),
+                     std::string(entry.imagePath), static_cast<double>(entry.wrapMode),
+                     static_cast<double>(entry.filterMode),
+                     // Borrowed: the encoded bytes stay inside the Brain's
+                     // buffer, which outlives this call.
+                     Borrow(entry.embedded, entry.embeddedLength));
+  }
+  return out;
+}
+
+std::vector<std::string> HybridSsContext::getAnimationNames() {
+  const sscore::SsAnimeBinaryView view = ssab();
+  std::vector<std::string> out;
+  if (!view.valid()) return out;
+
+  const uint32_t count = view.animationCount();
+  out.reserve(count);
+  for (uint32_t i = 0; i < count; ++i) out.emplace_back(view.animationName(i));
+  return out;
+}
+
 void HybridSsContext::refreshFrame() {
   unsigned char* fdPtr = nullptr;
   size_t fdLen = 0;

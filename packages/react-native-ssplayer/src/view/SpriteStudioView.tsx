@@ -22,8 +22,17 @@ import { useSsTextures, type SsTextureSources } from './useSsTextures'
 export interface SpriteStudioViewProps {
   /** The `.ssab` — a `require()`d asset, a URL, or a path. */
   source: SsSource
-  /** The cellmap textures. A bare source covers a one-cellmap pack. */
-  textures: SsTextureSources
+  /**
+   * Textures to use **instead of** the ones the pack names, keyed by cellmap
+   * name (a bare source covers a one-cellmap pack).
+   *
+   * Usually unnecessary: loading a `.ssab` loads its own textures, resolving
+   * each `image_path` against the `.ssab`'s location. Supply this when that
+   * cannot reach them — most importantly a `require()`d asset in a **release**
+   * build, where Metro ships only what a `require()` names and the sibling image
+   * is not in the bundle at all. Also the hook for a runtime texture swap.
+   */
+  textures?: SsTextureSources
   /** Which animation in the pack to set up. */
   animation?: string
 
@@ -172,8 +181,13 @@ export const SpriteStudioView = forwardRef<
   }, [player, size.width, size.height, offset?.x, offset?.y, scale, flipX, flipY])
 
   // --- the frame loop -----------------------------------------------------
+  //
+  // Deliberately not gated on textures. The pack loads its own asynchronously,
+  // and an override may arrive later still; until something is registered
+  // `draw()` simply draws nothing, which is the same empty frame waiting would
+  // have produced — and this way the clock is already running when they land.
   useEffect(() => {
-    if (player == null || images == null || size.width === 0) return
+    if (player == null || size.width === 0) return
 
     let raf = 0
     let last = performance.now()
@@ -201,7 +215,7 @@ export const SpriteStudioView = forwardRef<
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [player, images, size.width, size.height, picture])
+  }, [player, size.width, size.height, picture])
 
   const onLayout = (event: LayoutChangeEvent): void => {
     const { width, height } = event.nativeEvent.layout

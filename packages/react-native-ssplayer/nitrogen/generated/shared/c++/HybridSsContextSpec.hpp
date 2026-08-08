@@ -13,6 +13,8 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
+// Forward declaration of `SsTextureInfo` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsTextureInfo; }
 // Forward declaration of `SsFramePlan` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsFramePlan; }
 // Forward declaration of `SsSoAFrame` to properly resolve imports.
@@ -23,12 +25,13 @@ namespace margelo::nitro::ssplayer { struct SsBakedFrame; }
 namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 
 #include <string>
+#include "SsTextureInfo.hpp"
+#include <vector>
 #include "SsFramePlan.hpp"
 #include "SsSoAFrame.hpp"
 #include "SsBakedFrame.hpp"
 #include "SsSkiaBridge.hpp"
 #include "SsTextureBinding.hpp"
-#include <vector>
 
 namespace margelo::nitro::ssplayer {
 
@@ -89,6 +92,8 @@ namespace margelo::nitro::ssplayer {
       virtual void setSkipFrames(bool skip) = 0;
       virtual void setSection(double startFrame, double endFrame) = 0;
       virtual double findPartIndex(const std::string& partName) = 0;
+      virtual std::vector<SsTextureInfo> getTextures() = 0;
+      virtual std::vector<std::string> getAnimationNames() = 0;
       virtual SsFramePlan getPlan() = 0;
       virtual SsSoAFrame getSoA() = 0;
       virtual SsBakedFrame bake() = 0;

@@ -60,15 +60,32 @@ export function fileSystemPathOf(uri: string): string | null {
  * `SSPLAYER_ENABLE_SKIA_DIRECT` entry), so this is not the binding constraint
  * there yet.
  */
-export async function loadResource(source: SsSource): Promise<SsResource> {
+export async function loadResource(source: SsSource): Promise<LoadedResource> {
   const uri = resolveSourceUri(source)
 
   const path = fileSystemPathOf(uri)
-  if (path != null) return SsRuntimeModule.createResourceFromPath(path)
+  if (path != null) {
+    return { resource: SsRuntimeModule.createResourceFromPath(path), uri: path }
+  }
 
   const response = await fetch(uri)
   if (!response.ok) {
     throw new Error(`SsSource: ${response.status} fetching '${uri}'`)
   }
-  return SsRuntimeModule.createResourceFromBytes(await response.arrayBuffer())
+  return {
+    resource: SsRuntimeModule.createResourceFromBytes(await response.arrayBuffer()),
+    uri,
+  }
+}
+
+/** A loaded `.ssab` and where it came from. */
+export interface LoadedResource {
+  resource: SsResource
+  /**
+   * What the source resolved to — a filesystem path or a URL.
+   *
+   * Carried out of the load because the pack's textures are named *relative to
+   * it*: `SsTextureLoader` joins this URI's parent with each `image_path`.
+   */
+  uri: string
 }

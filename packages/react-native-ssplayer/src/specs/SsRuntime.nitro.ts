@@ -132,6 +132,41 @@ export interface SsTextureBinding {
   paint: SkPaintHandle
 }
 
+/** `cellmap.wrap_mode` wire values. */
+export const SsTexWrapMode = { clamp: 0, repeat: 1, mirror: 2 } as const
+
+/** `cellmap.filter_mode` wire values. */
+export const SsTexFilterMode = { nearest: 0, linear: 1 } as const
+
+/**
+ * One texture a pack needs, read out of its `.ssab`.
+ *
+ * Sampling comes along because it is a cellmap property: left to the paint's
+ * default, `drawVertices` samples nearest-neighbour and every scaled or rotated
+ * sprite comes out jaggy.
+ */
+export interface SsTextureInfo {
+  /** Look this up with `DrawBatch.texture_hash` directly. */
+  textureHash: number
+  /** Cellmap name, or an external texture's file name. */
+  name: string
+  /** Path to the image **relative to the `.ssab`**, or empty when embedded-only. */
+  imagePath: string
+  /** `SsTexWrapMode`. */
+  wrapMode: number
+  /** `SsTexFilterMode`. */
+  filterMode: number
+  /**
+   * Encoded image bytes for an embedded pack, empty for a reference one.
+   *
+   * A **borrow** of the Brain's copy — decode it during the call that received
+   * it and do not retain it. Note that an embedded atlas stays resident for the
+   * resource's whole life even after decoding: it sits inside the same
+   * contiguous FlatBuffer the Brain holds, so it cannot be freed on its own.
+   */
+  embedded: ArrayBuffer
+}
+
 /** A loaded `.ssab`. Shareable across contexts; the Brain refcounts it internally. */
 export interface SsResource
   extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
@@ -240,6 +275,29 @@ export interface SsContext
 
   /** Part index for `partName`, or -1. Stable for the loaded pack. */
   findPartIndex(partName: string): number
+
+  // --- `.ssab` metadata ---------------------------------------------------
+  //
+  // The Brain returns none of the metadata rendering needs — cellmap names,
+  // texture paths, animation names — and tells Players to read it out of the
+  // ssab themselves (`20_design/20_architecture.md`). That reading happens in
+  // C++ (`cpp/SsAnimeBinary.hpp`), against the Brain's own copy of the bytes,
+  // and the layers above ask **typed questions** rather than being handed a
+  // buffer to parse. No FlatBuffer ever crosses into JS.
+
+  /**
+   * Every texture this pack needs, cellmaps first and then external textures.
+   *
+   * One list because to a caller it is one question. `DrawBatch.texture_hash`
+   * is the cellmap name's hash normally, but a part under an authored texture
+   * change (`TCHG`) carries the hash of a texture *file* name out of
+   * `external_textures` instead; miss those and exactly those parts silently
+   * stop drawing (`30_core/10_initialization.md` §3).
+   */
+  getTextures(): SsTextureInfo[]
+
+  /** Animation names in this pack, for feeding back to `setupAnimation`. */
+  getAnimationNames(): string[]
 
   getPlan(): SsFramePlan
   /** Variant (a). */

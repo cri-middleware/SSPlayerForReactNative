@@ -1,7 +1,11 @@
 import type { SkCanvas } from '@shopify/react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
-import type { SsContext, SsResource } from '../specs/SsRuntime.nitro'
+import type {
+  SsContext,
+  SsResource,
+  SsTextureInfo,
+} from '../specs/SsRuntime.nitro'
 import { SsTextureRegistry } from './SsTextureRegistry'
 import {
   SS_ROOT_TRANSFORM_IDENTITY,
@@ -212,5 +216,20 @@ export class SsInternalPlayer {
   /** Part index for `partName`, or -1. */
   findPartIndex(partName: string): number {
     return this.require().findPartIndex(partName)
+  }
+
+  /**
+   * Every texture this pack needs, read out of the `.ssab` in C++.
+   *
+   * The `embedded` buffers are borrows of the Brain's copy — decode them during
+   * the call that asked for them and do not retain them.
+   */
+  getTextures(): SsTextureInfo[] {
+    return this.require().getTextures()
+  }
+
+  /** Animation names in this pack, for feeding to `setupAnimation`. */
+  getAnimationNames(): string[] {
+    return this.require().getAnimationNames()
   }
 }

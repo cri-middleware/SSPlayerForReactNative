@@ -6,6 +6,7 @@
 
 #include "HybridSsContextSpec.hpp"
 #include "HybridSsResource.hpp"
+#include "SsAnimeBinary.hpp"
 #include "SsBaker.hpp"
 #include "SsFrameData.hpp"
 #include "SsSkiaBridge.hpp"
@@ -65,6 +66,9 @@ class HybridSsContext final : public HybridSsContextSpec {
 
   double findPartIndex(const std::string& partName) override;
 
+  std::vector<SsTextureInfo> getTextures() override;
+  std::vector<std::string> getAnimationNames() override;
+
   SsFramePlan getPlan() override;
   SsSoAFrame getSoA() override;
   SsBakedFrame bake() override;
@@ -74,6 +78,11 @@ class HybridSsContext final : public HybridSsContextSpec {
   /// Refreshes `frame_`, the SoA pointers and `partCount_` from the Brain for
   /// the current frame. Called by `update()`; the getters below just read it.
   void refreshFrame();
+
+  /// A view over the bound `.ssab`, read in place out of the Brain's copy.
+  /// Cheap (two pointers), so the load-time metadata queries just build one each
+  /// rather than caching a parse nothing else needs.
+  sscore::SsAnimeBinaryView ssab() const;
 
   /// Re-reads the playhead from the Brain and republishes the frame.
   ///

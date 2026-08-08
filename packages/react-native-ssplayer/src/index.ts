@@ -49,6 +49,10 @@ export {
   type SsTextureOptions,
 } from './core/SsTextureRegistry'
 export {
+  SsTextureLoader,
+  type SsTextureLoadReport,
+} from './core/SsTextureLoader'
+export {
   SsPlaybackDirection,
   SsPlaybackStyle,
   SS_ROOT_TRANSFORM_IDENTITY,
@@ -57,6 +61,7 @@ export {
 
 // --- Layer 1 ---------------------------------------------------------------
 export { SsRuntimeModule } from './runtime'
+export { SsTexWrapMode, SsTexFilterMode } from './specs/SsRuntime.nitro'
 export type {
   SsRuntime,
   SsContext,
@@ -65,6 +70,7 @@ export type {
   SsSoAFrame,
   SsBakedFrame,
   SsTextureBinding,
+  SsTextureInfo,
 } from './specs/SsRuntime.nitro'
 
 /**

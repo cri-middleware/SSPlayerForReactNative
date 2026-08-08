@@ -31,6 +31,11 @@ add_library(SsPlayer SHARED
 target_include_directories(SsPlayer PRIVATE
   ../cpp
   "${NATIVE_DIR}/include"
+  # FlatBuffers, header-only: cpp/format/ssab.h (flatc output, committed) pulls
+  # in flatbuffers/flatbuffers.h and its reachable set is all inline, so nothing
+  # links against flatc's own translation units and flatbuffers/src stays off
+  # the path. Same arrangement as SSPlayerForGodot's ss_player/sources.py.
+  ../third_party/flatbuffers/include
 )
 
 # Variant (c) — drawing straight into RN Skia's SkCanvas — needs RN Skia's own

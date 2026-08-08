@@ -1,6 +1,10 @@
 import type { SkCanvas } from '@shopify/react-native-skia'
 
 import { SsInternalPlayer } from '../core/SsInternalPlayer'
+import {
+  SsTextureLoader,
+  type SsTextureLoadReport,
+} from '../core/SsTextureLoader'
 import { SsTextureRegistry } from '../core/SsTextureRegistry'
 import {
   SsPlaybackDirection,
@@ -130,10 +134,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    */
   async load(
     source: SsSource,
-    options?: { animation?: string }
+    options?: { animation?: string; loadTextures?: boolean }
   ): Promise<void> {
     const token = ++this.loadToken
-    const resource = await loadResource(source)
+    const { resource, uri } = await loadResource(source)
 
     if (token !== this.loadToken || this.disposed) {
       // Superseded mid-flight. Nothing else holds this, so release it here
@@ -152,7 +156,41 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     else this.applySettings()
 
     this.notify()
+
+    if (options?.loadTextures === false) return
+
+    // The pack names its own textures, so load them rather than making the
+    // caller do it: `image_path` is relative to the `.ssab`, and `uri` is where
+    // the `.ssab` came from. Anything already registered is left alone, so a
+    // caller-supplied texture wins.
+    //
+    // After `notify()` on purpose — the animation is usable the moment the
+    // context exists, and holding the load open for a texture fetch would delay
+    // the first frame for no reason. It simply draws nothing until they arrive.
+    const report = await SsTextureLoader.load(
+      this.textures,
+      internal.getTextures(),
+      uri
+    )
+    if (token !== this.loadToken || this.disposed) return
+    this.lastTextureReport = report
+    this.notify()
   }
+
+  /**
+   * What the last load could not resolve, or null before the first one.
+   *
+   * Worth surfacing because a missing texture is silent: `drawInto` skips a
+   * batch it has no paint for, so the symptom is a part that is simply not
+   * there rather than an error.
+   */
+  get lastTextureReport(): SsTextureLoadReport | null {
+    return this.textureReport
+  }
+  private set lastTextureReport(value: SsTextureLoadReport | null) {
+    this.textureReport = value
+  }
+  private textureReport: SsTextureLoadReport | null = null
 
   /** The Layer 2 player, or null before the first successful load. */
   get internal(): SsInternalPlayer | null {

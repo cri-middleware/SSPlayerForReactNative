@@ -9,12 +9,18 @@ const SSAB = require('../../assets/ss/overall/Basic.ssab')
 const ANIMATION = 'anime_1'
 
 /**
- * Keyed by cellmap name rather than handed over as a bare source.
+ * Supplied explicitly, even though loading a `.ssab` now loads its own textures.
  *
- * `Basic` has one cellmap, so the bare form would work — `drawInto` matches a
- * single-entry texture table unconditionally. Naming it exercises the path that
- * actually has to be right for a multi-cellmap pack: `SsRuntime.hashString`
- * agreeing with `DrawBatch.texture_hash`.
+ * This example is inside an npm workspace, and that is exactly where automatic
+ * resolution cannot reach: `watchFolders` pushes Metro's server root up to the
+ * workspace, so the `.ssab`'s URL is `/assets/example/assets/...`, while Metro
+ * resolves an asset request against the *project* root — asking for the sibling
+ * lands on `example/example/assets/...` and 404s. A non-monorepo app has the two
+ * roots equal and does not need this prop.
+ *
+ * The other way to make the example self-resolving is
+ * `deploy-examples --embedded`, which puts the atlas inside the `.ssab`. Still
+ * to be decided — see the ROADMAP.
  */
 const TEXTURES = { common: require('../../assets/ss/overall/common.png') }
 
@@ -33,6 +39,7 @@ const DESIGN_HEIGHT = 480
  * Everything the Phase 0 harness did by hand — the context pool, the picture
  * recording, the frame loop, the root transform — is inside
  * `<SpriteStudioView>` here. What is left is props.
+ *
  */
 export function PlayerScreen() {
   const ref = useRef<SpriteStudioViewRef>(null)

@@ -43,6 +43,8 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridMethod("setSkipFrames", &HybridSsContextSpec::setSkipFrames);
       prototype.registerHybridMethod("setSection", &HybridSsContextSpec::setSection);
       prototype.registerHybridMethod("findPartIndex", &HybridSsContextSpec::findPartIndex);
+      prototype.registerHybridMethod("getTextures", &HybridSsContextSpec::getTextures);
+      prototype.registerHybridMethod("getAnimationNames", &HybridSsContextSpec::getAnimationNames);
       prototype.registerHybridMethod("getPlan", &HybridSsContextSpec::getPlan);
       prototype.registerHybridMethod("getSoA", &HybridSsContextSpec::getSoA);
       prototype.registerHybridMethod("bake", &HybridSsContextSpec::bake);
