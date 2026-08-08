@@ -10,9 +10,11 @@ const path = require('path')
  * contributor. Same shape as SSPlayerForWeb's shims, with the spawn logic in
  * one place so the four entry points beside this file stay one-liners.
  *
- * Extra arguments are forwarded. Leading `--flag` becomes `-flag` on Windows,
- * because that is PowerShell's switch spelling — so
- * `npm run deploy-examples -- --embedded` works on both.
+ * Extra arguments are forwarded **verbatim**. The `.ps1` scripts take
+ * `[Parameter(ValueFromRemainingArguments)]` and parse the same `key=value` and
+ * `--flag` spellings their `.sh` counterparts do (the pattern SSPlayerForWeb's
+ * build-runtime.ps1 uses), so one command line works everywhere and this shim
+ * never has to rewrite what the caller typed.
  *
  * @param {string} name  script base name, e.g. "download-sdk"
  * @param {string[]} [extraArgs]  defaults to this process's own arguments
@@ -29,11 +31,10 @@ function runPlatformScript(name, extraArgs = process.argv.slice(2)) {
     process.exit(1)
   }
 
-  const args = isWin ? extraArgs.map((a) => a.replace(/^--/, '-')) : extraArgs
   const command = isWin ? 'powershell' : 'bash'
   const commandArgs = isWin
-    ? ['-ExecutionPolicy', 'Bypass', '-File', script, ...args]
-    : [script, ...args]
+    ? ['-ExecutionPolicy', 'Bypass', '-File', script, ...extraArgs]
+    : [script, ...extraArgs]
 
   console.log(`[${name}] running on ${os.platform()} via ${path.basename(script)}`)
 

@@ -19,7 +19,7 @@
     "download-sdk": "node scripts/download-sdk.js",
     "build-runtime": "node scripts/build-runtime.js",
     "deploy-examples": "node scripts/deploy-examples.js",
-    "generate-nitro": "node scripts/generate-nitro.js",
+    "generate-nitro-code": "node scripts/generate-nitro-code.js",
     "check-framedata": "bash tools/check-framedata.sh",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

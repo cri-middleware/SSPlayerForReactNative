@@ -1,3 +1,3 @@
 const { runPlatformScript } = require('./run-platform-script')
 
-runPlatformScript('generate-nitro')
+runPlatformScript('generate-nitro-code')

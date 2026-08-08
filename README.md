@@ -38,9 +38,9 @@ SSPlayerForReactNative/
 ├── scripts/
 │   ├── SDK_VERSION.txt                <- pinned SDK release tag
 │   ├── download-sdk.{js,sh,ps1}       <- install the pinned release (NO Rust needed)
-│   ├── build-runtime.{js,sh}          <- build the Brain from the submodule instead
+│   ├── build-runtime.{js,sh,ps1}      <- build the Brain from the submodule instead
 │   ├── deploy-examples.{js,sh,ps1}    <- convert the SDK's test projects to .ssab
-│   └── generate-nitro.{js,sh,ps1}     <- run nitrogen over the Layer 1 spec
+│   └── generate-nitro-code.{js,sh,ps1} <- run nitrogen over the Layer 1 spec
 ├── packages/react-native-ssplayer/    <- the npm package
 │   ├── src/specs/SsRuntime.nitro.ts   <- Layer 1 spec (nitrogen input)
 │   ├── cpp/                           <- Nitro implementation + the Skia bridge
@@ -71,7 +71,17 @@ npx expo run:ios
 `download-sdk` needs **no Rust toolchain**. Use `npm run build-runtime` instead
 only when you are changing the Brain itself — it builds from the submodule and
 writes the same layout, stamped `<tag>+submodule-<sha>` so the two never get
-confused.
+confused. On Windows `build-runtime` covers the Android slice only, since the
+iOS xcframework needs Xcode; `download-sdk` is the complete answer there.
+
+Scripts take `key=value` arguments and accept `$SSSDK` to point at an SDK
+checkout other than the submodule, matching the sibling Players:
+
+```bash
+npm run build-runtime -- platform=ios build=release
+npm run download-sdk -- --force
+npm run deploy-examples -- --embedded
+```
 
 ### Requirements
 
@@ -85,7 +95,7 @@ confused.
 ## Development notes
 
 **Do not hand-edit `packages/react-native-ssplayer/nitrogen/`.** Change
-`src/specs/SsRuntime.nitro.ts` and run `npm run generate-nitro`. The output is
+`src/specs/SsRuntime.nitro.ts` and run `npm run generate-nitro-code`. The output is
 committed so consumers never need nitrogen.
 
 **`npm run check-framedata`** diffs the hand-written FlatBuffers offsets in

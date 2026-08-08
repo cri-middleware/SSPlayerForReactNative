@@ -1,47 +1,66 @@
-# Fetch the pinned SpriteStudio-SDK release and install it into the package.
+param (
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$ArgsList
+)
+
+# Install the pinned SpriteStudio-SDK release into the npm package's native/
+# directory.
 #
 # THIS IS THE NORMAL PATH. It needs no Rust toolchain and no submodule, which is
-# what makes the npm package installable by someone who has never touched the
-# SDK (design doc ch.7). scripts/build-runtime.sh is the other path: building
-# the Brain from the submodule while working on it.
+# what lets someone who has never touched the SDK build the package (design doc
+# ch.7). scripts/build-runtime.ps1 is the other path, and on Windows it can only
+# produce the Android slice — so this is the only way to get a complete native/
+# there.
 #
-# Windows can build the Android slice but not the iOS one, so this download is
-# the only way to get a complete native/ on Windows.
-
-param(
-    # Re-install even when native/VERSION already matches.
-    [switch]$Force
-)
+# Usage: scripts/download-sdk.ps1 [--force]
+#   --force  re-install even when native/VERSION already matches
 
 $ErrorActionPreference = "Stop"
 
-$baseDirectory = Split-Path -Parent $PSCommandPath
-$rootDirectory = Split-Path -Parent $baseDirectory
-$targetDir = "$rootDirectory/packages/react-native-ssplayer/native"
-$versionFile = "$baseDirectory/SDK_VERSION.txt"
-$currentVersionFile = "$targetDir/VERSION"
-# Downloaded zip is cached here (gitignored) so a re-run that needs the same
-# version reuses it instead of re-downloading tens of MB.
-$cacheDir = "$baseDirectory/.sdk-cache"
+$scriptDir = Split-Path -Parent $PSCommandPath
+$rootDir = Split-Path -Parent $scriptDir
+$app = Split-Path -Leaf $PSCommandPath
+
+$targetDir = Join-Path $rootDir "packages/react-native-ssplayer/native"
+$versionFile = Join-Path $scriptDir "SDK_VERSION.txt"
+$currentVersionFile = Join-Path $targetDir "VERSION"
+# Downloaded zips are cached here (gitignored) so a re-run that needs the same
+# version reuses them instead of re-downloading tens of MB.
+$cacheDir = Join-Path $scriptDir ".sdk-cache"
+
+# Accept both spellings: the .js shim forwards arguments verbatim, so the same
+# `npm run download-sdk -- --force` works on every OS.
+$force = $false
+foreach ($arg in $ArgsList) {
+    switch -Regex ($arg) {
+        '^(--force|-force|force)$' { $force = $true }
+        '^(-h|--help|help)$' {
+            Write-Host "Usage: $app [--force]"
+            Write-Host "  --force  re-install even when native/VERSION already matches"
+            exit 0
+        }
+        default { Write-Error "$app`: unknown argument '$arg'"; exit 2 }
+    }
+}
 
 $targetVersion = (Get-Content $versionFile).Trim()
 
-if (-not $Force -and (Test-Path $currentVersionFile)) {
+# A build-runtime install stamps "<tag>+submodule-<sha>", which never compares
+# equal to the bare tag — so a local Brain build is replaced here rather than
+# silently kept while claiming to be the release.
+if (-not $force -and (Test-Path $currentVersionFile)) {
     $currentVersion = (Get-Content $currentVersionFile).Trim()
     if ($currentVersion -eq $targetVersion) {
         Write-Host "SDK $targetVersion is already up to date. Skipping download."
         exit 0
     }
-    # A build-runtime.sh install stamps "<tag>+submodule-<sha>", which never
-    # compares equal to the tag — so a local Brain build is replaced here rather
-    # than silently kept while claiming to be the release.
 }
 
 $baseUrl = "https://github.com/cri-middleware/SpriteStudio-SDK/releases/download/$targetVersion"
 $asset = "spritestudio-sdk-static-libs.zip"
 # Keep the release asset's own name so it matches the SHA256SUMS entry directly.
-$zipFile = "$cacheDir/$asset"
-$sumsFile = "$cacheDir/SHA256SUMS"
+$zipFile = Join-Path $cacheDir $asset
+$sumsFile = Join-Path $cacheDir "SHA256SUMS"
 
 Write-Host "Target SDK Version: $targetVersion"
 New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
@@ -77,9 +96,9 @@ if ((Test-Path $zipFile) -and ((Get-Sha256 $zipFile) -eq $expected)) {
 }
 Write-Host "Checksum OK: $asset"
 
-# The release archive is a flat tree (libs/, include/, VERSION, …) with no
-# wrapper directory, so it extracts straight into native/ — which is exactly the
-# layout the podspec and the Android CMake read.
+# The release archive is a flat tree (libs/, include/, bindings/, VERSION,
+# LICENSE.md, …) with no wrapper directory, so it extracts straight into
+# native/ — exactly the layout the podspec and the Android CMake read.
 Write-Host "Extracting SDK..."
 if (Test-Path $targetDir) {
     Remove-Item -Recurse -Force $targetDir
