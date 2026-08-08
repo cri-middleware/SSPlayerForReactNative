@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "SpriteStudio 7 player for React Native — workspace root",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "workspaces": [
     "packages/*",
     "example"

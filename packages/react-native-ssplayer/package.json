@@ -2,7 +2,7 @@
   "name": "@spritestudio/react-native-ssplayer",
   "version": "0.0.0",
   "description": "SpriteStudio 7 animation player for React Native (New Architecture / Nitro + Skia)",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "files": [
@@ -14,7 +14,8 @@
     "*.podspec",
     "nitro.json",
     "native/VERSION",
-    "README.md"
+    "README.md",
+    "LICENSE.md"
   ],
   "scripts": {
     "nitrogen": "nitrogen",

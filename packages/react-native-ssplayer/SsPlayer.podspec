@@ -49,7 +49,7 @@ Pod::Spec.new do |s|
   s.version      = package["version"]
   s.summary      = package["description"]
   s.homepage     = "https://github.com/cri-middleware/SSPlayerForReactNative"
-  s.license      = package["license"]
+  s.license      = { :type => package["license"], :file => "LICENSE.md" }
   s.authors      = "CRI Middleware"
 
   s.platforms    = { :ios => "14.0" }
