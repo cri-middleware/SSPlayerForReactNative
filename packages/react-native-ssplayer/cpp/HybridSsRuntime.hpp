@@ -17,8 +17,12 @@ class HybridSsRuntime final : public HybridSsRuntimeSpec {
   std::string getVersion() override;
 
   std::shared_ptr<HybridSsResourceSpec> createResourceFromPath(const std::string& path) override;
+  std::shared_ptr<HybridSsResourceSpec> createResourceFromBytes(
+      const std::shared_ptr<ArrayBuffer>& bytes) override;
   std::shared_ptr<HybridSsContextSpec> createContext(
       const std::shared_ptr<HybridSsResourceSpec>& resource) override;
+
+  double hashString(const std::string& value) override;
 };
 
 }  // namespace margelo::nitro::ssplayer

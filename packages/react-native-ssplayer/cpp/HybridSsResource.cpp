@@ -2,8 +2,9 @@
 
 #include <cstdio>
 #include <stdexcept>
+#include <vector>
 
-#include "SsRuntimeApi.h"
+#include "ssruntime.h"
 
 namespace margelo::nitro::ssplayer {
 
@@ -33,17 +34,32 @@ std::vector<uint8_t> ReadWholeFile(const std::string& path) {
 
 }  // namespace
 
-HybridSsResource::HybridSsResource(const std::string& path)
-    : HybridObject(TAG), bytes_(ReadWholeFile(path)) {
-  // `_copy` rather than `_borrow`: the Brain then owns its own copy and the
-  // lifetime coupling to `bytes_` stops mattering. The extra copy happens once
-  // per load, never per frame. (`bytes_` is still kept so `byteLength` can
-  // report the on-disk size, which the README's app-size numbers want.)
-  resource_ = ss_resource_create_copy(bytes_.data(), bytes_.size());
+HybridSsResource::HybridSsResource(const std::string& path) : HybridObject(TAG) {
+  const std::vector<uint8_t> bytes = ReadWholeFile(path);
+  adopt(bytes.data(), bytes.size(), path);
+}
+
+HybridSsResource::HybridSsResource(const uint8_t* bytes, size_t byteLength,
+                                   const std::string& origin)
+    : HybridObject(TAG) {
+  if (bytes == nullptr || byteLength == 0) {
+    throw std::runtime_error("SsResource: '" + origin + "' is empty");
+  }
+  adopt(bytes, byteLength, origin);
+}
+
+void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
+                             const std::string& origin) {
+  // `_copy` rather than `_borrow`: the Brain then owns the only copy that has
+  // to survive this call, so neither the local buffer above nor a JS-owned
+  // ArrayBuffer has to be kept alive alongside it. The copy happens once per
+  // load, never per frame.
+  resource_ = ss_resource_create_copy(bytes, byteLength);
   if (resource_ == nullptr) {
-    throw std::runtime_error("SsResource: libssruntime rejected '" + path +
+    throw std::runtime_error("SsResource: libssruntime rejected '" + origin +
                              "' — is it a .ssab from a matching SDK version?");
   }
+  byteLength_ = byteLength;
 }
 
 HybridSsResource::~HybridSsResource() {

@@ -62,6 +62,9 @@ Pod::Spec.new do |s|
   # ship in the app bundle beyond the code actually referenced.
   s.vendored_frameworks = "native/libs/ios/libssruntime.xcframework"
 
+  # cbindgen's ssruntime.h, which cpp/ includes directly and so is load-bearing:
+  # without a `download-sdk` / `build-runtime` run this fails at compile, naming
+  # the missing header, instead of at link with an undefined symbol.
   header_search_paths = ["\"$(PODS_TARGET_SRCROOT)/native/include\""]
   if skia_direct
     header_search_paths += [
@@ -73,9 +76,6 @@ Pod::Spec.new do |s|
   end
 
   s.pod_target_xcconfig = {
-    # cbindgen's ssruntime.h. cpp/SsRuntimeApi.h redeclares what it needs, so
-    # this is here for anything that wants the full header rather than being
-    # load-bearing.
     "HEADER_SEARCH_PATHS" => header_search_paths.join(" "),
     "GCC_PREPROCESSOR_DEFINITIONS" =>
       "$(inherited) SSPLAYER_SDK_VERSION=\\\"#{sdk_version}\\\" " \

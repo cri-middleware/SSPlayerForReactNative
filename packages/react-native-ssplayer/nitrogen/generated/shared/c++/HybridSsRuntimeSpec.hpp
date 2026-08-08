@@ -21,6 +21,7 @@ namespace margelo::nitro::ssplayer { class HybridSsContextSpec; }
 #include <string>
 #include <memory>
 #include "HybridSsResourceSpec.hpp"
+#include <NitroModules/ArrayBuffer.hpp>
 #include "HybridSsContextSpec.hpp"
 
 namespace margelo::nitro::ssplayer {
@@ -55,7 +56,9 @@ namespace margelo::nitro::ssplayer {
     public:
       // Methods
       virtual std::shared_ptr<HybridSsResourceSpec> createResourceFromPath(const std::string& path) = 0;
+      virtual std::shared_ptr<HybridSsResourceSpec> createResourceFromBytes(const std::shared_ptr<ArrayBuffer>& bytes) = 0;
       virtual std::shared_ptr<HybridSsContextSpec> createContext(const std::shared_ptr<HybridSsResourceSpec>& resource) = 0;
+      virtual double hashString(const std::string& value) = 0;
 
     protected:
       // Hybrid Setup

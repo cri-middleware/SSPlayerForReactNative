@@ -1,6 +1,61 @@
-import { NitroModules } from 'react-native-nitro-modules'
-import type { SsRuntime } from './specs/SsRuntime.nitro'
+/**
+ * SpriteStudio 7 player for React Native.
+ *
+ * Four layers, top to bottom (see AGENTS.md):
+ *
+ *  * **L4** `<SpriteStudioView>` — a Skia canvas, props and a ref.
+ *  * **L3** `SpriteStudioPlayer` — transport, clock, events.
+ *  * **L2** `SsInternalPlayer` — native lifetime and one draw call per frame.
+ *    Free of `react`/`react-native`.
+ *  * **L1** `SsRuntimeModule` — the Nitro seam onto the Brain, exported raw as
+ *    the escape hatch.
+ *
+ * Layer 1 still carries the Phase 0 spike's variants (a) and (b) — `getSoA`,
+ * `getPlan`, `bake` — because `example/` reproduces the measurement with them.
+ * Nothing above Layer 1 uses them; they go away when the harness does.
+ */
 
+// --- Layer 4 ---------------------------------------------------------------
+export {
+  SpriteStudioView,
+  type SpriteStudioViewProps,
+  type SpriteStudioViewRef,
+} from './view/SpriteStudioView'
+export {
+  useSsTextures,
+  SS_DEFAULT_CELLMAP,
+  type SsTextureSources,
+} from './view/useSsTextures'
+
+// --- Layer 3 ---------------------------------------------------------------
+export {
+  SpriteStudioPlayer,
+  type SpriteStudioPlayerApi,
+  type SpriteStudioPlayerOptions,
+  type SsCompleteCallback,
+} from './player/SpriteStudioPlayer'
+export {
+  loadResource,
+  resolveSourceUri,
+  fileSystemPathOf,
+  type SsSource,
+} from './player/source'
+
+// --- Layer 2 ---------------------------------------------------------------
+export { SsInternalPlayer } from './core/SsInternalPlayer'
+export {
+  SsTextureRegistry,
+  type SsTextureOptions,
+} from './core/SsTextureRegistry'
+export {
+  SsPlaybackDirection,
+  SsPlaybackStyle,
+  SS_ROOT_TRANSFORM_IDENTITY,
+  type SsRootTransform,
+} from './core/types'
+
+// --- Layer 1 ---------------------------------------------------------------
+export { SsRuntimeModule } from './runtime'
 export type {
   SsRuntime,
   SsContext,
@@ -8,16 +63,8 @@ export type {
   SsFramePlan,
   SsSoAFrame,
   SsBakedFrame,
+  SsTextureBinding,
 } from './specs/SsRuntime.nitro'
-
-/**
- * PHASE 0 SPIKE. The shipping surface is `<SpriteStudioView>` plus an L3 player
- * (design doc ch.2); none of that exists yet, because the L1/L2 boundary those
- * layers sit on is what the spike is measuring. Until then this exports Layer 1
- * raw so `example/` can drive the two candidate designs side by side.
- */
-export const SsRuntimeModule =
-  NitroModules.createHybridObject<SsRuntime>('SsRuntime')
 
 /**
  * Field indices into one `SsBatchDesc` — see `cpp/SsBatchDesc.hpp`. JS reads the

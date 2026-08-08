@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
-#include <vector>
 
 #include "HybridSsResourceSpec.hpp"
 
@@ -10,9 +10,9 @@ namespace margelo::nitro::ssplayer {
 
 /// A loaded `.ssab`.
 ///
-/// Owns two things: the file bytes (the Brain borrows or copies from them) and
-/// the Brain-side resource handle. The bytes are kept alive for the handle's
-/// whole life, which is the ch.9 F rule stated for `.ssab` data.
+/// Owns the Brain-side resource handle and nothing else: the bytes go in via
+/// `ss_resource_create_copy`, so the Brain holds the only copy that has to
+/// outlive this call and the ch.9 F lifetime coupling never arises.
 class HybridSsResource final : public HybridSsResourceSpec {
  public:
   /// Reads `path` and hands the bytes to the Brain. Throws `std::runtime_error`
@@ -20,15 +20,24 @@ class HybridSsResource final : public HybridSsResourceSpec {
   /// throws surfaces in JS as an exception, which is what an unreadable asset
   /// path should be.
   explicit HybridSsResource(const std::string& path);
+
+  /// Same, from bytes JS already has. `origin` only names the source in error
+  /// messages.
+  HybridSsResource(const uint8_t* bytes, size_t byteLength, const std::string& origin);
+
   ~HybridSsResource() override;
 
-  double getByteLength() override { return static_cast<double>(bytes_.size()); }
+  double getByteLength() override { return static_cast<double>(byteLength_); }
 
   /// The Brain-side handle, for `HybridSsContext` to bind. Null after dispose.
   void* handle() const noexcept { return resource_; }
 
  private:
-  std::vector<uint8_t> bytes_;
+  /// Hands `bytes` to the Brain and stores the handle, or throws naming
+  /// `origin`. Both constructors funnel through here.
+  void adopt(const uint8_t* bytes, size_t byteLength, const std::string& origin);
+
+  size_t byteLength_ = 0;
   void* resource_ = nullptr;
 };
 

@@ -7,9 +7,12 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 `CLAUDE.md` is a symlink to this file.
 
 > [!IMPORTANT]
-> **This repo is at Phase 0 + the start of Phase 1.** What exists is the
-> measurement spike that decided the architecture, not a player. There is no
-> `<SpriteStudioView>`, no L2/L3, no blend modes, masks or effects. Read
+> **This repo is mid-Phase 1.** All four layers now exist and
+> `<SpriteStudioView>` plays an animation — but only Normal parts with normal
+> blending, and **on iOS only**: Android still builds with
+> `SSPLAYER_ENABLE_SKIA_DIRECT=0` (RN Skia publishes no `libskia` prefab), so
+> `drawInto()` throws there. No blend modes, masks, effects, events, part
+> overrides or Reanimated integration yet. Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
 > it overturned one of the design doc's premises.
 
@@ -58,32 +61,48 @@ The Brain loads a `.ssab`, advances time, and emits per-frame **SoA buffers**
 (world matrices, local vertices/UVs, cell meta) plus a FlatBuffers **`FrameData`**
 carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 
-* **L4** `<SpriteStudioView>` — an RN Skia `Canvas` plus props/ref. *Not built yet.*
+* **L4** `<SpriteStudioView>` — an RN Skia `Canvas` plus props/ref. Owns the
+  frame loop: one `requestAnimationFrame` tick advances L3 and re-records one
+  `SkPicture`, handed to the canvas through a Reanimated shared value so a frame
+  costs no React render.
 * **L3** `SpriteStudioPlayer` — transport, events, clock. Externally clocked by
-  default (`advance(dt)`), self-driving as a fallback. *Not built yet.*
-* **L2** internal player — **must import nothing from `react`/`react-native`**,
-  so react-native-web, headless tests and a future renderer stay possible.
-  After Phase 0 this layer is thin: lifecycle and one draw call per frame.
-  *Not built yet.*
+  default (`advance(dt)`), self-driving via `startClock()` as a fallback for
+  headless use. Also owns source resolution and replays transport settings onto
+  each newly loaded animation. `SpriteStudioPlayerApi` states the transport
+  surface with no drawing backend in it, so the Phase 3 web implementation can
+  satisfy the same one.
+* **L2** `SsInternalPlayer` — **must import nothing from `react`/`react-native`**,
+  so react-native-web, headless tests and a future renderer stay possible. (Skia
+  is fair game: it is the drawing backend, not the UI framework.) After Phase 0
+  this layer is thin: native lifetime, the root transform, and one draw call per
+  frame.
 * **L1** Nitro bindings + the C++ that walks the batch plan, bakes geometry and
-  draws into `SkCanvas`. **This is what exists today.**
+  draws into `SkCanvas`. Also the transport passthroughs — the Brain owns the
+  playback state and nothing above mirrors it.
 
 ## Package layout (`packages/react-native-ssplayer/`)
 
 | Path | Role |
 |---|---|
-| `src/specs/SsRuntime.nitro.ts` | L1 spec, nitrogen's input. Still the **Phase 0 spike surface**: it exposes all three variants side by side. (a)/(b) go away in Phase 1. |
-| `src/index.ts` | Public exports + the `Int32Array` field offsets JS reads batches with. |
+| `src/specs/SsRuntime.nitro.ts` | L1 spec, nitrogen's input. Still carries the Phase 0 variants (a)/(b) — `getSoA`, `getPlan`, `bake` — because the bench reproduces the measurement with them. Nothing above L1 uses them. |
+| `src/runtime.ts` | The L1 module singleton. Its own file so `core/` can reach it without importing the barrel. |
+| `src/core/` | **L2, and the react-free boundary.** `SsInternalPlayer`, `SsTextureRegistry`, and the playback/root-transform vocabulary both L2 and L3 name. |
+| `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (the dev-URL vs bundled-path split). |
+| `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
+| `src/index.ts` | Public exports, layer by layer, plus the `Int32Array` field offsets the bench reads batches with. |
 | `cpp/SsFrameData.hpp` | Hand-written FlatBuffers reader (see Traps). |
 | `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/batch arrays. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsSkiaBridge.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` host objects. **The only place RN Skia's internals are touched.** |
-| `cpp/SsSkiaDraw.{hpp,cpp}` | Variant (c): `SkVertices::MakeCopy` + `drawVertices`. |
-| `cpp/Hybrid*.{hpp,cpp}` | The Nitro Hybrid Objects. |
+| `cpp/SsSkiaDraw.{hpp,cpp}` | Variant (c): the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. |
+| `cpp/Hybrid*.{hpp,cpp}` | The Nitro Hybrid Objects. They `#include "ssruntime.h"` directly — see Traps. |
 | `nitrogen/` | **Generated, committed, never hand-edited.** |
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
 
-`example/` is the Phase 0 measurement harness: an Expo app that runs the whole
-variant × instance-count matrix on launch (`AUTO_SWEEP`) and renders the table.
+`example/` is an Expo app with two screens. **Player** drives Ringo through
+`<SpriteStudioView>` and is what you want when checking that a change still
+renders. **Bench** is the Phase 0 measurement harness — it still auto-runs the
+whole variant × instance-count sweep (`AUTO_SWEEP`) the moment you open it, so
+a number stays reproducible: launch, tap *Bench*, wait, read the table.
 
 ## Toolchain scripts (`scripts/`, `.js` shim → `.sh`+`.ps1`; SDK via `$SSSDK`)
 
@@ -113,7 +132,16 @@ later `download-sdk` correctly replaces a local build.
   so they go to `drawVertices` untouched — do **not** divide by the atlas size.
 * **World matrix is column-major 4×4** — `x' = m0·x + m4·y + m12`.
 * **Texture key = `cellmap.name_hash` == `DrawBatch.texture_hash`** — use the
-  pre-baked hash; never re-implement FNV-1a.
+  pre-baked hash; never re-implement FNV-1a. `SsRuntime.hashString` exposes the
+  Brain's own, which is why there is no TypeScript copy. Nothing here reads
+  cellmap *names* out of the `.ssab` yet, so `drawInto` treats a **single-entry
+  texture table as matching every batch** — that is what lets a one-cellmap pack
+  be drawn without knowing its cellmap's name.
+* **The texture table goes in per draw call, not registered once.** The
+  `SkPaint`s are JS-owned and RN Skia may recycle or mutate them between frames,
+  so C++ must not hold one past the call. And the batches must be walked in the
+  Brain's order rather than once per texture — that order *is* the depth
+  sorting.
 * **The root transform holds flip/offset/Y-flip, and it is applied exactly
   once** (`canvas.translate` + `canvas.scale(s, -s)` in the harness). Folding it
   into the vertex bake costs a term per vertex and detaches part-following the
@@ -156,6 +184,21 @@ later `download-sdk` correctly replaces a local build.
   `canBePassedByReference`. A `const T&` override silently fails to override.
 * **Nitro's `HybridObject` already defines `dispose()`** — redeclaring it in a
   spec is a hard nitrogen error.
+* **A `CustomType` inside a struct needs an alias in `margelo::nitro`.**
+  Nitrogen emits the struct's `JSIConverter` specialization into
+  `margelo::nitro` but names the member's type unqualified
+  (`JSIConverter<SkPaintHandle>`), which only resolves for types nitrogen itself
+  declares — ours live one level down, under the `cxxNamespace`. `SsSkiaBridge.hpp`
+  carries `using SkPaintHandle = ssplayer::SkPaintHandle;` for exactly this. It
+  fails at *Swift module emission* for the pod, not at the struct's own header,
+  so the error points somewhere unhelpful.
+* **`cpp/` includes cbindgen's `ssruntime.h` directly, and that is
+  load-bearing.** There used to be a hand-written `SsRuntimeApi.h` redeclaring
+  the subset in use, so the sources compiled without the SDK present. It was
+  retired: the C-API is `extern "C"`, so a hand-copied signature that drifts
+  still *links* and then misbehaves at runtime, and "compiles without the SDK"
+  bought nothing when linking needs `native/` anyway. A missing
+  `download-sdk`/`build-runtime` now fails at compile, naming the header.
 
 ## Verification
 
@@ -164,12 +207,12 @@ build=release` when working on it).
 
 | Check | Command |
 |---|---|
-| Package typecheck | `npm run typecheck` |
+| Typecheck (package + example) | `npm run typecheck` |
 | FlatBuffers offsets | `npm run check-framedata` (needs `flatc`) |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
-| Renders correctly | The harness must draw Ringo upright with its texture — apple on head, face, body |
-| Measurement | Launch with `AUTO_SWEEP = true`; the results table appears in-app |
+| Renders correctly | The **Player** screen must draw Ringo upright with its texture — apple on head, face, body — and animate |
+| Measurement | Open the **Bench** screen with `AUTO_SWEEP = true`; the results table appears in-app |
 
 ## Render recipe (Normal kind, variant (c))
 
@@ -179,5 +222,7 @@ SoA pointers → for each `kind == Normal` batch, walk
 corners (`m0·x + m4·y + m12`, `m1·x + m5·y + m13`) plus its pixel UVs and two
 triangles. The batch's slice of the flat float arrays is already `SkPoint`-shaped,
 so `SkVertices::MakeCopy` takes it without conversion, then
-`canvas->drawVertices(v, SkBlendMode::kSrcOver, paint)` with `paint` carrying the
-atlas image shader. JS supplies only the canvas, the paint and the root transform.
+`canvas->drawVertices(v, SkBlendMode::kSrcOver, paint)` — `paint` being the one
+the batch's `texture_hash` selects out of the call's texture table, carrying that
+cellmap's atlas image shader. JS supplies only the canvas, that table and the
+root transform.

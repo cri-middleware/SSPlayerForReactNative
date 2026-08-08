@@ -49,24 +49,43 @@ Make one character animate correctly, on both platforms, through the real API.
 
 - ☐ **Trim the L1 spike surface.** Drop variants (a) and (b) (`getSoA`,
   `getPlan`, `bake`); keep `drawInto`. The spec stops being a benchmark.
+  Deliberately deferred until the bench screen is retired, so the Phase 0
+  numbers stay reproducible from this tree.
+- ✅ **Extend L1 with the transport** the Brain already owns — play / pause /
+  stop / seek / loop / speed / direction / section, plus `is_finished` and
+  friends — so no layer above mirrors playback state. Plus `hashString`,
+  `createResourceFromBytes`, and a `drawInto` that takes a
+  `texture_hash → SkPaint` table instead of one paint.
 - ⛔ **Android native draw.** Currently `SSPLAYER_ENABLE_SKIA_DIRECT=0`: RN Skia's
   Android build publishes no prefab for `libskia`, so `libSsPlayer.so` cannot
   resolve Skia's symbols. Needs investigation — possibly a prefab request
   upstream, or linking against the `.so` RN Skia already ships in its AAR.
   **This is the single biggest risk in Phase 1**, because without it Android has
   no viable path at all: (a)/(b) were measured and rejected.
-- ☐ **Layer 2** — internal player: native-handle lifecycle, `dispose()`
-  discipline, one draw call per frame. **Zero `react`/`react-native` imports.**
-- ☐ **Layer 3** — `SpriteStudioPlayer`: `play`/`pause`/`stop`/`setAnimation`/
-  `seek`/`speed`/`loop`, externally clocked via `advance(dt)` by default.
-  Defined as a platform-independent TypeScript interface so the Phase 3 web
+- ✅ **Layer 2** — `SsInternalPlayer`: native-handle lifecycle, `dispose()`
+  discipline, the root transform, one draw call per frame. **Zero
+  `react`/`react-native` imports.**
+- ✅ **Layer 3** — `SpriteStudioPlayer`: `play`/`pause`/`stop`/`setAnimation`/
+  `seek`/`speed`/`loop`, externally clocked via `advance(dt)` by default
+  (`startClock()` self-drives for headless use). `SpriteStudioPlayerApi` states
+  the transport surface with no drawing backend in it, so the Phase 3 web
   implementation can satisfy the same one.
-- ☐ **Layer 4** — `<SpriteStudioView>`: RN Skia `Canvas`, declarative props
-  (`source`/`animation`/`playing`/`speed`/`loop`/`flipX`/`flipY`/`offset`) plus
-  imperative `ref`.
-- ☐ **Asset resolution in L3** — absorb the dev (Metro HTTP URL) vs release
-  (bundled path) difference so L1 only ever sees a resolved path or bytes.
-- ☐ **Texture registry** keyed on `cellmap.name_hash`, multiple textures per pack.
+- ✅ **Layer 4** — `<SpriteStudioView>`: RN Skia `Canvas`, declarative props
+  (`source`/`textures`/`animation`/`playing`/`speed`/`loop`/`flipX`/`flipY`/
+  `offset`/`scale`) plus imperative `ref`.
+- ✅ **Asset resolution in L3** — `player/source.ts` absorbs the dev (Metro HTTP
+  URL) vs release (bundled path) difference: the path route when `fopen` can
+  reach it, fetched bytes otherwise. **Gap:** an Android release build resolves
+  a bundled asset to a path inside the APK, which is neither `fopen`-able nor
+  `fetch`-able — it needs `AAssetManager`. Not the binding constraint while
+  Android has no drawing path at all.
+- ✅ **Texture registry** keyed on `cellmap.name_hash`, multiple textures per
+  pack, with the hash coming from the Brain via `SsRuntime.hashString`.
+- ☐ **Read cellmap names out of the `.ssab`** so textures resolve by name
+  without the caller supplying one. Needs an `.ssab` FlatBuffers reader (the
+  Flutter Player's `ssab_info.dart` is the shape). Until then a one-cellmap pack
+  works unnamed, because `drawInto` matches a single-entry table
+  unconditionally.
 - ☐ Re-measure on **release builds and real devices**, iOS and Android.
 - ☐ Scope: Normal parts, normal blending, reference-layout `.ssab`.
 

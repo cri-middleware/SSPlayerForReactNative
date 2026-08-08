@@ -20,10 +20,30 @@ bool SkiaDirectAvailable() {
 
 #if SSPLAYER_ENABLE_SKIA_DIRECT
 
-size_t DrawBakedFrame(void* canvasPtr, void* paintPtr, const sscore::SsBaker& baker) {
+namespace {
+
+/// The paint for a batch, or null when the table has nothing for it.
+///
+/// Linear: a pack has a handful of cellmaps, so a map would cost more to build
+/// each frame than the scan saves.
+const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t textureHash) {
+  if (count == 0) return nullptr;
+  // Single-entry tables match anything — see the header for why.
+  if (count == 1) return static_cast<const SkPaint*>(textures[0].paint);
+
+  const auto hash = static_cast<uint32_t>(textureHash);
+  for (size_t i = 0; i < count; ++i) {
+    if (textures[i].textureHash == hash) return static_cast<const SkPaint*>(textures[i].paint);
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t textureCount,
+                      const sscore::SsBaker& baker) {
   auto* canvas = static_cast<SkCanvas*>(canvasPtr);
-  auto* paint = static_cast<SkPaint*>(paintPtr);
-  if (canvas == nullptr || paint == nullptr) return 0;
+  if (canvas == nullptr || textures == nullptr || textureCount == 0) return 0;
 
   const std::vector<float>& positions = baker.positions();
   const std::vector<float>& texCoords = baker.texCoords();
@@ -33,6 +53,9 @@ size_t DrawBakedFrame(void* canvasPtr, void* paintPtr, const sscore::SsBaker& ba
 
   for (const sscore::SsBatchDesc& batch : baker.batches()) {
     if (batch.vertexCount == 0 || batch.indexCount == 0) continue;
+
+    const SkPaint* paint = PaintFor(textures, textureCount, batch.textureHash);
+    if (paint == nullptr) continue;
 
     // `SkPoint` is two floats with no padding, so the baker's flat float arrays
     // are already the layout MakeCopy wants — no per-vertex conversion, which is
@@ -63,7 +86,7 @@ size_t DrawBakedFrame(void* canvasPtr, void* paintPtr, const sscore::SsBaker& ba
 
 #else
 
-size_t DrawBakedFrame(void*, void*, const sscore::SsBaker&) { return 0; }
+size_t DrawBakedFrame(void*, const SsPaintBinding*, size_t, const sscore::SsBaker&) { return 0; }
 
 #endif
 

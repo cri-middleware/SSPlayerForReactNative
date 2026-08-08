@@ -4,7 +4,7 @@
 
 #include <stdexcept>
 
-#include "SsRuntimeApi.h"
+#include "ssruntime.h"
 #include "SsSkiaDraw.hpp"
 
 namespace margelo::nitro::ssplayer {
@@ -83,6 +83,113 @@ double HybridSsContext::update(double dtSeconds) {
   return static_cast<double>(frameNo_);
 }
 
+void HybridSsContext::resync() {
+  if (ctx_ == nullptr) return;
+  frameNo_ = ss_runtime_get_frame_no(ctx_);
+  ++generation_;
+  refreshFrame();
+}
+
+// --- transport -------------------------------------------------------------
+//
+// Read straight through rather than mirrored into members: the Brain is the
+// only writer of the playback state, and a cached copy here would be a second
+// answer to questions like "is this finished" that could disagree after any
+// call that moves the playhead.
+
+bool HybridSsContext::getIsPlaying() { return ctx_ != nullptr && ss_runtime_is_playing(ctx_); }
+bool HybridSsContext::getIsPausing() { return ctx_ != nullptr && ss_runtime_is_pausing(ctx_); }
+bool HybridSsContext::getIsFinished() { return ctx_ != nullptr && ss_runtime_is_finished(ctx_); }
+bool HybridSsContext::getIsLooped() { return ctx_ != nullptr && ss_runtime_is_looped(ctx_); }
+bool HybridSsContext::getSkipFrames() {
+  return ctx_ != nullptr && ss_runtime_get_skip_frames(ctx_);
+}
+
+double HybridSsContext::getFps() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_fps(ctx_));
+}
+double HybridSsContext::getStartFrame() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_start_frame(ctx_));
+}
+double HybridSsContext::getEndFrame() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_end_frame(ctx_));
+}
+double HybridSsContext::getLoops() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_loops(ctx_));
+}
+double HybridSsContext::getRemainLoops() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_remain_loops(ctx_));
+}
+double HybridSsContext::getPlaybackDirection() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_playback_direction(ctx_));
+}
+double HybridSsContext::getPlaybackStyle() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_playback_style(ctx_));
+}
+
+void HybridSsContext::play() {
+  if (ctx_ == nullptr) return;
+  ss_runtime_play(ctx_);
+  resync();
+}
+
+void HybridSsContext::playFrom(double frameNo) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_play_with_start_frame(ctx_, static_cast<float>(frameNo));
+  resync();
+}
+
+void HybridSsContext::pause() {
+  if (ctx_ == nullptr) return;
+  // Does not move the playhead, so the published frame is still the right one.
+  ss_runtime_pause(ctx_);
+}
+
+void HybridSsContext::stop() {
+  if (ctx_ == nullptr) return;
+  ss_runtime_stop(ctx_);
+  resync();
+}
+
+void HybridSsContext::setFrameNo(double frameNo) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_set_frame_no(ctx_, static_cast<float>(frameNo));
+  resync();
+}
+
+void HybridSsContext::setLoop(double loops) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_set_loop(ctx_, static_cast<int>(loops));
+}
+
+void HybridSsContext::setSpeed(double rate) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_set_animation_speed(ctx_, static_cast<float>(rate));
+}
+
+void HybridSsContext::setPlaybackDirection(double direction, double style) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_set_playback_direction(ctx_, static_cast<int>(direction), static_cast<int>(style));
+}
+
+void HybridSsContext::setSkipFrames(bool skip) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_set_skip_frames(ctx_, skip);
+}
+
+void HybridSsContext::setSection(double startFrame, double endFrame) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_set_animation_section(ctx_, static_cast<int>(startFrame),
+                                   static_cast<int>(endFrame));
+  // The section can clamp the playhead, so re-read rather than assume.
+  resync();
+}
+
+double HybridSsContext::findPartIndex(const std::string& partName) {
+  if (ctx_ == nullptr) return -1.0;
+  return static_cast<double>(ss_runtime_find_part_index(ctx_, partName.c_str()));
+}
+
 void HybridSsContext::refreshFrame() {
   unsigned char* fdPtr = nullptr;
   size_t fdLen = 0;
@@ -142,16 +249,30 @@ SsBakedFrame HybridSsContext::bake() {
                       static_cast<double>(baker_.batches().size()));
 }
 
-double HybridSsContext::drawInto(SkCanvasHandle canvas, SkPaintHandle paint) {
+double HybridSsContext::drawInto(SkCanvasHandle canvas,
+                                 const std::vector<SsTextureBinding>& textures) {
   if (!::ssplayer::SkiaDirectAvailable()) {
     throw std::runtime_error(
         "SsContext.drawInto: this build has no direct Skia drawing "
         "(SSPLAYER_ENABLE_SKIA_DIRECT=0). Use bake() instead.");
   }
+  if (textures.empty()) return 0.0;
+
+  // Repack rather than pass the Nitro structs through: SsSkiaDraw is shared with
+  // the host harness and must not see Nitro's types. A pack has a handful of
+  // cellmaps, so the copy is a few words on a member vector that is reused every
+  // frame.
+  paintBindings_.clear();
+  paintBindings_.reserve(textures.size());
+  for (const SsTextureBinding& binding : textures) {
+    paintBindings_.push_back({static_cast<uint32_t>(binding.textureHash), binding.paint.paint});
+  }
+
   // Same bake as variant (b) — the difference measured here is purely what
   // happens to the result, not how it is produced.
   baker_.bake(frame_, soa_);
-  return static_cast<double>(::ssplayer::DrawBakedFrame(canvas.canvas, paint.paint, baker_));
+  return static_cast<double>(::ssplayer::DrawBakedFrame(
+      canvas.canvas, paintBindings_.data(), paintBindings_.size(), baker_));
 }
 
 }  // namespace margelo::nitro::ssplayer

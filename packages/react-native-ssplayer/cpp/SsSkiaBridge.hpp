@@ -34,6 +34,22 @@ struct SkPaintHandle final {
 
 namespace margelo::nitro {
 
+/// Aliases so the *enclosing* namespace can name these unqualified.
+///
+/// Nitrogen emits a struct's `JSIConverter` specialization into
+/// `margelo::nitro`, but refers to a `CustomType` member's type by its bare
+/// name — `JSIConverter<SkPaintHandle>`, not
+/// `JSIConverter<ssplayer::SkPaintHandle>`. That compiles for every type
+/// nitrogen itself declares (they live here) and fails for ours, which the
+/// `cxxNamespace` puts one level down. `SsTextureBinding.hpp` includes this
+/// header, so these aliases are in scope by the time it needs them.
+///
+/// Harmless inside `margelo::nitro::ssplayer`, where the inner declaration
+/// still wins, and they name the same type either way — so the specializations
+/// below are the ones found.
+using SkCanvasHandle = ssplayer::SkCanvasHandle;
+using SkPaintHandle = ssplayer::SkPaintHandle;
+
 template <>
 struct JSIConverter<ssplayer::SkCanvasHandle> final {
   static ssplayer::SkCanvasHandle fromJSI(jsi::Runtime& runtime, const jsi::Value& value);

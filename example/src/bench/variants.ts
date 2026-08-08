@@ -13,6 +13,7 @@ import {
   SsBatchField,
   SsBatchKind,
   type SsContext,
+  type SsTextureBinding,
 } from '@spritestudio/react-native-ssplayer'
 
 /**
@@ -172,5 +173,13 @@ export function bakeInNative(ctx: SsContext): BatchGeometry[] {
  * the other two variants do.
  */
 export function drawInNative(ctx: SsContext, canvas: SkCanvas, paint: SkPaint): number {
-  return ctx.drawInto(canvas, paint)
+  // Ringo has one cellmap, and `drawInto` matches a single-entry texture table
+  // unconditionally, so the hash is irrelevant here. The array is reused and
+  // mutated rather than rebuilt so the measurement does not include an
+  // allocation per player per frame that the real player does not pay either
+  // (Layer 2 caches its bindings the same way).
+  TEXTURES[0]!.paint = paint
+  return ctx.drawInto(canvas, TEXTURES)
 }
+
+const TEXTURES: SsTextureBinding[] = [{ textureHash: 0, paint: {} }]

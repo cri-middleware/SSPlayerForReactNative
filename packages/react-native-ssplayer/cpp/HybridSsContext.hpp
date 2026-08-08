@@ -9,6 +9,9 @@
 #include "SsBaker.hpp"
 #include "SsFrameData.hpp"
 #include "SsSkiaBridge.hpp"
+// For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
+// pointers opaque precisely so consumers never need the Skia headers.
+#include "SsSkiaDraw.hpp"
 
 namespace margelo::nitro::ssplayer {
 
@@ -32,18 +35,53 @@ class HybridSsContext final : public HybridSsContextSpec {
   double getGeneration() override { return static_cast<double>(generation_); }
   double getFrameNo() override { return static_cast<double>(frameNo_); }
 
+  bool getIsPlaying() override;
+  bool getIsPausing() override;
+  bool getIsFinished() override;
+  bool getIsLooped() override;
+  double getFps() override;
+  double getStartFrame() override;
+  double getEndFrame() override;
+  double getLoops() override;
+  double getRemainLoops() override;
+  double getPlaybackDirection() override;
+  double getPlaybackStyle() override;
+  bool getSkipFrames() override;
+
   bool setupAnimation(const std::string& name) override;
   double update(double dtSeconds) override;
+
+  void play() override;
+  void playFrom(double frameNo) override;
+  void pause() override;
+  void stop() override;
+  void setFrameNo(double frameNo) override;
+  void setLoop(double loops) override;
+  void setSpeed(double rate) override;
+  void setPlaybackDirection(double direction, double style) override;
+  void setSkipFrames(bool skip) override;
+  void setSection(double startFrame, double endFrame) override;
+
+  double findPartIndex(const std::string& partName) override;
 
   SsFramePlan getPlan() override;
   SsSoAFrame getSoA() override;
   SsBakedFrame bake() override;
-  double drawInto(SkCanvasHandle canvas, SkPaintHandle paint) override;
+  double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) override;
 
  private:
   /// Refreshes `frame_`, the SoA pointers and `partCount_` from the Brain for
   /// the current frame. Called by `update()`; the getters below just read it.
   void refreshFrame();
+
+  /// Re-reads the playhead from the Brain and republishes the frame.
+  ///
+  /// Every transport call that moves the playhead goes through this, so a seek
+  /// invalidates outstanding buffers exactly the way an `update()` does — JS
+  /// has one rule to follow instead of a list of exceptions. `frameNo_` is a
+  /// cache of the Brain's playhead and `refreshFrame()` reads the FrameData
+  /// *at* it, so skipping this would leave the pose showing the old frame.
+  void resync();
 
   /// Keeps the `.ssab` alive for as long as this context can touch it.
   std::shared_ptr<HybridSsResource> resource_;
@@ -62,6 +100,9 @@ class HybridSsContext final : public HybridSsContextSpec {
   /// Variant (a)'s per-part alpha, lifted out of the FrameData `parts` vector
   /// so JS does not have to know the 144-byte `PartState` layout.
   std::vector<float> partAlpha_;
+  /// `drawInto`'s texture table, in the Nitro-free shape `SsSkiaDraw` takes.
+  /// A member so the per-frame repack reuses one allocation.
+  std::vector<::ssplayer::SsPaintBinding> paintBindings_;
 };
 
 }  // namespace margelo::nitro::ssplayer

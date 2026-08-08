@@ -1,0 +1,354 @@
+import type { SkCanvas } from '@shopify/react-native-skia'
+
+import { SsInternalPlayer } from '../core/SsInternalPlayer'
+import { SsTextureRegistry } from '../core/SsTextureRegistry'
+import {
+  SsPlaybackDirection,
+  SsPlaybackStyle,
+  type SsRootTransform,
+} from '../core/types'
+import type { SsResource } from '../specs/SsRuntime.nitro'
+import { loadResource, type SsSource } from './source'
+
+/**
+ * The transport surface, with no drawing backend in it.
+ *
+ * Stated as an interface on purpose: Phase 3 serves react-native-web from the
+ * existing `@spritestudio/ssplayer-webgl` rather than a port, and only this API
+ * and the Layer 4 prop types are shared between the two. Anything Skia-shaped
+ * belongs on the class below, not here.
+ */
+export interface SpriteStudioPlayerApi {
+  readonly frameNo: number
+  readonly isPlaying: boolean
+  readonly isFinished: boolean
+  readonly currentAnimation: string | null
+
+  play(): void
+  pause(): void
+  stop(): void
+  setAnimation(name: string): boolean
+  seek(frameNo: number): void
+  /** Multiplier on the authored frame rate; negative plays backwards. */
+  setSpeed(rate: number): void
+  /** 0 = infinite. */
+  setLoop(loops: number): void
+  /** Advances the clock. The default drive — see the class comment. */
+  advance(dtSeconds: number): void
+}
+
+export interface SpriteStudioPlayerOptions {
+  /**
+   * Share a registry to share decoded textures across players (a root and its
+   * instance children routinely use one cellmap). Otherwise the player makes
+   * and owns its own.
+   */
+  textures?: SsTextureRegistry
+}
+
+/** Fired once when the configured loops complete. */
+export type SsCompleteCallback = () => void
+
+/**
+ * Layer 3 — the user-facing player: transport, clock and events.
+ *
+ * **Externally clocked by default.** `advance(dt)` is the drive, called by
+ * `<SpriteStudioView>` from its frame loop, so the whole tree ticks off one
+ * clock instead of N. `startClock()` exists for headless use, where there is no
+ * view to do it.
+ *
+ * Everything below `advance`/`draw` is Layer 2's; everything above is React's.
+ * This layer holds the resource, applies transport settings that were set
+ * before a load finished, and turns the Brain's `isFinished` *state* into a
+ * one-shot event.
+ */
+export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
+  private internalPlayer: SsInternalPlayer | null = null
+  private resource: SsResource | null = null
+  private disposed = false
+
+  /**
+   * Bumped by every `load()`. An in-flight load whose token no longer matches
+   * has been superseded (or the player disposed) and must drop what it built
+   * instead of installing it.
+   */
+  private loadToken = 0
+
+  private animation: string | null = null
+  private wasFinished = false
+
+  /** Pending transport settings, replayed onto each newly loaded animation. */
+  private readonly settings = {
+    speed: 1,
+    loops: 0,
+    playing: true,
+    direction: SsPlaybackDirection.forward as SsPlaybackDirection,
+    style: SsPlaybackStyle.normal as SsPlaybackStyle,
+  }
+
+  private root: SsRootTransform | null = null
+
+  private clock: ReturnType<typeof requestAnimationFrame> | null = null
+
+  /** Fires on the rising edge of the Brain's `isFinished`, so once per run. */
+  onComplete: SsCompleteCallback | null = null
+  /** Fires on any frame the playhead crossed a loop boundary. */
+  onLoop: SsCompleteCallback | null = null
+
+  private readonly listeners = new Set<() => void>()
+
+  readonly textures: SsTextureRegistry
+  /** A supplied registry is the caller's to release; one we made is ours. */
+  private readonly ownsTextures: boolean
+
+  constructor(options?: SpriteStudioPlayerOptions) {
+    this.ownsTextures = options?.textures == null
+    this.textures = options?.textures ?? new SsTextureRegistry()
+  }
+
+  // --- loading -----------------------------------------------------------
+
+  /**
+   * Loads a `.ssab` and, optionally, sets up an animation in it.
+   *
+   * Replaces whatever was loaded before. Safe to call again while a previous
+   * load is still in flight: the older one is discarded rather than racing the
+   * newer one into place.
+   */
+  async load(
+    source: SsSource,
+    options?: { animation?: string }
+  ): Promise<void> {
+    const token = ++this.loadToken
+    const resource = await loadResource(source)
+
+    if (token !== this.loadToken || this.disposed) {
+      // Superseded mid-flight. Nothing else holds this, so release it here
+      // rather than leaving the Brain's copy to sit until GC.
+      resource.dispose()
+      return
+    }
+
+    this.releaseNative()
+    this.resource = resource
+    const internal = new SsInternalPlayer(resource, this.textures)
+    if (this.root != null) internal.rootTransform = { ...this.root }
+    this.internalPlayer = internal
+
+    if (options?.animation != null) this.setAnimation(options.animation)
+    else this.applySettings()
+
+    this.notify()
+  }
+
+  /** The Layer 2 player, or null before the first successful load. */
+  get internal(): SsInternalPlayer | null {
+    return this.internalPlayer
+  }
+
+  get isLoaded(): boolean {
+    return this.internalPlayer != null
+  }
+
+  // --- transport ---------------------------------------------------------
+
+  get currentAnimation(): string | null {
+    return this.animation
+  }
+  get frameNo(): number {
+    return this.internalPlayer?.frameNo ?? 0
+  }
+  get isPlaying(): boolean {
+    return this.internalPlayer?.isPlaying ?? false
+  }
+  get isFinished(): boolean {
+    return this.internalPlayer?.isFinished ?? false
+  }
+  get fps(): number {
+    return this.internalPlayer?.fps ?? 0
+  }
+  get partCount(): number {
+    return this.internalPlayer?.partCount ?? 0
+  }
+
+  setAnimation(name: string): boolean {
+    this.animation = name
+    const internal = this.internalPlayer
+    if (internal == null) return false
+
+    if (!internal.setupAnimation(name)) return false
+    // setup resets playback, so the settings have to be replayed onto it — the
+    // same reason they are replayed after a load.
+    this.wasFinished = false
+    this.applySettings()
+    this.notify()
+    return true
+  }
+
+  play(): void {
+    this.settings.playing = true
+    this.wasFinished = false
+    this.internalPlayer?.play()
+    this.notify()
+  }
+
+  pause(): void {
+    this.settings.playing = false
+    this.internalPlayer?.pause()
+    this.notify()
+  }
+
+  stop(): void {
+    this.settings.playing = false
+    this.wasFinished = false
+    this.internalPlayer?.stop()
+    this.notify()
+  }
+
+  seek(frameNo: number): void {
+    this.internalPlayer?.seek(frameNo)
+    this.notify()
+  }
+
+  setSpeed(rate: number): void {
+    this.settings.speed = rate
+    this.internalPlayer?.setSpeed(rate)
+  }
+
+  setLoop(loops: number): void {
+    this.settings.loops = loops
+    this.internalPlayer?.setLoop(loops)
+  }
+
+  setPlaybackDirection(
+    direction: SsPlaybackDirection,
+    style: SsPlaybackStyle = SsPlaybackStyle.normal
+  ): void {
+    this.settings.direction = direction
+    this.settings.style = style
+    this.internalPlayer?.setPlaybackDirection(direction, style)
+  }
+
+  private applySettings(): void {
+    const internal = this.internalPlayer
+    if (internal == null) return
+    internal.setLoop(this.settings.loops)
+    internal.setSpeed(this.settings.speed)
+    internal.setPlaybackDirection(this.settings.direction, this.settings.style)
+    if (this.settings.playing) internal.play()
+    else internal.pause()
+  }
+
+  // --- root transform ----------------------------------------------------
+
+  /**
+   * Where the origin lands and how it is scaled/mirrored. Held here as well as
+   * on Layer 2 so it can be set before a load and survive one.
+   */
+  get rootTransform(): SsRootTransform | null {
+    return this.internalPlayer?.rootTransform ?? this.root
+  }
+
+  setRootTransform(value: SsRootTransform): void {
+    this.root = { ...value }
+    const internal = this.internalPlayer
+    if (internal != null) internal.rootTransform = { ...value }
+  }
+
+  // --- frame -------------------------------------------------------------
+
+  /**
+   * Advances the animation and dispatches the frame's events.
+   *
+   * `isFinished` is a *state* the Brain latches until the next play/setup, so
+   * `onComplete` is fired off its rising edge — polling the state itself would
+   * fire it on every frame after the end.
+   */
+  advance(dtSeconds: number): void {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return
+
+    internal.advance(dtSeconds)
+
+    if (internal.isLooped) this.onLoop?.()
+
+    const finished = internal.isFinished
+    if (finished && !this.wasFinished) this.onComplete?.()
+    this.wasFinished = finished
+  }
+
+  /** Draws the current frame. Returns the number of vertices drawn. */
+  draw(canvas: SkCanvas): number {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return 0
+    return internal.draw(canvas)
+  }
+
+  // --- fallback clock ----------------------------------------------------
+
+  /**
+   * Self-drives the animation off `requestAnimationFrame`.
+   *
+   * Only for a player with no view attached — `<SpriteStudioView>` clocks its
+   * player itself, and running both would advance every frame twice.
+   */
+  startClock(): void {
+    if (this.clock != null || this.disposed) return
+    let last = performance.now()
+    const tick = (): void => {
+      const now = performance.now()
+      // Cap the step so a backgrounded app does not resume by fast-forwarding
+      // through every frame it missed.
+      this.advance(Math.min((now - last) / 1000, 1 / 15))
+      last = now
+      this.clock = requestAnimationFrame(tick)
+    }
+    this.clock = requestAnimationFrame(tick)
+  }
+
+  stopClock(): void {
+    if (this.clock == null) return
+    cancelAnimationFrame(this.clock)
+    this.clock = null
+  }
+
+  // --- change notification ----------------------------------------------
+
+  /** Subscribes to load/transport changes. Returns the unsubscribe. */
+  addListener(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => {
+      this.listeners.delete(listener)
+    }
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) listener()
+  }
+
+  // --- teardown ----------------------------------------------------------
+
+  private releaseNative(): void {
+    // Order matters: the context borrows from the resource, so it goes first.
+    this.internalPlayer?.dispose()
+    this.internalPlayer = null
+    this.resource?.dispose()
+    this.resource = null
+  }
+
+  /**
+   * Releases every native handle. Explicit, never left to GC (design doc
+   * ch.9 F). Idempotent.
+   */
+  dispose(): void {
+    if (this.disposed) return
+    this.disposed = true
+    // Invalidates any load still in flight, so it releases what it built
+    // instead of installing it into a disposed player.
+    this.loadToken++
+    this.stopClock()
+    this.releaseNative()
+    if (this.ownsTextures) this.textures.dispose()
+    this.listeners.clear()
+  }
+}

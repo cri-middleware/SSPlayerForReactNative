@@ -19,12 +19,16 @@ namespace margelo::nitro::ssplayer { struct SsFramePlan; }
 namespace margelo::nitro::ssplayer { struct SsSoAFrame; }
 // Forward declaration of `SsBakedFrame` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsBakedFrame; }
+// Forward declaration of `SsTextureBinding` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 
 #include <string>
 #include "SsFramePlan.hpp"
 #include "SsSoAFrame.hpp"
 #include "SsBakedFrame.hpp"
 #include "SsSkiaBridge.hpp"
+#include "SsTextureBinding.hpp"
+#include <vector>
 
 namespace margelo::nitro::ssplayer {
 
@@ -56,15 +60,38 @@ namespace margelo::nitro::ssplayer {
       virtual double getPartCount() = 0;
       virtual double getGeneration() = 0;
       virtual double getFrameNo() = 0;
+      virtual bool getIsPlaying() = 0;
+      virtual bool getIsPausing() = 0;
+      virtual bool getIsFinished() = 0;
+      virtual bool getIsLooped() = 0;
+      virtual double getFps() = 0;
+      virtual double getStartFrame() = 0;
+      virtual double getEndFrame() = 0;
+      virtual double getLoops() = 0;
+      virtual double getRemainLoops() = 0;
+      virtual double getPlaybackDirection() = 0;
+      virtual double getPlaybackStyle() = 0;
+      virtual bool getSkipFrames() = 0;
 
     public:
       // Methods
       virtual bool setupAnimation(const std::string& name) = 0;
       virtual double update(double dtSeconds) = 0;
+      virtual void play() = 0;
+      virtual void playFrom(double frameNo) = 0;
+      virtual void pause() = 0;
+      virtual void stop() = 0;
+      virtual void setFrameNo(double frameNo) = 0;
+      virtual void setLoop(double loops) = 0;
+      virtual void setSpeed(double rate) = 0;
+      virtual void setPlaybackDirection(double direction, double style) = 0;
+      virtual void setSkipFrames(bool skip) = 0;
+      virtual void setSection(double startFrame, double endFrame) = 0;
+      virtual double findPartIndex(const std::string& partName) = 0;
       virtual SsFramePlan getPlan() = 0;
       virtual SsSoAFrame getSoA() = 0;
       virtual SsBakedFrame bake() = 0;
-      virtual double drawInto(SkCanvasHandle canvas, SkPaintHandle paint) = 0;
+      virtual double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) = 0;
 
     protected:
       // Hybrid Setup
