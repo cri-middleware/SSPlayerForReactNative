@@ -3,7 +3,7 @@ param (
     [string[]]$ArgsList
 )
 
-# Convert the SpriteStudio-SDK bundled test projects (tests/Ringo,
+# Convert the SpriteStudio-SDK bundled test projects (tests/overall, tests/Ringo,
 # tests/ParticleEffect) into the .ssab assets the example app loads.
 #
 # Unlike the Flutter Player this repo bundles no converter: React Native has no
@@ -30,11 +30,18 @@ $app = Split-Path -Leaf $PSCommandPath
 
 $outRoot = Join-Path $rootDir "example/assets/ss"
 
-# The output directory is the .sspj stem. Both projects are deliberate: Ringo is
-# the character case, ParticleEffect is the worst case the Phase 0 measurement
-# is about — design doc ch.8 is explicit that the vertex ceiling is set by
-# effects, not by characters.
+# The output directory is the .sspj stem. All three are deliberate:
+#   overall         - the SDK's own reference layout, one .ssab per feature
+#                     (Basic, Mesh, Mask, Effect, BlendMode, ...). Basic.ssab is
+#                     the plain-Normal-parts case, so it is the asset that says
+#                     whether the render path itself works before any
+#                     character's authoring choices are in the picture.
+#   Ringo           - the character case.
+#   ParticleEffect  - the worst case the Phase 0 measurement is about; design
+#                     doc ch.8 is explicit that the vertex ceiling is set by
+#                     effects, not by characters.
 $projects = @(
+    @{ Dir = "overall"; Sspj = "overall.sspj" },
     @{ Dir = "Ringo"; Sspj = "Ringo.sspj" },
     @{ Dir = "ParticleEffect"; Sspj = "ParticleEffect.sspj" }
 )

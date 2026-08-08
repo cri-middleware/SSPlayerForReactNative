@@ -15,7 +15,7 @@ import {
 } from '@shopify/react-native-skia'
 import { useSharedValue } from 'react-native-reanimated'
 
-import { SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
 import type { SsSource } from '../player/source'
 import { useSsTextures, type SsTextureSources } from './useSsTextures'
 
@@ -181,13 +181,14 @@ export const SpriteStudioView = forwardRef<
     const tick = (): void => {
       raf = requestAnimationFrame(tick)
       const now = performance.now()
-      // Cap the step so returning from the background does not fast-forward
-      // through every frame that was missed.
-      const dt = Math.min((now - last) / 1000, 1 / 15)
+      // `performance.now()` is milliseconds and so is `advance` — the unit runs
+      // unconverted from here down to `ss_runtime_update`. Capped so returning
+      // from the background does not fast-forward through every missed frame.
+      const dtMs = Math.min(now - last, MAX_STEP_MS)
       last = now
 
       try {
-        player.advance(dt)
+        player.advance(dtMs)
         const recorder = Skia.PictureRecorder()
         const canvas = recorder.beginRecording()
         player.draw(canvas)

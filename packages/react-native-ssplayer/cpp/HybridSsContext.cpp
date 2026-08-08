@@ -75,9 +75,11 @@ bool HybridSsContext::setupAnimation(const std::string& name) {
   return true;
 }
 
-double HybridSsContext::update(double dtSeconds) {
+double HybridSsContext::update(double dtMilliseconds) {
   if (ctx_ == nullptr) return 0.0;
-  frameNo_ = ss_runtime_update(ctx_, static_cast<float>(dtSeconds));
+  // Passed through unconverted: the C-API's delta is milliseconds, and so is
+  // this spec's, deliberately — see the spec comment.
+  frameNo_ = ss_runtime_update(ctx_, static_cast<float>(dtMilliseconds));
   ++generation_;
   refreshFrame();
   return static_cast<double>(frameNo_);
@@ -141,14 +143,26 @@ void HybridSsContext::playFrom(double frameNo) {
 
 void HybridSsContext::pause() {
   if (ctx_ == nullptr) return;
-  // Does not move the playhead, so the published frame is still the right one.
+  // `ss_runtime_pause` is a *toggle* — `playback_controller.rs` is literally
+  // `is_pausing = !is_pausing` — so calling it while already paused resumes.
+  // Guarded, because a `pause()` that resumes on the second call is the wrong
+  // shape for a declarative `playing` prop to drive.
+  if (ss_runtime_is_pausing(ctx_)) return;
+  ss_runtime_pause(ctx_);
+  // Neither pause nor resume moves the playhead, so the published frame stands.
+}
+
+void HybridSsContext::resume() {
+  if (ctx_ == nullptr) return;
+  if (!ss_runtime_is_pausing(ctx_)) return;
   ss_runtime_pause(ctx_);
 }
 
 void HybridSsContext::stop() {
   if (ctx_ == nullptr) return;
+  // Halts where it stands: `controller.stop()` only clears `is_playing`. No
+  // rewind, so no resync either.
   ss_runtime_stop(ctx_);
-  resync();
 }
 
 void HybridSsContext::setFrameNo(double frameNo) {

@@ -146,8 +146,17 @@ export interface SsContext
   readonly frameNo: number
 
   setupAnimation(name: string): boolean
-  /** Advances by `dtSeconds` and returns the new frame number. Invalidates every previously issued buffer. */
-  update(dtSeconds: number): number
+  /**
+   * Advances by `dtMilliseconds` and returns the new frame number. Invalidates
+   * every previously issued buffer.
+   *
+   * **Milliseconds**, which is what `ss_runtime_update` takes
+   * (`30_core/20_playback_control.md` §"update"), and the unit every layer above
+   * uses too — a seconds-shaped API here would put a `* 1000` at the seam and a
+   * silent 1000x slowdown one forgotten conversion away. It is the same unit as
+   * `ss_runtime_crossfade`'s duration.
+   */
+  update(dtMilliseconds: number): number
 
   // --- transport ---------------------------------------------------------
   //
@@ -161,7 +170,10 @@ export interface SsContext
   // frame, so it invalidates outstanding buffers exactly the way `update()`
   // does.
 
-  /** True while playing and not paused. */
+  /**
+   * Whether the transport is running. **Stays true while paused** — pausing sets
+   * a separate flag. "Actually advancing" is `isPlaying && !isPausing`.
+   */
   readonly isPlaying: boolean
   readonly isPausing: boolean
   /**
@@ -186,12 +198,30 @@ export interface SsContext
   readonly playbackStyle: number
   readonly skipFrames: boolean
 
-  /** Resumes from wherever the playhead is. Clears `isFinished`. Moves the playhead. */
+  /**
+   * **Starts from the beginning** — not a resume. `ss_runtime_play` rewinds to
+   * the start frame (the end frame when playing backwards), re-arms the loop
+   * counter and clears the pause and terminal flags. To carry on from where a
+   * pause left off, use `resume()`. Moves the playhead.
+   */
   play(): void
-  /** Restarts from `frameNo`. Moves the playhead. */
+  /** As `play()`, but starting at `frameNo`. Moves the playhead. */
   playFrom(frameNo: number): void
+  /**
+   * Pauses, and does nothing if already paused.
+   *
+   * The C-API's `ss_runtime_pause` is a **toggle**
+   * (`is_pausing = !is_pausing`), which makes a second call a resume. That is
+   * the wrong shape for a declarative `playing` prop, so this side guards on
+   * `isPausing` and splits the toggle into `pause()` / `resume()`.
+   */
   pause(): void
-  /** Stops and rewinds to the start frame. Does **not** raise `isFinished`. Moves the playhead. */
+  /** Resumes a paused animation, and does nothing if not paused. */
+  resume(): void
+  /**
+   * Halts the transport **where it stands** — it does not rewind, and it does
+   * not raise `isFinished`. `play()` is what returns to the start.
+   */
   stop(): void
   /** Seeks without changing play/pause state. Moves the playhead. */
   setFrameNo(frameNo: number): void

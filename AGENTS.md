@@ -130,6 +130,22 @@ later `download-sdk` correctly replaces a local build.
 * **`local_uvs`/`local_vertices` are texture-PIXEL coords, stride 10**
   (`lt,rt,lb,rb,center`), not normalised. Skia's image shader samples in pixels,
   so they go to `drawVertices` untouched — do **not** divide by the atlas size.
+* **`update()`'s delta is MILLISECONDS**, all the way from
+  `<SpriteStudioView>`'s frame loop down to `ss_runtime_update`
+  (`30_core/20_playback_control.md` §"update" spells the conversion out). Every
+  signature that carries it says so in the parameter name. Seconds is the
+  natural-looking guess and it is wrong by 1000× — which does not throw, it just
+  makes the animation look frozen. Phase 0 shipped with exactly that bug.
+* **`ss_runtime_pause` is a TOGGLE**, not "pause" — `playback_controller.rs` is
+  literally `is_pausing = !is_pausing`. L1 guards on `isPausing` and splits it
+  into idempotent `pause()` / `resume()`. Two neighbouring surprises: **`play()`
+  rewinds** to the start frame and re-arms the loop counter (it is not a resume),
+  and **`stop()` does not rewind** — it only clears `is_playing`. `isPlaying`
+  also stays true while paused; "actually advancing" is `isPlaying && !isPausing`.
+* **`setup_animation` resets the loop count**, so `setLoop` has to be re-applied
+  *after* setup and *before* `play` — `play` arms the counter with whatever is in
+  effect at that moment. `SpriteStudioPlayer.applySettings()` is the one place
+  that ordering lives.
 * **World matrix is column-major 4×4** — `x' = m0·x + m4·y + m12`.
 * **Texture key = `cellmap.name_hash` == `DrawBatch.texture_hash`** — use the
   pre-baked hash; never re-implement FNV-1a. `SsRuntime.hashString` exposes the

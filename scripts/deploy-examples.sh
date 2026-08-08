@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Convert the SpriteStudio-SDK bundled test projects (tests/Ringo,
+# Convert the SpriteStudio-SDK bundled test projects (tests/overall, tests/Ringo,
 # tests/ParticleEffect) into the .ssab assets the example app loads.
 #
 # Unlike the Flutter Player this repo bundles no converter: React Native has no
@@ -31,10 +31,18 @@ OUT_ROOT="${ROOTDIR}/example/assets/ss"
 
 # "<SDK tests subdir>|<.sspj filename>". The output directory is the .sspj stem.
 #
-# Both are deliberate: Ringo is the character case, ParticleEffect is the worst
-# case the Phase 0 measurement is about — design doc ch.8 is explicit that the
-# vertex ceiling is set by effects, not by characters.
+# All three are deliberate:
+#   overall         — the SDK's own reference layout, one .ssab per feature
+#                     (Basic, Mesh, Mask, Effect, BlendMode, ...). `Basic.ssab`
+#                     is the plain-Normal-parts case, so it is the asset that
+#                     says whether the render path itself works before any
+#                     character's authoring choices are in the picture.
+#   Ringo           — the character case.
+#   ParticleEffect  — the worst case the Phase 0 measurement is about; design
+#                     doc ch.8 is explicit that the vertex ceiling is set by
+#                     effects, not by characters.
 PROJECTS=(
+    "overall|overall.sspj"
     "Ringo|Ringo.sspj"
     "ParticleEffect|ParticleEffect.sspj"
 )

@@ -33,8 +33,12 @@ export interface SpriteStudioPlayerApi {
   setSpeed(rate: number): void
   /** 0 = infinite. */
   setLoop(loops: number): void
-  /** Advances the clock. The default drive — see the class comment. */
-  advance(dtSeconds: number): void
+  /**
+   * Advances the clock by `dtMilliseconds`. The default drive — see the class
+   * comment. Milliseconds is the Brain's unit and is carried unconverted
+   * through every layer, so there is no seam for a 1000x to hide in.
+   */
+  advance(dtMilliseconds: number): void
 }
 
 export interface SpriteStudioPlayerOptions {
@@ -48,6 +52,15 @@ export interface SpriteStudioPlayerOptions {
 
 /** Fired once when the configured loops complete. */
 export type SsCompleteCallback = () => void
+
+/**
+ * The largest step a clock will hand to `advance`, in milliseconds (~15fps).
+ *
+ * Without it, returning from the background delivers one enormous delta and the
+ * animation fast-forwards through every frame it missed — including firing
+ * every event on them.
+ */
+export const MAX_STEP_MS = 1000 / 15
 
 /**
  * Layer 3 — the user-facing player: transport, clock and events.
@@ -185,10 +198,24 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return true
   }
 
+  /**
+   * Plays: resumes if paused, otherwise starts from the beginning.
+   *
+   * Layer 1 keeps the two apart because the Brain does — `ss_runtime_play`
+   * rewinds. Up here they are one verb, so `playing={false}` → `playing={true}`
+   * carries on rather than restarting, and `stop()` then `play()` restarts.
+   */
   play(): void {
     this.settings.playing = true
     this.wasFinished = false
-    this.internalPlayer?.play()
+    const internal = this.internalPlayer
+    if (internal != null) {
+      // Resume only a *running* transport that happens to be paused. Pausing
+      // one that never started leaves `isPausing` true with `isPlaying` false,
+      // and resuming that would clear the pause flag without starting anything.
+      if (internal.isPausing && internal.isPlaying) internal.resume()
+      else internal.play()
+    }
     this.notify()
   }
 
@@ -198,6 +225,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.notify()
   }
 
+  /** Halts where it stands. The next `play()` starts from the beginning. */
   stop(): void {
     this.settings.playing = false
     this.wasFinished = false
@@ -229,6 +257,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.internalPlayer?.setPlaybackDirection(direction, style)
   }
 
+  /**
+   * Replays the transport settings onto a freshly set-up animation.
+   *
+   * The order matters and is not decorative: `setup_animation` resets the loop
+   * count to its default, and `play` arms the counter with whatever is in effect
+   * at that moment (`30_core/20_playback_control.md`). So `setLoop` has to come
+   * before `play`, not after.
+   */
   private applySettings(): void {
     const internal = this.internalPlayer
     if (internal == null) return
@@ -264,11 +300,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * `onComplete` is fired off its rising edge — polling the state itself would
    * fire it on every frame after the end.
    */
-  advance(dtSeconds: number): void {
+  advance(dtMilliseconds: number): void {
     const internal = this.internalPlayer
     if (internal == null || internal.isDisposed) return
 
-    internal.advance(dtSeconds)
+    internal.advance(dtMilliseconds)
 
     if (internal.isLooped) this.onLoop?.()
 
@@ -297,9 +333,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     let last = performance.now()
     const tick = (): void => {
       const now = performance.now()
-      // Cap the step so a backgrounded app does not resume by fast-forwarding
-      // through every frame it missed.
-      this.advance(Math.min((now - last) / 1000, 1 / 15))
+      // `performance.now()` is already milliseconds, which is the unit
+      // `advance` wants — no conversion in either direction. Capped so a
+      // backgrounded app does not resume by fast-forwarding through every frame
+      // it missed.
+      this.advance(Math.min(now - last, MAX_STEP_MS))
       last = now
       this.clock = requestAnimationFrame(tick)
     }

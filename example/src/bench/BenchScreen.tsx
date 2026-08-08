@@ -143,7 +143,8 @@ export function BenchScreen() {
         }
         // Stagger the phase so the instances are not all drawing the identical
         // frame — otherwise the CPU cost is realistic but the fill is not.
-        ctx.update(i * 0.03)
+        // Milliseconds, like every other delta (~2 frames apart at 60fps).
+        ctx.update(i * 30)
         next.push(ctx)
       }
       contextsRef.current = next
@@ -199,7 +200,10 @@ export function BenchScreen() {
     const tick = () => {
       raf = requestAnimationFrame(tick)
       const now = performance.now()
-      const dt = Math.min((now - last) / 1000, 1 / 15)
+      // Milliseconds, which is what `update` takes — `performance.now()` is
+      // already in that unit. Capped at ~15fps so a stalled frame does not
+      // fast-forward the animation.
+      const dt = Math.min(now - last, 1000 / 15)
       last = now
 
       const contexts = contextsRef.current

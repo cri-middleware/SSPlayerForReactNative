@@ -5,14 +5,30 @@ import {
   type SpriteStudioViewRef,
 } from '@spritestudio/react-native-ssplayer'
 
-const SSAB = require('../../assets/ss/Ringo/Ringo.ssab')
-const TEXTURE = require('../../assets/ss/Ringo/Ringo.png')
-
-/** The authored canvas height Ringo's art fits into, in player-local pixels. */
-const RINGO_DESIGN_HEIGHT = 460
+const SSAB = require('../../assets/ss/overall/Basic.ssab')
+const ANIMATION = 'anime_1'
 
 /**
- * Phase 1's target: Ringo animating through the real API.
+ * Keyed by cellmap name rather than handed over as a bare source.
+ *
+ * `Basic` has one cellmap, so the bare form would work — `drawInto` matches a
+ * single-entry texture table unconditionally. Naming it exercises the path that
+ * actually has to be right for a multi-cellmap pack: `SsRuntime.hashString`
+ * agreeing with `DrawBatch.texture_hash`.
+ */
+const TEXTURES = { common: require('../../assets/ss/overall/common.png') }
+
+/** `Basic`'s authored canvas is 480x480 (`<canvasSize>` in Basic.ssae). */
+const DESIGN_HEIGHT = 480
+
+/**
+ * Phase 1's target: the SDK's own reference animation, through the real API.
+ *
+ * `overall/Basic` rather than Ringo on purpose. It is the SDK's plain
+ * Normal-parts case, so what it draws is a statement about the render path
+ * itself — a character asset mixes in authoring choices (mesh deforms, masks)
+ * that Phase 1 does not implement yet, and a missing part there says nothing
+ * about whether the path works.
  *
  * Everything the Phase 0 harness did by hand — the context pool, the picture
  * recording, the frame loop, the root transform — is inside
@@ -30,10 +46,10 @@ export function PlayerScreen() {
     setSize(event.nativeEvent.layout)
   }
 
-  // Ringo's world origin is at its feet and the art extends upwards, so the
-  // origin belongs near the bottom of the box rather than at its centre.
-  const scale = size.height === 0 ? 1 : Math.min(size.width, size.height) / RINGO_DESIGN_HEIGHT
-  const offset = { x: 0, y: size.height * 0.42 }
+  // `Basic` is authored around its origin, so the origin goes in the middle of
+  // the box and the whole canvas is fitted into the shorter axis.
+  const scale = size.height === 0 ? 1 : Math.min(size.width, size.height) / DESIGN_HEIGHT
+  const offset = { x: 0, y: 0 }
 
   return (
     <View style={styles.root}>
@@ -43,8 +59,8 @@ export function PlayerScreen() {
             ref={ref}
             style={StyleSheet.absoluteFill}
             source={SSAB}
-            textures={TEXTURE}
-            animation="dance"
+            textures={TEXTURES}
+            animation={ANIMATION}
             playing={playing}
             speed={speed}
             flipX={flipX}

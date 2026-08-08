@@ -49,11 +49,12 @@ class HybridSsContext final : public HybridSsContextSpec {
   bool getSkipFrames() override;
 
   bool setupAnimation(const std::string& name) override;
-  double update(double dtSeconds) override;
+  double update(double dtMilliseconds) override;
 
   void play() override;
   void playFrom(double frameNo) override;
   void pause() override;
+  void resume() override;
   void stop() override;
   void setFrameNo(double frameNo) override;
   void setLoop(double loops) override;

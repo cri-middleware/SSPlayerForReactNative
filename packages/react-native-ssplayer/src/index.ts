@@ -30,6 +30,7 @@ export {
 // --- Layer 3 ---------------------------------------------------------------
 export {
   SpriteStudioPlayer,
+  MAX_STEP_MS,
   type SpriteStudioPlayerApi,
   type SpriteStudioPlayerOptions,
   type SsCompleteCallback,

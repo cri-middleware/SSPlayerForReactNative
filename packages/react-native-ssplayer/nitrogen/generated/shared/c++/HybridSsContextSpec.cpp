@@ -34,6 +34,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridMethod("play", &HybridSsContextSpec::play);
       prototype.registerHybridMethod("playFrom", &HybridSsContextSpec::playFrom);
       prototype.registerHybridMethod("pause", &HybridSsContextSpec::pause);
+      prototype.registerHybridMethod("resume", &HybridSsContextSpec::resume);
       prototype.registerHybridMethod("stop", &HybridSsContextSpec::stop);
       prototype.registerHybridMethod("setFrameNo", &HybridSsContextSpec::setFrameNo);
       prototype.registerHybridMethod("setLoop", &HybridSsContextSpec::setLoop);

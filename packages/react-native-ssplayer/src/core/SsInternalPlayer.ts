@@ -74,9 +74,15 @@ export class SsInternalPlayer {
     return this.require().setupAnimation(name)
   }
 
-  /** Advances the Brain by `dtSeconds` and returns the new frame number. */
-  advance(dtSeconds: number): number {
-    return this.require().update(dtSeconds)
+  /**
+   * Advances the Brain by `dtMilliseconds` and returns the new frame number.
+   *
+   * **Milliseconds all the way down** — the Brain's unit, named in every
+   * signature that carries it. Seconds anywhere in this chain would mean a
+   * conversion, and a missed conversion is a silent 1000x, not an error.
+   */
+  advance(dtMilliseconds: number): number {
+    return this.require().update(dtMilliseconds)
   }
 
   /**
@@ -137,6 +143,7 @@ export class SsInternalPlayer {
   get partCount(): number {
     return this.context?.partCount ?? 0
   }
+  /** Transport running. **Stays true while paused** — see `isPausing`. */
   get isPlaying(): boolean {
     return this.context?.isPlaying ?? false
   }
@@ -160,15 +167,22 @@ export class SsInternalPlayer {
     return this.context?.endFrame ?? 0
   }
 
+  /** Starts from the beginning — not a resume. See `resume()`. */
   play(): void {
     this.require().play()
   }
   playFrom(frameNo: number): void {
     this.require().playFrom(frameNo)
   }
+  /** Idempotent, unlike the C-API's toggle. */
   pause(): void {
     this.require().pause()
   }
+  /** Idempotent. Carries on from where `pause()` left off. */
+  resume(): void {
+    this.require().resume()
+  }
+  /** Halts where it stands; does not rewind. */
   stop(): void {
     this.require().stop()
   }
