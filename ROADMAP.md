@@ -165,6 +165,7 @@ Not planned. React Native has no editor to host an importer, so `.sspj` →
 | SpriteStudio-SDK | `scripts/SDK_VERSION.txt` (currently `v7.0.0-beta.1`) |
 | React Native | 0.79+ (New Architecture only) |
 | React | 19+ |
+| @shopify/react-native-skia | **2.11+**, and the lower bound is real: 2.11 moved the API objects off `jsi::HostObject` onto the `jsi::NativeState` pattern, and `cpp/SsSkiaBridge.cpp` unwraps them the new way |
 | react-native-reanimated | 4+ (required — RN Skia 2.10+ demands it) |
 | iOS | 14+ |
 | Android | API 21+ |

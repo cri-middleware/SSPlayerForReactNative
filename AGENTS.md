@@ -184,6 +184,15 @@ later `download-sdk` correctly replaces a local build.
   `canBePassedByReference`. A `const T&` override silently fails to override.
 * **Nitro's `HybridObject` already defines `dispose()`** — redeclaring it in a
   spec is a hard nitrogen error.
+* **The RN Skia unwrap is version-sensitive, and 2.11 already broke it once.**
+  RN Skia 2.11 moved its API objects off `jsi::HostObject` onto the
+  `jsi::NativeState` pattern (`JsiSkNativeObject`), so `asHostObject<JsiSkCanvas>`
+  stopped even compiling and `JsiSkPaint::fromValue` changed what it returns.
+  `cpp/SsSkiaBridge.cpp` now goes through `RNSkia::getJsiObject` /
+  `tryGetJsiObject` / `objectFromValue`. This is coupling to RN Skia's
+  *internals*, which carry no compatibility promise — a Skia bump means
+  rebuilding `example/ios` before believing anything, and the peer range says
+  `>=2.11`.
 * **A `CustomType` inside a struct needs an alias in `margelo::nitro`.**
   Nitrogen emits the struct's `JSIConverter` specialization into
   `margelo::nitro` but names the member's type unqualified

@@ -100,7 +100,7 @@ npm run deploy-examples -- --embedded
 |---|---|
 | React Native | 0.79+ — **New Architecture only** |
 | React | 19+ |
-| Peer deps | `react-native-nitro-modules`, `@shopify/react-native-skia`, `react-native-reanimated` 4+ |
+| Peer deps | `react-native-nitro-modules`, `@shopify/react-native-skia` **2.11+**, `react-native-reanimated` 4+ |
 | iOS | 14+ |
 | Android | API 21+ |
 | SpriteStudio-SDK | `scripts/SDK_VERSION.txt` |
