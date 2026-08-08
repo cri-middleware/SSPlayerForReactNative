@@ -1,0 +1,19 @@
+{
+  "cxxNamespace": ["ssplayer"],
+  "ios": {
+    "iosModuleName": "SsPlayer"
+  },
+  "android": {
+    "androidNamespace": ["ssplayer"],
+    "androidCxxLibName": "SsPlayer"
+  },
+  "autolinking": {
+    "SsRuntime": {
+      "all": {
+        "language": "c++",
+        "implementationClassName": "HybridSsRuntime"
+      }
+    }
+  },
+  "ignorePaths": ["node_modules", "native", "nitrogen"]
+}

@@ -1,0 +1,65 @@
+buildscript {
+  repositories {
+    google()
+    mavenCentral()
+  }
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.7.2"
+  }
+}
+
+apply plugin: "com.android.library"
+
+// Written next to the binaries by whichever of scripts/download-sdk.sh (the
+// release tag) or scripts/build-runtime.sh ("<tag>+submodule-<sha>") installed
+// them.
+def sdkVersionFile = file("../native/VERSION")
+def sdkVersion = sdkVersionFile.exists() ? sdkVersionFile.text.trim() : "unknown"
+
+android {
+  namespace "com.margelo.nitro.ssplayer"
+  compileSdk 35
+
+  defaultConfig {
+    minSdk 21
+
+    externalNativeBuild {
+      cmake {
+        // -DSSPLAYER_SDK_VERSION is what HybridSsRuntime::getVersion() reports;
+        // it must agree with the SDK release the .a files came from.
+        arguments "-DANDROID_STL=c++_shared",
+                  "-DSSPLAYER_SDK_VERSION=${sdkVersion}"
+        abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+    }
+  }
+
+  buildFeatures {
+    prefab true
+    buildConfig true
+  }
+
+  packagingOptions {
+    // libssruntime is linked statically into libSsPlayer.so — nothing of the
+    // Brain ships as its own .so (design doc ch.7).
+    excludes += ["**/libc++_shared.so", "**/libfbjni.so", "**/libjsi.so"]
+  }
+}
+
+repositories {
+  google()
+  mavenCentral()
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  implementation project(":react-native-nitro-modules")
+}
+
+apply from: "../nitrogen/generated/android/SsPlayer+autolinking.gradle"
