@@ -47,6 +47,15 @@ struct SsPartDraw {
   int32_t indexOffset = 0;
   int32_t indexCount = 0;
 
+  /// Whether the four vertices are a sprite quad in `lt, rt, lb, rb` order.
+  ///
+  /// False for Mesh, and everything that reconstructs a corner gradient from the
+  /// UV depends on it: the PartColor shader and the mask replay both invert an
+  /// affine quad, which a triangle soup is not. A Mesh's PartColor is whole-only
+  /// (§1-2), which is why it can still use that shader — with four equal corners
+  /// the reconstruction collapses to a constant and the inverse stops mattering.
+  bool quadShaped = true;
+
   /// True when this part has to leave its batch and go through the PartColor
   /// shader: a PartColor that actually tints RGB. Alpha alone never sets this —
   /// a vertex colour carries that exactly (§1-2-4).
@@ -64,6 +73,26 @@ struct SsSoAPointers {
   const float* localUvs = nullptr;       ///< 10 floats per part, texture pixel space
   const float* cellMeta = nullptr;       ///< 6 floats per part
   size_t partCount = 0;
+
+  /// Mesh, in the CSR layout `40_components/30_mesh.md` describes: the vertex
+  /// and index arrays are concatenated across every part, and the two `offsets`
+  /// arrays (length `partCount + 1`) slice them. A non-Mesh part contributes an
+  /// empty range, so the offsets double as the "is this a mesh" test.
+  ///
+  /// **These vertices are already world-space** — skinning happens in the Brain —
+  /// so the world matrix must NOT be applied again. UVs are static (resolved
+  /// once from frame 0's cell) and indices are **part-local 0-based**.
+  const float* meshVerticesX = nullptr;
+  const float* meshVerticesY = nullptr;
+  const uint32_t* meshVertexOffsets = nullptr;
+  const float* meshUvs = nullptr;   ///< interleaved u,v per vertex
+  const int32_t* meshIndices = nullptr;
+  const uint32_t* meshIndexOffsets = nullptr;
+  size_t meshVertexCount = 0;
+  size_t meshVertexOffsetCount = 0;
+  size_t meshUvCount = 0;
+  size_t meshIndexCount = 0;
+  size_t meshIndexOffsetCount = 0;
 };
 
 /// Bakes one frame into flat vertex/index/batch arrays.
@@ -104,6 +133,14 @@ class SsBaker {
   size_t indexCount() const noexcept { return indices_.size(); }
 
  private:
+  /// The Mesh half of `bake`, split out because its geometry comes from a
+  /// different set of buffers in a different space — already world, so no world
+  /// matrix — and its vertex count is per part rather than always four.
+  void bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                     const ss::runtime::DrawBatch* batch, const SsBatchDesc& desc,
+                     uint32_t partStateCount,
+                     const ::flatbuffers::Vector<uint16_t>* drawOrder, uint32_t drawOrderCount);
+
   std::vector<SsBatchDesc> batches_;
   std::vector<float> positions_;
   std::vector<float> texCoords_;

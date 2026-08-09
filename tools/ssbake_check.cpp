@@ -49,6 +49,13 @@ void ss_runtime_get_world_matrices(void* context, const float** out_data, size_t
 void ss_runtime_get_local_vertices(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_local_uvs(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_cell_meta(void* context, const float** out_data, size_t* out_len);
+void ss_runtime_get_mesh_vertices_x(void* context, const float** out_data, size_t* out_len);
+void ss_runtime_get_mesh_vertices_y(void* context, const float** out_data, size_t* out_len);
+void ss_runtime_get_mesh_vertex_offsets(void* context, const uint32_t** out_data,
+                                        size_t* out_len);
+void ss_runtime_get_mesh_uvs(void* context, const float** out_data, size_t* out_len);
+void ss_runtime_get_mesh_indices(void* context, const int32_t** out_data, size_t* out_len);
+void ss_runtime_get_mesh_index_offsets(void* context, const uint32_t** out_data, size_t* out_len);
 const unsigned char* ss_runtime_get_ssab_buf(void* context);
 uintptr_t ss_runtime_get_ssab_len(void* context);
 }
@@ -223,6 +230,12 @@ int main(int argc, char** argv) {
     ss_runtime_get_local_vertices(ctx, &soa.localVertices, &len);
     ss_runtime_get_local_uvs(ctx, &soa.localUvs, &len);
     ss_runtime_get_cell_meta(ctx, &soa.cellMeta, &len);
+    ss_runtime_get_mesh_vertices_x(ctx, &soa.meshVerticesX, &soa.meshVertexCount);
+    ss_runtime_get_mesh_vertices_y(ctx, &soa.meshVerticesY, &len);
+    ss_runtime_get_mesh_vertex_offsets(ctx, &soa.meshVertexOffsets, &soa.meshVertexOffsetCount);
+    ss_runtime_get_mesh_uvs(ctx, &soa.meshUvs, &soa.meshUvCount);
+    ss_runtime_get_mesh_indices(ctx, &soa.meshIndices, &soa.meshIndexCount);
+    ss_runtime_get_mesh_index_offsets(ctx, &soa.meshIndexOffsets, &soa.meshIndexOffsetCount);
 
     CheckPartCounts(fd, soa.partCount, frame);
     baker.bake(fd, soa);

@@ -26,8 +26,13 @@ import {
  * after. Its `Mesh-WriteMask-True` and `Shape-Mask-True` parts are the two
  * writers this port deliberately drops for now; see the screen note below.
  *
+ * `Mesh` is the deformed-geometry case: its vertices arrive from the Brain
+ * **already in world space**, so unlike every other kind here the world matrix
+ * must not touch them — a mesh drawn with the matrix applied twice lands
+ * somewhere else entirely, which is the failure this screen makes obvious.
+ *
  * The animation name is per-`.ssab`: all but one use the converter's default
- * `anime_1`, `PartsColor` names its own. All four live in both packs, so this
+ * `anime_1`, `PartsColor` names its own. All five live in both packs, so this
  * axis stays independent of the texture-route toggle below.
  */
 const SSAB_ANIMATIONS = {
@@ -35,6 +40,7 @@ const SSAB_ANIMATIONS = {
   BlendMode: 'anime_1',
   PartsColor: 'PartsColor_with_Transparent',
   Mask: 'anime_1',
+  Mesh: 'anime_1',
 } as const
 
 /**

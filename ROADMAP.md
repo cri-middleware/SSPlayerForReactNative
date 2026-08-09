@@ -267,7 +267,22 @@ constant across the Phase 0 sweep while nothing was actually playing.
   **What is left:** the Mesh (whole-only) and Shape (rate forced to 1, formula
   bypassed) rules from §1-2, which need those part kinds first; and pixel tests,
   the same gap the framebuffer blends have.
-- ☐ Mesh, Shape, Nines
+- 🚧 **Mesh** — landed. The Brain does the skinning, so the Player's whole job is
+  to slice the CSR SoA buffers (`40_components/30_mesh.md`) and draw: vertices
+  arrive **already world-space** and must not meet the world matrix again, UVs
+  are static, indices are part-local and get rebased onto the batch.
+  It forced the baker's shape to change, which was overdue: `SsQuadInfo` became
+  `SsPartDraw` and now carries each part's own vertex/index ranges instead of
+  deriving them by multiplying by four. Instance and Effect want the same shape.
+  PartColor works on a mesh through the existing shader because §1-2 makes it
+  **whole-only** — `lt` copied to all four corners collapses the gradient to a
+  constant. Masking a mesh does **not** work and is switched off deliberately:
+  the replay inverts an affine quad's UV to place its coverage sample, and a
+  triangle soup has no such inverse. That also still leaves a Mesh *writer*
+  unimplemented (`Mask.ssab`'s `Mesh-WriteMask-True`).
+  Host-checked: `Mesh.ssab` bakes 32 vertices where it baked 0, Ringo 68 → 653,
+  all under ASan with the CSR range guards in place. **Not yet seen on a device.**
+- ☐ Shape, Nines
 - ☐ Effect (particles) and Instance parts
 - ☐ The 13 `ss-*` integration shaders, GLSL → **SkSL** (the maths is identical;
   impellerc's restrictions do not apply, so the port relaxes rather than tightens)

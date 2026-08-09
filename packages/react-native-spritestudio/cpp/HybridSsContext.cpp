@@ -312,6 +312,15 @@ void HybridSsContext::refreshFrame() {
   ss_runtime_get_local_uvs(ctx_, &soa_.localUvs, &len);
   ss_runtime_get_cell_meta(ctx_, &soa_.cellMeta, &len);
 
+  // Mesh. Every length is kept, not discarded like the ones above: these are CSR
+  // arrays that index each other, so the guards in `SsBaker::bakeMeshBatch` are
+  // the only thing between a malformed offset pair and a read past the end.
+  ss_runtime_get_mesh_vertices_x(ctx_, &soa_.meshVerticesX, &soa_.meshVertexCount);
+  ss_runtime_get_mesh_vertices_y(ctx_, &soa_.meshVerticesY, &len);
+  ss_runtime_get_mesh_vertex_offsets(ctx_, &soa_.meshVertexOffsets, &soa_.meshVertexOffsetCount);
+  ss_runtime_get_mesh_uvs(ctx_, &soa_.meshUvs, &soa_.meshUvCount);
+  ss_runtime_get_mesh_indices(ctx_, &soa_.meshIndices, &soa_.meshIndexCount);
+  ss_runtime_get_mesh_index_offsets(ctx_, &soa_.meshIndexOffsets, &soa_.meshIndexOffsetCount);
 }
 
 double HybridSsContext::drawInto(SkCanvasHandle canvas,

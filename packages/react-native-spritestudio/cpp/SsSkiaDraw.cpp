@@ -226,9 +226,12 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
   /// This part's mask test, or false when it draws unmasked.
   ///
+  /// A mesh is excluded outright: the replay reconstructs its coverage UV by
+  /// inverting an affine quad, which a triangle soup is not. Better an unmasked
+  /// mesh than one clipped against a shape nobody authored.
   const auto maskBitsOf = [&](const sscore::SsPartDraw& info,
                               sscore::SsMaskBits* bits) -> bool {
-    if (!masking || info.partIndex >= mask.flagCount) return false;
+    if (!masking || !info.quadShaped || info.partIndex >= mask.flagCount) return false;
     return mask.plan->bitsFor(info.drawRank, mask.flags[info.partIndex], bits);
   };
 
@@ -307,8 +310,22 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       const int indexBase = info.indexOffset - batch.indexOffset;
       const float* partUv = texCoords.data() + static_cast<size_t>(info.vertexOffset) * 2;
 
+      // A quad's six indices are rebased onto its own four vertices; a mesh's
+      // are already part-local plus the batch base, so the same subtraction
+      // serves both — it is the general form, not a quad special case.
       uint16_t localIdx[kIndicesPerQuad];
-      RebaseQuadIndices(idx + indexBase, base, localIdx);
+      const uint16_t* useIdx = idx + indexBase;
+      std::vector<uint16_t> meshIdx;
+      if (info.indexCount == kIndicesPerQuad && info.quadShaped) {
+        RebaseQuadIndices(idx + indexBase, base, localIdx);
+        useIdx = localIdx;
+      } else {
+        meshIdx.resize(static_cast<size_t>(info.indexCount));
+        for (int i = 0; i < info.indexCount; ++i) {
+          meshIdx[static_cast<size_t>(i)] = static_cast<uint16_t>(idx[indexBase + i] - base);
+        }
+        useIdx = meshIdx.data();
+      }
 
       // The PartColor shader carries alpha itself (`a = texel.a * col.a`), so
       // the part must go through with NO vertex colours or `kModulate` would
@@ -317,6 +334,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // mask wraps whichever of the two it turns out to be and changes neither.
       sk_sp<SkShader> tint;
       if (info.needsPartColorShader) {
+        // A mesh reaches this with its four corners already equalised to `lt`
+        // (§1-2, whole-only), so the shader's gradient collapses to a constant
+        // and the UV inverse it is handed never has to be meaningful.
         tint = MakePartColorShader(info.partColor, partUv, paint->refShader());
       }
 
@@ -341,7 +361,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
           SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base, uv + base,
           tint != nullptr ? nullptr : reinterpret_cast<const SkColor*>(col + base),
-          info.indexCount, localIdx);
+          info.indexCount, useIdx);
       if (vertices == nullptr) continue;
 
       // A masked part drops the multi-pass Sub / Invert reconstruction. Those

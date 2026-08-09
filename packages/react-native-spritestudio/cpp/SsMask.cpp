@@ -34,8 +34,9 @@ bool SsMaskPlan::build(const ss::runtime::FrameData* fd, const SsBaker& baker,
     const SsMaskPartFlags& f = flags[info.partIndex];
     if (!f.isWriter()) continue;
     // A writer whose shape the coverage pass cannot rasterise is dropped rather
-    // than clipping its targets with a wrong-shaped stand-in.
-    if (!f.quadGeometry) continue;
+    // than clipping its targets with a wrong-shaped stand-in. `quadShaped` is
+    // the same rule read off the bake instead of off the part type.
+    if (!f.quadGeometry || !info.quadShaped) continue;
 
     if (info.partIndex >= partStateCount) continue;
     const ss::runtime::PartState* state = parts->Get(info.partIndex);

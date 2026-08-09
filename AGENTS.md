@@ -15,10 +15,11 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > `SsRuntime.liveHandles` + `ssCheckForLeaks()`, which found that `dispose()` had
 > never actually released anything). Scope is Normal parts, now with the full
 > framebuffer **blend table** (`cpp/SsBlend.hpp`), **PartColor**
-> (`cpp/SsPartColor.hpp`) and **mask + clipping** (`cpp/SsMask.hpp`) — still no
-> effects, Instance, Mesh/Shape, events, part overrides or Reanimated
-> integration. Mask is host-verified but **has not been seen on a simulator or a
-> device**, which is a weaker claim than the ones above it. Read
+> (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`) and **Mesh** —
+> still no effects, Instance, Shape/Nines, events, part overrides or Reanimated
+> integration. The last two features are host-verified but **have not been seen
+> on a simulator or a device**, which is a weaker claim than the ones above it.
+> Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
 > it overturned one of the design doc's premises, and its own numbers were then
 > overturned in turn.
@@ -127,7 +128,7 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
 | `cpp/format/{ssab,framedata}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. |
 | `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
-| `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/colour/batch arrays, plus one `SsPartDraw` **per part** carrying its own vertex/index ranges, so the draw path can peel a part out without deriving where it sits. Nitro-free and JSI-free so the host harness can link it. |
+| `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/colour/batch arrays, plus one `SsPartDraw` **per part** carrying its own vertex/index ranges — a Normal part is always four vertices, a Mesh part is however many the Brain skinned, so the ranges are carried rather than derived. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsPartColor.hpp` | PartColor's data side: §1-4's coefficient table, the four corners, and `SsMakeUvInverse`. Skia-free, so the maths is checkable on the host. |
 | `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
 | `cpp/SsMask.{hpp,cpp}` | Mask **and** clipping: the part roles, the per-frame writer set, the player-local coverage box and each target's two writer sets. Skia-free, so `ssbake_check` drives it on the host. |
@@ -320,7 +321,22 @@ later `download-sdk` correctly replaces a local build.
   which is precisely what the entry above fixed.
 * **Per-kind geometry differs**: Normal & Shape verts are **local** (apply the
   world matrix); **Mesh & Effect verts are world-space** (do not). Effect UVs
-  are normalised 0..1 and need scaling back up.
+  are normalised 0..1 and need scaling back up. Applying the matrix to a mesh
+  compiles, draws, and puts the part somewhere else entirely.
+* **Mesh arrives in CSR, and `offsets` has `partCount + 1` entries.** Part `p`
+  owns `[offsets[p], offsets[p+1])` in both the vertex and the index arrays, so
+  every read needs `p + 1` in range *first*. A **non-Mesh part is an empty
+  range**, not an error — that is how the same array covers every part. Mesh
+  indices are **part-local 0-based** and have to be rebased when several parts
+  share one draw call, which is exactly what batching does here. UVs are static
+  (resolved from frame 0's cell) and interleaved, so the offset is `v * 2`.
+* **A mesh is not quad-shaped, and two things silently assume quads.** The
+  PartColor shader and the mask replay both recover `(s,t)` by inverting an
+  affine quad's UV; a triangle soup has no such inverse. `SsPartDraw::quadShaped`
+  is the flag, and it is why a mesh is excluded from masking outright. PartColor
+  still works on a mesh only because §1-2 makes it **whole-only**: `lt`'s colour
+  and rate go to every vertex, so equalising the four corners collapses the
+  shader's bilinear to a constant and the bad inverse stops mattering.
 * **PartColor alpha is pre-folded by the Brain** — do not re-multiply
   `PartState.alpha` when a PartColor is present. The two alphas are therefore an
   either/or, which is exactly how `SsBaker` bakes the vertex colour: corner alpha
@@ -536,6 +552,7 @@ build=release` when working on it).
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
 | PartColor and part opacity | On the **Player** screen switch *Animation* to **PartsColor**. Eight tinted quads, all four PartColor modes, half with the four corners differing so the gradient is exercised — and every part semi-transparent, so it is the opacity check too. Flat tints where a gradient is authored means the UV reconstruction is wrong; uniformly opaque means the vertex colours are not reaching `drawVertices`. |
+| Mesh deformation | On the **Player** screen switch *Animation* to **Mesh**. The parts must be *deformed* and sit where the rest of the animation does. A mesh drawn far off-centre, or scaled oddly, is the world matrix having been applied to vertices that were already world-space. On the host, `ssbake_check` on `Mesh.ssab` must report a **non-zero** peak vertex count (it was 0 for the whole of the time Mesh went unbaked) — currently 32, and Ringo's went 68 → 653 when Mesh landed. |
 | Mask and clipping | On the **Player** screen switch *Animation* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. The `Mesh-WriteMask-True` and `Shape-Mask-True` parts are **expected** not to clip yet. |
 | Mask plan, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 840 writer-frames, 1560 target-frames. |
 | Mask **drawing**, on the host | `npm run check-mask` (macOS). The plan was never the fragile half — everything that broke was Skia-side and broke silently. Checks the SkSL compiles (ES2), that all 24 coverage bits survive the image round-trip on both a managed and an unmanaged destination, and that the real `DrawBakedFrame` output actually differs with the mask input from without. |
