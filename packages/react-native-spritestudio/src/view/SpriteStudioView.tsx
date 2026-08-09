@@ -38,7 +38,10 @@ export interface SpriteStudioViewProps {
    * resolve.
    */
   textures?: SsTextureSources
-  /** Which animation in the pack to set up. */
+  /**
+   * Which animation in the pack to set up. Defaults to the pack's **first**;
+   * `ref.player.currentAnimation` reports which that turned out to be.
+   */
   animation?: string
 
   playing?: boolean

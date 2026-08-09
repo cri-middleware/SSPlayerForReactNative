@@ -32,6 +32,16 @@ export interface SpriteStudioPlayerApi {
   pause(): void
   stop(): void
   setAnimation(name: string): boolean
+  /**
+   * Every animation in the loaded pack, in the order the `.ssab` lists them.
+   *
+   * Empty until a load finishes, so a caller building a picker off it should
+   * read it from `onLoad` rather than on mount. The names are exactly what
+   * `setAnimation` takes — there is no separate id, which is why this is worth
+   * exposing rather than making callers hard-code a list that the next
+   * conversion can invalidate.
+   */
+  getAnimationNames(): string[]
   seek(frameNo: number): void
   /** Multiplier on the authored frame rate; negative plays backwards. */
   setSpeed(rate: number): void
@@ -152,7 +162,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     if (this.root != null) internal.rootTransform = { ...this.root }
     this.internalPlayer = internal
 
-    if (options?.animation != null) this.setAnimation(options.animation)
+    // No name given means "just play the pack", not "render nothing". A resource
+    // that has had no `setup_animation` has no animation selected at all, so it
+    // draws an empty canvas — a silent and thoroughly unhelpful default for
+    // `<SpriteStudioView source={…} />` with no `animation` prop. The pack's
+    // first is the only defensible choice, and it is what `currentAnimation`
+    // will then report, so a caller can still find out what it got.
+    const requested = options?.animation ?? internal.getAnimationNames()[0]
+    if (requested != null) this.setAnimation(requested)
     else this.applySettings()
 
     this.notify()
@@ -220,6 +237,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
   get partCount(): number {
     return this.internalPlayer?.partCount ?? 0
+  }
+
+  /** See `SpriteStudioPlayerApi`. Empty before a load completes. */
+  getAnimationNames(): string[] {
+    return this.internalPlayer?.getAnimationNames() ?? []
   }
 
   setAnimation(name: string): boolean {

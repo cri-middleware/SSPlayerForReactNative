@@ -100,9 +100,11 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 * **L3** `SpriteStudioPlayer` — transport, events, clock. Externally clocked by
   default (`advance(dt)`), self-driving via `startClock()` as a fallback for
   headless use. Also owns source resolution and replays transport settings onto
-  each newly loaded animation. `SpriteStudioPlayerApi` states the transport
-  surface with no drawing backend in it, so the Phase 3 web implementation can
-  satisfy the same one.
+  each newly loaded animation. A `load()` with **no animation named sets up the
+  pack's first**, because a resource that has had no `setup_animation` has none
+  selected and draws an empty canvas — `currentAnimation` reports what it chose.
+  `SpriteStudioPlayerApi` states the transport surface with no drawing backend in
+  it, so the Phase 3 web implementation can satisfy the same one.
 * **L2** `SsInternalPlayer` — **must import nothing from `react`/`react-native`**,
   so react-native-web, headless tests and a future renderer stay possible. (Skia
   is fair game: it is the drawing backend, not the UI framework.) After Phase 0
