@@ -56,6 +56,7 @@ $projects = @(
 # branches of SsTextureLoader.
 $embeddedProjects = @(
     @{ Dir = "overall"; Sspj = "overall.sspj"; Out = "overall-embedded" }
+    @{ Dir = "Ringo"; Sspj = "Ringo.sspj"; Out = "Ringo-embedded" }
 )
 
 # Accept both spellings: the .js shim forwards arguments verbatim, so the same

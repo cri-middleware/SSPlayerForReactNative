@@ -141,13 +141,32 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `nitrogen/` | **Generated, committed, never hand-edited.** |
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
 
-`example/` is an Expo app with one screen. **Player** drives the SDK's
-`overall/Basic` through `<SpriteStudioView>` and is what you want when checking
-that a change still renders; its *Textures* toggle points at two different
-conversions of the same animation — `overall-embedded/` (atlas inside the
-`.ssab`) and `overall/` (atlas as a sibling file) — so both texture routes are
-visible. Nothing in the app selects a route; `SsTextureLoader` decides per
-texture.
+`example/` is an Expo app with one screen. **Player** drives the SDK's packs
+through `<SpriteStudioView>` and is what you want when checking that a change
+still renders. Three rows of controls, and each answers a different question:
+
+* *Subject* — which `.ssab`. `Basic` opens, because a feature test card says
+  which stage failed where a character does not; `BlendMode` / `PartsColor` /
+  `Mask` / `Mesh` are one feature each; **`Ringo` is the character**, and it is
+  worth having only now that Mesh landed (653 baked vertices against Basic's 80,
+  585 of which were simply missing before).
+* *Animation* — a dropdown, **read out of the loaded `.ssab`** via
+  `player.getAnimationNames()` rather than hard-coded, so a re-conversion cannot
+  leave the list quietly wrong. Most packs here have exactly one; Ringo has 24,
+  which is why it is a menu and not a row of buttons. The screen names an
+  opening animation for **Ringo only** — everything else takes the pack's first
+  (`PartsColor` included, whose first is `PartsColor_only`, the tint without the
+  opacity variable on top). Ringo's first is `attack1`, hence the exception.
+* *Textures* — two conversions of the **same** pack: `*-embedded/` (atlas inside
+  the `.ssab`) against the plain directory (atlas as a sibling file), so both
+  texture routes are visible. Nothing in the app selects a route;
+  `SsTextureLoader` decides per texture. `deploy-examples` converts each listed
+  project twice for this, so the toggle means the same thing for every subject.
+
+A subject also carries a **measured** frame — the player-local box its art
+occupies — because an origin is wherever the author put it: `Basic` straddles
+its own, `Ringo` stands on it with its feet at y = 0. Guessing that shows a
+corner of the art at best.
 
 There was a second screen, **Bench** — the Phase 0 harness, which drove Layer 1
 directly through all three variants and auto-ran a variant × instance-count
@@ -552,14 +571,15 @@ build=release` when working on it).
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
-| Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
-| PartColor and part opacity | On the **Player** screen switch *Animation* to **PartsColor**. Eight tinted quads, all four PartColor modes, half with the four corners differing so the gradient is exercised — and every part semi-transparent, so it is the opacity check too. Flat tints where a gradient is authored means the UV reconstruction is wrong; uniformly opaque means the vertex colours are not reaching `drawVertices`. |
-| Mesh deformation | On the **Player** screen switch *Animation* to **Mesh**. The parts must be *deformed* and sit where the rest of the animation does. A mesh drawn far off-centre, or scaled oddly, is the world matrix having been applied to vertices that were already world-space. On the host, `ssbake_check` on `Mesh.ssab` must report a **non-zero** peak vertex count (it was 0 for the whole of the time Mesh went unbaked) — currently 32, and Ringo's went 68 → 653 when Mesh landed. |
-| Mask and clipping | On the **Player** screen switch *Animation* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. The `Mesh-WriteMask-True` and `Shape-Mask-True` parts are **expected** not to clip yet. |
+| Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (It **opens** on `overall/Basic` rather than Ringo on purpose: `PlayerScreen.tsx` explains why.) |
+| PartColor and part opacity | On the **Player** screen switch *Subject* to **PartsColor**. It opens on `PartsColor_only`: eight tinted quads, all four PartColor modes, half with the four corners differing so the gradient is exercised. Flat tints where a gradient is authored means the UV reconstruction is wrong. Then take the *Animation* dropdown to **`PartsColor_with_Transparent`** — the same quads with part opacity on top, which is the alpha half of the check; uniformly opaque there means the vertex colours are not reaching `drawVertices`. Two animations because they are two variables, and the pack separates them so a failure names itself. |
+| A real character, end to end | On the **Player** screen switch *Subject* to **Ringo** — the one asset here that uses the features together rather than one at a time, and the check that they compose. Step through a few of its 24 animations. It is also the widest exercise of the reference texture route, since `Ringo.png` is a plain sibling. Missing limbs mean Mesh; a limb in the wrong place means the world matrix reached vertices that were already world-space. |
+| Mesh deformation | On the **Player** screen switch *Subject* to **Mesh**. The parts must be *deformed* and sit where the rest of the animation does. A mesh drawn far off-centre, or scaled oddly, is the world matrix having been applied to vertices that were already world-space. On the host, `ssbake_check` on `Mesh.ssab` must report a **non-zero** peak vertex count (it was 0 for the whole of the time Mesh went unbaked) — currently 32, and Ringo's went 68 → 653 when Mesh landed. |
+| Mask and clipping | On the **Player** screen switch *Subject* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. The `Mesh-WriteMask-True` and `Shape-Mask-True` parts are **expected** not to clip yet. |
 | Mask plan, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 840 writer-frames, 1560 target-frames. |
 | Mask **drawing**, on the host | `npm run check-mask` (macOS). The plan was never the fragile half — everything that broke was Skia-side and broke silently. Checks the SkSL compiles (ES2), that all 24 coverage bits survive the image round-trip on both a managed and an unmanaged destination, and that the real `DrawBakedFrame` output actually differs with the mask input from without. |
-| Blend modes reach the framebuffer | On the **Player** screen switch *Animation* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
-| Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. That pack has no embedded atlas, so if `common.png` were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. |
+| Blend modes reach the framebuffer | On the **Player** screen switch *Subject* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
+| Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. Those packs have no embedded atlas, so if the sibling image were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. Worth doing on **Ringo** as well as `overall`: the toggle now switches conversions of whichever pack is selected, and `deploy-examples` produces both for each. |
 | No leaked native handles | On the **Player** screen press **Leak check**: 8 load/dispose cycles, and both counts in the readout above it must come back to where they started. Toggling *Animation* or *Textures* is the same check by hand — the counts must dip and return, not climb. Exact because `dispose()` releases eagerly; a count that stays high is a leak, not a pending GC. **`1→1` is also what a frozen counter prints**, so if you are changing this path, first confirm the counts *move*: hold N undisposed players, watch them reach `1+N`, then dispose and watch them return in the same tick. |
 | Measurement | The harness is retired — `docs/phase0-spike.md` records the numbers. Re-measuring means restoring `example/src/bench/` and the `getSoA`/`getPlan`/`bake` spec surface from git history, and doing it in **release on both sides** |
 

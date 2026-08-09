@@ -50,14 +50,18 @@ PROJECTS=(
 # "<SDK tests subdir>|<.sspj filename>|<output dir name>", always converted with
 # textures baked in, whatever `--embedded` says for the rest.
 #
-# The example needs one of each, because the two texture-supply modes reach
-# different distances on React Native. A reference pack's sibling image has to
-# be findable at runtime, and Metro only ships what a `require()` names — so
-# reference is the mode with a loading path to get wrong, and embedded is the
-# one that is self-contained everywhere. Keeping both means the example
-# exercises both branches of `SsTextureLoader`.
+# The example needs both conversions of every pack it shows, because the two
+# texture-supply modes reach different distances on React Native. A reference
+# pack's sibling image has to be findable at runtime, and Metro only ships what
+# a `require()` names — so reference is the mode with a loading path to get
+# wrong, and embedded is the one that is self-contained everywhere. Keeping both
+# means the example exercises both branches of `SsTextureLoader`, and it has to
+# be per pack rather than once overall: the Player screen's texture toggle
+# applies to whichever subject is selected, so a pack with only one conversion
+# would make that toggle silently do nothing for it.
 EMBEDDED_PROJECTS=(
     "overall|overall.sspj|overall-embedded"
+    "Ringo|Ringo.sspj|Ringo-embedded"
 )
 
 EMBEDDED=""
