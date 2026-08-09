@@ -8,6 +8,7 @@
 #include "include/core/SkVertices.h"
 
 #include "SsBlend.hpp"
+#include "SsPartColorShader.hpp"
 #endif
 
 namespace ssplayer {
@@ -80,7 +81,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
   const std::vector<float>& positions = baker.positions();
   const std::vector<float>& texCoords = baker.texCoords();
+  const std::vector<uint32_t>& colors = baker.colors();
   const std::vector<uint16_t>& indices = baker.indices();
+  const std::vector<sscore::SsQuadInfo>& quadInfo = baker.quads();
 
   size_t drawn = 0;
 
@@ -100,9 +103,23 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     const auto* uv = reinterpret_cast<const SkPoint*>(texCoords.data()) + batch.vertexOffset;
     const uint16_t* idx = indices.data() + batch.indexOffset;
 
+    const uint32_t* col = colors.data() + batch.vertexOffset;
+    const int quads = batch.vertexCount / kVertsPerQuad;
+    const int firstQuad = batch.vertexOffset / kVertsPerQuad;
+
     const BlendPlan plan = BlendPlanFor(batch.blendType);
 
-    if (!plan.multiPass()) {
+    // A batch survives as one draw only if nothing in it needs peeling. Both
+    // reasons peel to the same shape — one quad at a time — but they are
+    // independent: the blend plan is a property of the batch, a PartColor tint
+    // is a property of one part inside it.
+    bool anyPartColor = false;
+    for (int q = 0; q < quads && !anyPartColor; ++q) {
+      const size_t qi = static_cast<size_t>(firstQuad + q);
+      anyPartColor = qi < quadInfo.size() && quadInfo[qi].needsPartColorShader;
+    }
+
+    if (!plan.multiPass() && !anyPartColor) {
       // MakeCopy rather than `SkVertices::Builder`, and the reason is layering,
       // not lifetime: a Builder's `detach()` hands back an SkVertices that owns
       // its storage just as MakeCopy's does, so either would survive the
@@ -116,7 +133,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // memcpy.
       sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
           SkVertices::kTriangles_VertexMode, batch.vertexCount, pos, uv,
-          /*colors=*/nullptr, batch.indexCount, idx);
+          reinterpret_cast<const SkColor*>(col), batch.indexCount, idx);
       if (vertices == nullptr) continue;
 
       const SkPaint passPaint = PaintForPass(*paint, plan.passes[0]);
@@ -125,11 +142,12 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       continue;
     }
 
-    // Sub / Invert: the inversion passes have to cover each pixel exactly once,
-    // so the batch's run is peeled into single parts (`SsBlend.hpp` spells out
-    // why two overlapping Sub parts would otherwise cancel their overlap). One
-    // quad per part, and the *same* quad through every pass.
-    const int quads = batch.vertexCount / kVertsPerQuad;
+    // Peeled, for either reason. Sub / Invert need it because the inversion
+    // passes have to cover each pixel exactly once (`SsBlend.hpp` spells out why
+    // two overlapping Sub parts would otherwise cancel their overlap); a
+    // PartColor tint needs it because its four corner colours are shader
+    // uniforms, so one shader can only speak for one quad. One quad per part,
+    // and the *same* quad through every pass.
     for (int q = 0; q < quads; ++q) {
       // Rebase the quad's indices onto its own four vertices rather than
       // assuming the baker's winding — it is `{0,1,2,1,3,2}` today, and reading
@@ -140,13 +158,32 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
         quadIdx[i] = static_cast<uint16_t>(idx[q * kIndicesPerQuad + i] - base);
       }
 
-      sk_sp<SkVertices> vertices =
-          SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode, kVertsPerQuad, pos + base,
-                               uv + base, /*colors=*/nullptr, kIndicesPerQuad, quadIdx);
+      // The PartColor shader carries alpha itself (`a = texel.a * col.a`), so
+      // the quad must go through with NO vertex colours or `kModulate` would
+      // apply it a second time. Without the shader the vertex colours are the
+      // only thing carrying the part's opacity, so they must go through.
+      const size_t qi = static_cast<size_t>(firstQuad + q);
+      const sscore::SsQuadInfo* info = qi < quadInfo.size() ? &quadInfo[qi] : nullptr;
+      sk_sp<SkShader> tint;
+      if (info != nullptr && info->needsPartColorShader) {
+        const float* quadUv = texCoords.data() + (batch.vertexOffset + base) * 2;
+        tint = MakePartColorShader(info->partColor, quadUv, paint->refShader());
+      }
+
+      sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
+          SkVertices::kTriangles_VertexMode, kVertsPerQuad, pos + base, uv + base,
+          tint != nullptr ? nullptr : reinterpret_cast<const SkColor*>(col + base),
+          kIndicesPerQuad, quadIdx);
       if (vertices == nullptr) continue;
 
       for (int p = 0; p < plan.count; ++p) {
-        const SkPaint passPaint = PaintForPass(*paint, plan.passes[p]);
+        SkPaint passPaint = PaintForPass(*paint, plan.passes[p]);
+        // Only the pass that draws the part itself is tinted. A coverage or
+        // black pass is a mask over the same geometry, and swapping its shader
+        // for a textured one would break the inversion it exists to perform.
+        if (tint != nullptr && plan.passes[p].source == BlendPassSource::kPart) {
+          passPaint.setShader(tint);
+        }
         canvas->drawVertices(vertices, kVertexColorBlend, passPaint);
       }
       // Geometry drawn, not draw calls issued — a multi-pass part covers the

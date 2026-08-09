@@ -16,9 +16,23 @@
 #include <vector>
 
 #include "SsBatchDesc.hpp"
+#include "SsPartColor.hpp"
 #include "format/framedata.h"
 
 namespace sscore {
+
+/// What the draw path needs to know about one baked quad, beyond its geometry.
+///
+/// One entry per quad, in bake order, so a batch's run is
+/// `quads()[vertexOffset / 4 ..  + vertexCount / 4]`.
+struct SsQuadInfo {
+  /// True when this quad has to leave its batch and go through the PartColor
+  /// shader: a PartColor that actually tints RGB. Alpha alone never sets this —
+  /// a vertex colour carries that exactly (§1-2-4).
+  bool needsPartColorShader = false;
+  /// Only meaningful when `needsPartColorShader`.
+  SsPartColor partColor;
+};
 
 /// The Brain's SoA buffers for the current frame, as lent by the
 /// `ss_runtime_get_*` getters. Every pointer is a borrow that dies at the next
@@ -51,8 +65,18 @@ class SsBaker {
   const std::vector<float>& positions() const noexcept { return positions_; }
   /// 2 floats per vertex, texture pixel space (Skia's image shader wants pixels).
   const std::vector<float>& texCoords() const noexcept { return texCoords_; }
+  /// One unpremultiplied `SkColor`-shaped `0xAARRGGBB` per vertex.
+  ///
+  /// White with the part's alpha in most cases — the whole of what a part's
+  /// opacity is, and the §1-2-4 passthrough for a PartColor that only sets
+  /// alpha. A quad flagged `needsPartColorShader` gets its colour from the
+  /// shader instead, and the draw path passes no colours for it at all, so its
+  /// entries here are never read.
+  const std::vector<uint32_t>& colors() const noexcept { return colors_; }
   /// Triangle list; entries are relative to their own batch's `vertexOffset`.
   const std::vector<uint16_t>& indices() const noexcept { return indices_; }
+  /// One per baked quad, in bake order.
+  const std::vector<SsQuadInfo>& quads() const noexcept { return quads_; }
 
   size_t vertexCount() const noexcept { return positions_.size() / 2; }
   size_t indexCount() const noexcept { return indices_.size(); }
@@ -61,7 +85,9 @@ class SsBaker {
   std::vector<SsBatchDesc> batches_;
   std::vector<float> positions_;
   std::vector<float> texCoords_;
+  std::vector<uint32_t> colors_;
   std::vector<uint16_t> indices_;
+  std::vector<SsQuadInfo> quads_;
 };
 
 }  // namespace sscore

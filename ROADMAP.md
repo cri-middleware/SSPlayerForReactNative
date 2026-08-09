@@ -209,7 +209,27 @@ constant across the Phase 0 sweep while nothing was actually playing.
   "each mode is *right*" is not.
 - ☐ Mask via the coverage-pass method (Skia has no stencil), matching the
   Flutter Player's `mask.dart` / `mask_context.dart`
-- ☐ PartColor, Mesh, Shape, Nines
+- 🚧 **PartColor** — landed for **Normal** parts, the kind the renderer draws.
+  The *other* blend (§1-0): shader-side, four modes only, `rate`-weighted.
+  `cpp/SsPartColor.hpp` is the data side (§1-4's coefficient table, the four
+  corners, the UV inverse), `cpp/SsPartColorShader.hpp` the SkSL runtime effect.
+  Ported from **SSPlayerForFlutter**'s `shaders/partcolor.frag`, which faced the
+  same constraint — Skia vertices carry no custom attributes, so the corner
+  colours and rates become uniforms and each tinted part is drawn on its own
+  quad. One departure: the gradient is reconstructed from the **UV** rather than
+  the fragment position, because `drawVertices` evaluates the shader at the
+  interpolated texcoord, so the canvas matrix drops out and no CTM inverse has to
+  be computed or passed. Exact: the host check measures 0 round-trip error on
+  axis-aligned cells and ~1e-7 on rotated ones.
+  It also closed a bug older than itself: **`PartState.alpha` was never read**,
+  so every part drew fully opaque. `Basic.ssab` alone bakes 936 alpha-carrying
+  vertices over 120 frames that used to be thrown away. Alpha now rides the
+  vertex colour, which is also what keeps a `rate == 0` PartColor (§1-2-4's
+  passthrough) on the batched path instead of the shader.
+  **What is left:** the Mesh (whole-only) and Shape (rate forced to 1, formula
+  bypassed) rules from §1-2, which need those part kinds first; and pixel tests,
+  the same gap the framebuffer blends have.
+- ☐ Mesh, Shape, Nines
 - ☐ Effect (particles) and Instance parts
 - ☐ The 13 `ss-*` integration shaders, GLSL → **SkSL** (the maths is identical;
   impellerc's restrictions do not apply, so the port relaxes rather than tightens)

@@ -7,7 +7,28 @@ import {
   type SpriteStudioViewRef,
 } from 'react-native-spritestudio'
 
-const ANIMATION = 'anime_1'
+/**
+ * Which `.ssab` inside the pack, and the animation inside it.
+ *
+ * `Basic` is the plain Normal-parts case and the one to check a render change
+ * against. `BlendMode` is the SDK's blend test animation — every framebuffer
+ * blend type side by side, which is the only way to see `SsBlend.hpp`'s table at
+ * all, and in particular the two modes (Sub, Invert) that Skia has no single
+ * blend mode for and that `SsSkiaDraw` reconstructs from three passes.
+ * `PartsColor` is the *other* blend, the shader-side one: eight tinted quads,
+ * all four PartColor modes, half of them with the four corners differing so the
+ * gradient reconstruction in `SsPartColorShader.hpp` is actually exercised — and
+ * every part of it semi-transparent, which is what makes it the alpha check too.
+ *
+ * The animation name is per-`.ssab`: the first two use the converter's default
+ * `anime_1`, `PartsColor` names its own. All three live in both packs, so this
+ * axis stays independent of the texture-route toggle below.
+ */
+const SSAB_ANIMATIONS = {
+  Basic: 'anime_1',
+  BlendMode: 'anime_1',
+  PartsColor: 'PartsColor_with_Transparent',
+} as const
 
 /**
  * The same animation converted two ways, so both texture routes are visible.
@@ -34,21 +55,9 @@ const PACKS = {
 
 type Mode = keyof typeof PACKS
 
-/**
- * Which `.ssab` inside the pack.
- *
- * `Basic` is the plain Normal-parts case and the one to check a render change
- * against. `BlendMode` is the SDK's blend test animation — every framebuffer
- * blend type side by side, which is the only way to see `SsBlend.hpp`'s table at
- * all, and in particular the two modes (Sub, Invert) that Skia has no single
- * blend mode for and that `SsSkiaDraw` reconstructs from three passes.
- *
- * Both live in both packs and both animate `anime_1`, so this axis is
- * independent of the texture-route toggle below.
- */
-const SSABS = ['Basic', 'BlendMode'] as const
+const SSABS = Object.keys(SSAB_ANIMATIONS) as Ssab[]
 
-type Ssab = (typeof SSABS)[number]
+type Ssab = keyof typeof SSAB_ANIMATIONS
 
 /** `Basic`'s authored canvas is 480x480 (`<canvasSize>` in Basic.ssae). */
 const DESIGN_HEIGHT = 480
@@ -80,6 +89,7 @@ export function PlayerScreen() {
   const [checking, setChecking] = useState(false)
 
   const source = `${PACKS[mode]}/${ssab}.ssab`
+  const animation = SSAB_ANIMATIONS[ssab]
 
   // Polled rather than pushed: the counts change in C++ destructors, which have
   // nothing to notify from. Two relaxed atomic loads a second is not a cost, and
@@ -111,7 +121,7 @@ export function PlayerScreen() {
     try {
       const result = await ssCheckForLeaks(source, {
         cycles: 8,
-        animation: ANIMATION,
+        animation,
       })
       // Both numbers, not just the verdict: which one stayed high says where the
       // leak is — a stuck context is a player that was never disposed, a stuck
@@ -151,7 +161,7 @@ export function PlayerScreen() {
             ref={ref}
             style={StyleSheet.absoluteFill}
             source={source}
-            animation={ANIMATION}
+            animation={animation}
             playing={playing}
             speed={speed}
             flipX={flipX}

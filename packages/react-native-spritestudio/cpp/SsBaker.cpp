@@ -13,6 +13,13 @@ constexpr int kCornerFloat[4] = {0, 2, 4, 6};
 /// cull, so the winding is free — this order matches SSPlayerForFlutter's.
 constexpr uint16_t kQuadIndices[6] = {0, 1, 2, 1, 3, 2};
 
+/// `0xAARRGGBB` (an unpremultiplied `SkColor`) from an alpha in 0..1, white.
+uint32_t WhiteWithAlpha(float alpha) {
+  const float clamped = alpha < 0.0f ? 0.0f : (alpha > 1.0f ? 1.0f : alpha);
+  const uint32_t a = static_cast<uint32_t>(clamped * 255.0f + 0.5f);
+  return (a << 24) | 0x00ffffffu;
+}
+
 /// The batch fields that are a straight copy out of the FlatBuffer, with the
 /// geometry ranges left at zero for the caller to fill in.
 SsBatchDesc DescribeBatch(const ss::runtime::DrawBatch* batch) {
@@ -32,7 +39,9 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
   batches_.clear();
   positions_.clear();
   texCoords_.clear();
+  colors_.clear();
   indices_.clear();
+  quads_.clear();
 
   if (fd == nullptr || soa.worldMatrices == nullptr || soa.localVertices == nullptr ||
       soa.localUvs == nullptr) {
@@ -42,6 +51,12 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
   const auto* batches = fd->draw_batches();
   const auto* drawOrder = fd->draw_order();
   if (batches == nullptr || drawOrder == nullptr) return;
+
+  // The third part count in play, after `soa.partCount` and `batch->count()`.
+  // Guarded separately below rather than trusted against either — see the
+  // `partCount` trap in AGENTS.md.
+  const auto* parts = fd->parts();
+  const uint32_t partStateCount = parts != nullptr ? parts->size() : 0;
 
   const uint32_t drawOrderCount = drawOrder->size();
   batches_.reserve(batches->size());
@@ -66,6 +81,22 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
         const float* lv = soa.localVertices + static_cast<size_t>(partIndex) * 10;
         const float* uv = soa.localUvs + static_cast<size_t>(partIndex) * 10;
 
+        const ss::runtime::PartState* state =
+            partIndex < partStateCount ? parts->Get(partIndex) : nullptr;
+
+        SsQuadInfo info;
+        const bool hasPartColor = SsReadPartColor(fd, state, &info.partColor);
+        // Alpha alone never needs the shader: a vertex colour reproduces
+        // `a = texel.a * col.a` exactly, and at rate 0 the RGB formula is a
+        // texel passthrough (§1-2-4). Only a real tint is peeled out.
+        info.needsPartColorShader = hasPartColor && info.partColor.tintsRgb();
+
+        // §1-3: with a PartColor the hierarchical alpha is already folded into
+        // the corner alphas, so `PartState.alpha` must NOT be applied again.
+        const float partAlpha = state != nullptr ? state->alpha() : 1.0f;
+        const SsPartColorCorner* corners[4] = {&info.partColor.lt, &info.partColor.rt,
+                                               &info.partColor.lb, &info.partColor.rb};
+
         // Column-major 4x4, 2D slice: x' = m0*x + m4*y + m12.
         const uint16_t base = static_cast<uint16_t>(positions_.size() / 2 - desc.vertexOffset);
         for (int c = 0; c < 4; ++c) {
@@ -75,10 +106,12 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
           positions_.push_back(m[1] * x + m[5] * y + m[13]);
           texCoords_.push_back(uv[kCornerFloat[c]]);
           texCoords_.push_back(uv[kCornerFloat[c] + 1]);
+          colors_.push_back(WhiteWithAlpha(hasPartColor ? corners[c]->a : partAlpha));
         }
         for (int i = 0; i < 6; ++i) {
           indices_.push_back(static_cast<uint16_t>(base + kQuadIndices[i]));
         }
+        quads_.push_back(info);
       }
     }
 

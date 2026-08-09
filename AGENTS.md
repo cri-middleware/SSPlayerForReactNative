@@ -115,7 +115,9 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
 | `cpp/format/{ssab,framedata}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. |
 | `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
-| `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/batch arrays. Nitro-free and JSI-free so the host harness can link it. |
+| `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/colour/batch arrays, plus one `SsQuadInfo` per quad saying whether it must be peeled out for the PartColor shader. Nitro-free and JSI-free so the host harness can link it. |
+| `cpp/SsPartColor.hpp` | PartColor's data side: §1-4's coefficient table, the four corners, and `SsMakeUvInverse`. Skia-free, so the maths is checkable on the host. |
+| `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
 | `cpp/SsSkiaBridge.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` host objects. **The only place RN Skia's internals are touched.** |
 | `cpp/SsSkiaDraw.{hpp,cpp}` | The draw path: the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. |
 | `cpp/Hybrid*.{hpp,cpp}` | The Nitro Hybrid Objects. They `#include "ssruntime.h"` directly — see Traps. |
@@ -306,7 +308,32 @@ later `download-sdk` correctly replaces a local build.
   world matrix); **Mesh & Effect verts are world-space** (do not). Effect UVs
   are normalised 0..1 and need scaling back up.
 * **PartColor alpha is pre-folded by the Brain** — do not re-multiply
-  `PartState.alpha` when a PartColor is present.
+  `PartState.alpha` when a PartColor is present. The two alphas are therefore an
+  either/or, which is exactly how `SsBaker` bakes the vertex colour: corner alpha
+  when there is a PartColor, `PartState.alpha` when there is not.
+* **There are TWO blends, on different axes** (`parts_color` §1-0). The
+  framebuffer one is `DrawBatch.blend_type`, 12 values, `SsBlend.hpp`. The
+  PartColor one is `PartAttributePartColor.blend_type`, and **only its first 4
+  values are valid** — it is typed as the same 12-value enum, so anything ≥ 4
+  clamps to Mix. Conflating them is the mistake the SDK doc opens by warning
+  against.
+* **`rate == 0` is a texel passthrough, and that is what keeps batching.** A
+  PartColor whose rates are all zero changes no RGB, so it stays on the batched
+  `drawVertices` path with its alpha in the vertex colour; only a real tint is
+  peeled out for the shader. Peeling is per *part*, not per batch — unlike the
+  Sub/Invert peel, which is a property of the batch.
+* **The PartColor shader reconstructs its gradient from the UV, not the fragment
+  position.** `drawVertices` evaluates the paint's shader at the interpolated
+  texcoord, so `coord` is already texture-pixel space and the canvas matrix drops
+  out — no CTM inverse to pass, unlike SSPlayerForFlutter's `partcolor.frag`,
+  which has no texcoord to lean on. The quad's four UV corners are an affine
+  image of the unit square, so `SsMakeUvInverse` is exact (the host check
+  measures 0 error on axis-aligned cells, ~1e-7 on rotated ones).
+* **A tinted quad must carry NO vertex colours.** The shader already returns
+  `a = texel.a * col.a`, so leaving the baked colours on would apply the alpha a
+  second time through `kModulate`. Only the `kPart` pass of a blend plan gets the
+  tint shader — swapping the shader on a coverage or black pass would break the
+  inversion those exist to perform.
 * **Mask has no C-API** — roles come from the static `.ssab` `PartData`, read
   once at load. `FrameData.mask_indices` is *not* the writer list.
 * **A world matrix can be a reflection, and the sign is a product** of authored
@@ -425,6 +452,7 @@ build=release` when working on it).
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
+| PartColor and part opacity | On the **Player** screen switch *Animation* to **PartsColor**. Eight tinted quads, all four PartColor modes, half with the four corners differing so the gradient is exercised — and every part semi-transparent, so it is the opacity check too. Flat tints where a gradient is authored means the UV reconstruction is wrong; uniformly opaque means the vertex colours are not reaching `drawVertices`. |
 | Blend modes reach the framebuffer | On the **Player** screen switch *Animation* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. That pack has no embedded atlas, so if `common.png` were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. |
 | No leaked native handles | On the **Player** screen press **Leak check**: 8 load/dispose cycles, and both counts in the readout above it must come back to where they started. Toggling *Animation* or *Textures* is the same check by hand — the counts must dip and return, not climb. Exact because `dispose()` releases eagerly; a count that stays high is a leak, not a pending GC. **`1→1` is also what a frozen counter prints**, so if you are changing this path, first confirm the counts *move*: hold N undisposed players, watch them reach `1+N`, then dispose and watch them return in the same tick. |
