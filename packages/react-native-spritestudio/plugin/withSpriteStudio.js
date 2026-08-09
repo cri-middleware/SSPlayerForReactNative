@@ -31,6 +31,7 @@ const path = require('path')
 const {
   withAppBuildGradle,
   withDangerousMod,
+  withGradleProperties,
   withXcodeProject,
 } = require('@expo/config-plugins')
 
@@ -38,6 +39,7 @@ const {
 const DEFAULT_ASSETS = ['./assets/ss']
 
 const IOS_PHASE_NAME = 'SpriteStudio assets'
+const KEY_ARCHITECTURES = 'reactNativeArchitectures'
 const GRADLE_FILE = 'spritestudio-assets.gradle'
 const GRADLE_APPLY = `apply from: "./${GRADLE_FILE}"`
 
@@ -76,7 +78,76 @@ function withSpriteStudio(config, options = {}) {
       return cfg
     },
   ])
+  withPlugin = withGradleProperties(withPlugin, (cfg) => {
+    narrowArchitectures(cfg.modResults)
+    return cfg
+  })
   return withPlugin
+}
+
+/**
+ * Drops from `reactNativeArchitectures` any ABI the installed Brain has no
+ * `libssruntime.a` for.
+ *
+ * Expo's Android template ships `armeabi-v7a,arm64-v8a,x86,x86_64`, and the SDK
+ * builds three of those — **32-bit `x86` is not one**, deliberately: it is an
+ * emulator-only ABI with no meaningful device share, and `x86_64` already covers
+ * the emulator. Left alone, Gradle configures a CMake variant for it and the
+ * build dies at `configureCMakeDebug[x86]` naming a path that was never going to
+ * exist. Editing `android/gradle.properties` by hand does not stick — `prebuild`
+ * rewrites it from the template, which is measurable in about a minute — so the
+ * narrowing has to happen here, where it survives.
+ *
+ * Read off `native/libs/android/` rather than hardcoded, so a Brain built with a
+ * different set (a local `build-runtime` slice, or a future x86) is respected
+ * instead of overruled. When that directory is absent the property is left
+ * exactly as it is: nothing can be built yet either way, and the CMake check
+ * says so with the install command, which is the more useful failure.
+ *
+ * Only ever removes. An app that asked for fewer keeps its own list, since this
+ * is an intersection.
+ *
+ * @param {{ type: string, key?: string, value?: string }[]} properties
+ */
+function narrowArchitectures(properties) {
+  const available = availableAbis()
+  if (available == null) return
+
+  const entry = properties.find((p) => p.type === 'property' && p.key === KEY_ARCHITECTURES)
+  if (entry == null || !entry.value) return
+
+  const asked = entry.value.split(',').map((abi) => abi.trim()).filter(Boolean)
+  const kept = asked.filter((abi) => available.includes(abi))
+  const dropped = asked.filter((abi) => !available.includes(abi))
+  if (dropped.length === 0) return
+  if (kept.length === 0) {
+    // Every ABI the app wants is missing. Narrowing to nothing would produce an
+    // APK with no native code at all, which fails at run time instead of build
+    // time; leave it and let the CMake check name the missing library.
+    console.warn(
+      `react-native-spritestudio: none of ${asked.join(', ')} has a libssruntime.a ` +
+        `(${available.join(', ')} are installed) — leaving reactNativeArchitectures alone.`
+    )
+    return
+  }
+
+  entry.value = kept.join(',')
+  console.log(
+    `react-native-spritestudio: dropped ${dropped.join(', ')} from ` +
+      `reactNativeArchitectures — the SDK ships no libssruntime.a for ` +
+      `${dropped.length === 1 ? 'it' : 'them'}.`
+  )
+}
+
+/** The ABIs `native/libs/android/` holds, or null when it is not installed. */
+function availableAbis() {
+  const dir = path.join(__dirname, '..', 'native', 'libs', 'android')
+  if (!fs.existsSync(dir)) return null
+  const abis = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'libssruntime.a')))
+    .map((e) => e.name)
+  return abis.length > 0 ? abis : null
 }
 
 /**

@@ -24,10 +24,20 @@ apply plugin: "org.jetbrains.kotlin.android"
 def sdkVersionFile = file("../native/VERSION")
 def sdkVersion = sdkVersionFile.exists() ? sdkVersionFile.text.trim() : "unknown"
 
-/** The ABIs the consuming app asked for, or React Native's default set. */
+/**
+ * The ABIs the consuming app asked for, or the ones the Brain ships.
+ *
+ * The fallback is React Native's default set **minus 32-bit `x86`**, which the
+ * SDK deliberately does not build: emulator-only, no meaningful device share,
+ * and `x86_64` already covers the emulator. Asking for it can only end at the
+ * `libssruntime.a is missing` check below. An app that names the property is
+ * still followed exactly (never widened — see the `abiFilters` trap in
+ * AGENTS.md); the Expo plugin narrows that list before it gets here, and a bare
+ * app without the plugin gets the check's error instead.
+ */
 def reactNativeArchitectures() {
   def value = rootProject.getProperties().get("reactNativeArchitectures")
-  return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+  return value ? value.split(",") : ["armeabi-v7a", "x86_64", "arm64-v8a"]
 }
 
 android {

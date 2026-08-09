@@ -126,7 +126,7 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (what an `SsSource` is, and which L1 door each kind opens) + `leakCheck.ts`, which drives the same load/dispose path a mount/unmount does and compares `SsRuntime.liveHandles` either side. |
 | `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
 | `src/index.ts` | Public exports, layer by layer. The batch-layout constants went with the bench — nothing in JS walks batches now. |
-| `plugin/withSpriteStudio.js` + `app.plugin.js` | Expo config plugin: copies the pack directories into the app as native assets, every build, on both platforms. Plain CommonJS — Expo requires it during `prebuild`, unbuilt. |
+| `plugin/withSpriteStudio.js` + `app.plugin.js` | Expo config plugin: copies the pack directories into the app as native assets, every build, on both platforms, and narrows `reactNativeArchitectures` to the ABIs the Brain actually ships. Plain CommonJS — Expo requires it during `prebuild`, unbuilt. |
 | `cpp/SsAssets.{hpp,cpp}` | The read side of that: the `.app`'s resource directory on Apple, `AAssetManager` on Android. |
 | `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
 | `cpp/format/{ssab,framedata,effect_draw_plan}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. `effect_draw_plan.h` is the same for the one kind whose geometry does not ride the SoA. |
@@ -563,6 +563,21 @@ later `download-sdk` correctly replaces a local build.
   changed it and nothing changed": `android/build/generated/autolinking/` (the
   dependency list) and `android/app/build/generated/autolinking/` (the generated
   `PackageList.java`). Delete them when autolinking behaviour looks stale.
+* **The Brain ships no 32-bit `x86`, and Expo's template asks for it anyway.**
+  Expo writes `armeabi-v7a,arm64-v8a,x86,x86_64`; `build-runtime.sh` builds
+  three slices and **`x86` is not one** — emulator-only, no meaningful device
+  share, and `x86_64` already covers the emulator. Left alone that dies at
+  `configureCMakeDebug[x86]`. The fix is in the **config plugin**, not in
+  `android/gradle.properties`: that file is gitignored *and* rewritten from the
+  template by every `prebuild`, so a hand edit is gone within the minute it
+  takes to measure. `narrowArchitectures` intersects the app's list with what
+  `native/libs/android/` actually holds and logs what it dropped — read off the
+  directory, so a Brain built with a different set is respected rather than
+  overruled, and left alone entirely when the SDK is not installed yet. A **bare
+  RN app has no plugin**, so `CMakeLists.txt` distinguishes the two causes
+  ("does not ship a `<abi>` slice" vs "install it first") and names the
+  `-PreactNativeArchitectures` escape. Narrowing only — never widening, which is
+  the `abiFilters` trap below.
 * **Follow the app's `reactNativeArchitectures`, never hardcode `abiFilters`.**
   A hardcoded list builds ABIs the app is not building, whose prefab
   dependencies were never materialised — the link line then comes up missing
@@ -643,7 +658,7 @@ build=release` when working on it).
 | FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
-| Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
+| Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android`. The prebuild must log `dropped x86 from reactNativeArchitectures` — without it the build dies at `configureCMakeDebug[x86]`; see Traps. |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (It **opens** on `overall/Basic` rather than Ringo on purpose: `PlayerScreen.tsx` explains why.) |
 | PartColor and part opacity | On the **Player** screen switch *Subject* to **PartsColor**. It opens on `PartsColor_only`: eight tinted quads, all four PartColor modes, half with the four corners differing so the gradient is exercised. Flat tints where a gradient is authored means the UV reconstruction is wrong. Then take the *Animation* dropdown to **`PartsColor_with_Transparent`** — the same quads with part opacity on top, which is the alpha half of the check; uniformly opaque there means the vertex colours are not reaching `drawVertices`. Two animations because they are two variables, and the pack separates them so a failure names itself. |
 | A real character, end to end | On the **Player** screen switch *Subject* to **Ringo** — the one asset here that uses the features together rather than one at a time, and the check that they compose. Step through a few of its 24 animations. It is also the widest exercise of the reference texture route, since `Ringo.png` is a plain sibling. Missing limbs mean Mesh; a limb in the wrong place means the world matrix reached vertices that were already world-space. |

@@ -337,9 +337,19 @@ constant across the Phase 0 sweep while nothing was actually playing.
   needed it: it copies the pack directories into the app on every build (Xcode
   run-script phase; Gradle `Sync` task feeding an asset source set), verified
   through `expo prebuild` on both platforms. **Not** `assetExts += ssab` — that
-  was the `require()` route, and it is deliberately gone. What is left: a bare
-  RN app has no plugin system, so it needs the two build steps documented by
-  hand and checked.
+  was the `require()` route, and it is deliberately gone.
+  It also narrows `reactNativeArchitectures` now, which is a second job but the
+  same reason: Expo's template asks for 32-bit `x86` and the Brain does not
+  build it (emulator-only, negligible device share, `x86_64` covers the
+  emulator), so a default `run:android` died at `configureCMakeDebug[x86]`.
+  `android/gradle.properties` is the wrong place to fix that — gitignored *and*
+  rewritten by every `prebuild` — so the plugin intersects the app's list with
+  what `native/libs/android/` actually holds, reading the directory rather than
+  hardcoding so a differently-built Brain is respected.
+  What is left: a bare RN app has no plugin system, so it needs the two build
+  steps documented by hand and checked — and, now, the ABI list too, which is
+  why `CMakeLists.txt` tells "does not ship this slice" apart from "not
+  installed" and names the `-P` escape.
 - ✅ **Package name decided: `react-native-spritestudio`** (was
   `@spritestudio/react-native-ssplayer`; the directory moved to
   `packages/react-native-spritestudio/` with it). The old name's problem was that

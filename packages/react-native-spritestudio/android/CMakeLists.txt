@@ -11,6 +11,19 @@ set(NATIVE_DIR "${PACKAGE_ROOT}/native")
 # than with an unresolved-symbol wall at link time.
 set(SSRUNTIME_LIB "${NATIVE_DIR}/libs/android/${ANDROID_ABI}/libssruntime.a")
 if(NOT EXISTS "${SSRUNTIME_LIB}")
+  # Two very different causes, and the message has to tell them apart: the SDK
+  # is not installed at all, or it is installed and simply does not build this
+  # ABI. 32-bit `x86` is the second — emulator-only, no meaningful device share,
+  # and `x86_64` already covers the emulator — but it is in Expo's default
+  # `reactNativeArchitectures`, so an app reaches it without ever asking.
+  if(EXISTS "${NATIVE_DIR}/libs/android")
+    message(FATAL_ERROR
+      "The SpriteStudio runtime does not ship a ${ANDROID_ABI} slice.\n"
+      "Drop it from `reactNativeArchitectures` in android/gradle.properties, or pass\n"
+      "    ./gradlew <task> -PreactNativeArchitectures=arm64-v8a,x86_64\n"
+      "(An Expo app using the config plugin has this removed for it at prebuild.)\n"
+      "Expected at: ${SSRUNTIME_LIB}")
+  endif()
   message(FATAL_ERROR
     "libssruntime.a for ${ANDROID_ABI} is missing.\n"
     "Install it first with either:\n"
