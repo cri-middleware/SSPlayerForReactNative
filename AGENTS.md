@@ -308,7 +308,7 @@ build=release` when working on it).
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
-| Renders correctly | The **Player** screen must draw Ringo upright with its texture — apple on head, face, body — and animate |
+| Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
 | Measurement | Open the **Bench** screen with `AUTO_SWEEP = true`; the results table appears in-app |
 
 ## Render recipe (Normal kind, variant (c))

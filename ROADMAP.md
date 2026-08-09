@@ -139,8 +139,9 @@ Make one character animate correctly, on both platforms, through the real API.
   `SSPLAYER_ENABLE_SKIA_DIRECT` there is no (c) to measure.
 - ☐ Scope: Normal parts, normal blending, reference-layout `.ssab`.
 
-**Exit criteria:** Ringo animates correctly from `<SpriteStudioView>` on an iOS
-device and an Android device, at 60 fps, with no leaked native handles.
+**Exit criteria:** `overall/Basic` animates correctly from `<SpriteStudioView>`
+on an iOS device and an Android device, at 60 fps, with no leaked native
+handles.
 
 ---
 
