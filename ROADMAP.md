@@ -128,6 +128,23 @@ Make one character animate correctly, on both platforms, through the real API.
   no directory for the atlas to be a sibling of, and `example/` had to supply
   its reference pack's texture by hand. The `textures` prop is now for
   *replacing* a texture, not for making a pack draw.
+- ✅ **Make `dispose()` actually dispose, and make the leak check runnable.**
+  The exit criterion below asks for "no leaked native handles" and there was
+  nothing behind it — no way to observe a handle, and, it turned out, a teardown
+  that did not happen. Nitro's `HybridObject::dispose()` is a virtual **no-op**:
+  it calls the (empty) hook and strips the JS object's NativeState, leaving the
+  C++ object to the collector. Neither `HybridSsResource` nor `HybridSsContext`
+  overrode it, so every `dispose()` L2/L3/L4 make a point of calling — on
+  unmount, on a superseded load, on a re-`load()` — released no Brain handle at
+  the moment it was called, and four separate comments claiming "explicit
+  teardown, never GC" described something that was not happening. Both hybrids
+  now override it; `release()` is guarded on the handle so dispose-then-destruct
+  frees exactly once, and the context bumps `generation_` on the way out because
+  teardown invalidates outstanding borrows the same way `update()` does.
+  `SsRuntime.liveHandles` (two atomic counters) and `ssCheckForLeaks()` are the
+  instrument: load and dispose N times, and both counts must return to baseline.
+  The comparison can be exact *because* the release is now eager — before the
+  override there was no way to tell a leak from a GC that had not run yet.
 - 🕒 **Free an embedded atlas after decoding.** Blocked on the Brain: the encoded
   bytes sit inside the same contiguous FlatBuffer `ss_resource_create_copy` holds
   for the resource's life, so embedded permanently costs one encoded atlas on top
@@ -154,6 +171,16 @@ Make one character animate correctly, on both platforms, through the real API.
 **Exit criteria:** `overall/Basic` animates correctly from `<SpriteStudioView>`
 on an iOS device and an Android device, at 60 fps, with no leaked native
 handles.
+
+Of these, **only "on a device" is still outstanding.** "No leaked native handles"
+is closed on both platforms — an iOS 26.5 simulator and an `sdk_gphone64_arm64`
+emulator both report `clean after 8 cycles — resources 1→1, contexts 1→1`. Both
+were checked against a **negative control first**, because `1→1` is also exactly
+what a *frozen* counter prints: holding three undisposed players takes the counts
+to `4/4`, and disposing them returns them to `1/1` **in the same tick**, which is
+the evidence that the release is eager rather than a GC that happened to run.
+Without that control the check proves nothing — the same trap as `verts` holding
+constant across the Phase 0 sweep while nothing was actually playing.
 
 ---
 

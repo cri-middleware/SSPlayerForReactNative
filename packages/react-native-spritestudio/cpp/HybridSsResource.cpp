@@ -1,5 +1,6 @@
 #include "HybridSsResource.hpp"
 
+#include <atomic>
 #include <cstdio>
 #include <stdexcept>
 #include <vector>
@@ -9,6 +10,14 @@
 namespace margelo::nitro::ssplayer {
 
 namespace {
+
+/// Live instances, for `SsRuntime.liveHandles`.
+///
+/// Relaxed ordering: this is a diagnostic counter, not a synchronisation point.
+/// Nothing reads it to decide whether a handle is safe to touch — it is read to
+/// compare against a baseline taken on the same thread — so the only guarantee
+/// it needs is that the increments and decrements do not tear.
+std::atomic<int32_t> gLiveResources{0};
 
 std::vector<uint8_t> ReadWholeFile(const std::string& path) {
   std::FILE* file = std::fopen(path.c_str(), "rb");
@@ -48,6 +57,10 @@ HybridSsResource::HybridSsResource(const uint8_t* bytes, size_t byteLength,
   adopt(bytes, byteLength, origin);
 }
 
+int32_t HybridSsResource::liveCount() noexcept {
+  return gLiveResources.load(std::memory_order_relaxed);
+}
+
 void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
                              const std::string& origin) {
   // `_copy` rather than `_borrow`: the Brain then owns the only copy that has
@@ -60,15 +73,30 @@ void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
                              "' — is it a .ssab from a matching SDK version?");
   }
   byteLength_ = byteLength;
+  // Counted here rather than on entry to the constructor: everything above can
+  // throw, and a constructor that throws never runs a destructor, so an earlier
+  // increment would strand a count that no release ever balances — a leak check
+  // that reports leaks of its own.
+  gLiveResources.fetch_add(1, std::memory_order_relaxed);
 }
 
-HybridSsResource::~HybridSsResource() {
-  if (resource_ != nullptr) {
-    // Safe even while contexts are still bound: the Brain refcounts internally
-    // (see ss_runtime_bind_resource's "Lifetime Safety" note).
-    ss_resource_destroy(resource_);
-    resource_ = nullptr;
-  }
+void HybridSsResource::release() noexcept {
+  if (resource_ == nullptr) return;
+  // Safe even while contexts are still bound: the Brain refcounts internally
+  // (see ss_runtime_bind_resource's "Lifetime Safety" note). That is what makes
+  // an eager `dispose()` safe to expose at all — releasing here cannot pull the
+  // `.ssab` out from under a context that is still playing it.
+  ss_resource_destroy(resource_);
+  resource_ = nullptr;
+  // Handle gone means nothing is loaded, and `byteLength` describes what is
+  // loaded. Keeping the old size would leave the only two observable properties
+  // disagreeing about whether this resource still exists.
+  byteLength_ = 0;
+  gLiveResources.fetch_sub(1, std::memory_order_relaxed);
 }
+
+void HybridSsResource::dispose() { release(); }
+
+HybridSsResource::~HybridSsResource() { release(); }
 
 }  // namespace margelo::nitro::ssplayer

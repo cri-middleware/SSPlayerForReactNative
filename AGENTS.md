@@ -10,7 +10,10 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > **Phase 1 is done bar a real device; Phase 2 has started.** All four layers
 > exist and `<SpriteStudioView>` plays an animation on **both** iOS and Android
 > (simulator and emulator — **no physical device has ever been tried**, which is
-> the one thing keeping Phase 1 open). Scope is Normal parts, now with the full
+> the one thing keeping Phase 1 open — the exit criteria's other half, "no
+> leaked native handles", is now closed and, more to the point, *checkable*:
+> `SsRuntime.liveHandles` + `ssCheckForLeaks()`, which found that `dispose()` had
+> never actually released anything). Scope is Normal parts, now with the full
 > framebuffer **blend table** (`cpp/SsBlend.hpp`) — still no masks, effects,
 > PartColor, Mesh/Shape, events, part overrides or Reanimated integration. Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
@@ -22,7 +25,10 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 * Keep changes scoped to the request; read callers/invariants before editing.
 * **Do not commit or push unless the user explicitly asks.**
 * Never hand-edit `packages/react-native-spritestudio/nitrogen/` — change the spec
-  and run `npm run generate-nitro-code`.
+  and run `npm run generate-nitro-code`. If that run says it **added** a file (a
+  new struct gets its own header), `pod install` / a Gradle sync has to follow or
+  the next build fails on a missing header that is sitting right there —
+  `expo run:ios` does not always re-run it for you.
 * After editing TypeScript, typecheck (see [Verification](#verification)).
   After touching `framedata.fbs` or the FrameData read path, run
   `npm run check-framedata`.
@@ -101,7 +107,7 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `src/runtime.ts` | The L1 module singleton. Its own file so `core/` can reach it without importing the barrel. |
 | `src/core/` | **L2, and the react-free boundary.** `SsInternalPlayer`, `SsTextureRegistry`, and the playback/root-transform vocabulary both L2 and L3 name. |
 | `src/core/assets.ts` | **The one place a sibling reference becomes something openable.** `schemeOf` / `resolveAgainst` — used by textures today, by Instance and `.ssqb` next. |
-| `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (what an `SsSource` is, and which L1 door each kind opens). |
+| `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (what an `SsSource` is, and which L1 door each kind opens) + `leakCheck.ts`, which drives the same load/dispose path a mount/unmount does and compares `SsRuntime.liveHandles` either side. |
 | `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
 | `src/index.ts` | Public exports, layer by layer. The batch-layout constants went with the bench — nothing in JS walks batches now. |
 | `plugin/withSpriteStudio.js` + `app.plugin.js` | Expo config plugin: copies the pack directories into the app as native assets, every build, on both platforms. Plain CommonJS — Expo requires it during `prebuild`, unbuilt. |
@@ -267,8 +273,27 @@ later `download-sdk` correctly replaces a local build.
 * **Every ArrayBuffer handed to JS is a borrow that the next `update()`
   invalidates** (design doc ch.9 F). Two separate things can dangle: the Brain's
   SoA/FrameData, and this module's own vectors. `generation` is stamped into
-  every returned struct — compare it before reading. Nitro's built-in
-  `dispose()` is the explicit teardown; never wait for GC.
+  every returned struct — compare it before reading. `dispose()` is the explicit
+  teardown; never wait for GC — but see the next entry for what that took.
+* **Nitro's `dispose()` does nothing unless the C++ class overrides it.**
+  `HybridObject::dispose()` is a virtual **no-op**; `disposeRaw` calls it and
+  then strips the JS object's NativeState, leaving the C++ object to the
+  collector. So inheriting the method buys nothing, and for a whole phase every
+  `dispose()` the layers above make a point of calling released no Brain handle
+  at the moment it was called — the `.ssab` and its context simply stayed
+  resident until a GC that JS never promises to run. Both hybrids now override
+  it, `release()` is guarded on the handle so dispose-then-destruct frees once,
+  and `HybridSsContext::release()` bumps `generation_` because teardown
+  invalidates outstanding borrows exactly the way an `update()` does. Order
+  inside it is load-bearing: destroy the Brain context **before** dropping the
+  resource `shared_ptr`, since the context is bound to that resource.
+* **`SsRuntime.liveHandles` is what makes "no leaked native handles" checkable.**
+  Two atomic counters, incremented at the *end* of each constructor — everything
+  above the increment can throw, and a constructor that throws runs no
+  destructor, so an earlier one would strand a count and the leak check would
+  report leaks of its own. `ssCheckForLeaks()` loads and disposes N times and
+  compares; the comparison is exact only because `dispose()` releases eagerly,
+  which is precisely what the entry above fixed.
 * **Per-kind geometry differs**: Normal & Shape verts are **local** (apply the
   world matrix); **Mesh & Effect verts are world-space** (do not). Effect UVs
   are normalised 0..1 and need scaling back up.
@@ -350,7 +375,10 @@ later `download-sdk` correctly replaces a local build.
 * **Nitro passes struct parameters by value** unless the `CustomType` sets
   `canBePassedByReference`. A `const T&` override silently fails to override.
 * **Nitro's `HybridObject` already defines `dispose()`** — redeclaring it in a
-  spec is a hard nitrogen error.
+  spec is a hard nitrogen error. Overriding it in the *C++ class* is not only
+  allowed but required, and the two are easy to conflate: the spec must stay
+  silent about disposal while `HybridSsResource`/`HybridSsContext` must each
+  implement it. See the `dispose()` no-op trap above.
 * **The RN Skia unwrap is version-sensitive, and 2.11 already broke it once.**
   RN Skia 2.11 moved its API objects off `jsi::HostObject` onto the
   `jsi::NativeState` pattern (`JsiSkNativeObject`), so `asHostObject<JsiSkCanvas>`
@@ -390,6 +418,7 @@ build=release` when working on it).
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. That pack has no embedded atlas, so if `common.png` were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. |
+| No leaked native handles | On the **Player** screen press **Leak check**: 8 load/dispose cycles, and both counts in the readout above it must come back to where they started. Toggling *Animation* or *Textures* is the same check by hand — the counts must dip and return, not climb. Exact because `dispose()` releases eagerly; a count that stays high is a leak, not a pending GC. **`1→1` is also what a frozen counter prints**, so if you are changing this path, first confirm the counts *move*: hold N undisposed players, watch them reach `1+N`, then dispose and watch them return in the same tick. |
 | Measurement | The harness is retired — `docs/phase0-spike.md` records the numbers. Re-measuring means restoring `example/src/bench/` and the `getSoA`/`getPlan`/`bake` spec surface from git history, and doing it in **release on both sides** |
 
 ## Render recipe (Normal kind)

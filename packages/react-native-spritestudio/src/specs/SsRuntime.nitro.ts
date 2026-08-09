@@ -22,6 +22,9 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
  * Disposal is not declared here: every Nitro `HybridObject` already carries a
  * `dispose()` (nitrogen rejects redeclaring it), and that is the explicit
  * teardown ch.9 F asks for — L3 calls it on unmount rather than waiting for GC.
+ * Note that inheriting the method is only half of it: Nitro's
+ * `HybridObject::dispose()` is a **no-op unless the C++ class overrides it**, so
+ * both implementations here do, and `SsRuntime.liveHandles` is what proves it.
  */
 
 /**
@@ -98,6 +101,32 @@ export interface SsTextureInfo {
    * contiguous FlatBuffer the Brain holds, so it cannot be freed on its own.
    */
   embedded: ArrayBuffer
+}
+
+/**
+ * How many native handles are alive right now — the leak check, made observable.
+ *
+ * Phase 1's exit criteria ask for "no leaked native handles", which was an
+ * assertion with nothing behind it until this existed: a handle that outlives
+ * its player has no symptom on the JS side at all. It shows up as memory the
+ * Brain never gives back, which on a simulator is invisible and on a device is
+ * a crash several minutes later.
+ *
+ * A count, not a byte total, because that is what can be checked exactly: run a
+ * load/dispose cycle N times and both numbers must come back to where they
+ * started. Anything else is a leak, and *which* number stayed high says where —
+ * a stuck `contexts` is a player that was not disposed, a stuck `resources` with
+ * `contexts` back at baseline is a `.ssab` released out of order.
+ *
+ * Counted on the C++ side rather than in TypeScript on purpose: the whole
+ * question is whether the native object went away, and only the native
+ * destructor knows that.
+ */
+export interface SsLiveHandles {
+  /** Live `SsResource`s — one per loaded `.ssab` that has not been released. */
+  resources: number
+  /** Live `SsContext`s — one per player that has not been released. */
+  contexts: number
 }
 
 /** A loaded `.ssab`. Shareable across contexts; the Brain refcounts it internally. */
@@ -268,6 +297,16 @@ export interface SsRuntime
    * up" into a different message from "that pack is not in the app".
    */
   readonly hasAssetDirectory: boolean
+
+  /**
+   * Live native handles right now — see `SsLiveHandles`.
+   *
+   * Cheap enough to poll: two relaxed atomic loads, no lock and no walk. It is
+   * a diagnostic rather than something an app should branch on, but it is on the
+   * shipping surface deliberately — a leak check that only exists in a debug
+   * build cannot be run on the device where leaks actually matter.
+   */
+  readonly liveHandles: SsLiveHandles
 
   /**
    * Reads the file natively and hands the bytes straight to the Brain.

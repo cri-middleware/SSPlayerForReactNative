@@ -38,6 +38,16 @@ export {
   sourceUriOf,
   type SsSource,
 } from './player/source'
+/**
+ * The leak check. Ships rather than living in the example app, because the
+ * platform where a leaked handle actually costs anything is a device, and a
+ * check that only exists in this repo cannot be run there.
+ */
+export {
+  ssCheckForLeaks,
+  ssLiveHandles,
+  type SsLeakCheckResult,
+} from './player/leakCheck'
 
 // --- Layer 2 ---------------------------------------------------------------
 export { SsInternalPlayer } from './core/SsInternalPlayer'
@@ -74,6 +84,7 @@ export { SsTexWrapMode, SsTexFilterMode } from './specs/SsRuntime.nitro'
 export type {
   SsRuntime,
   SsContext,
+  SsLiveHandles,
   SsResource,
   SsTextureBinding,
   SsTextureInfo,

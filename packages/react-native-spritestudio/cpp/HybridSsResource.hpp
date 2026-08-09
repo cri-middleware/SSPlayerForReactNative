@@ -29,13 +29,32 @@ class HybridSsResource final : public HybridSsResourceSpec {
 
   double getByteLength() override { return static_cast<double>(byteLength_); }
 
-  /// The Brain-side handle, for `HybridSsContext` to bind. Null after dispose.
+  /// Releases the Brain-side resource **now**, instead of whenever JS gets round
+  /// to collecting this object.
+  ///
+  /// Overriding is not optional. Nitro's `HybridObject::dispose()` is a virtual
+  /// **no-op** (`HybridObject.hpp`) — the base class only strips the JS object's
+  /// NativeState and leaves the C++ object to the collector. Without this
+  /// override every `dispose()` the layers above make a point of calling would
+  /// release nothing at that moment, and the `.ssab`'s bytes would sit in the
+  /// Brain until a GC that JS never promises to run. Idempotent; the destructor
+  /// runs the same release.
+  void dispose() override;
+
+  /// The Brain-side handle, for `HybridSsContext` to bind. Null once released.
   void* handle() const noexcept { return resource_; }
+
+  /// Instances currently holding a Brain handle. Backs `SsRuntime.liveHandles`.
+  static int32_t liveCount() noexcept;
 
  private:
   /// Hands `bytes` to the Brain and stores the handle, or throws naming
   /// `origin`. Both constructors funnel through here.
   void adopt(const uint8_t* bytes, size_t byteLength, const std::string& origin);
+
+  /// The one place the handle is given back. Guarded on the handle so the
+  /// dispose-then-destruct path releases once and decrements once.
+  void release() noexcept;
 
   size_t byteLength_ = 0;
   void* resource_ = nullptr;

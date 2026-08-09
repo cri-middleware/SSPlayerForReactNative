@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -35,6 +36,23 @@ class HybridSsContext final : public HybridSsContextSpec {
  public:
   explicit HybridSsContext(const std::shared_ptr<HybridSsResource>& resource);
   ~HybridSsContext() override;
+
+  /// Tears the player down **now**, instead of whenever JS collects this object.
+  ///
+  /// Nitro's `HybridObject::dispose()` is a virtual no-op unless overridden, so
+  /// without this a `<SpriteStudioView>` unmount would leave the Brain context —
+  /// and, through `resource_`, the whole `.ssab` — alive until a GC that JS never
+  /// promises to run. Mounting and unmounting a screen a few times would then
+  /// hold several packs at once.
+  ///
+  /// Also the moment every outstanding borrow dies: `generation_` is bumped, so
+  /// JS holding an ArrayBuffer from a previous frame sees the same staleness it
+  /// would see after an `update()` rather than reading freed memory.
+  /// Idempotent; the destructor runs the same release.
+  void dispose() override;
+
+  /// Instances currently holding a Brain context. Backs `SsRuntime.liveHandles`.
+  static int32_t liveCount() noexcept;
 
   double getPartCount() override { return static_cast<double>(partCount_); }
   double getGeneration() override { return static_cast<double>(generation_); }
@@ -84,6 +102,11 @@ class HybridSsContext final : public HybridSsContextSpec {
   /// Cheap (two pointers), so the load-time metadata queries just build one each
   /// rather than caching a parse nothing else needs.
   sscore::SsAnimeBinaryView ssab() const;
+
+  /// The one place the Brain context is given back, and the borrowed pointers
+  /// with it. Guarded on `ctx_` so dispose-then-destruct releases once and
+  /// decrements once.
+  void release() noexcept;
 
   /// Re-reads the playhead from the Brain and republishes the frame.
   ///

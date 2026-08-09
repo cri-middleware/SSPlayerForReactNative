@@ -59,6 +59,14 @@ bool HybridSsRuntime::getHasAssetDirectory() {
   return ::ssplayer::SsAssets::isAvailable();
 }
 
+SsLiveHandles HybridSsRuntime::getLiveHandles() {
+  // Read from the two classes that own the handles rather than tracked here:
+  // this object is a stateless factory, and a count it maintained itself would
+  // be a second answer that could disagree with the destructors.
+  return SsLiveHandles(static_cast<double>(HybridSsResource::liveCount()),
+                       static_cast<double>(HybridSsContext::liveCount()));
+}
+
 std::shared_ptr<HybridSsContextSpec> HybridSsRuntime::createContext(
     const std::shared_ptr<HybridSsResourceSpec>& resource) {
   // The spec types the parameter as the *interface*, but only our own concrete

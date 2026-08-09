@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native'
 import {
   SpriteStudioView,
+  ssCheckForLeaks,
+  ssLiveHandles,
   type SpriteStudioViewRef,
 } from 'react-native-spritestudio'
 
@@ -74,6 +76,63 @@ export function PlayerScreen() {
   const [flipX, setFlipX] = useState(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [error, setError] = useState<string | null>(null)
+  const [leak, setLeak] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
+
+  const source = `${PACKS[mode]}/${ssab}.ssab`
+
+  // Polled rather than pushed: the counts change in C++ destructors, which have
+  // nothing to notify from. Two relaxed atomic loads a second is not a cost, and
+  // watching them live is what makes the pack/animation toggles above double as
+  // a leak check — switch either and both numbers must come straight back down.
+  //
+  // The poll keeps the *previous* object when nothing changed, which matters
+  // more than it looks: returning a fresh one each tick would re-render this
+  // screen twice a second, and a frame here is meant to cost no React render at
+  // all. Handle counts move on load and teardown, so in a steady state this
+  // settles to zero renders.
+  const [live, setLive] = useState(() => ssLiveHandles())
+  useEffect(() => {
+    const id = setInterval(() => {
+      setLive((prev) => {
+        const next = ssLiveHandles()
+        return prev.resources === next.resources &&
+          prev.contexts === next.contexts
+          ? prev
+          : next
+      })
+    }, 500)
+    return () => clearInterval(id)
+  }, [])
+
+  const runLeakCheck = async () => {
+    setChecking(true)
+    setLeak(null)
+    try {
+      const result = await ssCheckForLeaks(source, {
+        cycles: 8,
+        animation: ANIMATION,
+      })
+      // Both numbers, not just the verdict: which one stayed high says where the
+      // leak is — a stuck context is a player that was never disposed, a stuck
+      // resource with contexts back at baseline is a `.ssab` released out of
+      // order. The mounted player above is included in both readings, so the
+      // baseline is whatever it happens to be, not zero.
+      const line =
+        `${result.leaked ? 'LEAKED' : 'clean'} after ${result.cycles} cycles — ` +
+        `resources ${result.before.resources}→${result.after.resources}, ` +
+        `contexts ${result.before.contexts}→${result.after.contexts}`
+      setLeak(line)
+      // Also to the log, because on a real device reading a line off the screen
+      // is the awkward part of running this — `npx react-native log-ios` /
+      // `adb logcat` will carry it off the handset.
+      console.log(`[leak check] ${line}`)
+    } catch (e) {
+      setLeak(`leak check failed: ${String(e)}`)
+    } finally {
+      setChecking(false)
+    }
+  }
 
   const onLayout = (event: LayoutChangeEvent) => {
     setSize(event.nativeEvent.layout)
@@ -91,7 +150,7 @@ export function PlayerScreen() {
           <SpriteStudioView
             ref={ref}
             style={StyleSheet.absoluteFill}
-            source={`${PACKS[mode]}/${ssab}.ssab`}
+            source={source}
             animation={ANIMATION}
             playing={playing}
             speed={speed}
@@ -140,6 +199,20 @@ export function PlayerScreen() {
             </Choice>
           ))}
         </View>
+
+        <Text style={styles.label}>
+          {`Native handles — resources ${live.resources}, contexts ${live.contexts}`}
+        </Text>
+        <View style={styles.row}>
+          <Choice active={checking} onPress={runLeakCheck}>
+            {checking ? 'Checking…' : 'Leak check'}
+          </Choice>
+        </View>
+        {leak != null && (
+          <Text style={leak.startsWith('clean') ? styles.ok : styles.error}>
+            {leak}
+          </Text>
+        )}
       </View>
     </View>
   )
@@ -177,4 +250,5 @@ const styles = StyleSheet.create({
   choiceText: { color: '#c7c7cc', fontSize: 14 },
   choiceTextActive: { color: '#fff', fontWeight: '600' },
   error: { color: '#ff6961', fontSize: 13 },
+  ok: { color: '#30d158', fontSize: 13 },
 })

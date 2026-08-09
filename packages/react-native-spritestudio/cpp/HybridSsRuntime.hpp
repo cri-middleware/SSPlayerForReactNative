@@ -25,6 +25,7 @@ class HybridSsRuntime final : public HybridSsRuntimeSpec {
 
   std::shared_ptr<ArrayBuffer> readAsset(const std::string& path) override;
   bool getHasAssetDirectory() override;
+  SsLiveHandles getLiveHandles() override;
 
   double hashString(const std::string& value) override;
 };

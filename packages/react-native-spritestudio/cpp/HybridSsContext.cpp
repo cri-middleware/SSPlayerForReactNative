@@ -2,6 +2,7 @@
 
 #include <NitroModules/ArrayBuffer.hpp>
 
+#include <atomic>
 #include <stdexcept>
 
 #include "ssruntime.h"
@@ -10,6 +11,11 @@
 namespace margelo::nitro::ssplayer {
 
 namespace {
+
+/// Live instances, for `SsRuntime.liveHandles`. Relaxed for the same reason as
+/// the resource counter: a diagnostic compared against a baseline, never a
+/// decision about whether a pointer is safe to follow.
+std::atomic<int32_t> gLiveContexts{0};
 
 /// Wraps native memory in an ArrayBuffer **without copying and without taking
 /// ownership** — the borrow semantics of ch.9 F, made explicit.
@@ -49,14 +55,51 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // Direct is the mode the SoA + DrawBatch contract is defined against; it also
   // stops the Brain serializing vertices/cells/deforms we never read.
   ss_runtime_set_render_mode(ctx_, 0);
+  // Last, after everything that can throw — a constructor that throws runs no
+  // destructor, so an earlier increment would never be balanced.
+  gLiveContexts.fetch_add(1, std::memory_order_relaxed);
 }
 
-HybridSsContext::~HybridSsContext() {
-  if (ctx_ != nullptr) {
-    ss_runtime_destroy(ctx_);
-    ctx_ = nullptr;
-  }
+int32_t HybridSsContext::liveCount() noexcept {
+  return gLiveContexts.load(std::memory_order_relaxed);
 }
+
+void HybridSsContext::release() noexcept {
+  if (ctx_ == nullptr) {
+    // Nothing of ours to give back, but a constructor that threw after taking
+    // the resource can still leave the shared_ptr held. Dropping it here keeps
+    // "released" meaning the same thing on every path.
+    resource_.reset();
+    return;
+  }
+
+  ss_runtime_destroy(ctx_);
+  ctx_ = nullptr;
+
+  // Every one of these is a borrow reached *through* the context — the Brain's
+  // FrameData and its SoA arrays — so they are dangling the instant it is gone.
+  // Cleared rather than left, because the guards below test the pointer.
+  frame_ = nullptr;
+  soa_ = {};
+  partCount_ = 0;
+  frameNo_ = 0.0f;
+  // Same signal an `update()` gives: anything JS is still holding from an
+  // earlier frame is stale now. JS has one rule to follow, not a special case
+  // for teardown.
+  ++generation_;
+
+  gLiveContexts.fetch_sub(1, std::memory_order_relaxed);
+
+  // Dropped last, and deliberately after `ss_runtime_destroy`: the context is
+  // bound to this resource, so the `.ssab` has to still be there while the
+  // Brain unwinds it. This is also the release that makes the resource's own
+  // refcount reach zero when the player owned the only reference.
+  resource_.reset();
+}
+
+void HybridSsContext::dispose() { release(); }
+
+HybridSsContext::~HybridSsContext() { release(); }
 
 bool HybridSsContext::setupAnimation(const std::string& name) {
   if (ctx_ == nullptr) return false;
@@ -239,6 +282,11 @@ std::vector<std::string> HybridSsContext::getAnimationNames() {
 }
 
 void HybridSsContext::refreshFrame() {
+  // Every caller guards already, but `release()` can now run at any time JS
+  // chooses rather than only at destruction, so the invariant is stated here
+  // too instead of resting on all of them staying correct.
+  if (ctx_ == nullptr) return;
+
   unsigned char* fdPtr = nullptr;
   size_t fdLen = 0;
   ss_runtime_get_frame_data(ctx_, frameNo_, &fdPtr, &fdLen);
@@ -268,6 +316,11 @@ double HybridSsContext::drawInto(SkCanvasHandle canvas,
         "SsContext.drawInto: this build has no direct Skia drawing "
         "(SSPLAYER_ENABLE_SKIA_DIRECT=0) — there is no other way to draw.");
   }
+  // After the build check, so a misconfigured build still says so rather than
+  // being masked by a disposed player. Drawing nothing matches every other
+  // method here; the alternative is baking from `frame_`/`soa_` pointers that
+  // `release()` has already invalidated.
+  if (ctx_ == nullptr) return 0.0;
   if (textures.empty()) return 0.0;
 
   // Repack rather than pass the Nitro structs through: SsSkiaDraw is shared with

@@ -13,12 +13,15 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
+// Forward declaration of `SsLiveHandles` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsLiveHandles; }
 // Forward declaration of `HybridSsResourceSpec` to properly resolve imports.
 namespace margelo::nitro::ssplayer { class HybridSsResourceSpec; }
 // Forward declaration of `HybridSsContextSpec` to properly resolve imports.
 namespace margelo::nitro::ssplayer { class HybridSsContextSpec; }
 
 #include <string>
+#include "SsLiveHandles.hpp"
 #include <memory>
 #include "HybridSsResourceSpec.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
@@ -53,6 +56,7 @@ namespace margelo::nitro::ssplayer {
       // Properties
       virtual std::string getVersion() = 0;
       virtual bool getHasAssetDirectory() = 0;
+      virtual SsLiveHandles getLiveHandles() = 0;
 
     public:
       // Methods
