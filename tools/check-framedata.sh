@@ -64,10 +64,20 @@ echo "==> building host libssruntime"
 ( cd "$SDK_DIR" && cargo build -q -p ssruntime --features libc_alloc,panic-handler )
 
 echo "==> compiling ssbake_check"
+# `native/include` is cbindgen's `ssruntime.h`: the effect slots are a C-API
+# client, and both this program and `cpp/SsEffect.cpp` include the real header
+# rather than re-declaring the subset they use. That does tie the check to a
+# `download-sdk` / `build-runtime` having run — which linking already did.
+NATIVE_INCLUDE="$ROOT_DIR/packages/react-native-spritestudio/native/include"
+[ -f "$NATIVE_INCLUDE/ssruntime.h" ] || {
+  echo "check-framedata.sh: $NATIVE_INCLUDE/ssruntime.h not found — run: npm run download-sdk" >&2
+  exit 1
+}
 clang++ -std=c++17 -O1 -g -fsanitize=address,undefined \
-  -I"$FB_INCLUDE" \
+  -I"$FB_INCLUDE" -I"$NATIVE_INCLUDE" \
   "$SCRIPT_DIR/ssbake_check.cpp" \
   "$ROOT_DIR/packages/react-native-spritestudio/cpp/SsBaker.cpp" \
+  "$ROOT_DIR/packages/react-native-spritestudio/cpp/SsEffect.cpp" \
   "$ROOT_DIR/packages/react-native-spritestudio/cpp/SsMask.cpp" \
   "$SDK_DIR/target/debug/libssruntime.a" \
   -o "$BUILD_DIR/ssbake_check"

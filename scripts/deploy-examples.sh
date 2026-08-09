@@ -59,6 +59,13 @@ PROJECTS=(
 # be per pack rather than once overall: the Player screen's texture toggle
 # applies to whichever subject is selected, so a pack with only one conversion
 # would make that toggle silently do nothing for it.
+#
+# `ParticleEffect` is the deliberate exception. Embedding bakes the atlas into
+# every `.ssab` that names it, and its two atlases are 1.9 MB and 2.8 MB across
+# 41 packs — roughly 150 MB of app assets, against 5.2 MB for the reference
+# conversion, to exercise a route the other two subjects already cover. The
+# Player screen disables the toggle for that subject and says why, rather than
+# offering it and pointing at a directory nothing produced.
 EMBEDDED_PROJECTS=(
     "overall|overall.sspj|overall-embedded"
     "Ringo|Ringo.sspj|Ringo-embedded"

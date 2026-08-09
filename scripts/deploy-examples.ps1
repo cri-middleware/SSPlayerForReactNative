@@ -54,6 +54,12 @@ $projects = @(
 # is the mode with a loading path to get wrong, and embedded is the one that is
 # self-contained everywhere. Keeping both means the example exercises both
 # branches of SsTextureLoader.
+#
+# ParticleEffect is the deliberate exception. Embedding bakes the atlas into
+# every .ssab that names it, and its two atlases are 1.9 MB and 2.8 MB across 41
+# packs - roughly 150 MB of app assets, against 5.2 MB for the reference
+# conversion, to exercise a route the other two subjects already cover. The
+# Player screen disables the toggle for that subject and says why.
 $embeddedProjects = @(
     @{ Dir = "overall"; Sspj = "overall.sspj"; Out = "overall-embedded" }
     @{ Dir = "Ringo"; Sspj = "Ringo.sspj"; Out = "Ringo-embedded" }

@@ -20,6 +20,28 @@ uint32_t WhiteWithAlpha(float alpha) {
   return (a << 24) | 0x00ffffffu;
 }
 
+/// One 0..1 channel as a byte, clamped.
+uint32_t Channel(float value) {
+  const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
+  return static_cast<uint32_t>(clamped * 255.0f + 0.5f);
+}
+
+/// The most vertices one batch may hold, since the index arrays are `uint16_t`.
+///
+/// An effect is the only kind that can approach this: a single emitter is one
+/// draw command, but a plan concatenates every emitter in the effect and this
+/// bake merges adjacent same-(cellmap, blend) commands into one batch. The cap
+/// is what stops that merge from producing an index it cannot express.
+constexpr uint32_t kMaxBatchQuads = 0xFFFFu / 4;
+
+/// A cellmap's authored size, or `{0, 0}` when the table does not name it.
+SsCellMapSize CellMapSizeFor(const SsEffectFrame& effects, uint32_t textureHash) {
+  for (size_t i = 0; i < effects.cellMapSizeCount; ++i) {
+    if (effects.cellMapSizes[i].textureHash == textureHash) return effects.cellMapSizes[i];
+  }
+  return {};
+}
+
 /// The batch fields that are a straight copy out of the FlatBuffer, with the
 /// geometry ranges left at zero for the caller to fill in.
 SsBatchDesc DescribeBatch(const ss::runtime::DrawBatch* batch) {
@@ -35,7 +57,8 @@ SsBatchDesc DescribeBatch(const ss::runtime::DrawBatch* batch) {
 
 }  // namespace
 
-void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
+void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                   const SsEffectFrame& effects) {
   batches_.clear();
   positions_.clear();
   texCoords_.clear();
@@ -62,6 +85,16 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
   batches_.reserve(batches->size());
 
   for (const ss::runtime::DrawBatch* batch : *batches) {
+    const auto kind = batch->kind();
+
+    // The one kind that owns its own descriptors — it can produce several, or
+    // none, where every other produces exactly one. Handled before `desc` is
+    // built so there is no half-filled descriptor to reconcile.
+    if (kind == ss::runtime::DrawBatchKind_Effect) {
+      bakeEffectBatch(fd, soa, batch, effects, partStateCount, drawOrder, drawOrderCount);
+      continue;
+    }
+
     SsBatchDesc desc = DescribeBatch(batch);
     desc.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
     desc.indexOffset = static_cast<int32_t>(indices_.size());
@@ -70,10 +103,11 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
     // Normal and Mask: both are one textured quad per part off the same local
     // verts, so one loop bakes them and only the draw path tells them apart — a
     // Mask batch's quads write coverage instead of colour (`SsMask.hpp`).
-    // Note the per-kind difference the remaining kinds will have to respect:
-    // Normal and Shape verts are *local* and need the world matrix, while Mesh
-    // and Effect arrive in world space already and must not be transformed again.
-    const auto kind = batch->kind();
+    // Note the per-kind difference the remaining kinds have to respect: Normal
+    // and Shape verts are *local* and need the world matrix, while a Mesh's
+    // arrive in world space already and must not be transformed again. An
+    // effect is a third case — its particles are in the effect's own simulation
+    // space, so they do need the matrix (`bakeEffectBatch`).
     if (kind == ss::runtime::DrawBatchKind_Normal || kind == ss::runtime::DrawBatchKind_Mask) {
       for (uint32_t k = 0; k < batch->count(); ++k) {
         const uint32_t rank = static_cast<uint32_t>(batch->start_rank()) + k;
@@ -223,6 +257,226 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
     info.indexCount = static_cast<int32_t>(i1 - i0);
     parts_.push_back(info);
   }
+}
+
+void SsBaker::bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                              const ss::runtime::DrawBatch* batch, const SsEffectFrame& effects,
+                              uint32_t partStateCount,
+                              const ::flatbuffers::Vector<uint16_t>* drawOrder,
+                              uint32_t drawOrderCount) {
+  if (!effects.active()) return;
+  const auto* parts = fd->parts();
+
+  for (uint32_t k = 0; k < batch->count(); ++k) {
+    const uint32_t rank = static_cast<uint32_t>(batch->start_rank()) + k;
+    if (rank >= drawOrderCount) break;
+    const uint32_t partIndex = drawOrder->Get(rank);
+
+    // No plan means the slot is dead, not yet started, or past its lifetime —
+    // the ordinary case, not an error. `step` writes null for all three.
+    if (partIndex >= effects.partCount) continue;
+    const uint8_t* planBuf = effects.planByPart[partIndex];
+    if (planBuf == nullptr) continue;
+    // The particles are in the effect's own simulation space, so the part's
+    // world matrix is what places them — no matrix, nothing to place them with.
+    if (partIndex >= soa.partCount || soa.worldMatrices == nullptr) continue;
+
+    const auto* plan = ss::runtime::GetEffectDrawPlan(planBuf);
+    const auto* commands = plan->commands();
+    if (commands == nullptr || commands->size() == 0) continue;
+
+    const float* m = soa.worldMatrices + static_cast<size_t>(partIndex) * 16;
+    // The particle colours already carry the emitter's own alpha; the part's
+    // hierarchical alpha rides on top, since the slot never sees it. No
+    // PartColor here — the SDK's non-goal list keeps shader parts off the
+    // Effect kind, and there is no quad to reconstruct a gradient across.
+    const ss::runtime::PartState* state =
+        (parts != nullptr && partIndex < partStateCount) ? parts->Get(partIndex) : nullptr;
+    const float partAlpha = state != nullptr ? state->alpha() : 1.0f;
+
+    const uint32_t commandCount = commands->size();
+    uint32_t i = 0;
+    while (i < commandCount) {
+      const ss::runtime::EffectDrawCommand* first = commands->Get(i);
+      // The runtime still emits a command for an emitter whose cell failed to
+      // resolve, with `quad_count == 0`. Skip before touching the cellmap.
+      if (first->quad_count() == 0) {
+        ++i;
+        continue;
+      }
+      const uint32_t cellmapHash = first->cellmap_hash();
+      const uint8_t blend = first->blend();
+
+      const SsCellMapSize size = CellMapSizeFor(effects, cellmapHash);
+      // Without the authored size there is no way back from the plan's
+      // normalised UVs to the texture pixels Skia samples in, and guessing one
+      // would sample an arbitrary region of the atlas. Skip the run instead.
+      if (!(size.width > 0.0f) || !(size.height > 0.0f)) {
+        ++i;
+        continue;
+      }
+
+      // §"Effect コマンドの動的バッチング": merge the maximal run of adjacent
+      // commands that share a cellmap and a blend, so a multi-emitter effect
+      // costs one draw call rather than one per emitter.
+      uint32_t quads = 0;
+      uint32_t j = i;
+      while (j < commandCount) {
+        const ss::runtime::EffectDrawCommand* c = commands->Get(j);
+        if (c->quad_count() == 0) break;
+        if (c->cellmap_hash() != cellmapHash || c->blend() != blend) break;
+        if (quads + c->quad_count() > kMaxBatchQuads) break;
+        quads += c->quad_count();
+        ++j;
+      }
+      // A single command over the whole budget: take what fits rather than drop
+      // the emitter outright. `ssbake_check` reports the peak quad count, which
+      // is where a truncation this deep would have to be noticed.
+      if (j == i) {
+        quads = kMaxBatchQuads;
+        j = i + 1;
+      }
+
+      SsBatchDesc desc = DescribeBatch(batch);
+      // The Brain leaves an Effect batch's `texture_hash` at 0 and its
+      // `blend_type` at the part's, neither of which is what an emitter draws
+      // with. Both come from the command instead. `blend` is the raw
+      // `EmitterState.blend_type` — 0 = Mix, 1 = Add — and **not** a `BlendType`,
+      // whose Add is 2; passing it straight through would render every additive
+      // emitter as Mul.
+      desc.textureHash = static_cast<int32_t>(cellmapHash);
+      desc.blendType = static_cast<int32_t>(blend == 1 ? ss::runtime::BlendType_Add
+                                                       : ss::runtime::BlendType_Mix);
+      // Narrowed to the one part this descriptor covers. The source batch's own
+      // range spans every effect part in it, and repeating that on each of the
+      // several descriptors it produces would make the ranges overlap.
+      desc.startRank = static_cast<int32_t>(rank);
+      desc.count = 1;
+      desc.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
+      desc.indexOffset = static_cast<int32_t>(indices_.size());
+      desc.partOffset = static_cast<int32_t>(parts_.size());
+
+      SsPartDraw info;
+      info.partIndex = partIndex;
+      info.drawRank = static_cast<int32_t>(rank);
+      info.vertexOffset = desc.vertexOffset;
+      info.indexOffset = desc.indexOffset;
+      // A cloud of particle quads, not one sprite quad: nothing downstream may
+      // invert its UV to place a gradient or a coverage sample.
+      info.quadShaped = false;
+
+      if (appendEffectRun(plan, i, j - i, quads, m, partAlpha, size.width, size.height)) {
+        info.vertexCount = static_cast<int32_t>(positions_.size() / 2) - info.vertexOffset;
+        info.indexCount = static_cast<int32_t>(indices_.size()) - info.indexOffset;
+        parts_.push_back(info);
+
+        desc.vertexCount = static_cast<int32_t>(positions_.size() / 2) - desc.vertexOffset;
+        desc.indexCount = static_cast<int32_t>(indices_.size()) - desc.indexOffset;
+        desc.partCount = 1;
+        batches_.push_back(desc);
+      }
+      i = j;
+    }
+  }
+}
+
+bool SsBaker::appendEffectRun(const ss::runtime::EffectDrawPlan* plan, uint32_t first,
+                              uint32_t commandCount, uint32_t quadBudget,
+                              const float* worldMatrix, float partAlpha, float texWidth,
+                              float texHeight) {
+  const auto* commands = plan->commands();
+  const auto* verts = plan->verts();
+  const auto* uvs = plan->uvs();
+  const auto* colors = plan->colors();
+  const auto* planIndices = plan->indices();
+  if (commands == nullptr || verts == nullptr || uvs == nullptr || colors == nullptr ||
+      planIndices == nullptr) {
+    return false;
+  }
+  // Read back rather than assumed: `step` asks for 2, and the plan reports what
+  // it actually packed.
+  const uint32_t stride = plan->vert_stride() == 3 ? 3u : 2u;
+
+  const float m0 = worldMatrix[0], m1 = worldMatrix[1];
+  const float m4 = worldMatrix[4], m5 = worldMatrix[5];
+  const float m12 = worldMatrix[12], m13 = worldMatrix[13];
+
+  // Relative to this batch, which is the space the index values downstream are
+  // read in — and it is also the running rebase across merged commands, whose
+  // own indices are 0-based within each command.
+  uint32_t base = 0;
+
+  for (uint32_t c = 0; c < commandCount && quadBudget > 0; ++c) {
+    const ss::runtime::EffectDrawCommand* cmd = commands->Get(first + c);
+    const uint32_t quads = cmd->quad_count() < quadBudget ? cmd->quad_count() : quadBudget;
+    if (quads == 0) continue;
+
+    const uint32_t vertexCount = quads * 4;
+    const uint32_t indexCount = quads * 6;
+    // In `size_t`, not `uint32_t`: `particle_offset` is a 32-bit count of quads
+    // and the strides multiply it, so a nonsense offset would wrap to a *small*
+    // number and sail through the bounds test below — which is the one test
+    // standing between a malformed plan and a read past the end of the buffer.
+    const size_t off = static_cast<size_t>(cmd->particle_offset()) * 4;
+    const size_t vOff = off * stride;
+    const size_t uOff = off * 2;
+    const size_t cOff = off * 4;
+    const size_t iOff = static_cast<size_t>(cmd->particle_offset()) * 6;
+
+    // A short buffer means the command and the arrays disagree; skip this one
+    // and keep the rest of the run rather than losing the whole effect.
+    if (vOff + static_cast<size_t>(vertexCount) * stride > verts->size() ||
+        uOff + static_cast<size_t>(vertexCount) * 2 > uvs->size() ||
+        cOff + static_cast<size_t>(vertexCount) * 4 > colors->size() ||
+        iOff + indexCount > planIndices->size()) {
+      continue;
+    }
+
+    // Validated whole *before* anything is written, so a corrupt command cannot
+    // leave a half-built quad behind in the shared arrays.
+    const auto iAt = static_cast<uint32_t>(iOff);
+    bool valid = true;
+    for (uint32_t n = 0; n < indexCount; ++n) {
+      const int32_t v = planIndices->Get(iAt + n);
+      if (v < 0 || static_cast<uint32_t>(v) >= vertexCount) {
+        valid = false;
+        break;
+      }
+    }
+    if (!valid) continue;
+
+    // Narrowed only now: the bounds test above proved each offset addresses a
+    // real element, and a FlatBuffers vector index is 32-bit.
+    const auto vAt = static_cast<uint32_t>(vOff);
+    const auto uAt = static_cast<uint32_t>(uOff);
+    const auto cAt = static_cast<uint32_t>(cOff);
+
+    for (uint32_t v = 0; v < vertexCount; ++v) {
+      const float x = verts->Get(vAt + v * stride);
+      const float y = verts->Get(vAt + v * stride + 1);
+      positions_.push_back(m0 * x + m4 * y + m12);
+      positions_.push_back(m1 * x + m5 * y + m13);
+
+      // Normalised 0..1 in the plan — the runtime divided by the cellmap's
+      // `size_original` — whereas `local_uvs` and `mesh_uvs` are already texture
+      // pixels. Scaling back up is what puts all three in one space.
+      texCoords_.push_back(uvs->Get(uAt + v * 2) * texWidth);
+      texCoords_.push_back(uvs->Get(uAt + v * 2 + 1) * texHeight);
+
+      const uint32_t o = cAt + v * 4;
+      const uint32_t a = Channel(colors->Get(o + 3) * partAlpha);
+      colors_.push_back((a << 24) | (Channel(colors->Get(o)) << 16) |
+                        (Channel(colors->Get(o + 1)) << 8) | Channel(colors->Get(o + 2)));
+    }
+    for (uint32_t n = 0; n < indexCount; ++n) {
+      indices_.push_back(static_cast<uint16_t>(base + planIndices->Get(iAt + n)));
+    }
+
+    base += vertexCount;
+    quadBudget -= quads;
+  }
+
+  return base > 0;
 }
 
 }  // namespace sscore

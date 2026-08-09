@@ -58,7 +58,14 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // Read once: these are PartData, so they are fixed for the life of the
   // resource. Re-reading them per frame would be the mistake the mask spec opens
   // by warning against — the animated `mask` / `hide` come from FrameData.
-  maskFlags_ = ssab().maskFlags();
+  // One view for both, not one each: building it runs a full `flatbuffers::
+  // Verifier` over the pack, which is worth paying once at load and not twice.
+  const sscore::SsAnimeBinaryView view = ssab();
+  maskFlags_ = view.maskFlags();
+  // Same reasoning as the flags, one kind further: the effect bindings are
+  // PartData too. The slots borrow `resource_`, which is why `release()`
+  // destroys them before it lets go of it.
+  effects_.bind(resource_->handle(), view);
   // Last, after everything that can throw — a constructor that throws runs no
   // destructor, so an earlier increment would never be balanced.
   gLiveContexts.fetch_add(1, std::memory_order_relaxed);
@@ -76,6 +83,11 @@ void HybridSsContext::release() noexcept {
     resource_.reset();
     return;
   }
+
+  // Before the context and before the resource: a slot was created against the
+  // resource and its plan buffer is the slot's own, so both are dangling the
+  // moment either goes.
+  effects_.release();
 
   ss_runtime_destroy(ctx_);
   ctx_ = nullptr;
@@ -113,7 +125,13 @@ bool HybridSsContext::setupAnimation(const std::string& name) {
   // stale. Bump the generation and republish.
   ++generation_;
   frameNo_ = 0.0f;
+  // A different animation has different `EventEffect` keys, so each slot's
+  // memory of the last key it started is about a timeline that no longer
+  // exists — without this the first key of the new animation is debounced as
+  // one already played and the effect never fires.
+  effects_.reset();
   refreshFrame();
+  stepEffects(0.0f, false);
   return true;
 }
 
@@ -124,6 +142,10 @@ double HybridSsContext::update(double dtMilliseconds) {
   frameNo_ = ss_runtime_update(ctx_, static_cast<float>(dtMilliseconds));
   ++generation_;
   refreshFrame();
+  // Read *after* the update: `is_looped` is cleared at the top of each one, so
+  // what it reports here is this tick's loop **edge**, which is what re-arms a
+  // synced effect. Read before, it would be the previous tick's.
+  stepEffects(static_cast<float>(dtMilliseconds), ss_runtime_is_looped(ctx_));
   return static_cast<double>(frameNo_);
 }
 
@@ -132,6 +154,21 @@ void HybridSsContext::resync() {
   frameNo_ = ss_runtime_get_frame_no(ctx_);
   ++generation_;
   refreshFrame();
+  // A seek moves the playhead with no time passing, so the slots are stepped
+  // with a zero delta: a synced effect re-derives its frame from the parent's
+  // and lands on the new pose, while an independent one ignores the parent
+  // frame and a zero delta leaves its own clock exactly where it was — which is
+  // what "independent" means. Not a loop edge, whatever the playhead did.
+  stepEffects(0.0f, false);
+}
+
+void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
+  if (ctx_ == nullptr || effects_.empty()) return;
+  // The *animation's* authored fps, which is what converts an independent
+  // slot's delta into frames — not the display's refresh rate.
+  const int32_t fps = ss_runtime_get_fps(ctx_);
+  effects_.step(ctx_, frameNo_, dtMilliseconds / 1000.0f,
+                fps > 0 ? static_cast<float>(fps) : 60.0f, looped);
 }
 
 // --- transport -------------------------------------------------------------
@@ -171,15 +208,22 @@ double HybridSsContext::getPlaybackStyle() {
   return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_playback_style(ctx_));
 }
 
+// Both of these are an explicit head-out — `play()` rewinds — so each slot's
+// "last key I started" memory has to go with it. Without the rewind the slot
+// debounces the animation's first `EventEffect` as the one it is already
+// playing, and a replayed animation never re-fires its effect.
+
 void HybridSsContext::play() {
   if (ctx_ == nullptr) return;
   ss_runtime_play(ctx_);
+  effects_.reset();
   resync();
 }
 
 void HybridSsContext::playFrom(double frameNo) {
   if (ctx_ == nullptr) return;
   ss_runtime_play_with_start_frame(ctx_, static_cast<float>(frameNo));
+  effects_.reset();
   resync();
 }
 
@@ -348,8 +392,10 @@ double HybridSsContext::drawInto(SkCanvasHandle canvas,
   }
 
   // Same bake as variant (b) — the difference measured here is purely what
-  // happens to the result, not how it is produced.
-  baker_.bake(frame_, soa_);
+  // happens to the result, not how it is produced. The effect plans ride
+  // alongside the SoA rather than in it: they are the slots' own buffers, valid
+  // since the `update()` that produced them and until the next one.
+  baker_.bake(frame_, soa_, effects_.frame());
 
   // Built off the baked quads, so a writer's coverage geometry is the very
   // geometry it would have drawn with. `build` returning false is the ordinary

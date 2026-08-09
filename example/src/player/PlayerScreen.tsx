@@ -35,8 +35,66 @@ interface Frame {
 const CENTRED: Frame = { height: 480, centerY: 0 }
 
 /**
- * One entry in the *Subject* row: a pack directory, a `.ssab` inside it, and
- * how to frame it.
+ * The 40 drawable `.ssab` of the SDK's `ParticleEffect` project, each with its
+ * own measured frame.
+ *
+ * Per pack rather than one figure for the family because they do not share a
+ * scale: `e030` spans 463 player-local units and `e037` spans 4198, so a single
+ * frame would show one as a speck and clip the other. Measured the same way as
+ * every other frame here — the baked vertex bounds over 240 frames — which for
+ * an effect means the particle quads, since those are most of what an effect
+ * pack draws.
+ *
+ * `e040b` is deliberately absent: it converts to a 904-byte `.ssab` with no
+ * parts and no cellmaps at all, so it would draw an empty canvas and read as a
+ * bug in whatever was last changed.
+ */
+const PARTICLE_FRAMES = {
+  e001: { height: 2900, centerY: 0 },
+  e002: { height: 1067, centerY: 472 },
+  e003: { height: 557, centerY: 46 },
+  e004: { height: 964, centerY: -11 },
+  e005: { height: 1553, centerY: -117 },
+  e006: { height: 1796, centerY: 0 },
+  e007: { height: 794, centerY: -12 },
+  e008: { height: 1872, centerY: -15 },
+  e009: { height: 1833, centerY: 563 },
+  e010: { height: 1486, centerY: 91 },
+  e011: { height: 1341, centerY: 38 },
+  e012: { height: 910, centerY: 0 },
+  e013: { height: 1130, centerY: 484 },
+  e014: { height: 1218, centerY: 8 },
+  e015: { height: 1883, centerY: 736 },
+  e016: { height: 1585, centerY: 523 },
+  e017: { height: 2649, centerY: -480 },
+  e018: { height: 1059, centerY: 23 },
+  e019: { height: 2865, centerY: 0 },
+  e020: { height: 1147, centerY: 194 },
+  e021: { height: 1360, centerY: 45 },
+  e022: { height: 1279, centerY: 83 },
+  e023: { height: 709, centerY: 0 },
+  e024: { height: 552, centerY: 10 },
+  e025: { height: 1905, centerY: -40 },
+  e026: { height: 634, centerY: 5 },
+  e027: { height: 1029, centerY: -108 },
+  e028: { height: 3141, centerY: 1463 },
+  e029: { height: 1482, centerY: -96 },
+  e030: { height: 463, centerY: 51 },
+  e031: { height: 2033, centerY: 372 },
+  e032: { height: 880, centerY: 327 },
+  e033: { height: 1606, centerY: 75 },
+  e034: { height: 1808, centerY: 0 },
+  e035: { height: 1285, centerY: 0 },
+  e036: { height: 2914, centerY: 258 },
+  e037: { height: 4198, centerY: 362 },
+  e038: { height: 1031, centerY: 0 },
+  e039: { height: 480, centerY: 125 },
+  e040a: { height: 1729, centerY: -44 },
+} as const satisfies Record<string, Frame>
+
+/**
+ * One entry in the *Subject* picker: a pack directory, the `.ssab` inside it it
+ * can show, and how to frame each.
  *
  * `Basic` is the plain Normal-parts case and the one to check a render change
  * against. `BlendMode` is the SDK's blend test animation — every framebuffer
@@ -61,17 +119,34 @@ const CENTRED: Frame = { height: 480, centerY: 0 }
  * must not touch them — a mesh drawn with the matrix applied twice lands
  * somewhere else entirely, which is the failure this screen makes obvious.
  *
+ * `Effect` is the particle case under the same microscope as the rest: 13
+ * effect parts in one animation, each a different authoring of the `EventEffect`
+ * keys (`No_effect_keys`, `effect_key_on_0`, `start=0_indep=off`, …), which is
+ * what makes it the card that says *which* effect rule broke.
+ *
  * `Ringo` is the **character** case, and it is here now because Mesh landed:
  * it is 653 baked vertices against `Basic`'s 80, and 585 of those were missing
  * while Mesh went unbaked. Everything above is a feature under a microscope;
  * Ringo is the thing those features are for, with 24 authored animations to
  * pick from.
+ *
+ * `ParticleEffect` is the breadth to `Effect`'s depth — the SDK's 40-pack
+ * effect showcase, and by some distance the heaviest thing this example draws
+ * (1376 baked vertices for `e002` against Ringo's 653). Design doc ch.8 puts the
+ * vertex ceiling on effects rather than on characters, and this is what that
+ * claim looks like.
  */
 interface Subject {
   /** Which pack family; the *Textures* toggle picks the conversion within it. */
   pack: PackName
-  ssab: string
-  frame: Frame
+  /**
+   * Every `.ssab` this subject can show, each with its own measured frame.
+   *
+   * Usually one. `ParticleEffect` has 40, which is why the picker for this is a
+   * dropdown and not a row — and why the frame lives per file rather than per
+   * subject, since those 40 do not share a scale.
+   */
+  files: Readonly<Record<string, Frame>>
   /**
    * Which animation to open on. **Omit it** unless the pack's first is the
    * wrong one to show — the player already defaults to the first, so naming it
@@ -82,25 +157,27 @@ interface Subject {
 }
 
 const SUBJECTS = {
-  Basic: { pack: 'overall', ssab: 'Basic', frame: CENTRED },
-  BlendMode: { pack: 'overall', ssab: 'BlendMode', frame: CENTRED },
+  Basic: { pack: 'overall', files: { Basic: CENTRED } },
+  BlendMode: { pack: 'overall', files: { BlendMode: CENTRED } },
   // Its first is `PartsColor_only`, the tint on its own, which is the one to
   // open on: `PartsColor_with_Transparent` adds part opacity and is a second
   // variable, one pick away in the dropdown.
-  PartsColor: { pack: 'overall', ssab: 'PartsColor', frame: CENTRED },
-  Mask: { pack: 'overall', ssab: 'Mask', frame: CENTRED },
-  Mesh: { pack: 'overall', ssab: 'Mesh', frame: CENTRED },
+  PartsColor: { pack: 'overall', files: { PartsColor: CENTRED } },
+  Mask: { pack: 'overall', files: { Mask: CENTRED } },
+  Mesh: { pack: 'overall', files: { Mesh: CENTRED } },
+  // Measured y ∈ [-184, 237], so the authored 480 canvas frames it.
+  Effect: { pack: 'overall', files: { Effect: CENTRED } },
   Ringo: {
     pack: 'Ringo',
-    ssab: 'Ringo',
     // Measured across dance/wait1/run/jump: x ∈ [-178, 217], y ∈ [-4, 612].
     // Standing on its origin, so without the shift the feet would sit at the
     // centre of the view and the head would be off the top.
-    frame: { height: 700, centerY: 300 },
+    files: { Ringo: { height: 700, centerY: 300 } },
     // The one subject that names an animation: the pack's first is `attack1`,
     // and a character introducing itself mid-swing is a poor opening frame.
     initialAnimation: 'dance',
   },
+  ParticleEffect: { pack: 'ParticleEffect', files: PARTICLE_FRAMES },
 } as const satisfies Record<string, Subject>
 
 /**
@@ -126,14 +203,27 @@ const SUBJECTS = {
  * `example/assets/ss`.
  */
 const PACKS = {
-  overall: { embedded: 'ss/overall-embedded', reference: 'ss/overall' },
-  Ringo: { embedded: 'ss/Ringo-embedded', reference: 'ss/Ringo' },
-} as const
+  overall: { reference: 'ss/overall', embedded: 'ss/overall-embedded' },
+  Ringo: { reference: 'ss/Ringo', embedded: 'ss/Ringo-embedded' },
+  // **No embedded conversion, and that is not an oversight.** Embedding bakes
+  // the atlas into every `.ssab` that names it, and this project's two atlases
+  // are 1.9 MB and 2.8 MB across 41 packs — roughly 150 MB of app assets to
+  // exercise a texture route the other two subjects already cover. So the
+  // toggle is disabled for this one and says so, rather than being present and
+  // pointing at a directory that is not there.
+  ParticleEffect: { reference: 'ss/ParticleEffect' },
+} as const satisfies Record<string, { reference: string; embedded?: string }>
 
 type PackName = keyof typeof PACKS
-type Mode = keyof (typeof PACKS)['overall']
+type Mode = 'embedded' | 'reference'
 
 const MODES = ['embedded', 'reference'] as const satisfies readonly Mode[]
+
+/** The pack directory for a mode, or null when that conversion does not exist. */
+function packDir(pack: PackName, mode: Mode): string | null {
+  const dirs: { reference: string; embedded?: string } = PACKS[pack]
+  return mode === 'embedded' ? (dirs.embedded ?? null) : dirs.reference
+}
 
 const SUBJECT_NAMES = Object.keys(SUBJECTS) as SubjectName[]
 
@@ -175,32 +265,50 @@ export function PlayerScreen() {
   const [leak, setLeak] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
 
-  const subject: Subject = SUBJECTS[subjectName]
-  const source = `${PACKS[subject.pack][mode]}/${subject.ssab}.ssab`
-
-  // Which animation inside that `.ssab`, and the pack's full list.
+  // Which `.ssab` inside the subject, and which animation inside that.
   //
-  // Both are **tagged with the subject they belong to and derived**, rather than
-  // reset from an effect. An effect would leave one render where the source is
-  // already the new pack and the name is still the old pack's — the view reloads
-  // on both, so that render loads the new `.ssab` and asks it for an animation
-  // it does not have. `setAnimation` returns false and nothing else reports it,
-  // so the failure would show as an inexplicably blank frame.
-  const [picked, setPicked] = useState<{ subject: SubjectName; name: string } | null>(null)
-  const [loaded, setLoaded] = useState<{
+  // All three are **tagged with the subject they belong to and derived**, rather
+  // than reset from an effect. An effect would leave one render where the source
+  // is already the new pack and the name is still the old pack's — the view
+  // reloads on both, so that render loads the new `.ssab` and asks it for an
+  // animation it does not have. `setAnimation` returns false and nothing else
+  // reports it, so the failure would show as an inexplicably blank frame. The
+  // file picker has the same hazard one level up, where the wrong pairing is not
+  // a missing animation but a missing file.
+  const [pickedFile, setPickedFile] = useState<{
     subject: SubjectName
+    name: string
+  } | null>(null)
+  const [picked, setPicked] = useState<{ file: string; name: string } | null>(null)
+  const [loaded, setLoaded] = useState<{
+    file: string
     names: string[]
     current: string
   } | null>(null)
+
+  const subject: Subject = SUBJECTS[subjectName]
+  const fileNames = Object.keys(subject.files)
+  const file =
+    pickedFile?.subject === subjectName && pickedFile.name in subject.files
+      ? pickedFile.name
+      : fileNames[0]
+  const frame: Frame = subject.files[file] ?? CENTRED
+  // Falls back to `reference` for a pack with no embedded conversion, so the
+  // toggle can never point at a directory that was not deployed.
+  const embeddedDir = packDir(subject.pack, 'embedded')
+  const dir = (mode === 'embedded' ? embeddedDir : null) ?? packDir(subject.pack, 'reference')
+  const source = `${dir}/${file}.ssab`
 
   // Left **undefined** when the subject names none, which is most of them: the
   // player then sets up the pack's first, and `loaded.current` reads back which
   // that was. Resolving it here instead would mean either guessing a name before
   // the `.ssab` has been read, or waiting for the names and reloading once they
   // arrived — a second load per subject switch to reach the same frame.
-  const animation =
-    picked?.subject === subjectName ? picked.name : subject.initialAnimation
-  const here = loaded?.subject === subjectName ? loaded : null
+  //
+  // Keyed on the **file**, not the subject: `ParticleEffect` switches `.ssab`
+  // without switching subject, and `e001`'s animation does not exist in `e002`.
+  const animation = picked?.file === file ? picked.name : subject.initialAnimation
+  const here = loaded?.file === file ? loaded : null
   const animationNames = here?.names ?? []
   // What the dropdown shows: the explicit pick, else whatever the player chose.
   const currentAnimation = animation ?? here?.current ?? ''
@@ -225,13 +333,13 @@ export function PlayerScreen() {
     const loadedPlayer = ref.current?.player
     if (loadedPlayer == null) return
     setLoaded({
-      subject: subjectName,
+      file,
       names: loadedPlayer.getAnimationNames(),
       // Which animation the load actually settled on — the only way to show the
       // right thing in the picker when the subject named none.
       current: loadedPlayer.currentAnimation ?? '',
     })
-  }, [loadSeq, subjectName])
+  }, [loadSeq, file])
 
   // Polled rather than pushed: the counts change in C++ destructors, which have
   // nothing to notify from. Two relaxed atomic loads a second is not a cost, and
@@ -294,9 +402,8 @@ export function PlayerScreen() {
   // so the art's centre lands in the middle of the view rather than the origin
   // itself. `offset` is screen pixels and the root transform flips Y, so a pack
   // standing on its origin (centerY > 0) needs the origin pushed *down*.
-  const scale =
-    size.height === 0 ? 1 : Math.min(size.width, size.height) / subject.frame.height
-  const offset = { x: 0, y: subject.frame.centerY * scale }
+  const scale = size.height === 0 ? 1 : Math.min(size.width, size.height) / frame.height
+  const offset = { x: 0, y: frame.centerY * scale }
 
   return (
     <View style={styles.root}>
@@ -329,30 +436,48 @@ export function PlayerScreen() {
       <ScrollView style={styles.panel} contentContainerStyle={styles.panelContent}>
         {error != null && <Text style={styles.error}>{error}</Text>}
         <Text style={styles.label}>Subject</Text>
-        <View style={styles.row}>
-          {SUBJECT_NAMES.map((s) => (
-            <Choice key={s} active={subjectName === s} onPress={() => setSubjectName(s)}>
-              {s}
-            </Choice>
-          ))}
-        </View>
+        <Dropdown
+          value={subjectName}
+          options={SUBJECT_NAMES}
+          onSelect={(name) => setSubjectName(name as SubjectName)}
+        />
+        {/* Only where there is a choice to make. Every subject but
+            `ParticleEffect` holds one `.ssab`, and a one-entry picker would be
+            a control that does nothing. */}
+        {fileNames.length > 1 && (
+          <>
+            <Text style={styles.label}>{`Pack file — ${fileNames.length} in ${subject.pack}`}</Text>
+            <Dropdown
+              value={file}
+              options={fileNames}
+              onSelect={(name) => setPickedFile({ subject: subjectName, name })}
+            />
+          </>
+        )}
         <Text style={styles.label}>
           {/* Named even when empty, so "nothing to pick" reads as a state
               rather than as a missing control. */}
           {animationNames.length > 0
-            ? `Animation — ${animationNames.length} in ${subject.ssab}.ssab`
+            ? `Animation — ${animationNames.length} in ${file}.ssab`
             : 'Animation — reading the .ssab…'}
         </Text>
         <Dropdown
           value={currentAnimation}
           options={animationNames}
           placeholder="reading the .ssab…"
-          onSelect={(name) => setPicked({ subject: subjectName, name })}
+          onSelect={(name) => setPicked({ file, name })}
         />
-        <Text style={styles.label}>Textures</Text>
+        <Text style={styles.label}>
+          {embeddedDir == null ? 'Textures — this pack ships reference only' : 'Textures'}
+        </Text>
         <View style={styles.row}>
           {MODES.map((m) => (
-            <Choice key={m} active={mode === m} onPress={() => setMode(m)}>
+            <Choice
+              key={m}
+              active={mode === m && !(m === 'embedded' && embeddedDir == null)}
+              disabled={m === 'embedded' && embeddedDir == null}
+              onPress={() => setMode(m)}
+            >
               {m === 'embedded' ? 'embedded (in .ssab)' : 'reference (sibling file)'}
             </Choice>
           ))}
@@ -481,15 +606,23 @@ function Dropdown({
 
 function Choice({
   active,
+  disabled = false,
   onPress,
   children,
 }: {
   active: boolean
+  /** Dimmed and inert — the option exists for this control but not for what is
+   *  selected, which is a different thing from it not existing at all. */
+  disabled?: boolean
   onPress: () => void
   children: React.ReactNode
 }) {
   return (
-    <Pressable style={[styles.choice, active && styles.choiceActive]} onPress={onPress}>
+    <Pressable
+      style={[styles.choice, active && styles.choiceActive, disabled && styles.choiceDisabled]}
+      disabled={disabled}
+      onPress={onPress}
+    >
       <Text style={[styles.choiceText, active && styles.choiceTextActive]}>{children}</Text>
     </Pressable>
   )
@@ -511,6 +644,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2c2c34',
   },
   choiceActive: { backgroundColor: '#0a84ff' },
+  choiceDisabled: { opacity: 0.35 },
 
   dropdown: {
     flexDirection: 'row',

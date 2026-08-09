@@ -32,33 +32,13 @@
 
 #include "../packages/react-native-spritestudio/cpp/SsAnimeBinary.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsBaker.hpp"
+#include "../packages/react-native-spritestudio/cpp/SsEffect.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsMask.hpp"
-
-extern "C" {
-void* ss_resource_create_copy(const unsigned char* ptr, size_t len);
-void ss_resource_destroy(void* resource);
-void* ss_runtime_create(void);
-void ss_runtime_destroy(void* context);
-bool ss_runtime_bind_resource(void* context, void* resource);
-bool ss_runtime_setup_animation(void* context, const char* name);
-void ss_runtime_set_render_mode(void* context, uint8_t mode);
-float ss_runtime_update(void* context, float delta);
-void ss_runtime_get_frame_data(void* context, float frame_no, unsigned char** out_data,
-                               size_t* out_len);
-void ss_runtime_get_world_matrices(void* context, const float** out_data, size_t* out_len);
-void ss_runtime_get_local_vertices(void* context, const float** out_data, size_t* out_len);
-void ss_runtime_get_local_uvs(void* context, const float** out_data, size_t* out_len);
-void ss_runtime_get_cell_meta(void* context, const float** out_data, size_t* out_len);
-void ss_runtime_get_mesh_vertices_x(void* context, const float** out_data, size_t* out_len);
-void ss_runtime_get_mesh_vertices_y(void* context, const float** out_data, size_t* out_len);
-void ss_runtime_get_mesh_vertex_offsets(void* context, const uint32_t** out_data,
-                                        size_t* out_len);
-void ss_runtime_get_mesh_uvs(void* context, const float** out_data, size_t* out_len);
-void ss_runtime_get_mesh_indices(void* context, const int32_t** out_data, size_t* out_len);
-void ss_runtime_get_mesh_index_offsets(void* context, const uint32_t** out_data, size_t* out_len);
-const unsigned char* ss_runtime_get_ssab_buf(void* context);
-uintptr_t ss_runtime_get_ssab_len(void* context);
-}
+// cbindgen's own header, for the same reason `cpp/` uses it rather than a
+// hand-copied subset: the C-API is `extern "C"`, so a signature that has drifted
+// still links and then misbehaves. This program exists to catch exactly that
+// class of mismatch, so it must not carry a second copy of the declarations.
+#include "ssruntime.h"
 
 namespace {
 
@@ -163,6 +143,41 @@ void CheckMaskPlan(const ss::runtime::FrameData* fd, const sscore::SsBaker& bake
   }
 }
 
+/// What the effect path produced over the run.
+///
+/// Printed unconditionally, zeroes included, for the reason the mask totals are:
+/// a path that never ran reports the same clean bill as one that ran perfectly.
+/// A pack with effect parts that reports 0 quads is a visible result.
+struct EffectTotals {
+  size_t parts = 0;
+  size_t framesWithGeometry = 0;
+  size_t peakQuads = 0;
+  size_t quadFrames = 0;
+};
+
+/// Counts the effect geometry in a baked frame, and checks the batches it made.
+///
+/// An Effect batch is the one kind that produces several descriptors, so its
+/// ranges are the ones most worth asserting: each has to sit inside the shared
+/// arrays and hold indices inside its own vertex range, which the caller's loop
+/// covers, and each has to be non-degenerate, which it does not.
+void CheckEffectBatches(const sscore::SsBaker& baker, int frame, EffectTotals* totals) {
+  size_t quads = 0;
+  for (const sscore::SsBatchDesc& d : baker.batches()) {
+    if (d.kind != ss::runtime::DrawBatchKind_Effect) continue;
+    if (d.vertexCount % 4 != 0 || d.indexCount % 6 != 0 ||
+        d.indexCount / 6 != d.vertexCount / 4) {
+      Fail("effect.quadShape", d.indexCount, d.vertexCount, frame, d.startRank);
+    }
+    if (d.partCount != 1) Fail("effect.partCount", d.partCount, 1, frame, d.startRank);
+    quads += static_cast<size_t>(d.vertexCount) / 4;
+  }
+  if (quads == 0) return;
+  ++totals->framesWithGeometry;
+  totals->quadFrames += quads;
+  if (quads > totals->peakQuads) totals->peakQuads = quads;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -190,19 +205,48 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "ss_runtime_setup_animation('%s') failed\n", animation);
     return 1;
   }
+  // `setup_animation` leaves the transport **stopped**, so without these the
+  // loop below re-checks frame 0 as many times as it is asked to and reports the
+  // same clean result it would for a working sweep. AGENTS.md records this as
+  // the bug that invalidated every number Phase 0 published; this program has
+  // had it too, which is why the effect totals below are the first numbers here
+  // that depend on time passing at all.
+  //
+  // Order is load-bearing: `setup_animation` resets the loop count and `play`
+  // arms the counter with whatever is in effect at that moment (-1 = infinite),
+  // so a longer `frames` than the animation keeps sweeping instead of stopping.
+  ss_runtime_set_loop(ctx, -1);
+  ss_runtime_play(ctx);
 
   // PartData, so read once — the same split the draw path keeps.
   const sscore::SsAnimeBinaryView view(ss_runtime_get_ssab_buf(ctx),
                                        static_cast<size_t>(ss_runtime_get_ssab_len(ctx)));
   const std::vector<sscore::SsMaskPartFlags> maskFlags = view.maskFlags();
 
+  // Effect slots, bound the way `HybridSsContext` binds them — from the pack's
+  // metadata, not from any frame's draw order.
+  sscore::SsEffectSlots effects;
+  effects.bind(resource, view);
+
   sscore::SsBaker baker;
   MaskTotals maskTotals;
+  EffectTotals effectTotals;
+  effectTotals.parts = view.effectParts().size();
+  const int32_t fps = ss_runtime_get_fps(ctx);
   size_t maxVertices = 0;
   size_t maxBatches = 0;
 
   for (int frame = 0; frame < frames; ++frame) {
-    const float frameNo = ss_runtime_update(ctx, 1.0f / 60.0f);
+    // Milliseconds, like the C-API and like `HybridSsContext::update` — the
+    // delta this loop used to pass was `1/60`, which is 0.0167 ms and would have
+    // advanced roughly nothing had anything here been time-driven. Nothing was,
+    // until the effect slots arrived.
+    const float deltaMs = 1000.0f / 60.0f;
+    const float frameNo = ss_runtime_update(ctx, deltaMs);
+    // After the update, so `is_looped` is this tick's edge — the same ordering
+    // `HybridSsContext::update` keeps.
+    effects.step(ctx, frameNo, deltaMs / 1000.0f, fps > 0 ? static_cast<float>(fps) : 60.0f,
+                 ss_runtime_is_looped(ctx));
 
     unsigned char* fdPtr = nullptr;
     size_t fdLen = 0;
@@ -238,7 +282,7 @@ int main(int argc, char** argv) {
     ss_runtime_get_mesh_index_offsets(ctx, &soa.meshIndexOffsets, &soa.meshIndexOffsetCount);
 
     CheckPartCounts(fd, soa.partCount, frame);
-    baker.bake(fd, soa);
+    baker.bake(fd, soa, effects.frame());
 
     if (baker.vertexCount() > maxVertices) maxVertices = baker.vertexCount();
     if (baker.batches().size() > maxBatches) maxBatches = baker.batches().size();
@@ -260,8 +304,12 @@ int main(int argc, char** argv) {
     }
 
     CheckMaskPlan(fd, baker, maskFlags, frame, &maskTotals);
+    CheckEffectBatches(baker, frame, &effectTotals);
   }
 
+  // Before the context and the resource, exactly as `HybridSsContext::release`
+  // orders it: the slots were created against the resource.
+  effects.release();
   ss_runtime_destroy(ctx);
   ss_resource_destroy(resource);
 
@@ -274,5 +322,12 @@ int main(int argc, char** argv) {
   // are the evidence the plan ran, and on one without they say so plainly.
   std::printf("    mask: %zu frames with a plan, %zu writer-frames, %zu target-frames\n",
               maskTotals.framesWithPlan, maskTotals.writers, maskTotals.targets);
+  // Same contract as the mask line. `parts > 0` with `peak 0` is the shape of a
+  // pack whose effects were enumerated and then never emitted a particle — the
+  // one failure the rest of this program cannot see, because a path that does
+  // nothing passes every range assertion.
+  std::printf("    effect: %zu parts, %zu frames with geometry, peak %zu quads, %zu quad-frames\n",
+              effectTotals.parts, effectTotals.framesWithGeometry, effectTotals.peakQuads,
+              effectTotals.quadFrames);
   return 0;
 }

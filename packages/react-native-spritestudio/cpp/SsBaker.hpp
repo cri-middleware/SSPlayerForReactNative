@@ -7,18 +7,20 @@
 // report rather than as a wrong pixel on a device. The Nitro hybrid
 // (`HybridSsContext`) only wraps the buffers this produces in ArrayBuffers.
 //
-// SCOPE: Normal and Mask batches. Both are one textured quad per part, so they
-// bake identically — a Mask part differs only in what the *draw* path does with
-// the result, which is to write coverage instead of colour. Mesh / Shape /
-// Effect / Instance and the SHDR shaders are still Phase 2 work (design doc
-// ch.8).
+// SCOPE: Normal, Mask, Mesh and Effect batches. Normal and Mask are one textured
+// quad per part, so they bake identically — a Mask part differs only in what the
+// *draw* path does with the result, which is to write coverage instead of
+// colour. Shape / Nines / Instance and the SHDR shaders are still Phase 2 work
+// (design doc ch.8).
 
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
 #include "SsBatchDesc.hpp"
+#include "SsEffect.hpp"
 #include "SsPartColor.hpp"
+#include "format/effect_draw_plan.h"
 #include "format/framedata.h"
 
 namespace sscore {
@@ -49,11 +51,12 @@ struct SsPartDraw {
 
   /// Whether the four vertices are a sprite quad in `lt, rt, lb, rb` order.
   ///
-  /// False for Mesh, and everything that reconstructs a corner gradient from the
-  /// UV depends on it: the PartColor shader and the mask replay both invert an
-  /// affine quad, which a triangle soup is not. A Mesh's PartColor is whole-only
-  /// (§1-2), which is why it can still use that shader — with four equal corners
-  /// the reconstruction collapses to a constant and the inverse stops mattering.
+  /// False for Mesh and for Effect, and everything that reconstructs a corner
+  /// gradient from the UV depends on it: the PartColor shader and the mask replay
+  /// both invert an affine quad, which neither a triangle soup nor a cloud of
+  /// particle quads is. A Mesh's PartColor is whole-only (§1-2), which is why it
+  /// can still use that shader — with four equal corners the reconstruction
+  /// collapses to a constant and the inverse stops mattering.
   bool quadShaped = true;
 
   /// True when this part has to leave its batch and go through the PartColor
@@ -102,9 +105,11 @@ struct SsSoAPointers {
 /// shape `30_core/30_render_loop.md` §3 asks for.
 class SsBaker {
  public:
-  /// Rebuilds every output array from `fd` + `soa`. Safe to call with a null
-  /// `fd` or null SoA pointers: it just produces empty output.
-  void bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa);
+  /// Rebuilds every output array from `fd` + `soa`, plus `effects` for the one
+  /// kind whose geometry does not ride the SoA. Safe to call with a null `fd`,
+  /// null SoA pointers or an inactive `effects`: it just produces less output.
+  void bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+            const SsEffectFrame& effects = {});
 
   /// Batch descriptors for *every* batch in the frame, in draw order — including
   /// the kinds this spike does not draw, which come back with zero
@@ -140,6 +145,29 @@ class SsBaker {
                      const ss::runtime::DrawBatch* batch, const SsBatchDesc& desc,
                      uint32_t partStateCount,
                      const ::flatbuffers::Vector<uint16_t>* drawOrder, uint32_t drawOrderCount);
+
+  /// The Effect half, and the one that **pushes its own batch descriptors**.
+  ///
+  /// Every other kind fills one `SsBatchDesc` because the Brain already decided
+  /// its texture and blend. An effect's do not exist at that level: the Brain
+  /// leaves an Effect batch's `texture_hash` at 0 and each emitter inside the
+  /// plan names its own `cellmap_hash` and its own Mix/Add. So one Effect batch
+  /// becomes as many descs as the plan has (cellmap, blend) runs — inserted in
+  /// place, which is what keeps the Brain's depth order intact.
+  void bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                       const ss::runtime::DrawBatch* batch, const SsEffectFrame& effects,
+                       uint32_t partStateCount,
+                       const ::flatbuffers::Vector<uint16_t>* drawOrder,
+                       uint32_t drawOrderCount);
+
+  /// Appends one (cellmap, blend) run of `plan`'s commands as a single batch.
+  ///
+  /// `commandCount` commands starting at `first`, capped at `quadBudget` quads
+  /// so the batch's 16-bit indices stay in range. Returns false when nothing was
+  /// emitted, in which case no descriptor is pushed.
+  bool appendEffectRun(const ss::runtime::EffectDrawPlan* plan, uint32_t first,
+                       uint32_t commandCount, uint32_t quadBudget, const float* worldMatrix,
+                       float partAlpha, float texWidth, float texHeight);
 
   std::vector<SsBatchDesc> batches_;
   std::vector<float> positions_;

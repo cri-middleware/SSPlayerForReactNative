@@ -9,6 +9,7 @@
 #include "HybridSsResource.hpp"
 #include "SsAnimeBinary.hpp"
 #include "SsBaker.hpp"
+#include "SsEffect.hpp"
 #include "SsMask.hpp"
 #include "SsRNSkiaInterop.hpp"
 // For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
@@ -109,6 +110,15 @@ class HybridSsContext final : public HybridSsContextSpec {
   /// decrements once.
   void release() noexcept;
 
+  /// Drives every effect slot one tick at the current playhead.
+  ///
+  /// `dtMilliseconds` is what `update()` was handed (0 for a seek) and `looped`
+  /// the parent's loop edge for this tick. Called from `update()` and from
+  /// `resync()`, never from the draw: `40_components/20_effect.md` is explicit
+  /// that stepping must not be driven off `draw_order`, since the Brain drops a
+  /// hidden effect from it and an independent one would then freeze in mid-air.
+  void stepEffects(float dtMilliseconds, bool looped);
+
   /// Re-reads the playhead from the Brain and republishes the frame.
   ///
   /// Every transport call that moves the playhead goes through this, so a seek
@@ -145,6 +155,12 @@ class HybridSsContext final : public HybridSsContextSpec {
   /// Rebuilt every `drawInto`. A member so the writer vector is reused rather
   /// than reallocated per frame, like `baker_`'s buffers.
   sscore::SsMaskPlan maskPlan_;
+
+  /// One slot per effect part, bound at construction and stepped from
+  /// `update()` — not from the draw, because an effect's clock needs a delta and
+  /// because a hidden independent effect must keep running even though the Brain
+  /// has dropped it from `draw_order`.
+  sscore::SsEffectSlots effects_;
 };
 
 }  // namespace margelo::nitro::ssplayer

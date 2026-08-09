@@ -282,8 +282,48 @@ constant across the Phase 0 sweep while nothing was actually playing.
   unimplemented (`Mask.ssab`'s `Mesh-WriteMask-True`).
   Host-checked: `Mesh.ssab` bakes 32 vertices where it baked 0, Ringo 68 → 653,
   all under ASan with the CSR range guards in place. **Not yet seen on a device.**
+- 🚧 **Effect (particles)** — landed. Chosen ahead of Instance because the two
+  need the *same* scaffolding — a persistent slot per part, enumerated from the
+  pack's metadata and stepped every frame — and Effect is much the cheaper place
+  to build it: it fits entirely inside Layer 1. No spec change, no asset
+  resolution, no new texture entries (a command's `cellmap_hash` keys the table
+  that is already there), nothing above C++ touched. Instance is the opposite on
+  every count, and can host effects itself, so it wants this to exist first.
+  The split is the same one the rest of `cpp/` keeps: `SsEffect.{hpp,cpp}` owns
+  the *clock* (the C-API slots), `SsBaker` owns the *geometry*, and the baker
+  stays C-API-free so `ssbake_check` links it unchanged.
+  Three things the reference ports had to teach, all of which fail plausibly.
+  **The plan is in the effect's own simulation space** — `ss_effect_slot_step`
+  takes no matrix — so the part's world matrix applies, which is the opposite of
+  Mesh and the opposite of what this repo's own trap list said. **The UVs are
+  normalised** and scale back up by the cellmap's `size_original`. And an
+  emitter's `blend` is the raw `0 = Mix / 1 = Add` byte, **not** a `BlendType`,
+  whose Add is 2 — passing it straight through renders every additive effect as
+  multiply. It is also the first kind whose bake **emits its own batch
+  descriptors**: the Brain leaves an Effect batch's `texture_hash` at 0 and each
+  emitter names its own cellmap and blend, so one batch becomes one descriptor
+  per adjacent (cellmap, blend) run — merged, per the SDK's dynamic-batching
+  advice, under a 16383-quad cap the `uint16_t` indices impose.
+  Host-checked under ASan across `overall/Effect` (13 parts, peak 155 quads) and
+  all 40 drawable `ParticleEffect` packs (peak 1376 baked vertices on `e002`,
+  against Ringo's 653 — design doc ch.8's claim that effects set the vertex
+  ceiling, measured). **Not yet seen on a simulator or a device.**
+  Finding this took fixing the check itself: `ssbake_check` had never called
+  `play()` and passed its delta in seconds, so every number it had ever printed
+  was frame 0 repeated — both of them traps this file already documented, in the
+  program written to catch that class of mistake. `Mask.ssab`'s target-frames
+  above are 1680 rather than the 1560 recorded earlier for that reason.
+  **What is left:** effects under a mask (excluded like Mesh — the replay wants
+  one quad to invert, and an effect is a cloud of them), and the same pixel-test
+  gap the blends, PartColor and Mesh have.
 - ☐ Shape, Nines
-- ☐ Effect (particles) and Instance parts
+- ☐ Instance parts — and it splits in two. **Same-pack children** (Ringo's 9
+  instance parts all name `Ringo`/`kaiten`) need no asset work at all and reuse
+  the slot scaffolding Effect just built; **external packs**
+  (`overall/Instance.ssab` → `Instance_SourceAnime`) are where
+  `external_instances`, `core/assets.ts`'s second consumer, the JS-owned texture
+  table and the leak arithmetic all arrive at once. Also unblocks §2-6's
+  instance composition for masks.
 - ☐ The 13 `ss-*` integration shaders, GLSL → **SkSL** (the maths is identical;
   impellerc's restrictions do not apply, so the port relaxes rather than tightens)
 - ☐ Audio behind an `IAudioManager` seam — **L2 must not know the playback

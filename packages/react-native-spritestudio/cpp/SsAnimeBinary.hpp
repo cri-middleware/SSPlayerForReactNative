@@ -29,6 +29,7 @@
 #include <string_view>
 #include <vector>
 
+#include "SsEffect.hpp"
 #include "SsMask.hpp"
 #include "format/ssab.h"
 
@@ -99,6 +100,48 @@ class SsAnimeBinaryView {
   SsTextureEntry textureAt(uint32_t index) const noexcept {
     const uint32_t cellmaps = cellmapCount();
     return index < cellmaps ? cellmapAt(index) : externalTextureAt(index - cellmaps);
+  }
+
+  /// Every cellmap's authored size, for un-normalising effect UVs.
+  ///
+  /// Cellmaps only, unlike `textureAt` above: an `EffectDrawCommand` names a
+  /// *cellmap*, and an Effect part carries no cell, so the `TCHG` hash space
+  /// that forces the two lists together elsewhere cannot arise here.
+  std::vector<SsCellMapSize> cellMapSizes() const {
+    std::vector<SsCellMapSize> out;
+    const auto* v = root_ != nullptr ? root_->cellmaps() : nullptr;
+    if (v == nullptr) return out;
+    out.reserve(v->size());
+    for (uint32_t i = 0; i < v->size(); ++i) {
+      const ss::format::CellMap* cellmap = v->Get(i);
+      const ss::format::Vec2* size = cellmap->size_original();
+      if (size == nullptr) continue;
+      out.push_back({cellmap->name_hash(), size->v1(), size->v2()});
+    }
+    return out;
+  }
+
+  // --- effect -------------------------------------------------------------
+
+  /// Every effect-hosting part, in part-index order.
+  ///
+  /// Read from the pack's **metadata**, never from `draw_order`: the Brain drops
+  /// a hidden Effect part from the draw order entirely, and a slot registry
+  /// built from that would stop stepping an independent effect the moment it
+  /// went off screen — its particles would then resume where they froze rather
+  /// than where they should be (`40_components/20_effect.md`).
+  std::vector<SsEffectPart> effectParts() const {
+    std::vector<SsEffectPart> out;
+    const auto* v = root_ != nullptr ? root_->parts() : nullptr;
+    if (v == nullptr) return out;
+    for (uint32_t i = 0; i < v->size(); ++i) {
+      const ss::format::PartData* part = v->Get(i);
+      if (part->part_type_type() != ss::format::PartType_PartTypeEffect) continue;
+      const auto* type = part->part_type_as_PartTypeEffect();
+      if (type == nullptr) continue;
+      out.push_back({i, type->ref_effect_name_hash()});
+    }
+    return out;
   }
 
   // --- mask ---------------------------------------------------------------

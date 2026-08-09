@@ -15,10 +15,11 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > `SsRuntime.liveHandles` + `ssCheckForLeaks()`, which found that `dispose()` had
 > never actually released anything). Scope is Normal parts, now with the full
 > framebuffer **blend table** (`cpp/SsBlend.hpp`), **PartColor**
-> (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`) and **Mesh** —
-> still no effects, Instance, Shape/Nines, events, part overrides or Reanimated
-> integration. The last two features are host-verified but **have not been seen
-> on a simulator or a device**, which is a weaker claim than the ones above it.
+> (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`), **Mesh** and
+> **Effect** (`cpp/SsEffect.hpp`) — still no Instance, Shape/Nines, events, part
+> overrides or Reanimated integration. The last three features are host-verified
+> but **have not been seen on a simulator or a device**, which is a weaker claim
+> than the ones above them.
 > Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
 > it overturned one of the design doc's premises, and its own numbers were then
@@ -128,11 +129,12 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `plugin/withSpriteStudio.js` + `app.plugin.js` | Expo config plugin: copies the pack directories into the app as native assets, every build, on both platforms. Plain CommonJS — Expo requires it during `prebuild`, unbuilt. |
 | `cpp/SsAssets.{hpp,cpp}` | The read side of that: the `.app`'s resource directory on Apple, `AAssetManager` on Android. |
 | `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
-| `cpp/format/{ssab,framedata}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. |
+| `cpp/format/{ssab,framedata,effect_draw_plan}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. `effect_draw_plan.h` is the same for the one kind whose geometry does not ride the SoA. |
 | `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
-| `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/colour/batch arrays, plus one `SsPartDraw` **per part** carrying its own vertex/index ranges — a Normal part is always four vertices, a Mesh part is however many the Brain skinned, so the ranges are carried rather than derived. Nitro-free and JSI-free so the host harness can link it. |
+| `cpp/SsBaker.{hpp,cpp}` | SoA (**and the effect plans**) → vertex/index/colour/batch arrays, plus one `SsPartDraw` **per part** carrying its own vertex/index ranges — a Normal part is always four vertices, a Mesh part is however many the Brain skinned, an Effect part is however many particles are alive, so the ranges are carried rather than derived. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsPartColor.hpp` | PartColor's data side: §1-4's coefficient table, the four corners, and `SsMakeUvInverse`. Skia-free, so the maths is checkable on the host. |
 | `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
+| `cpp/SsEffect.{hpp,cpp}` | The Effect kind's **clock**: one persistent `ss_effect_slot` per effect part, enumerated from `PartData` and stepped from `update()`. The only `cpp/` file besides the hybrids that is a C-API client and not a data reader — the *geometry* half lives in `SsBaker`, which stays C-API-free. |
 | `cpp/SsMask.{hpp,cpp}` | Mask **and** clipping: the part roles, the per-frame writer set, the player-local coverage box and each target's two writer sets. Skia-free, so `ssbake_check` drives it on the host. |
 | `cpp/SsMaskShader.hpp` | The two mask SkSL halves — the coverage writer and the target's replay. Skia-only, same inclusion rule as above. |
 | `cpp/SsRNSkiaInterop.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` JS objects. **The only place RN Skia's internals are touched** — hence `RNSkia` in the name, see the naming rule below. |
@@ -143,13 +145,19 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 
 `example/` is an Expo app with one screen. **Player** drives the SDK's packs
 through `<SpriteStudioView>` and is what you want when checking that a change
-still renders. Three rows of controls, and each answers a different question:
+still renders. Four controls, and each answers a different question:
 
-* *Subject* — which `.ssab`. `Basic` opens, because a feature test card says
-  which stage failed where a character does not; `BlendMode` / `PartsColor` /
-  `Mask` / `Mesh` are one feature each; **`Ringo` is the character**, and it is
-  worth having only now that Mesh landed (653 baked vertices against Basic's 80,
-  585 of which were simply missing before).
+* *Subject* — a dropdown, and which pack family. `Basic` opens, because a
+  feature test card says which stage failed where a character does not;
+  `BlendMode` / `PartsColor` / `Mask` / `Mesh` / `Effect` are one feature each;
+  **`Ringo` is the character**, worth having only since Mesh landed (653 baked
+  vertices against Basic's 80, 585 of which were simply missing before); and
+  **`ParticleEffect` is the breadth** — the SDK's 40-pack effect showcase and by
+  a distance the heaviest thing here (`e002` bakes 1376 vertices).
+* *Pack file* — a dropdown, and **only when the subject has more than one**,
+  which today means `ParticleEffect` alone. Its 40 packs are 40 separate
+  `.ssab`, so this is the `.ssab` picker that the Subject row used to be; a
+  one-entry version of it would be a control that does nothing.
 * *Animation* — a dropdown, **read out of the loaded `.ssab`** via
   `player.getAnimationNames()` rather than hard-coded, so a re-conversion cannot
   leave the list quietly wrong. Most packs here have exactly one; Ringo has 24,
@@ -157,16 +165,24 @@ still renders. Three rows of controls, and each answers a different question:
   opening animation for **Ringo only** — everything else takes the pack's first
   (`PartsColor` included, whose first is `PartsColor_only`, the tint without the
   opacity variable on top). Ringo's first is `attack1`, hence the exception.
+  Both this and the *Pack file* pick are keyed on the **file**, not the subject:
+  `ParticleEffect` changes `.ssab` without changing subject, and `e001`'s
+  animation does not exist in `e002`.
 * *Textures* — two conversions of the **same** pack: `*-embedded/` (atlas inside
   the `.ssab`) against the plain directory (atlas as a sibling file), so both
   texture routes are visible. Nothing in the app selects a route;
   `SsTextureLoader` decides per texture. `deploy-examples` converts each listed
-  project twice for this, so the toggle means the same thing for every subject.
+  project twice for this, so the toggle means the same thing for every subject —
+  **except `ParticleEffect`**, where embedded is disabled and says so: baking a
+  1.9 MB and a 2.8 MB atlas into each of 41 packs is ~150 MB of app assets to
+  exercise a route the other subjects already cover.
 
-A subject also carries a **measured** frame — the player-local box its art
-occupies — because an origin is wherever the author put it: `Basic` straddles
-its own, `Ringo` stands on it with its feet at y = 0. Guessing that shows a
-corner of the art at best.
+Every `.ssab` the screen can show carries a **measured** frame — the
+player-local box its art occupies — because an origin is wherever the author put
+it: `Basic` straddles its own, `Ringo` stands on it with its feet at y = 0.
+Guessing that shows a corner of the art at best. For `ParticleEffect` the frame
+is per **file** rather than per subject, because those 40 do not share a scale
+(`e030` spans 463 player-local units, `e037` spans 4198).
 
 There was a second screen, **Bench** — the Phase 0 harness, which drove Layer 1
 directly through all three variants and auto-ran a variant × instance-count
@@ -225,8 +241,8 @@ flavours parse the same spellings.
 | `build-runtime` | Build the Brain from the submodule into the *same* layout, stamped `<tag>+submodule-<sha>`. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via the SDK's `ssconverter-cli` (needs Rust). | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
-| `generate-fbs-code` | `flatc -c` over `ssab.fbs` and `framedata.fbs` → `cpp/format/`. Commit the result. Needs `flatc`. | After either schema changes |
-| `check-framedata` | Re-generate `cpp/format/` and diff it, then run the baker against a real `.ssab` under ASan. macOS/Linux, needs `flatc` + `cargo`. | After a `.fbs` change, or an SDK bump |
+| `generate-fbs-code` | `flatc -c` over `ssab.fbs`, `framedata.fbs` and `effect_draw_plan.fbs` → `cpp/format/`. Commit the result. Needs `flatc`. | After any of the three schemas changes |
+| `check-framedata` | Re-generate `cpp/format/` and diff it, then run the baker and the effect slots against a real `.ssab` under ASan. macOS/Linux, needs `flatc` + `cargo`, and `native/include` for the C-API header. | After a `.fbs` change, or an SDK bump |
 
 The pinned tag lives in `scripts/SDK_VERSION.txt`. `download-sdk` skips when
 `native/VERSION` already matches it; a `build-runtime` stamp never matches, so a
@@ -340,10 +356,67 @@ later `download-sdk` correctly replaces a local build.
   report leaks of its own. `ssCheckForLeaks()` loads and disposes N times and
   compares; the comparison is exact only because `dispose()` releases eagerly,
   which is precisely what the entry above fixed.
-* **Per-kind geometry differs**: Normal & Shape verts are **local** (apply the
-  world matrix); **Mesh & Effect verts are world-space** (do not). Effect UVs
-  are normalised 0..1 and need scaling back up. Applying the matrix to a mesh
-  compiles, draws, and puts the part somewhere else entirely.
+* **Per-kind geometry differs, and there are three cases, not two.** Normal &
+  Shape verts are **local** (apply the world matrix); **Mesh verts are
+  world-space** (do not). Applying the matrix to a mesh compiles, draws, and
+  puts the part somewhere else entirely. **An Effect is the third case and this
+  entry used to get it wrong**: the per-frame SoA carries nothing for an effect
+  part, and the geometry comes from `ss_effect_slot_step`'s own
+  `EffectDrawPlan` in the **effect's own simulation space** — the slot API is
+  never handed a matrix (look at the signature), so the part's world matrix is
+  what places it, exactly like a Normal part. Reading "Effect verts are
+  world-space" off this line and skipping the matrix piles every effect in the
+  animation onto the origin.
+* **Effect UVs are normalised 0..1** — the runtime divided by the cellmap's
+  `size_original` — whereas `local_uvs` and `mesh_uvs` are texture **pixels**.
+  Multiplying back up by `size_original` is what puts all three in the one space
+  Skia's image shader samples in. `SsAnimeBinaryView::cellMapSizes()` is the
+  lookup; a miss skips the run rather than guessing a scale, because a guess
+  samples an arbitrary region of the atlas and still draws.
+* **`ssbake_check` had the "forgot `play()`" bug the whole time.** AGENTS.md has
+  warned since Phase 0 that `setup_animation` leaves the transport stopped and a
+  harness that skips `play()` measures one static frame — and the host check
+  itself skipped it, so every number it ever printed was frame 0 repeated N
+  times. It also passed `1.0f/60.0f` as the delta, which is seconds-per-frame
+  where the C-API wants **milliseconds**: the other documented trap, 1000× off,
+  in the same three lines. Neither showed, because nothing the check asserted
+  depended on time passing. Effects do, which is what finally surfaced it. Both
+  are fixed (`set_loop(-1)` then `play`, delta `1000/60`), and the visible
+  consequence is that `Mask.ssab` now reports 1680 target-frames where the docs
+  recorded 1560.
+* **Never drive an effect's `step` from `draw_order`.** The Brain drops a
+  *hidden* Effect part from `draw_order` / `DrawBatch` entirely, so "walk the
+  batches and step the effects you find" freezes a hidden independent effect's
+  clock — its particles resume where they stopped rather than where they belong.
+  Slots are enumerated from the pack's **`PartData`** (`effectParts()`), held
+  one per part for the resource's life, and stepped every frame from `update()`;
+  the batch walk only decides *whether and where* to draw. Stepping needs a
+  delta anyway, which the draw does not have.
+* **There are TWO blend enumerations here too, and this pair is worse than the
+  PartColor one** (which at least shares a numbering for its first four).
+  `EffectDrawCommand.blend` is the raw `EmitterState.blend_type`: **`0` = Mix,
+  `1` = Add**. `BlendType`'s Add is **2**, and its 1 is Mul. Passing the command's
+  byte through as a `BlendType` therefore compiles, draws, and renders every
+  additive emitter as multiply — dark where it should glow, which reads as an
+  authoring problem.
+* **An Effect batch's own `texture_hash` and `blend_type` are not what it draws
+  with.** The Brain leaves the hash at 0 (an effect part resolves no cell) and
+  each emitter inside the plan names its own `cellmap_hash` and blend. So one
+  Effect `DrawBatch` becomes *N* `SsBatchDesc`, one per adjacent
+  (cellmap, blend) run — pushed in place, which is what keeps the depth order.
+  It is the only kind whose bake emits its own descriptors.
+* **`EffectDrawCommand.indices` are command-local, and merging is the whole
+  point.** Adjacent commands sharing a cellmap and a blend are merged into one
+  `drawVertices` (the SDK's dynamic-batching advice), which means rebasing each
+  command's indices onto the running vertex total. The merge is capped at
+  **16383 quads** because the baker's indices are `uint16_t`; a single emitter
+  over that budget is truncated rather than dropped, and `ssbake_check`'s peak
+  quad count is where that would have to be noticed.
+* **The plan buffer is the slot's, and the next `step` on that slot frees it.**
+  Same borrow rule as the SoA (ch.9 F) with a different owner: it is produced in
+  `update()` and read in the draw that follows, and nothing may hold it across
+  two updates. `release()` destroys the slots **before** the context and the
+  resource, since a slot was created against the resource.
 * **Mesh arrives in CSR, and `offsets` has `partCount + 1` entries.** Part `p`
   owns `[offsets[p], offsets[p+1])` in both the vertex and the index arrays, so
   every read needs `p + 1` in range *first*. A **non-Mesh part is an empty
@@ -576,7 +649,8 @@ build=release` when working on it).
 | A real character, end to end | On the **Player** screen switch *Subject* to **Ringo** — the one asset here that uses the features together rather than one at a time, and the check that they compose. Step through a few of its 24 animations. It is also the widest exercise of the reference texture route, since `Ringo.png` is a plain sibling. Missing limbs mean Mesh; a limb in the wrong place means the world matrix reached vertices that were already world-space. |
 | Mesh deformation | On the **Player** screen switch *Subject* to **Mesh**. The parts must be *deformed* and sit where the rest of the animation does. A mesh drawn far off-centre, or scaled oddly, is the world matrix having been applied to vertices that were already world-space. On the host, `ssbake_check` on `Mesh.ssab` must report a **non-zero** peak vertex count (it was 0 for the whole of the time Mesh went unbaked) — currently 32, and Ringo's went 68 → 653 when Mesh landed. |
 | Mask and clipping | On the **Player** screen switch *Subject* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. The `Mesh-WriteMask-True` and `Shape-Mask-True` parts are **expected** not to clip yet. |
-| Mask plan, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 840 writer-frames, 1560 target-frames. |
+| Effect (particles) | On the **Player** screen switch *Subject* to **Effect** — the `overall` feature card, 13 effect parts each authoring the `EventEffect` keys differently, so what fails names itself. Then switch to **ParticleEffect** and walk the *Pack file* dropdown: `e002` (fireworks) and `e019` (holy) are the two heaviest. Particles piled on the origin mean the effect part's world matrix was not applied; particles textured with the whole atlas mean the normalised UVs were not scaled by `size_original`; additive effects rendering dark mean the command's `blend` byte was passed through as a `BlendType`. An effect that freezes while off screen is the `draw_order` trap. |
+| Mask plan **and effect geometry**, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 840 writer-frames, 1680 target-frames. The `effect:` line has the same contract, and its own tell is **`parts > 0` with `peak 0` quads** — enumerated and then never emitting. `overall/Effect.ssab anime_1 120` currently reports 13 parts / 120 frames with geometry / peak 155 quads; `ParticleEffect/e001.ssab emission 120` reports 7 parts / 114 frames / peak 85. |
 | Mask **drawing**, on the host | `npm run check-mask` (macOS). The plan was never the fragile half — everything that broke was Skia-side and broke silently. Checks the SkSL compiles (ES2), that all 24 coverage bits survive the image round-trip on both a managed and an unmanaged destination, and that the real `DrawBakedFrame` output actually differs with the mask input from without. |
 | Blend modes reach the framebuffer | On the **Player** screen switch *Subject* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. Those packs have no embedded atlas, so if the sibling image were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. Worth doing on **Ringo** as well as `overall`: the toggle now switches conversions of whichever pack is selected, and `deploy-examples` produces both for each. |
@@ -614,3 +688,16 @@ quad like a tinted one, and its shader is wrapped by the replay: reconstruct the
 coverage UV from the texcoord, read back the writers whose scope reaches this
 rank, and return transparent where `masked != visible_inside`. Scope is resolved
 on the CPU, so the shader gets two 24-bit sets rather than a per-writer array.
+
+**The Effect kind joins this at two different points, and that is the shape of
+it.** Its *clock* runs in `update()`, before any of the above: every effect part
+in the pack — from `PartData`, not from `draw_order` — is stepped once, and each
+slot hands back an `EffectDrawPlan` that stays valid until that slot's next step.
+Its *geometry* joins in the bake, where a `kind == Effect` batch reads the plan
+for each part in its `draw_order` slice, applies the part's world matrix (the
+particles are in the effect's own space), scales the normalised UVs up by the
+cellmap's `size_original`, folds `PartState.alpha` into the plan's vertex
+colours, and merges adjacent same-(cellmap, blend) commands into one batch each —
+rebasing their command-local indices as it goes. From there it is an ordinary
+textured `drawVertices` with vertex colours: no mask (a cloud of quads has no
+affine UV to invert), no PartColor, and only Mix and Add to blend with.

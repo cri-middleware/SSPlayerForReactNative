@@ -1,15 +1,21 @@
-# Generate the C++ FlatBuffers accessors for the two schemas this Player reads.
+# Generate the C++ FlatBuffers accessors for the three schemas this Player reads.
 #
 #   SpriteStudio-SDK/libs/ssab/fbs/ssab.fbs
 #     -> packages/react-native-spritestudio/cpp/format/ssab.h
 #   SpriteStudio-SDK/libs/ssruntime/fbs/framedata.fbs
 #     -> packages/react-native-spritestudio/cpp/format/framedata.h
+#   SpriteStudio-SDK/libs/ssruntime/fbs/effect_draw_plan.fbs
+#     -> packages/react-native-spritestudio/cpp/format/effect_draw_plan.h
 #
 # Why the Player parses the `.ssab` at all: libssruntime deliberately returns
 # none of the metadata rendering needs - cellmap names, texture paths, animation
 # names - and tells Players to read it out of the ssab themselves
 # (20_design/20_architecture.md). Texture loading is the first thing that needs
 # it.
+#
+# effect_draw_plan is the same thing one kind at a time: an Effect part's
+# geometry does not ride the per-frame SoA at all, it comes back from
+# ss_effect_slot_step as its own buffer.
 #
 # framedata is the Brain's per-frame output, read on the hot path. Generated
 # accessors are the right tool there too, contrary to what this script used to
@@ -67,8 +73,9 @@ if (-not $sdkDir -or -not (Test-Path (Join-Path $sdkDir "Cargo.toml"))) {
 
 # The stem is both flatc's output prefix (<stem>_generated.h) and the name we keep.
 $schemas = @(
-    @{ Path = "libs/ssab/fbs/ssab.fbs";            Stem = "ssab" },
-    @{ Path = "libs/ssruntime/fbs/framedata.fbs";  Stem = "framedata" }
+    @{ Path = "libs/ssab/fbs/ssab.fbs";                     Stem = "ssab" },
+    @{ Path = "libs/ssruntime/fbs/framedata.fbs";           Stem = "framedata" },
+    @{ Path = "libs/ssruntime/fbs/effect_draw_plan.fbs";    Stem = "effect_draw_plan" }
 )
 
 foreach ($schema in $schemas) {
