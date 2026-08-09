@@ -60,6 +60,11 @@
 ///
 /// Note this is the **framebuffer** blend. PartColor's 4-mode blend is a
 /// shader-side concern with its own coefficient table and is unrelated.
+///
+/// These reach the framebuffer through `SkPaint::setBlendMode`, **not** through
+/// `drawVertices`'s `SkBlendMode` argument — that one blends against vertex
+/// colours and Skia ignores it when there are none, which renders every type as
+/// Mix. It shipped that way once.
 
 #include <cstdint>
 

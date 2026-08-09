@@ -258,9 +258,17 @@ later `download-sdk` correctly replaces a local build.
   reported rather than silently clamped.
 * **The texture table goes in per draw call, not registered once.** The
   `SkPaint`s are JS-owned and RN Skia may recycle or mutate them between frames,
-  so C++ must not hold one past the call. And the batches must be walked in the
-  Brain's order rather than once per texture — that order *is* the depth
-  sorting.
+  so C++ must not hold one past the call — which now means leaving neither a
+  colour filter *nor a blend mode* on one, so every pass draws through a copy.
+  And the batches must be walked in the Brain's order rather than once per
+  texture — that order *is* the depth sorting.
+* **`drawVertices`'s `SkBlendMode` argument is NOT the framebuffer blend.** It
+  blends the shader against the **vertex colours**, and Skia ignores it when
+  there are none — which is every vertex the baker emits. The framebuffer blend
+  is `SkPaint::setBlendMode`. Passing `SsBlend.hpp`'s answer to that parameter
+  compiles, runs, draws, and renders all twelve types as Mix; it shipped that
+  way in the commit that introduced the table. It becomes load-bearing once
+  PartColor bakes vertex colours, where it has to be `kModulate`.
 * **The root transform holds flip/offset/Y-flip, and it is applied exactly
   once** (`canvas.translate` + `canvas.scale(s, -s)` in the harness). Folding it
   into the vertex bake costs a term per vertex and detaches part-following the
@@ -417,6 +425,7 @@ build=release` when working on it).
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
+| Blend modes reach the framebuffer | On the **Player** screen switch *Animation* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. That pack has no embedded atlas, so if `common.png` were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. |
 | No leaked native handles | On the **Player** screen press **Leak check**: 8 load/dispose cycles, and both counts in the readout above it must come back to where they started. Toggling *Animation* or *Textures* is the same check by hand — the counts must dip and return, not climb. Exact because `dispose()` releases eagerly; a count that stays high is a leak, not a pending GC. **`1→1` is also what a frozen counter prints**, so if you are changing this path, first confirm the counts *move*: hold N undisposed players, watch them reach `1+N`, then dispose and watch them return in the same tick. |
 | Measurement | The harness is retired — `docs/phase0-spike.md` records the numbers. Re-measuring means restoring `example/src/bench/` and the `getSoA`/`getPlan`/`bake` spec surface from git history, and doing it in **release on both sides** |

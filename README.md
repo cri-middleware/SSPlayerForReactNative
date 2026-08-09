@@ -4,11 +4,13 @@ Play [SpriteStudio](https://www.webtech.co.jp/spritestudio/) 7 animations in
 React Native, on the New Architecture.
 
 > [!WARNING]
-> **Phase 0 — not usable yet.** This repository currently holds the measurement
-> spike that decided the architecture, not a player. There is no
-> `<SpriteStudioView>`, no blend modes, masks or effects; the npm package is not
-> published. See [ROADMAP.md](ROADMAP.md) for what lands when, and
-> [docs/phase0-spike.md](docs/phase0-spike.md) for what has been measured.
+> **Not usable yet.** `<SpriteStudioView>` plays an animation on both iOS and
+> Android, with the full framebuffer blend table — but on a simulator and an
+> emulator only; no physical device has been tried. Still no masks, effects,
+> PartColor, Mesh/Shape, events, part overrides or Reanimated integration, and
+> the npm package is not published. See [ROADMAP.md](ROADMAP.md) for what lands
+> when, and [docs/phase0-spike.md](docs/phase0-spike.md) for what has been
+> measured.
 
 ## What Phase 0 established
 

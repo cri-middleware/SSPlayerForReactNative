@@ -46,12 +46,19 @@ const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t te
 constexpr int kVertsPerQuad = 4;
 constexpr int kIndicesPerQuad = 6;
 
-/// The paint a pass draws with. Copied, never mutated in place: the caller's
-/// `SkPaint`s are JS-owned and RN Skia may recycle or mutate them between
-/// frames, so C++ must not leave a colour filter on one.
-SkPaint PaintForPass(const SkPaint& base, BlendPassSource source) {
+/// `drawVertices`'s own mode blends the shader against *vertex colours*, and
+/// Skia ignores it when there are none — which is always, here. `kModulate` is
+/// what it will have to be once PartColor bakes them.
+constexpr SkBlendMode kVertexColorBlend = SkBlendMode::kModulate;
+
+/// The paint one pass draws with. Copied, never mutated in place: the caller's
+/// `SkPaint`s are JS-owned, so C++ must leave neither a colour filter nor a
+/// blend mode on one.
+SkPaint PaintForPass(const SkPaint& base, const BlendPass& pass) {
   SkPaint paint = base;
-  switch (source) {
+  // The framebuffer blend lives here, not in drawVertices — see above.
+  paint.setBlendMode(pass.mode);
+  switch (pass.source) {
     case BlendPassSource::kPart:
       break;
     case BlendPassSource::kCoverage:
@@ -112,7 +119,8 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
           /*colors=*/nullptr, batch.indexCount, idx);
       if (vertices == nullptr) continue;
 
-      canvas->drawVertices(vertices, plan.passes[0].mode, *paint);
+      const SkPaint passPaint = PaintForPass(*paint, plan.passes[0]);
+      canvas->drawVertices(vertices, kVertexColorBlend, passPaint);
       drawn += static_cast<size_t>(batch.vertexCount);
       continue;
     }
@@ -138,8 +146,8 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       if (vertices == nullptr) continue;
 
       for (int p = 0; p < plan.count; ++p) {
-        const SkPaint passPaint = PaintForPass(*paint, plan.passes[p].source);
-        canvas->drawVertices(vertices, plan.passes[p].mode, passPaint);
+        const SkPaint passPaint = PaintForPass(*paint, plan.passes[p]);
+        canvas->drawVertices(vertices, kVertexColorBlend, passPaint);
       }
       // Geometry drawn, not draw calls issued — a multi-pass part covers the
       // same vertices three times and should not read as three times the scene.
