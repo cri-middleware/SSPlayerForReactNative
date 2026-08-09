@@ -26,7 +26,7 @@ namespace {
 [[noreturn]] void ThrowUnavailable(jsi::Runtime& runtime) {
   throw jsi::JSError(
       runtime,
-      "react-native-ssplayer was built without direct Skia drawing "
+      "react-native-spritestudio was built without direct Skia drawing "
       "(SSPLAYER_ENABLE_SKIA_DIRECT=0). Use bake() instead of drawInto().");
 }
 

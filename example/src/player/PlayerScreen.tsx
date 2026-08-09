@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react
 import {
   SpriteStudioView,
   type SpriteStudioViewRef,
-} from '@spritestudio/react-native-ssplayer'
+} from 'react-native-spritestudio'
 
 const ANIMATION = 'anime_1'
 

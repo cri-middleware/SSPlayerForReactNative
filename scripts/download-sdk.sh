@@ -21,7 +21,7 @@ SCRIPTDIR=$(cd "$BASEDIR" && pwd -P)
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 APP=$(basename "$0")
 
-TARGET_DIR="${ROOTDIR}/packages/react-native-ssplayer/native"
+TARGET_DIR="${ROOTDIR}/packages/react-native-spritestudio/native"
 VERSION_FILE="${SCRIPTDIR}/SDK_VERSION.txt"
 CURRENT_VERSION_FILE="${TARGET_DIR}/VERSION"
 # Downloaded zips are cached here (gitignored) so a re-run that needs the same

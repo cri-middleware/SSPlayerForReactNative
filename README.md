@@ -42,7 +42,7 @@ SSPlayerForReactNative/
 │   ├── build-runtime.{js,sh,ps1}       <- build the Brain from the submodule instead
 │   ├── deploy-examples.{js,sh,ps1}     <- convert the SDK's test projects to .ssab
 │   └── generate-nitro-code.{js,sh,ps1} <- run nitrogen over the Layer 1 spec
-├── packages/react-native-ssplayer/     <- the npm package
+├── packages/react-native-spritestudio/ <- the npm package
 │   ├── src/specs/SsRuntime.nitro.ts    <- Layer 1 spec (nitrogen input)
 │   ├── cpp/                            <- Nitro implementation + the Skia bridge
 │   ├── nitrogen/                       <- [generated, committed, do not hand-edit]

@@ -25,14 +25,14 @@ end
 
 skia_direct = !skia_dir.nil?
 unless skia_direct
-  Pod::UI.warn "[react-native-ssplayer] @shopify/react-native-skia not found — " \
+  Pod::UI.warn "[react-native-spritestudio] @shopify/react-native-skia not found — " \
                "building without drawInto() (bake() still works)."
 end
 
 xcframework = File.join(__dir__, "native", "libs", "ios", "libssruntime.xcframework")
 unless File.directory?(xcframework)
   raise <<~MSG
-    [react-native-ssplayer] libssruntime.xcframework is missing.
+    [react-native-spritestudio] libssruntime.xcframework is missing.
 
     The Brain is never committed (design doc ch.7). Install it before
     `pod install` with either:

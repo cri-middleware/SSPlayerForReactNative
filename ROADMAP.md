@@ -164,28 +164,23 @@ device and an Android device, at 60 fps, with no leaked native handles.
   frame / speed / blend weight
 - ☐ Expo config plugin (`assetExts` += `ssab`, build settings), verified on both
   prebuild and a bare RN app
-- ☐ **Decide the package name** — must be settled before the first publish, and
-  it is a rename, so earlier is cheaper. All three candidates are free on npm.
-  The problem with the current `@spritestudio/react-native-ssplayer` is that the
-  public API is named after SpriteStudio, not ssplayer, so the import line
-  disagrees with everything in it:
-  `import { SpriteStudioView } from '@spritestudio/react-native-ssplayer'`. And
-  `ssplayer` is not self-explanatory to someone meeting it for the first time —
-  the family stem is legible to maintainers who see every port, while the
-  package name is read almost entirely by people who see only this one.
-  - `react-native-spritestudio` — unscoped, the dominant community shape
-    (`react-native-reanimated`, `react-native-svg`, ...). Best for the Directory
-    listing below and for npm search. Drops the org scope.
-  - `@spritestudio/react-native` — the `@sentry/react-native` shape, which is the
-    one orgs with a cross-platform product converge on. No redundancy, keeps the
-    scope, reads as "SpriteStudio for React Native".
-  - `@spritestudio/ssplayer-react-native` — matches the Web packages
-    (`@spritestudio/ssplayer-webgl`, `ssplayer-pixi`) exactly, at the cost of
-    keeping the stem that started this.
-  Renaming the npm package and the directory is mechanical; renaming the *native*
-  identifiers (`SsPlayer.podspec`, the Gradle project, the JNI library, the
-  `ssplayer` C++ namespace, `com.margelo.nitro.ssplayer`) is a separate and
-  riskier decision, because autolinking keys on them.
+- ✅ **Package name decided: `react-native-spritestudio`** (was
+  `@spritestudio/react-native-ssplayer`; the directory moved to
+  `packages/react-native-spritestudio/` with it). The old name's problem was that
+  the public API is named after SpriteStudio, not ssplayer, so the import line
+  disagreed with everything in it — and `ssplayer` is a family stem legible to
+  maintainers who see every port, while a package name is read almost entirely by
+  people who see only this one. Unscoped won on the community shape
+  (`react-native-reanimated`, `react-native-svg`, ...), on npm search and the
+  Directory listing below, and on cost: `@spritestudio` has nothing published
+  under it today, so a scoped name would have meant securing the org first. The
+  runners-up were `@spritestudio/react-native` (the `@sentry/react-native` shape)
+  and `@spritestudio/ssplayer-react-native` (matches the Web packages exactly, at
+  the cost of keeping the stem that started this).
+  The *native* identifiers (`SsPlayer.podspec`, the Gradle project, the JNI
+  library, the `ssplayer` C++ namespace, `com.margelo.nitro.ssplayer`) were
+  deliberately **not** renamed: autolinking keys on them, so that is a separate
+  and riskier decision.
 - ☐ npm publishing: decide `react-native-builder-bob` vs plain `tsc` (the
   package currently points `main` at raw TypeScript, which Metro reads but npm
   consumers should not get). Also unresolved: the published tarball's `files`

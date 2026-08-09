@@ -1,5 +1,5 @@
 # Run nitrogen over the Layer 1 spec and refresh
-# packages/react-native-ssplayer/nitrogen/.
+# packages/react-native-spritestudio/nitrogen/.
 #
 # Named after the tool the way the Flutter Player's generate-ffigen-code.ps1 is,
 # rather than generate-runtime-code.ps1: the sibling Players' script of that
@@ -17,7 +17,7 @@ $scriptDir = Split-Path -Parent $PSCommandPath
 $rootDir = Split-Path -Parent $scriptDir
 $app = Split-Path -Leaf $PSCommandPath
 
-$packageDir = Join-Path $rootDir "packages/react-native-ssplayer"
+$packageDir = Join-Path $rootDir "packages/react-native-spritestudio"
 
 if (-not (Test-Path (Join-Path $rootDir "node_modules/nitrogen"))) {
     Write-Error "$app`: nitrogen is not installed - run 'npm install' first."
@@ -39,5 +39,5 @@ try {
     Pop-Location
 }
 
-Write-Host "Generated into packages/react-native-ssplayer/nitrogen/"
+Write-Host "Generated into packages/react-native-spritestudio/nitrogen/"
 Write-Host "Done."

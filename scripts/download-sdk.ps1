@@ -21,7 +21,7 @@ $scriptDir = Split-Path -Parent $PSCommandPath
 $rootDir = Split-Path -Parent $scriptDir
 $app = Split-Path -Leaf $PSCommandPath
 
-$targetDir = Join-Path $rootDir "packages/react-native-ssplayer/native"
+$targetDir = Join-Path $rootDir "packages/react-native-spritestudio/native"
 $versionFile = Join-Path $scriptDir "SDK_VERSION.txt"
 $currentVersionFile = Join-Path $targetDir "VERSION"
 # Downloaded zips are cached here (gitignored) so a re-run that needs the same

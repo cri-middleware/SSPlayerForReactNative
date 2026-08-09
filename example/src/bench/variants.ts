@@ -14,7 +14,7 @@ import {
   SsBatchKind,
   type SsContext,
   type SsTextureBinding,
-} from '@spritestudio/react-native-ssplayer'
+} from 'react-native-spritestudio'
 
 /**
  * The two candidate L1/L2 boundaries, plus the one the spike added after

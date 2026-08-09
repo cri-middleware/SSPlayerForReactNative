@@ -17,7 +17,7 @@ import {
   SsRuntimeModule,
   type SsContext,
   type SsResource,
-} from '@spritestudio/react-native-ssplayer'
+} from 'react-native-spritestudio'
 
 import { resolveAssetPath } from './asset'
 import {

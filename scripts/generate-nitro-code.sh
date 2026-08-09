@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Run nitrogen over the Layer 1 spec and refresh
-# packages/react-native-ssplayer/nitrogen/.
+# packages/react-native-spritestudio/nitrogen/.
 #
 # Named after the tool the way the Flutter Player's generate-ffigen-code.sh is,
 # rather than generate-runtime-code.sh: the sibling Players' script of that name
@@ -20,7 +20,7 @@ BASEDIR=$(dirname "$0")
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 APP=$(basename "$0")
 
-PKG_DIR="${ROOTDIR}/packages/react-native-ssplayer"
+PKG_DIR="${ROOTDIR}/packages/react-native-spritestudio"
 
 if [ ! -d "${ROOTDIR}/node_modules/nitrogen" ]; then
     echo "${APP}: nitrogen is not installed — run 'npm install' first." >&2
@@ -29,5 +29,5 @@ fi
 
 ( cd "$PKG_DIR" && "${ROOTDIR}/node_modules/.bin/nitrogen" --logLevel info )
 
-echo "Generated into packages/react-native-ssplayer/nitrogen/"
+echo "Generated into packages/react-native-spritestudio/nitrogen/"
 echo "Done."

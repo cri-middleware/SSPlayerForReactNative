@@ -20,7 +20,7 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 
 * Keep changes scoped to the request; read callers/invariants before editing.
 * **Do not commit or push unless the user explicitly asks.**
-* Never hand-edit `packages/react-native-ssplayer/nitrogen/` — change the spec
+* Never hand-edit `packages/react-native-spritestudio/nitrogen/` — change the spec
   and run `npm run generate-nitro-code`.
 * After editing TypeScript, typecheck (see [Verification](#verification)).
   After editing `cpp/SsFrameData.hpp` or touching `framedata.fbs`, run
@@ -92,7 +92,7 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
   draws into `SkCanvas`. Also the transport passthroughs — the Brain owns the
   playback state and nothing above mirrors it.
 
-## Package layout (`packages/react-native-ssplayer/`)
+## Package layout (`packages/react-native-spritestudio/`)
 
 | Path | Role |
 |---|---|

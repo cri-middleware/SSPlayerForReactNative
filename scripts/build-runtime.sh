@@ -7,7 +7,7 @@
 # normal path is scripts/download-sdk.sh, which installs the pinned SDK release
 # and needs no Rust toolchain at all (design doc ch.7).
 #
-# Both write the SAME layout under packages/react-native-ssplayer/native/ — the
+# Both write the SAME layout under packages/react-native-spritestudio/native/ — the
 # one the release archive already has — so the podspec and the Android CMake
 # never need to know which one ran:
 #
@@ -44,7 +44,7 @@ SCRIPTDIR=$(cd "$BASEDIR" && pwd -P)
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 APP=$(basename "$0")
 
-TARGET_DIR="${ROOTDIR}/packages/react-native-ssplayer/native"
+TARGET_DIR="${ROOTDIR}/packages/react-native-spritestudio/native"
 # The pinned SDK release tag, shared with download-sdk.sh. The .ssab format and
 # the C-API are both tied to it (design doc ch.7).
 VERSION_FILE="${SCRIPTDIR}/SDK_VERSION.txt"

@@ -3,7 +3,7 @@
 # Generate the C++ FlatBuffers accessors for the `.ssab` asset format.
 #
 #   SpriteStudio-SDK/libs/ssab/fbs/ssab.fbs
-#     -> packages/react-native-ssplayer/cpp/format/ssab.h
+#     -> packages/react-native-spritestudio/cpp/format/ssab.h
 #
 # Why the Player parses the `.ssab` at all: libssruntime deliberately returns
 # none of the metadata rendering needs — cellmap names, texture paths, animation
@@ -37,7 +37,7 @@ BASEDIR=$(dirname "$0")
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 APP=$(basename "$0")
 
-OUT_DIR="${ROOTDIR}/packages/react-native-ssplayer/cpp/format"
+OUT_DIR="${ROOTDIR}/packages/react-native-spritestudio/cpp/format"
 
 if ! command -v flatc >/dev/null 2>&1; then
     echo "${APP}: flatc not found — install Google FlatBuffers (brew install flatbuffers)." >&2
@@ -66,5 +66,5 @@ echo "Generating C++ FlatBuffers accessors (flatc -c) ..."
 mkdir -p "$OUT_DIR"
 ( cd "$OUT_DIR" && flatc -c "$FBS" && mv ssab_generated.h ssab.h )
 
-echo "Generated packages/react-native-ssplayer/cpp/format/ssab.h"
+echo "Generated packages/react-native-spritestudio/cpp/format/ssab.h"
 echo "Done."
