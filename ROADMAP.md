@@ -238,11 +238,18 @@ constant across the Phase 0 sweep while nothing was actually playing.
   compiles, all 24 coverage bits survive the image round-trip on both a managed
   and an unmanaged destination, and the real `DrawBakedFrame` output must differ
   with the mask input from without.
-  **Verified on the host only — not yet on a simulator or a device.**
-  **What is left:** Mesh and Shape writers (a Mesh can be a clipping writer and a
-  Shape a pure mask, but their coverage is a deformed mesh and a polygon, and
-  neither is baked yet — `Mask.ssab`'s `Mesh-WriteMask-True` and
-  `Shape-Mask-True` are the two parts that do not clip); §2-6's instance
+  **Verified on the host only, and the screen check waits on Shape.** Not an
+  oversight: `Mask.ssab` carries one writer of each unimplemented kind, so until
+  those close the card has two parts that are *expected* not to clip and cannot
+  be read as pass or fail. Effect and Mesh were looked at on the simulator and
+  the emulator; this one is deliberately held back until it can be.
+  **What is left:** the Mesh and Shape writers — a Mesh can be a clipping writer
+  and a Shape a pure mask, and their coverage is a deformed mesh and a polygon
+  rather than a quad (`Mask.ssab`'s `Mesh-WriteMask-True` and `Shape-Mask-True`
+  are the two parts that do not clip). **The Mesh half is no longer blocked**:
+  that geometry is baked now, so what is left there is letting
+  `SsMaskPartFlags::quadGeometry` admit it and giving the coverage pass a
+  non-quad path. The Shape half still needs Shape. Then §2-6's instance
   composition, which needs Instance parts first; and the same pixel-test gap the
   blends and PartColor have. A masked part also drops the multi-pass Sub/Invert
   reconstruction for the one-pass approximation, because the inversion passes
@@ -281,7 +288,8 @@ constant across the Phase 0 sweep while nothing was actually playing.
   triangle soup has no such inverse. That also still leaves a Mesh *writer*
   unimplemented (`Mask.ssab`'s `Mesh-WriteMask-True`).
   Host-checked: `Mesh.ssab` bakes 32 vertices where it baked 0, Ringo 68 → 653,
-  all under ASan with the CSR range guards in place. **Not yet seen on a device.**
+  all under ASan with the CSR range guards in place. **Seen drawing on the iOS
+  simulator and the Android emulator**, no physical device.
 - 🚧 **Effect (particles)** — landed. Chosen ahead of Instance because the two
   need the *same* scaffolding — a persistent slot per part, enumerated from the
   pack's metadata and stepped every frame — and Effect is much the cheaper place
@@ -307,7 +315,9 @@ constant across the Phase 0 sweep while nothing was actually playing.
   Host-checked under ASan across `overall/Effect` (13 parts, peak 155 quads) and
   all 40 drawable `ParticleEffect` packs (peak 1376 baked vertices on `e002`,
   against Ringo's 653 — design doc ch.8's claim that effects set the vertex
-  ceiling, measured). **Not yet seen on a simulator or a device.**
+  ceiling, measured). **Seen drawing on the iOS simulator and the Android
+  emulator**, which is as far as any of this has been taken — no physical
+  device, and no pixel test, the same gap the blends and PartColor have.
   Finding this took fixing the check itself: `ssbake_check` had never called
   `play()` and passed its delta in seconds, so every number it had ever printed
   was frame 0 repeated — both of them traps this file already documented, in the
@@ -316,7 +326,10 @@ constant across the Phase 0 sweep while nothing was actually playing.
   **What is left:** effects under a mask (excluded like Mesh — the replay wants
   one quad to invert, and an effect is a cloud of them), and the same pixel-test
   gap the blends, PartColor and Mesh have.
-- ☐ Shape, Nines
+- ☐ Shape, Nines — Shape carries a second job: it is what unblocks the Shape
+  *mask writer*, and with it the first honest screen check of masking, since
+  `Mask.ssab` cannot be read as pass or fail while two of its writers are
+  expected to do nothing.
 - ☐ Instance parts — and it splits in two. **Same-pack children** (Ringo's 9
   instance parts all name `Ringo`/`kaiten`) need no asset work at all and reuse
   the slot scaffolding Effect just built; **external packs**
