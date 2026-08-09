@@ -118,8 +118,8 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/colour/batch arrays, plus one `SsQuadInfo` per quad saying whether it must be peeled out for the PartColor shader. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsPartColor.hpp` | PartColor's data side: §1-4's coefficient table, the four corners, and `SsMakeUvInverse`. Skia-free, so the maths is checkable on the host. |
 | `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
-| `cpp/SsSkiaBridge.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` host objects. **The only place RN Skia's internals are touched.** |
-| `cpp/SsSkiaDraw.{hpp,cpp}` | The draw path: the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. |
+| `cpp/SsRNSkiaInterop.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` JS objects. **The only place RN Skia's internals are touched** — hence `RNSkia` in the name, see the naming rule below. |
+| `cpp/SsSkiaDraw.{hpp,cpp}` | The draw path: the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. Skia's *public* API only — nothing here breaks on an RN Skia bump. |
 | `cpp/Hybrid*.{hpp,cpp}` | The Nitro Hybrid Objects. They `#include "ssruntime.h"` directly — see Traps. |
 | `nitrogen/` | **Generated, committed, never hand-edited.** |
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
@@ -418,16 +418,27 @@ later `download-sdk` correctly replaces a local build.
   RN Skia 2.11 moved its API objects off `jsi::HostObject` onto the
   `jsi::NativeState` pattern (`JsiSkNativeObject`), so `asHostObject<JsiSkCanvas>`
   stopped even compiling and `JsiSkPaint::fromValue` changed what it returns.
-  `cpp/SsSkiaBridge.cpp` now goes through `RNSkia::getJsiObject` /
+  `cpp/SsRNSkiaInterop.cpp` now goes through `RNSkia::getJsiObject` /
   `tryGetJsiObject` / `objectFromValue`. This is coupling to RN Skia's
   *internals*, which carry no compatibility promise — a Skia bump means
   rebuilding `example/ios` before believing anything, and the peer range says
   `>=2.11`.
+* **`RNSkia` in a name means the fragile dependency; `Skia` means the stable
+  one.** The two are disjoint and it is worth keeping them that way:
+  `SsRNSkiaInterop.cpp` includes `JsiSk*.h` and no Skia header, `SsSkiaDraw.cpp`
+  includes `include/core/Sk*.h` and no RN Skia header. So `grep -rl 'RNSkia::'
+  cpp/` lists exactly what an RN Skia version bump can break — one file (drop the
+  `::` and you also get the two that merely `#include` it). Both were
+  once called `SsSkia*`, which flattened that distinction and made the grep
+  useless; `Bridge` was the second half of the problem, since in RN that word
+  means the legacy async bridge and this is JSI. Do not rename `SsSkiaDraw` to
+  something backend-neutral either: when a second backend arrives it wants to sit
+  next to it as `SsWebGpuDraw`.
 * **A `CustomType` inside a struct needs an alias in `margelo::nitro`.**
   Nitrogen emits the struct's `JSIConverter` specialization into
   `margelo::nitro` but names the member's type unqualified
   (`JSIConverter<SkPaintHandle>`), which only resolves for types nitrogen itself
-  declares — ours live one level down, under the `cxxNamespace`. `SsSkiaBridge.hpp`
+  declares — ours live one level down, under the `cxxNamespace`. `SsRNSkiaInterop.hpp`
   carries `using SkPaintHandle = ssplayer::SkPaintHandle;` for exactly this. It
   fails at *Swift module emission* for the pod, not at the struct's own header,
   so the error points somewhere unhelpful.

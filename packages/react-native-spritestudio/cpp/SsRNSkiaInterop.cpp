@@ -1,4 +1,4 @@
-#include "SsSkiaBridge.hpp"
+#include "SsRNSkiaInterop.hpp"
 
 #include <stdexcept>
 

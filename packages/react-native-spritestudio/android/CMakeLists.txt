@@ -22,7 +22,7 @@ endif()
 add_library(SsPlayer SHARED
   ../cpp/SsAssets.cpp
   ../cpp/SsBaker.cpp
-  ../cpp/SsSkiaBridge.cpp
+  ../cpp/SsRNSkiaInterop.cpp
   ../cpp/SsSkiaDraw.cpp
   ../cpp/HybridSsResource.cpp
   ../cpp/HybridSsContext.cpp
@@ -58,7 +58,7 @@ target_include_directories(SsPlayer PRIVATE
 #
 # Two include dirs on purpose. The root lets `#include <react-native-skia/...>`
 # work; the `react-native-skia` subdir lets the unqualified `#include
-# "JsiSkCanvas.h"` in SsSkiaBridge.cpp work the same way it does on iOS, and
+# "JsiSkCanvas.h"` in SsRNSkiaInterop.cpp work the same way it does on iOS, and
 # those headers' own `#include "include/core/SkCanvas.h"` then resolves relative
 # to the including file.
 # The prefab package is named after the Gradle project, which autolinking

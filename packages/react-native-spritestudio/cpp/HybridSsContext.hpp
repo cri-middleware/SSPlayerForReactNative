@@ -9,7 +9,7 @@
 #include "HybridSsResource.hpp"
 #include "SsAnimeBinary.hpp"
 #include "SsBaker.hpp"
-#include "SsSkiaBridge.hpp"
+#include "SsRNSkiaInterop.hpp"
 // For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
 // pointers opaque precisely so consumers never need the Skia headers.
 #include "SsSkiaDraw.hpp"

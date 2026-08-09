@@ -30,7 +30,7 @@
 
 
 
-#include "SsSkiaBridge.hpp"
+#include "SsRNSkiaInterop.hpp"
 
 namespace margelo::nitro::ssplayer {
 

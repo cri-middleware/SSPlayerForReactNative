@@ -21,7 +21,7 @@ namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 #include <string>
 #include "SsTextureInfo.hpp"
 #include <vector>
-#include "SsSkiaBridge.hpp"
+#include "SsRNSkiaInterop.hpp"
 #include "SsTextureBinding.hpp"
 
 namespace margelo::nitro::ssplayer {

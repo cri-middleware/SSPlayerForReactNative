@@ -1,10 +1,16 @@
 #pragma once
 
-// Nitro `CustomType` bridge for RN Skia's `SkCanvas` / `SkPaint` host objects.
+// Nitro `CustomType` interop for RN Skia's `SkCanvas` / `SkPaint` JS objects.
+//
+// Named for **RN Skia**, not Skia: the coupling here is to
+// `@shopify/react-native-skia`'s JSI object model, which carries no
+// compatibility promise and has already broken once. `SsSkiaDraw` is the other
+// half and depends only on Skia's public API, which is stable — grep `RNSkia`
+// to find what an RN Skia bump can break.
 //
 // This header is included by nitrogen-generated code, so it deliberately pulls
 // in **no Skia headers at all** — the pointers are opaque here and the actual
-// unwrapping lives in SsSkiaBridge.cpp. That keeps the generated specs
+// unwrapping lives in SsRNSkiaInterop.cpp. That keeps the generated specs
 // compilable on any target, including one where the Skia headers are not on the
 // include path, and confines the RN Skia coupling to a single translation unit.
 //

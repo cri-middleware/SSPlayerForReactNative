@@ -32,7 +32,7 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
  *
  * RN Skia hands JS a JSI host object wrapping the real canvas. Nitro's
  * `CustomType` is the escape hatch that lets a spec name a type Nitro does not
- * know: the `JSIConverter` in `cpp/SsSkiaBridge.hpp` does the unwrapping, so
+ * know: the `JSIConverter` in `cpp/SsRNSkiaInterop.hpp` does the unwrapping, so
  * C++ ends up holding the same pointer RN Skia's own draw calls use.
  *
  * This is what makes `drawInto` possible at all — without it there is no way to
@@ -42,14 +42,14 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
 export type SkCanvasHandle = CustomType<
   object,
   'SkCanvasHandle',
-  { include: 'SsSkiaBridge.hpp' }
+  { include: 'SsRNSkiaInterop.hpp' }
 >
 
 /** An RN Skia `SkPaint`, unwrapped the same way. */
 export type SkPaintHandle = CustomType<
   object,
   'SkPaintHandle',
-  { include: 'SsSkiaBridge.hpp' }
+  { include: 'SsRNSkiaInterop.hpp' }
 >
 
 /**
