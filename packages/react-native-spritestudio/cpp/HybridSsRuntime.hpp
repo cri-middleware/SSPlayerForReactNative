@@ -19,8 +19,12 @@ class HybridSsRuntime final : public HybridSsRuntimeSpec {
   std::shared_ptr<HybridSsResourceSpec> createResourceFromPath(const std::string& path) override;
   std::shared_ptr<HybridSsResourceSpec> createResourceFromBytes(
       const std::shared_ptr<ArrayBuffer>& bytes) override;
+  std::shared_ptr<HybridSsResourceSpec> createResourceFromAsset(const std::string& path) override;
   std::shared_ptr<HybridSsContextSpec> createContext(
       const std::shared_ptr<HybridSsResourceSpec>& resource) override;
+
+  std::shared_ptr<ArrayBuffer> readAsset(const std::string& path) override;
+  bool getHasAssetDirectory() override;
 
   double hashString(const std::string& value) override;
 };

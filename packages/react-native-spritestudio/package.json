@@ -11,6 +11,8 @@
     "nitrogen",
     "android",
     "ios",
+    "plugin",
+    "app.plugin.js",
     "*.podspec",
     "nitro.json",
     "native/VERSION",

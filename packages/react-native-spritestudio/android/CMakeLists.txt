@@ -20,6 +20,7 @@ if(NOT EXISTS "${SSRUNTIME_LIB}")
 endif()
 
 add_library(SsPlayer SHARED
+  ../cpp/SsAssets.cpp
   ../cpp/SsBaker.cpp
   ../cpp/SsSkiaBridge.cpp
   ../cpp/SsSkiaDraw.cpp

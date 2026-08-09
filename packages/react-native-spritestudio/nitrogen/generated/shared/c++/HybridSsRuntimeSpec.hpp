@@ -52,12 +52,15 @@ namespace margelo::nitro::ssplayer {
     public:
       // Properties
       virtual std::string getVersion() = 0;
+      virtual bool getHasAssetDirectory() = 0;
 
     public:
       // Methods
       virtual std::shared_ptr<HybridSsResourceSpec> createResourceFromPath(const std::string& path) = 0;
       virtual std::shared_ptr<HybridSsResourceSpec> createResourceFromBytes(const std::shared_ptr<ArrayBuffer>& bytes) = 0;
+      virtual std::shared_ptr<HybridSsResourceSpec> createResourceFromAsset(const std::string& path) = 0;
       virtual std::shared_ptr<HybridSsContextSpec> createContext(const std::shared_ptr<HybridSsResourceSpec>& resource) = 0;
+      virtual std::shared_ptr<ArrayBuffer> readAsset(const std::string& path) = 0;
       virtual double hashString(const std::string& value) = 0;
 
     protected:

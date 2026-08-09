@@ -34,6 +34,9 @@ class SsPlayerPackage : BaseReactPackage() {
   init {
     // Idempotent — `SsPlayerOnLoad` guards against a second load itself.
     SsPlayerOnLoad.initializeNative()
+    // Now that the JNI entry point resolves, the `AssetManager` the bootstrap
+    // provider captured before `Application.onCreate` can go down to C++.
+    SsPlayerAssets.installNative()
   }
 
   override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? = null

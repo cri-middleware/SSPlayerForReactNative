@@ -8,31 +8,26 @@ import {
 const ANIMATION = 'anime_1'
 
 /**
- * The two texture-supply modes, side by side, because on React Native they
- * reach different distances.
+ * The same animation converted two ways, so both texture routes are visible.
  *
- * **embedded** carries its atlas inside the `.ssab`, so loading the pack loads
- * its textures with nothing else supplied. That holds everywhere.
+ * Nothing here selects a route: `SsTextureLoader` decides per texture, taking
+ * `embedded` bytes when the `.ssab` carries them and otherwise resolving
+ * `image_path` against the `.ssab`'s own directory. The toggle just points at a
+ * different pack — `overall-embedded/` was converted with `--embedded`, and
+ * `overall/` keeps `common.png` as a sibling file.
  *
- * **reference** names a sibling image, which the loader resolves against the
- * `.ssab`'s own location — and here it cannot reach it. This example lives in an
- * npm workspace, so `watchFolders` pushes Metro's server root up to the
- * workspace and the `.ssab`'s URL is `/assets/example/assets/...`, while Metro
- * resolves an asset request against the *project* root: asking for the sibling
- * lands on `example/example/assets/...` and 404s. A non-monorepo app has the two
- * roots equal. Either way a release build could not reach it, since Metro ships
- * only what a `require()` names — so the texture is supplied explicitly, which
- * is the documented route for exactly that case.
+ * The reference pack is what React Native used not to be able to draw. While
+ * the `.ssab` was named with a `require()` there was no directory for
+ * `common.png` to be a sibling *of*, and this screen had to hand the texture
+ * over by hand. The pack directories ship as app assets now (see the plugin
+ * entry in `app.json`), so `ss/overall/` is a real directory on the device.
+ *
+ * Paths are relative to the app's asset root, which the plugin fills from
+ * `example/assets/ss`.
  */
 const SOURCES = {
-  embedded: {
-    ssab: require('../../assets/ss/overall-embedded/Basic.ssab'),
-    textures: undefined,
-  },
-  reference: {
-    ssab: require('../../assets/ss/overall/Basic.ssab'),
-    textures: { common: require('../../assets/ss/overall/common.png') },
-  },
+  embedded: 'ss/overall-embedded/Basic.ssab',
+  reference: 'ss/overall/Basic.ssab',
 } as const
 
 type Mode = keyof typeof SOURCES
@@ -63,8 +58,6 @@ export function PlayerScreen() {
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [error, setError] = useState<string | null>(null)
 
-  const source = SOURCES[mode]
-
   const onLayout = (event: LayoutChangeEvent) => {
     setSize(event.nativeEvent.layout)
   }
@@ -80,13 +73,8 @@ export function PlayerScreen() {
         {size.height > 0 && (
           <SpriteStudioView
             ref={ref}
-            // Remount on a mode switch: `source` and `textures` change together
-            // and the registry is per-player, so reusing one would leave the
-            // previous mode's texture registered under the same hash.
-            key={mode}
             style={StyleSheet.absoluteFill}
-            source={source.ssab}
-            textures={source.textures}
+            source={SOURCES[mode]}
             animation={ANIMATION}
             playing={playing}
             speed={speed}
@@ -104,7 +92,7 @@ export function PlayerScreen() {
         <View style={styles.row}>
           {(Object.keys(SOURCES) as Mode[]).map((m) => (
             <Choice key={m} active={mode === m} onPress={() => setMode(m)}>
-              {m === 'embedded' ? 'embedded (auto)' : 'reference (supplied)'}
+              {m === 'embedded' ? 'embedded (in .ssab)' : 'reference (sibling file)'}
             </Choice>
           ))}
         </View>

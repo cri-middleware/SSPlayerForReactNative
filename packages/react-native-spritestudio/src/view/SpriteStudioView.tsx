@@ -16,21 +16,26 @@ import {
 import { useSharedValue } from 'react-native-reanimated'
 
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
-import type { SsSource } from '../player/source'
+import { sourceUriOf, type SsSource } from '../player/source'
 import { useSsTextures, type SsTextureSources } from './useSsTextures'
 
 export interface SpriteStudioViewProps {
-  /** The `.ssab` — a `require()`d asset, a URL, or a path. */
+  /**
+   * The `.ssab` — a path into the app's asset directory
+   * (`'ss/overall/Basic.ssab'`), a filesystem path, or a URL. Never a
+   * `require()`: see `SsSource`.
+   */
   source: SsSource
   /**
    * Textures to use **instead of** the ones the pack names, keyed by cellmap
    * name (a bare source covers a one-cellmap pack).
    *
-   * Usually unnecessary: loading a `.ssab` loads its own textures, resolving
-   * each `image_path` against the `.ssab`'s location. Supply this when that
-   * cannot reach them — most importantly a `require()`d asset in a **release**
-   * build, where Metro ships only what a `require()` names and the sibling image
-   * is not in the bundle at all. Also the hook for a runtime texture swap.
+   * Not needed to make a pack draw. Loading a `.ssab` loads its own textures,
+   * resolving each `image_path` against the `.ssab`'s own directory, and that
+   * now reaches wherever the `.ssab` came from. This prop is for **replacing**
+   * one — a costume, a recoloured atlas, an image the app downloaded — and a
+   * `require()`d image is allowed here because a replacement has no siblings to
+   * resolve.
    */
   textures?: SsTextureSources
   /** Which animation in the pack to set up. */
@@ -118,11 +123,21 @@ export const SpriteStudioView = forwardRef<
   useImperativeHandle(ref, () => ({ player }), [player])
 
   // --- load ---------------------------------------------------------------
+  //
+  // Keyed on the URI rather than on `source`: an inline `{ uri }` is a new
+  // object every render, and reloading the pack on every render would be an
+  // expensive way to draw the same frame. The string is the whole of the
+  // source, so passing it on loses nothing.
+  //
+  // A malformed source throws here, during render, rather than through
+  // `onError` — `onError` is for a pack that could not be loaded, and a
+  // `require()` or a missing `uri` is a mistake in the call, not in the asset.
+  const sourceUri = sourceUriOf(source)
   useEffect(() => {
     const next = new SpriteStudioPlayer()
     setPlayer(next)
     next
-      .load(source, { animation })
+      .load(sourceUri, { animation })
       .then(() => {
         callbacks.current.onLoad?.()
       })
@@ -135,7 +150,7 @@ export const SpriteStudioView = forwardRef<
       next.dispose()
       setPlayer(null)
     }
-  }, [source, animation])
+  }, [sourceUri, animation])
 
   // --- textures -----------------------------------------------------------
   useEffect(() => {

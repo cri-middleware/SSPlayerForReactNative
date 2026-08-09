@@ -2,14 +2,17 @@ import {
   FilterMode,
   Skia,
   TileMode,
+  type SkData,
   type SkImage,
 } from '@shopify/react-native-skia'
 
+import { SsRuntimeModule } from '../runtime'
 import {
   SsTexFilterMode,
   SsTexWrapMode,
   type SsTextureInfo,
 } from '../specs/SsRuntime.nitro'
+import { resolveAgainst, schemeOf } from './assets'
 import type { SsTextureOptions, SsTextureRegistry } from './SsTextureRegistry'
 
 /**
@@ -39,20 +42,16 @@ export interface SsTextureLoadReport {
  * Everything is registered under `SsTextureInfo.textureHash`, which
  * `DrawBatch.texture_hash` can be looked up with directly.
  *
- * ## Where reference mode reaches, on React Native
+ * ## Where reference mode reaches
  *
- * The sibling Players can always find a sibling because Flutter and Godot ship
- * asset *directories*. Metro ships a dependency *graph*: it bundles only what a
- * `require()` names, and never walks a directory. So:
+ * Everywhere an `SsSource` can point, because all three kinds keep their
+ * directory: the app's asset directory, a real filesystem directory, or a
+ * server. The sibling is opened the way the `.ssab` was — `resolveAgainst`
+ * hands back a URI of the same kind, and `schemeOf` picks the door.
  *
- *  * **Metro dev server** — works. It serves the project tree by path, whether
- *    or not anything required the file.
- *  * **A real filesystem directory** — works. Runtime downloads, `Documents/`,
- *    or assets copied into the app bundle out-of-band (what the planned Expo
- *    config plugin is for).
- *  * **A `require()`d asset in a release build** — cannot work. The sibling
- *    image is not in the bundle at all. Register those textures yourself before
- *    loading; already-registered hashes are left alone.
+ * This used not to hold. While the `.ssab` was named with a `require()` there
+ * was no directory to resolve against, so a reference pack could only be drawn
+ * by supplying its textures by hand. That is what the asset directory replaced.
  */
 export class SsTextureLoader {
   /**
@@ -107,12 +106,27 @@ export class SsTextureLoader {
     // 2. Reference: the parent of the `.ssab`, joined with the path inside it.
     if (texture.imagePath.length === 0 || baseUri == null) return null
     try {
-      const data = await Skia.Data.fromURI(resolveAgainst(baseUri, texture.imagePath))
+      const data = await loadImageData(resolveAgainst(baseUri, texture.imagePath))
       return Skia.Image.MakeImageFromEncoded(data)
     } catch {
       return null
     }
   }
+}
+
+/**
+ * The encoded bytes at `uri`, as Skia data.
+ *
+ * `Skia.Data.fromURI` covers `file:` and `http:` and knows nothing about either
+ * platform's asset storage — iOS keeps assets inside the `.app` and Android
+ * inside the APK, where only `AAssetManager` reaches them. So an asset takes
+ * the Layer 1 route, which is the same one the `.ssab` itself took.
+ */
+export async function loadImageData(uri: string): Promise<SkData> {
+  if (schemeOf(uri) === 'asset') {
+    return Skia.Data.fromBytes(new Uint8Array(SsRuntimeModule.readAsset(uri)))
+  }
+  return Skia.Data.fromURI(uri)
 }
 
 function samplingOf(texture: SsTextureInfo): SsTextureOptions {
@@ -130,21 +144,4 @@ function samplingOf(texture: SsTextureInfo): SsTextureOptions {
     tileX: tile,
     tileY: tile,
   }
-}
-
-/**
- * Joins the parent of `baseUri` with `path`.
- *
- * Deliberately string surgery rather than `new URL`: `baseUri` is a URL for a
- * dev-server source and a bare filesystem path for a bundled or downloaded one,
- * and the join is the same operation either way. A `?query` on the base (Metro
- * puts one there) belongs to the `.ssab`, not to its directory, so it goes.
- */
-export function resolveAgainst(baseUri: string, path: string): string {
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path) || path.startsWith('/')) return path
-  const withoutQuery = baseUri.replace(/[?#].*$/, '')
-  const slash = withoutQuery.lastIndexOf('/')
-  const parent = slash < 0 ? '' : withoutQuery.slice(0, slash)
-  const relative = path.startsWith('./') ? path.slice(2) : path
-  return parent === '' ? relative : `${parent}/${relative}`
 }

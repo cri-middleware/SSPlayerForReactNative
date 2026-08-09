@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <!--
+      Installs the app's AssetManager into C++ before Application.onCreate, so
+      the pack directories the config plugin packed into the APK can be read.
+      See SsPlayerAssetBootstrap.kt for why a provider and not an autolinked
+      class.
+
+      The authority is namespaced under the consuming app's id so two apps on
+      one device never collide; nothing ever resolves it, and it is not
+      exported.
+    -->
+    <provider
+      android:name="com.margelo.nitro.ssplayer.SsPlayerAssetBootstrap"
+      android:authorities="${applicationId}.spritestudioassets"
+      android:exported="false" />
+  </application>
+</manifest>

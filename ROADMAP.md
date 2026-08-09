@@ -97,12 +97,17 @@ Make one character animate correctly, on both platforms, through the real API.
 - ✅ **Layer 4** — `<SpriteStudioView>`: RN Skia `Canvas`, declarative props
   (`source`/`textures`/`animation`/`playing`/`speed`/`loop`/`flipX`/`flipY`/
   `offset`/`scale`) plus imperative `ref`.
-- ✅ **Asset resolution in L3** — `player/source.ts` absorbs the dev (Metro HTTP
-  URL) vs release (bundled path) difference: the path route when `fopen` can
-  reach it, fetched bytes otherwise. **Gap:** an Android release build resolves
-  a bundled asset to a path inside the APK, which is neither `fopen`-able nor
-  `fetch`-able — it needs `AAssetManager`. Not the binding constraint while
-  Android has no drawing path at all.
+- ✅ **Asset resolution: a pack is a directory.** Everything a `.ssab` points at
+  is a sibling name, so the unit that has to reach the device is the converter's
+  output *directory* — and Metro cannot carry one. `require()` is therefore no
+  longer an `SsSource`; a source is a location (`asset` / `file` / `remote`) and
+  `core/assets.ts`'s `resolveAgainst` is the single seam every reference
+  resolves through. The pack directories ship as **native app assets** via the
+  Expo config plugin, read back by `cpp/SsAssets` — the `.app`'s resource
+  directory on iOS (so the `.ssab` still goes disk → Brain with no JS heap in
+  between) and `AAssetManager` on Android, which closes the APK gap this entry
+  used to record. Textures use the same seam today; Instance parts and `.ssqb`
+  sequences will use it unchanged.
 - ✅ **Texture registry** keyed on `cellmap.name_hash`, multiple textures per
   pack, with the hash coming from the Brain via `SsRuntime.hashString`.
 - ✅ **Read the `.ssab` in C++** — flatbuffers submodule + `flatc -c` into
@@ -110,20 +115,14 @@ Make one character animate correctly, on both platforms, through the real API.
   answers typed questions (`getTextures`, `getAnimationNames`); no FlatBuffer
   crosses into JS and the read happens in place against the Brain's own copy.
 - ✅ **Load a pack's own textures on load**, walking both `cellmaps()` and
-  `external_textures()`, embedded winning over a reference. **Reference mode
-  cannot always reach its sibling on React Native**, and the reason is
-  structural: Flutter and Godot ship asset *directories*, Metro ships a
-  dependency *graph* and bundles only what a `require()` names.
-  - Embedded — works everywhere.
-  - A real filesystem directory (runtime download, or assets copied in
-    out-of-band) — works.
-  - A `require()`d asset in a release build — cannot; the image is not in the
-    bundle.
-  - Inside an npm workspace — cannot, for a second reason: `watchFolders` pushes
-    Metro's server root up to the workspace so the `.ssab`'s URL is
-    `/assets/<pkg>/assets/...`, while Metro resolves an asset request against the
-    *project* root. `example/` hits this and supplies its reference pack's
-    texture explicitly.
+  `external_textures()`, embedded winning over a reference. **Reference mode now
+  reaches its sibling everywhere an `SsSource` can point** — the asset
+  directory, a real filesystem directory, or a server — because all three keep
+  their directory and `resolveAgainst` hands back a URI of the same kind. This
+  was the standing gap: while the `.ssab` was named with a `require()` there was
+  no directory for the atlas to be a sibling of, and `example/` had to supply
+  its reference pack's texture by hand. The `textures` prop is now for
+  *replacing* a texture, not for making a pack draw.
 - 🕒 **Free an embedded atlas after decoding.** Blocked on the Brain: the encoded
   bytes sit inside the same contiguous FlatBuffer `ss_resource_create_copy` holds
   for the resource's life, so embedded permanently costs one encoded atlas on top
@@ -163,8 +162,13 @@ handles.
 - ☐ **Reanimated integration** (design doc ch.3 D): UI-thread tick via
   `useFrameCallback`; part transforms out as SharedValues; SharedValues in as
   frame / speed / blend weight
-- ☐ Expo config plugin (`assetExts` += `ssab`, build settings), verified on both
-  prebuild and a bare RN app
+- 🚧 **Expo config plugin.** Landed in Phase 1 because the asset-path work
+  needed it: it copies the pack directories into the app on every build (Xcode
+  run-script phase; Gradle `Sync` task feeding an asset source set), verified
+  through `expo prebuild` on both platforms. **Not** `assetExts += ssab` — that
+  was the `require()` route, and it is deliberately gone. What is left: a bare
+  RN app has no plugin system, so it needs the two build steps documented by
+  hand and checked.
 - ✅ **Package name decided: `react-native-spritestudio`** (was
   `@spritestudio/react-native-ssplayer`; the directory moved to
   `packages/react-native-spritestudio/` with it). The old name's problem was that

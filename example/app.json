@@ -21,6 +21,13 @@
       },
       "predictiveBackGestureEnabled": false
     },
-    "plugins": ["expo-asset"]
+    "plugins": [
+      [
+        "react-native-spritestudio",
+        {
+          "assets": ["./assets/ss"]
+        }
+      ]
+    ]
   }
 }

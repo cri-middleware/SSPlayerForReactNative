@@ -8,18 +8,18 @@ import {
   Picture,
   Skia,
   TileMode,
-  useImage,
   type SkCanvas,
+  type SkImage,
   type SkPicture,
 } from '@shopify/react-native-skia'
 import { useSharedValue } from 'react-native-reanimated'
 import {
+  loadImageData,
   SsRuntimeModule,
   type SsContext,
   type SsResource,
 } from 'react-native-spritestudio'
 
-import { resolveAssetPath } from './asset'
 import {
   buildSweep,
   formatSweep,
@@ -36,7 +36,16 @@ import {
   type Variant,
 } from './variants'
 
-const SSAB = require('../../assets/ss/Ringo/Ringo.ssab')
+/**
+ * Paths into the app's asset directory, which the config plugin fills from
+ * `example/assets/ss` — the same route `<SpriteStudioView>` takes. The harness
+ * reaches past Layer 3 for everything else, but not for this: an `.ssab` and
+ * its atlas are siblings, and finding a sibling is the whole reason the asset
+ * directory exists.
+ */
+const PACK = 'ss/Ringo'
+const SSAB = `${PACK}/Ringo.ssab`
+const ATLAS = `${PACK}/Ringo.png`
 const ANIMATION = 'dance'
 // 256 and 512 are past what Phase 0 swept, and they had to be added once the
 // measurement was fixed: with the RN side in release and the animation actually
@@ -101,7 +110,9 @@ export function BenchScreen() {
     return recorder.finishRecordingAsPicture()
   }, [])
   const picture = useSharedValue<SkPicture>(emptyPicture)
-  const image = useImage(require('../../assets/ss/Ringo/Ringo.png'))
+  // Not RN Skia's `useImage`, which resolves a `require()` and so cannot see
+  // the app's asset directory.
+  const [image, setImage] = useState<SkImage | null>(null)
 
   const resourceRef = useRef<SsResource | null>(null)
   const contextsRef = useRef<SsContext[]>([])
@@ -110,19 +121,22 @@ export function BenchScreen() {
   const [resourceReady, setResourceReady] = useState(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
 
-  // --- load the .ssab once ------------------------------------------------
+  // --- load the .ssab and its atlas once ----------------------------------
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      try {
-        const path = await resolveAssetPath(SSAB)
-        if (cancelled) return
-        resourceRef.current = SsRuntimeModule.createResourceFromPath(path)
-        setResourceReady(true)
-      } catch (e) {
-        setError(String(e))
-      }
-    })()
+    try {
+      // Synchronous: C++ opens the asset itself, so the bytes never come
+      // through JS and there is nothing to await.
+      resourceRef.current = SsRuntimeModule.createResourceFromAsset(SSAB)
+      setResourceReady(true)
+    } catch (e) {
+      setError(String(e))
+    }
+    loadImageData(ATLAS)
+      .then((data) => {
+        if (!cancelled) setImage(Skia.Image.MakeImageFromEncoded(data))
+      })
+      .catch((e: unknown) => setError(String(e)))
     return () => {
       cancelled = true
       // Explicit teardown, never GC — the ArrayBuffers JS was handed are

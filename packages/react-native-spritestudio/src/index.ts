@@ -24,6 +24,7 @@ export {
 export {
   useSsTextures,
   SS_DEFAULT_CELLMAP,
+  type SsTextureSource,
   type SsTextureSources,
 } from './view/useSsTextures'
 
@@ -38,7 +39,7 @@ export {
 export {
   loadResource,
   resolveSourceUri,
-  fileSystemPathOf,
+  sourceUriOf,
   type SsSource,
 } from './player/source'
 
@@ -50,8 +51,20 @@ export {
 } from './core/SsTextureRegistry'
 export {
   SsTextureLoader,
+  loadImageData,
   type SsTextureLoadReport,
 } from './core/SsTextureLoader'
+/**
+ * Path resolution, shared by everything a pack points at. `resolveAgainst` is
+ * the seam Instance parts and `.ssqb` sequences will resolve through too.
+ */
+export {
+  fileSystemPathOf,
+  normalizeUri,
+  resolveAgainst,
+  schemeOf,
+  type SsUriScheme,
+} from './core/assets'
 export {
   SsPlaybackDirection,
   SsPlaybackStyle,

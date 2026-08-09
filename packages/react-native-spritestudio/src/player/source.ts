@@ -1,80 +1,99 @@
-import { Image } from 'react-native'
-
+import { fileSystemPathOf, normalizeUri, schemeOf } from '../core/assets'
 import { SsRuntimeModule } from '../runtime'
 import type { SsResource } from '../specs/SsRuntime.nitro'
 
 /**
- * Anything Layer 3 will load a `.ssab` (or a texture) from.
+ * Where a `.ssab` comes from.
  *
- * `number` is a `require()`d module — Metro's asset id. It only resolves once
- * `assetExts` includes `ssab`, which the Phase 2 Expo config plugin will do for
- * you and which a bare app has to add to `metro.config.js` itself.
+ * Always a **location**, never a bundler handle, and that is the whole point.
+ * A pack is a directory: the `.ssab` names its textures, the external `.ssab`s
+ * its Instance parts reach and — through a `.ssqb` — the packs it sequences,
+ * all by paths relative to itself. So a source has to be something whose
+ * *directory* still exists on the device.
+ *
+ * Three spellings, matching `SsUriScheme`:
+ *
+ * | | |
+ * |---|---|
+ * | `'ss/overall/Basic.ssab'` | inside the app's asset directory — what you ship |
+ * | `'file:///…'`, `'/…'` | a real directory: a download, `Documents/`, anything unpacked |
+ * | `'http://…'` | a dev server or a CDN |
+ *
+ * `{ uri }` is accepted for all three, for symmetry with React Native's own
+ * source props.
+ *
+ * ## Why not `require()`
+ *
+ * It cannot carry a directory. Metro ships a dependency *graph* — it bundles
+ * only what a `require()` names and never walks a directory — and on an Android
+ * release build the packager then flattens and lowercases what it did name into
+ * `res/`, so `dirname()` of a bundled asset points at nothing. A `require()`
+ * source works in development and then silently loses every sibling reference
+ * when shipped, which is the failure this API is shaped to avoid. The pack
+ * directories are copied in out-of-band instead — see `plugin/`.
  */
-export type SsSource = number | string | { uri: string }
+export type SsSource = string | { uri: string }
 
 /**
- * The URI behind a source, before any decision about how to open it.
+ * The URI a source names, unwrapped but not yet normalised.
  *
- * This is where the dev/release split actually lives (design doc ch.9 E): the
- * same `require()` resolves to Metro's dev-server **URL** while the packager is
- * running and to a bundled file in a release build.
+ * Also where a `require()` is caught. TypeScript rejects one, but a JS caller
+ * gets a module id — an opaque number — and the failure it would otherwise
+ * cause is a part that silently is not there.
+ *
+ * Separate from `resolveSourceUri` so `<SpriteStudioView>` can key its load
+ * effect on the URI (an inline `{ uri }` is a new object every render) without
+ * a second copy of this check.
  */
-export function resolveSourceUri(source: SsSource): string {
+export function sourceUriOf(source: SsSource): string {
   if (typeof source === 'number') {
-    const resolved = Image.resolveAssetSource(source)
-    if (resolved?.uri == null) {
-      throw new Error(
-        'SsSource: require() did not resolve to an asset. Is `ssab` in the ' +
-          "Metro config's resolver.assetExts?"
-      )
-    }
-    return resolved.uri
+    throw new Error(
+      'SsSource: a require()d module cannot be a SpriteStudio source. A pack is ' +
+        'a directory and Metro does not ship one — pass a path into the app ' +
+        "asset directory instead, e.g. 'ss/overall/Basic.ssab'."
+    )
   }
-  return typeof source === 'string' ? source : source.uri
+  const uri = typeof source === 'string' ? source : source?.uri
+  if (typeof uri !== 'string' || uri.length === 0) {
+    throw new Error('SsSource: expected a path or URI string')
+  }
+  return uri
 }
 
-/**
- * The filesystem path behind `uri`, or null when it is not a local file.
- *
- * The Brain opens files with `fopen`, which does not speak `file://`.
- */
-export function fileSystemPathOf(uri: string): string | null {
-  if (uri.startsWith('file://')) return decodeURIComponent(uri.slice(7))
-  // An absolute path with no scheme at all — what iOS release builds hand back.
-  if (uri.startsWith('/')) return uri
-  return null
+/** The URI behind a source, before any decision about how to open it. */
+export function resolveSourceUri(source: SsSource): string {
+  return normalizeUri(sourceUriOf(source))
 }
 
 /**
  * Loads a `.ssab` into a Layer 1 resource.
  *
- * Prefers the path route, which keeps the bytes out of the JS heap entirely
- * (design doc ch.5 A) — C++ opens the file. Falls back to fetching the bytes for
- * sources no `fopen` can reach, which in practice means Metro's dev-server URL.
+ * Two of the three routes keep the bytes out of the JS heap entirely (design
+ * doc ch.5 A) — C++ opens the file or the APK entry. Only a remote URL has to
+ * be fetched, and only a dev server or a CDN is one.
  *
  * The resource is the caller's to `dispose()`.
- *
- * **Known gap:** an Android *release* build resolves bundled assets to a path
- * inside the APK, which is neither `fopen`-able nor `fetch`-able — it needs
- * `AAssetManager`. Android has no drawing path yet either (see the ROADMAP's
- * `SSPLAYER_ENABLE_SKIA_DIRECT` entry), so this is not the binding constraint
- * there yet.
  */
 export async function loadResource(source: SsSource): Promise<LoadedResource> {
   const uri = resolveSourceUri(source)
 
-  const path = fileSystemPathOf(uri)
-  if (path != null) {
-    return { resource: SsRuntimeModule.createResourceFromPath(path), uri: path }
-  }
-
-  const response = await fetch(uri)
-  if (!response.ok) {
-    throw new Error(`SsSource: ${response.status} fetching '${uri}'`)
-  }
-  return {
-    resource: SsRuntimeModule.createResourceFromBytes(await response.arrayBuffer()),
-    uri,
+  switch (schemeOf(uri)) {
+    case 'asset':
+      return { resource: SsRuntimeModule.createResourceFromAsset(uri), uri }
+    case 'file': {
+      const path = fileSystemPathOf(uri)!
+      return { resource: SsRuntimeModule.createResourceFromPath(path), uri }
+    }
+    case 'remote': {
+      const response = await fetch(uri)
+      if (!response.ok) {
+        throw new Error(`SsSource: ${response.status} fetching '${uri}'`)
+      }
+      return {
+        resource: SsRuntimeModule.createResourceFromBytes(await response.arrayBuffer()),
+        uri,
+      }
+    }
   }
 }
 
@@ -82,10 +101,11 @@ export async function loadResource(source: SsSource): Promise<LoadedResource> {
 export interface LoadedResource {
   resource: SsResource
   /**
-   * What the source resolved to — a filesystem path or a URL.
+   * The URI the source resolved to, normalised.
    *
-   * Carried out of the load because the pack's textures are named *relative to
-   * it*: `SsTextureLoader` joins this URI's parent with each `image_path`.
+   * Carried out of the load because everything the pack references is named
+   * *relative to it* — `resolveAgainst(uri, ref)` is how a texture, and later an
+   * Instance part's external pack, becomes something openable.
    */
   uri: string
 }

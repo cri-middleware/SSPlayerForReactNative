@@ -1,9 +1,12 @@
 #include "HybridSsRuntime.hpp"
 
+#include <optional>
 #include <stdexcept>
+#include <vector>
 
 #include "HybridSsContext.hpp"
 #include "HybridSsResource.hpp"
+#include "SsAssets.hpp"
 #include "ssruntime.h"
 
 namespace margelo::nitro::ssplayer {
@@ -29,6 +32,31 @@ std::shared_ptr<HybridSsResourceSpec> HybridSsRuntime::createResourceFromBytes(
   // The ArrayBuffer is only borrowed for this call — `HybridSsResource` hands
   // the bytes to the Brain with `_copy`, so nothing outlives the return.
   return std::make_shared<HybridSsResource>(bytes->data(), bytes->size(), "<bytes>");
+}
+
+std::shared_ptr<HybridSsResourceSpec> HybridSsRuntime::createResourceFromAsset(
+    const std::string& path) {
+  // Prefer the file route where the platform has one (Apple): the `.ssab` then
+  // goes disk → Brain without an intermediate buffer, which is the whole point
+  // of `createResourceFromPath` (design doc ch.5 A). Android's assets live
+  // inside the APK, so there the bytes have to be materialised first — still
+  // never touching the JS heap, which is what this method exists for.
+  if (const std::optional<std::string> file = ::ssplayer::SsAssets::filePath(path)) {
+    return std::make_shared<HybridSsResource>(*file);
+  }
+  const std::vector<uint8_t> bytes = ::ssplayer::SsAssets::read(path);
+  return std::make_shared<HybridSsResource>(bytes.data(), bytes.size(), path);
+}
+
+std::shared_ptr<ArrayBuffer> HybridSsRuntime::readAsset(const std::string& path) {
+  // Owning, not borrowed: unlike the per-frame buffers this is a one-off read
+  // whose bytes JS holds onto (a texture, decoded by Skia after the call), so
+  // there is nothing native for it to alias.
+  return ArrayBuffer::move(::ssplayer::SsAssets::read(path));
+}
+
+bool HybridSsRuntime::getHasAssetDirectory() {
+  return ::ssplayer::SsAssets::isAvailable();
 }
 
 std::shared_ptr<HybridSsContextSpec> HybridSsRuntime::createContext(

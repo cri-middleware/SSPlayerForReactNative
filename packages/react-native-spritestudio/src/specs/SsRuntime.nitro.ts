@@ -334,24 +334,60 @@ export interface SsRuntime
   readonly version: string
 
   /**
+   * Whether this build can read the app's asset directory at all.
+   *
+   * Always true on iOS. On Android it stays false until the bootstrap provider
+   * has handed over the `AssetManager`, which turns "the library is not wired
+   * up" into a different message from "that pack is not in the app".
+   */
+  readonly hasAssetDirectory: boolean
+
+  /**
    * Reads the file natively and hands the bytes straight to the Brain.
    *
    * The `.ssab` never enters the JS heap (design doc ch.5 A). `path` must
-   * already be resolved to a filesystem path — turning Metro's dev-server URL
-   * into one is L3's job (design doc ch.9 E).
+   * already be a filesystem path — resolving one is L3's job.
    */
   createResourceFromPath(path: string): SsResource
 
   /**
-   * The fallback for sources that are not a file: Metro's dev-server URL, and
-   * Android's `asset://` entries inside the APK, neither of which `fopen` can
-   * open. The bytes do pass through the JS heap, which is what
-   * `createResourceFromPath` exists to avoid — prefer the path whenever the
-   * platform can produce one.
+   * The fallback for sources `fopen` cannot reach, which after the asset-path
+   * work means one thing: an `http(s)` URL, so a Metro dev server or a CDN. The
+   * bytes pass through the JS heap, which is exactly what the two calls either
+   * side of this one exist to avoid.
    */
   createResourceFromBytes(bytes: ArrayBuffer): SsResource
 
+  /**
+   * Loads a `.ssab` out of the app's **asset directory** — the pack tree the
+   * build copied in, addressed as `ss/overall/Basic.ssab`.
+   *
+   * This is the route that makes sibling references work. Everything a pack
+   * points at — a cellmap's `image_path`, an `external_textures` entry, an
+   * Instance part's external `.ssab`, a `.ssqb`'s `ref_anime_pack` — is a name
+   * relative to the `.ssab`, so it can only be resolved where the whole
+   * directory survives into the app. Metro does not preserve one (it bundles
+   * what a `require()` names, and Android's packager then flattens it into
+   * `res/`), so the directory is copied in out-of-band by the config plugin.
+   *
+   * Still no JS heap: iOS opens the file inside the `.app`, Android reads the
+   * APK entry through `AAssetManager`, and either way the bytes go straight to
+   * the Brain.
+   */
+  createResourceFromAsset(path: string): SsResource
+
   createContext(resource: SsResource): SsContext
+
+  /**
+   * An asset's bytes, for the things JS itself has to decode — a texture, on
+   * its way to `Skia.Data.fromBytes`.
+   *
+   * `Skia.Data.fromURI` covers `file:` and `http:` but knows nothing about
+   * either platform's asset storage, so this is the seam that keeps "where the
+   * app keeps its assets" a question only C++ has to answer. Throws, naming the
+   * path, rather than returning empty.
+   */
+  readAsset(path: string): ArrayBuffer
 
   /**
    * The Brain's own FNV-1a (`ss_runtime_hash_string`), the hash `cellmap.name`

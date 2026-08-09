@@ -15,9 +15,12 @@ namespace margelo::nitro::ssplayer {
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridGetter("version", &HybridSsRuntimeSpec::getVersion);
+      prototype.registerHybridGetter("hasAssetDirectory", &HybridSsRuntimeSpec::getHasAssetDirectory);
       prototype.registerHybridMethod("createResourceFromPath", &HybridSsRuntimeSpec::createResourceFromPath);
       prototype.registerHybridMethod("createResourceFromBytes", &HybridSsRuntimeSpec::createResourceFromBytes);
+      prototype.registerHybridMethod("createResourceFromAsset", &HybridSsRuntimeSpec::createResourceFromAsset);
       prototype.registerHybridMethod("createContext", &HybridSsRuntimeSpec::createContext);
+      prototype.registerHybridMethod("readAsset", &HybridSsRuntimeSpec::readAsset);
       prototype.registerHybridMethod("hashString", &HybridSsRuntimeSpec::hashString);
     });
   }

@@ -99,9 +99,12 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `src/specs/SsRuntime.nitro.ts` | L1 spec, nitrogen's input. Still carries the Phase 0 variants (a)/(b) — `getSoA`, `getPlan`, `bake` — because the bench reproduces the measurement with them. Nothing above L1 uses them. |
 | `src/runtime.ts` | The L1 module singleton. Its own file so `core/` can reach it without importing the barrel. |
 | `src/core/` | **L2, and the react-free boundary.** `SsInternalPlayer`, `SsTextureRegistry`, and the playback/root-transform vocabulary both L2 and L3 name. |
-| `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (the dev-URL vs bundled-path split). |
+| `src/core/assets.ts` | **The one place a sibling reference becomes something openable.** `schemeOf` / `resolveAgainst` — used by textures today, by Instance and `.ssqb` next. |
+| `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (what an `SsSource` is, and which L1 door each kind opens). |
 | `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
 | `src/index.ts` | Public exports, layer by layer, plus the `Int32Array` field offsets the bench reads batches with. |
+| `plugin/withSpriteStudio.js` + `app.plugin.js` | Expo config plugin: copies the pack directories into the app as native assets, every build, on both platforms. Plain CommonJS — Expo requires it during `prebuild`, unbuilt. |
+| `cpp/SsAssets.{hpp,cpp}` | The read side of that: the `.app`'s resource directory on Apple, `AAssetManager` on Android. |
 | `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
 | `cpp/format/{ssab,framedata}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. |
 | `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
@@ -114,12 +117,49 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 
 `example/` is an Expo app with two screens. **Player** drives the SDK's
 `overall/Basic` through `<SpriteStudioView>` and is what you want when checking
-that a change still renders; its *Textures* toggle switches between the
-**embedded** pack (loaded automatically, no `textures` prop) and the
-**reference** one (supplied explicitly — see the Metro trap). **Bench** is the
-Phase 0 measurement harness — it still auto-runs the whole variant ×
-instance-count sweep (`AUTO_SWEEP`) the moment you open it, so a number stays
-reproducible: launch, tap *Bench*, wait, read the table.
+that a change still renders; its *Textures* toggle points at two different
+conversions of the same animation — `overall-embedded/` (atlas inside the
+`.ssab`) and `overall/` (atlas as a sibling file) — so both texture routes are
+visible. Nothing in the app selects a route; `SsTextureLoader` decides per
+texture. **Bench** is the Phase 0 measurement harness — it still auto-runs the
+whole variant × instance-count sweep (`AUTO_SWEEP`) the moment you open it, so a
+number stays reproducible: launch, tap *Bench*, wait, read the table.
+
+## Assets: a pack is a directory, not a file
+
+Everything a `.ssab` points at is a **sibling name** — a cellmap's `image_path`,
+an `external_textures` entry, the external `.ssab` an Instance part reaches, a
+`.ssqb`'s `ref_anime_pack`. So the unit that has to survive into the app is the
+converter's output *directory*, and the whole asset design follows from that.
+
+**Metro cannot host one.** It ships a dependency graph: it bundles only what a
+`require()` names and never walks a directory, and Android's packager then
+flattens, lowercases and de-extensions what it did name into `res/`. So
+`require()` is not an `SsSource` — it would work in development and lose every
+sibling reference on release. `resolveSourceUri` throws on one by name, because
+the alternative is a part that silently is not there.
+
+A source is a **location**, in one of three kinds (`SsUriScheme`):
+
+| | | |
+|---|---|---|
+| `asset` | `'ss/overall/Basic.ssab'` | the app's asset directory — what you ship |
+| `file` | `'/…'`, `'file://…'` | a downloaded or unpacked directory |
+| `remote` | `'http://…'` | dev server, CDN |
+
+`resolveAgainst(baseUri, ref)` joins a sibling onto the `.ssab`'s own URI and
+hands back the same kind, so each kind needs exactly one reader and every
+reference — texture today, Instance and sequence next — goes through one seam.
+
+The asset kind is the one with machinery behind it. The Expo config plugin
+copies each listed directory in on **every build** (an Xcode run-script phase;
+a Gradle `Sync` task feeding an asset source set), so re-running
+`ssconverter-cli` and hitting Run is enough. `SsAssets` reads it back: on Apple
+the `.app`'s resource directory, so `createResourceFromAsset` takes the `fopen`
+route and the `.ssab` never enters the JS heap; on Android `AAssetManager`,
+because an APK entry is not a file. `readAsset` is the same door for the bytes
+JS itself has to decode — `Skia.Data.fromURI` knows neither platform's asset
+storage.
 
 ## Toolchain scripts (`scripts/`, `.js` shim → `.sh`+`.ps1`; SDK via `$SSSDK`)
 
@@ -180,15 +220,28 @@ later `download-sdk` correctly replaces a local build.
   And an embedded atlas **cannot be freed after decoding**: it lives inside the
   same contiguous FlatBuffer the Brain holds for the resource's life, so embedded
   permanently costs one encoded atlas on top of the decoded texture.
-* **Metro ships a dependency graph, not asset directories.** This is why the
-  sibling Players can always resolve `image_path` and this one cannot: Metro
-  bundles only what a `require()` names and never walks a directory. Reference
-  mode therefore reaches embedded-free packs only from a real filesystem
-  directory or a dev server — never from a `require()`d asset in release. And
-  inside an npm workspace it fails for a *second* reason: `watchFolders` pushes
-  Metro's server root up to the workspace, so an asset URL is
-  `/assets/<pkg>/assets/...` while Metro resolves the request against the
-  *project* root. `example/` hits exactly that.
+* **Metro ships a dependency graph, not asset directories** — see "Assets"
+  above. `require()` is not an `SsSource`, and re-adding it would quietly
+  reintroduce the failure it was removed for. Two consequences worth spelling
+  out: **changing an asset needs a native build**, not a Fast Refresh (both
+  platforms re-sync on every build, so Run is enough — a prebuild is not); and
+  **`assetExts` must stay clean of `ssab`/`ssqb`**, because a `require()` that
+  resolves is the trap coming back.
+* **Android reaches its assets through a `ContentProvider`, and it is not
+  optional.** `AAssetManager` needs a `Context`, and nothing React Native hands
+  this package gives one at a time we can rely on: the autolinked class gets
+  none, and `createViewManagers` is resolved lazily under Fabric.
+  `SsPlayerAssetBootstrap` (in the library's own `AndroidManifest.xml`) captures
+  it before `Application.onCreate`. It deliberately does **not** load
+  `libSsPlayer.so` — that early, RN's own libraries are not up yet — so the
+  handover waits for `SsPlayerPackage.init`. Also: `AAssetManager_fromJava` does
+  not retain the Java object, which is why `SsPlayerAssets` holds it in a field
+  for the process's life. Drop that field and the pointer dangles.
+* **A pack's `image_path` can start with `../`.** It is authored relative to the
+  `.ssae`, so the joined path arrives with the `..` still in it and
+  `AAssetManager_open` will not resolve one. `normalizeUri` collapses it in JS
+  and `SsAssets` again in C++; a `..` that walks out of the asset root is
+  reported rather than silently clamped.
 * **The texture table goes in per draw call, not registered once.** The
   `SkPaint`s are JS-owned and RN Skia may recycle or mutate them between frames,
   so C++ must not hold one past the call. And the batches must be walked in the
@@ -327,6 +380,7 @@ build=release` when working on it).
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
+| Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. That pack has no embedded atlas, so if `common.png` were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. |
 | Measurement | Open the **Bench** screen with `AUTO_SWEEP = true`; the results table appears in-app |
 
 ## Render recipe (Normal kind, variant (c))

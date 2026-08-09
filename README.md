@@ -45,6 +45,7 @@ SSPlayerForReactNative/
 ├── packages/react-native-spritestudio/ <- the npm package
 │   ├── src/specs/SsRuntime.nitro.ts    <- Layer 1 spec (nitrogen input)
 │   ├── cpp/                            <- Nitro implementation + the Skia bridge
+│   ├── plugin/                         <- Expo config plugin: ships pack directories
 │   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
 │   └── native/                         <- [gitignored] libssruntime + headers
 ├── example/                            <- Expo app: the Phase 0 measurement harness
@@ -114,6 +115,45 @@ npm run deploy-examples -- --embedded
 `.sspj` → `.ssab` conversion is a host-side step using the SDK's
 `ssconverter-cli` — no converter is bundled, because React Native has no editor
 to host an importer in.
+
+## Shipping animations
+
+**A pack is a directory, not a file.** A `.ssab` names its textures, the
+external packs its Instance parts reach and — through a `.ssqb` — the packs it
+sequences, all by paths relative to itself. So `ssconverter-cli`'s output
+directory is what has to reach the device intact.
+
+Metro cannot carry one: it bundles only what a `require()` names and never walks
+a directory, and Android's packager then flattens what it did name into `res/`.
+So the pack directories are shipped as **native app assets** instead. Point the
+config plugin at them:
+
+```json
+{
+  "expo": {
+    "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
+  }
+}
+```
+
+and address a pack by path inside that root:
+
+```tsx
+<SpriteStudioView source="ss/overall/Basic.ssab" animation="anime_1" />
+```
+
+The textures come with it — the loader resolves each `image_path` next to the
+`.ssab`, and takes the embedded atlas instead when the pack was converted with
+`--embedded`. Nothing else has to be supplied.
+
+A `source` can also be a filesystem path or `file://` URI (a download, an
+unpacked bundle) or an `http(s)` URL (a dev server, a CDN); siblings resolve the
+same way in all three. A `require()`d module is **not** a source — that is the
+form with no directory behind it.
+
+The plugin re-copies on every build, so re-running `ssconverter-cli` needs only
+a rebuild, not a fresh `prebuild`. Changing an asset does mean a native build,
+though: assets do not Fast Refresh.
 
 ## Documentation
 
