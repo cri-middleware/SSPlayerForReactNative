@@ -25,12 +25,28 @@ const ANIMATION = 'anime_1'
  * Paths are relative to the app's asset root, which the plugin fills from
  * `example/assets/ss`.
  */
-const SOURCES = {
-  embedded: 'ss/overall-embedded/Basic.ssab',
-  reference: 'ss/overall/Basic.ssab',
+const PACKS = {
+  embedded: 'ss/overall-embedded',
+  reference: 'ss/overall',
 } as const
 
-type Mode = keyof typeof SOURCES
+type Mode = keyof typeof PACKS
+
+/**
+ * Which `.ssab` inside the pack.
+ *
+ * `Basic` is the plain Normal-parts case and the one to check a render change
+ * against. `BlendMode` is the SDK's blend test animation — every framebuffer
+ * blend type side by side, which is the only way to see `SsBlend.hpp`'s table at
+ * all, and in particular the two modes (Sub, Invert) that Skia has no single
+ * blend mode for and that `SsSkiaDraw` reconstructs from three passes.
+ *
+ * Both live in both packs and both animate `anime_1`, so this axis is
+ * independent of the texture-route toggle below.
+ */
+const SSABS = ['Basic', 'BlendMode'] as const
+
+type Ssab = (typeof SSABS)[number]
 
 /** `Basic`'s authored canvas is 480x480 (`<canvasSize>` in Basic.ssae). */
 const DESIGN_HEIGHT = 480
@@ -52,6 +68,7 @@ const DESIGN_HEIGHT = 480
 export function PlayerScreen() {
   const ref = useRef<SpriteStudioViewRef>(null)
   const [mode, setMode] = useState<Mode>('embedded')
+  const [ssab, setSsab] = useState<Ssab>('Basic')
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1)
   const [flipX, setFlipX] = useState(false)
@@ -74,7 +91,7 @@ export function PlayerScreen() {
           <SpriteStudioView
             ref={ref}
             style={StyleSheet.absoluteFill}
-            source={SOURCES[mode]}
+            source={`${PACKS[mode]}/${ssab}.ssab`}
             animation={ANIMATION}
             playing={playing}
             speed={speed}
@@ -88,9 +105,17 @@ export function PlayerScreen() {
 
       <View style={styles.panel}>
         {error != null && <Text style={styles.error}>{error}</Text>}
+        <Text style={styles.label}>Animation</Text>
+        <View style={styles.row}>
+          {SSABS.map((s) => (
+            <Choice key={s} active={ssab === s} onPress={() => setSsab(s)}>
+              {s}
+            </Choice>
+          ))}
+        </View>
         <Text style={styles.label}>Textures</Text>
         <View style={styles.row}>
-          {(Object.keys(SOURCES) as Mode[]).map((m) => (
+          {(Object.keys(PACKS) as Mode[]).map((m) => (
             <Choice key={m} active={mode === m} onPress={() => setMode(m)}>
               {m === 'embedded' ? 'embedded (in .ssab)' : 'reference (sibling file)'}
             </Choice>

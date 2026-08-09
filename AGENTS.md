@@ -7,11 +7,12 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 `CLAUDE.md` is a symlink to this file.
 
 > [!IMPORTANT]
-> **This repo is mid-Phase 1.** All four layers exist and `<SpriteStudioView>`
-> plays an animation on **both** iOS and Android (simulator and emulator; no
-> physical device has been tried). Scope is still Normal parts with normal
-> blending — no blend modes, masks, effects, events, part overrides or
-> Reanimated integration. Read
+> **Phase 1 is done bar a real device; Phase 2 has started.** All four layers
+> exist and `<SpriteStudioView>` plays an animation on **both** iOS and Android
+> (simulator and emulator — **no physical device has ever been tried**, which is
+> the one thing keeping Phase 1 open). Scope is Normal parts, now with the full
+> framebuffer **blend table** (`cpp/SsBlend.hpp`) — still no masks, effects,
+> PartColor, Mesh/Shape, events, part overrides or Reanimated integration. Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
 > it overturned one of the design doc's premises, and its own numbers were then
 > overturned in turn.
@@ -399,7 +400,15 @@ SoA pointers → for each `kind == Normal` batch, walk
 corners (`m0·x + m4·y + m12`, `m1·x + m5·y + m13`) plus its pixel UVs and two
 triangles. The batch's slice of the flat float arrays is already `SkPoint`-shaped,
 so `SkVertices::MakeCopy` takes it without conversion, then
-`canvas->drawVertices(v, SkBlendMode::kSrcOver, paint)` — `paint` being the one
-the batch's `texture_hash` selects out of the call's texture table, carrying that
-cellmap's atlas image shader. JS supplies only the canvas, that table and the
-root transform.
+`canvas->drawVertices(v, mode, paint)` — `paint` being the one the batch's
+`texture_hash` selects out of the call's texture table, carrying that cellmap's
+atlas image shader, and `mode` coming from `SsBlend.hpp`'s table. JS supplies only
+the canvas, that table and the root transform.
+
+Ten of the twelve blend types are one `SkBlendMode` and keep the
+one-`drawVertices`-per-batch shape. **Sub and Invert do not**: Skia has no
+reverse-subtract and no dst-replace, so each is rebuilt from three passes
+(`SsBlend.hpp` derives them), and that costs the batching — the inversion passes
+must cover each pixel exactly once, so those batches are peeled into single
+quads. Two overlapping Sub parts drawn together would invert their overlap twice
+and cancel it.

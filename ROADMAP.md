@@ -159,9 +159,22 @@ handles.
 
 ## ☐ Phase 2 — Full feature parity
 
-- ☐ All blend modes, including the multi-pass Sub / Invert reconstruction
+- 🚧 All blend modes, including the multi-pass Sub / Invert reconstruction
   (ground truth: `ssplayer-webgl`'s `applyBlend`; **only RGB varies — alpha is
-  premultiplied source-over for every mode**)
+  premultiplied source-over for every mode**). **Landed** in `cpp/SsBlend.hpp`:
+  ten types are one `SkBlendMode`, Sub and Invert are rebuilt from three passes
+  each, and `SsSkiaDraw` peels those batches into single quads because the
+  inversion passes have to cover each pixel exactly once. The Skia mapping is
+  taken from **SSPlayerForFlutter**'s `render/blend.dart` rather than re-derived
+  — Flutter's `ui.BlendMode` *is* `SkBlendMode`, so its algebra carries over
+  unchanged. Verified on Android against an all-`srcOver` A/B: exactly one
+  144×144 grid cell of `BlendMode.ssab` turns black, which is what both Sub and
+  Invert must do over an opaque white backdrop.
+  **What is left is the part that matters:** Flutter carries pixel tests
+  (`test/blend_pixel_test.dart`) that measure every row against the GL formula
+  instead of trusting the algebra, and this port has no equivalent. Until it
+  does, "the modes differ from each other" is proven and "each mode is *right*"
+  is not.
 - ☐ Mask via the coverage-pass method (Skia has no stencil), matching the
   Flutter Player's `mask.dart` / `mask_context.dart`
 - ☐ PartColor, Mesh, Shape, Nines
