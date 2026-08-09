@@ -13,7 +13,9 @@
     "for the host OS (scripts/run-platform-script.js) — naming a .sh here would",
     "shut Windows contributors out. Same shape as SSPlayerForWeb.",
     "check-framedata is macOS/Linux-only on purpose: it is a developer guard",
-    "that needs flatc and a host cargo build, not part of any build path."
+    "that needs flatc and a host cargo build, not part of any build path.",
+    "generate-fbs-code takes an optional output dir so check-framedata can",
+    "regenerate into a scratch dir and diff, rather than reimplementing it."
   ],
   "scripts": {
     "download-sdk": "node scripts/download-sdk.js",

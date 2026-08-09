@@ -1,15 +1,26 @@
 #!/bin/bash
 #
-# Generate the C++ FlatBuffers accessors for the `.ssab` asset format.
+# Generate the C++ FlatBuffers accessors for the two schemas this Player reads.
 #
 #   SpriteStudio-SDK/libs/ssab/fbs/ssab.fbs
 #     -> packages/react-native-spritestudio/cpp/format/ssab.h
+#   SpriteStudio-SDK/libs/ssruntime/fbs/framedata.fbs
+#     -> packages/react-native-spritestudio/cpp/format/framedata.h
 #
 # Why the Player parses the `.ssab` at all: libssruntime deliberately returns
 # none of the metadata rendering needs — cellmap names, texture paths, animation
 # names — and tells Players to read it out of the ssab themselves
 # (`20_design/20_architecture.md`). Texture loading is the first thing that
 # needs it.
+#
+# `framedata` is the Brain's per-frame output, read on the hot path. Generated
+# accessors are the right tool there too, contrary to what this script used to
+# say: flatc's C++ struct fields are direct member reads through `EndianScalar`
+# (a no-op on little-endian), and `Vector<const T*>::Data()` hands back the
+# contiguous pointer, so `30_core/30_render_loop.md` §2's "read the struct
+# vectors raw" is satisfied *through* the generated code rather than around it.
+# The ~26x figure that argument leaned on is a Unity/C# measurement, where each
+# accessor is a ByteBuffer read; it does not carry to C++.
 #
 # Same shape as SSPlayerForGodot's `scripts/generate-runtime-code.sh`: flatc -c,
 # and the `_generated` suffix dropped on the way into `format/`. FlatBuffers is
@@ -21,11 +32,9 @@
 # treatment as `nitrogen/`. Run this only when the schema changes; it is
 # deliberately not part of build-runtime or download-sdk.
 #
-# Not framedata: that one stays hand-written in `cpp/SsFrameData.hpp` because
-# `30_core/30_render_loop.md` §2 tells Players to read its struct vectors raw
-# rather than through per-element accessors (measured at ~26x on Unity/C#), so
-# generated accessors would be bypassed on the hot path anyway. The `.ssab` is
-# read once per load, where that argument does not apply.
+# The committed headers must match the Brain in `native/`, not merely whatever
+# the submodule is checked out at: a stale `framedata.h` misreads the buffer
+# silently. `tools/check-framedata.sh` is the guard — it regenerates and diffs.
 #
 # Usage: scripts/generate-fbs-code.sh
 #
@@ -37,7 +46,10 @@ BASEDIR=$(dirname "$0")
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 APP=$(basename "$0")
 
-OUT_DIR="${ROOTDIR}/packages/react-native-spritestudio/cpp/format"
+# `tools/check-framedata.sh` reuses this script with the output pointed at a
+# scratch directory, so the guard and the generator can never disagree about
+# flatc's flags or the `_generated` rename.
+OUT_DIR="${1:-${ROOTDIR}/packages/react-native-spritestudio/cpp/format}"
 
 if ! command -v flatc >/dev/null 2>&1; then
     echo "${APP}: flatc not found — install Google FlatBuffers (brew install flatbuffers)." >&2
@@ -56,15 +68,26 @@ if [ -z "$SDK_DIR" ] || [ ! -f "${SDK_DIR}/Cargo.toml" ]; then
     exit 1
 fi
 
-FBS="${SDK_DIR}/libs/ssab/fbs/ssab.fbs"
-if [ ! -f "$FBS" ]; then
-    echo "${APP}: ${FBS} not found in the SDK submodule" >&2
-    exit 1
-fi
+# "<schema path relative to the SDK>:<stem>". The stem is both flatc's output
+# prefix (`<stem>_generated.h`) and the name we keep.
+SCHEMAS="libs/ssab/fbs/ssab.fbs:ssab libs/ssruntime/fbs/framedata.fbs:framedata"
+
+for entry in $SCHEMAS; do
+    rel="${entry%:*}"
+    if [ ! -f "${SDK_DIR}/${rel}" ]; then
+        echo "${APP}: ${SDK_DIR}/${rel} not found in the SDK submodule" >&2
+        exit 1
+    fi
+done
 
 echo "Generating C++ FlatBuffers accessors (flatc -c) ..."
 mkdir -p "$OUT_DIR"
-( cd "$OUT_DIR" && flatc -c "$FBS" && mv ssab_generated.h ssab.h )
+for entry in $SCHEMAS; do
+    rel="${entry%:*}"
+    stem="${entry##*:}"
+    ( cd "$OUT_DIR" && flatc -c "${SDK_DIR}/${rel}" && mv "${stem}_generated.h" "${stem}.h" )
+    echo "  ${stem}.h"
+done
 
-echo "Generated packages/react-native-spritestudio/cpp/format/ssab.h"
+echo "Generated into ${OUT_DIR}"
 echo "Done."

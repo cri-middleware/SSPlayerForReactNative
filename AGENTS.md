@@ -23,7 +23,7 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 * Never hand-edit `packages/react-native-spritestudio/nitrogen/` — change the spec
   and run `npm run generate-nitro-code`.
 * After editing TypeScript, typecheck (see [Verification](#verification)).
-  After editing `cpp/SsFrameData.hpp` or touching `framedata.fbs`, run
+  After touching `framedata.fbs` or the FrameData read path, run
   `npm run check-framedata`.
 * Fix stale docs in the same turn you notice them (architecture/roadmap drift easily).
 * **Measure with release on BOTH sides, and check the animation is playing.**
@@ -102,9 +102,8 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (the dev-URL vs bundled-path split). |
 | `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
 | `src/index.ts` | Public exports, layer by layer, plus the `Int32Array` field offsets the bench reads batches with. |
-| `cpp/SsFrameData.hpp` | Hand-written FlatBuffers reader for the Brain's per-frame output (see Traps). |
-| `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output, **not** hand-written. |
-| `cpp/format/ssab.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. |
+| `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
+| `cpp/format/{ssab,framedata}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. |
 | `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
 | `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/batch arrays. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsSkiaBridge.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` host objects. **The only place RN Skia's internals are touched.** |
@@ -134,8 +133,8 @@ flavours parse the same spellings.
 | `build-runtime` | Build the Brain from the submodule into the *same* layout, stamped `<tag>+submodule-<sha>`. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via the SDK's `ssconverter-cli` (needs Rust). | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
-| `generate-fbs-code` | `flatc -c` over `ssab.fbs` → `cpp/format/ssab.h`. Commit the result. Needs `flatc`. | After an `.ssab` schema change |
-| `check-framedata` | Diff the hand-written FlatBuffers offsets against flatc. macOS/Linux, needs `flatc`. | After a `.fbs` change |
+| `generate-fbs-code` | `flatc -c` over `ssab.fbs` and `framedata.fbs` → `cpp/format/`. Commit the result. Needs `flatc`. | After either schema changes |
+| `check-framedata` | Re-generate `cpp/format/` and diff it, then run the baker against a real `.ssab` under ASan. macOS/Linux, needs `flatc` + `cargo`. | After a `.fbs` change, or an SDK bump |
 
 The pinned tag lives in `scripts/SDK_VERSION.txt`. `download-sdk` skips when
 `native/VERSION` already matches it; a `build-runtime` stamp never matches, so a
@@ -219,11 +218,30 @@ later `download-sdk` correctly replaces a local build.
 * **A world matrix can be a reflection, and the sign is a product** of authored
   negative scale and the player's flip, so they cancel. Read `determinant()`;
   never infer it from the flip settings.
-* **`cpp/SsFrameData.hpp` hardcodes FlatBuffers offsets.** That is deliberate —
-  it keeps flatbuffers out of every consumer's iOS/Android build, and
-  `30_core/30_render_loop.md` §2 tells Players to raw-read the struct vectors
-  anyway. `tools/check-framedata.sh` is the guard; run it after any schema
-  change. A size assert alone would miss a same-size field reordering.
+* **"Raw-read the struct vectors" is not an argument against flatc.** There used
+  to be a hand-written `cpp/SsFrameData.hpp` mirroring framedata.fbs's offsets,
+  on two premises that both turned out to be false. `30_core/30_render_loop.md`
+  §2's advice to read the struct vectors raw is satisfied *through* flatc's C++
+  output, not around it: struct fields are direct member reads via
+  `EndianScalar` (a no-op on little-endian) and `Vector<const T*>::Data()` hands
+  back the contiguous pointer. The ~26x that argument leaned on is a **Unity/C#**
+  measurement, where each accessor is a ByteBuffer read. And "keeps flatbuffers
+  out of the build" was already untrue — `cpp/format/ssab.h` puts
+  `third_party/flatbuffers/include` on both the podspec's and CMake's path.
+* **The FrameData risk that survived the switch is a *stale* `cpp/format/`.**
+  Generated offsets can no longer disagree with the schema, but a committed
+  header older than the `libssruntime` in `native/` is internally consistent and
+  simply wrong — a silently misread buffer, the same failure as before.
+  `npm run check-framedata` is the guard: it regenerates and diffs, *then* drives
+  a real `.ssab` through `SsBaker` under ASan with `flatbuffers::Verifier` on
+  every frame. The `Verifier` is deliberately host-only; it walks the whole
+  buffer and `refreshFrame()` runs once per player per frame.
+* **`partCount` has two independent sources and they are not cross-checked.**
+  `HybridSsContext::partCount_` comes from the *world matrix* length ÷ 16, while
+  per-part attributes come from `FrameData.parts`. `getPlan()` clamps to the
+  shorter of the two and leaves the tail opaque; `ssbake_check` reports a
+  disagreement. The old hand-written reader returned a default for an
+  out-of-range index, which silently absorbed this instead of surfacing it.
 * **Android autolinking needs a `ReactPackage` implementation, even for a
   C++-only module.** Without one in `android/src/main/`, the package is not a
   Gradle subproject and its native code is never built — silently. That is why
@@ -304,7 +322,7 @@ build=release` when working on it).
 | Check | Command |
 |---|---|
 | Typecheck (package + example) | `npm run typecheck` |
-| FlatBuffers offsets | `npm run check-framedata` (needs `flatc`) |
+| FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |

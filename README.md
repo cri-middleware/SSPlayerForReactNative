@@ -48,7 +48,7 @@ SSPlayerForReactNative/
 │   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
 │   └── native/                         <- [gitignored] libssruntime + headers
 ├── example/                            <- Expo app: the Phase 0 measurement harness
-├── tools/check-framedata.sh            <- guards the hand-written FlatBuffers offsets
+├── tools/check-framedata.sh            <- guards the generated FlatBuffers accessors
 └── docs/phase0-spike.md                <- the measurement
 ```
 

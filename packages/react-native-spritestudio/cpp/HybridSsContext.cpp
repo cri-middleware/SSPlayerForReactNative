@@ -2,6 +2,7 @@
 
 #include <NitroModules/ArrayBuffer.hpp>
 
+#include <algorithm>
 #include <stdexcept>
 
 #include "ssruntime.h"
@@ -247,7 +248,13 @@ void HybridSsContext::refreshFrame() {
   unsigned char* fdPtr = nullptr;
   size_t fdLen = 0;
   ss_runtime_get_frame_data(ctx_, frameNo_, &fdPtr, &fdLen);
-  frame_ = sscore::FrameDataView(fdPtr, fdLen);
+  // No `flatbuffers::Verifier` here: it walks the whole buffer, and this runs
+  // once per player per frame. The producer is the Brain, not untrusted input,
+  // and `tools/ssbake_check.cpp` verifies every frame on the host under ASan —
+  // which is where a malformed buffer should be caught, not on a device.
+  frame_ = (fdPtr != nullptr && fdLen >= sizeof(flatbuffers::uoffset_t))
+               ? ss::runtime::GetFrameData(fdPtr)
+               : nullptr;
 
   size_t len = 0;
   ss_runtime_get_world_matrices(ctx_, &soa_.worldMatrices, &len);
@@ -263,21 +270,24 @@ void HybridSsContext::refreshFrame() {
 SsFramePlan HybridSsContext::getPlan() {
   sscore::BuildBatchPlan(frame_, plan_);
 
-  partAlpha_.resize(partCount_);
-  for (size_t i = 0; i < partCount_; ++i) {
-    partAlpha_[i] = frame_.partAlpha(static_cast<uint32_t>(i));
+  // `partAlpha_` is indexed by the part indices JS gets out of `draw_order`, so
+  // it has to be `partCount_` long — and `partCount_` comes from the *world
+  // matrix* length, a different getter from the one that fills it. The two
+  // should agree, but nothing enforces that across the FFI, so clamp: the tail
+  // stays 1.0f (opaque) rather than reading past `parts`.
+  const auto* parts = frame_ != nullptr ? frame_->parts() : nullptr;
+  const size_t alphaCount =
+      parts != nullptr ? std::min(partCount_, static_cast<size_t>(parts->size())) : 0;
+  partAlpha_.assign(partCount_, 1.0f);
+  for (size_t i = 0; i < alphaCount; ++i) {
+    partAlpha_[i] = parts->Get(static_cast<uint32_t>(i))->alpha();
   }
 
-  // `drawOrder` is a `uint16` vector inside the FlatBuffer, contiguous and
+  // `draw_order` is a `uint16` vector inside the FlatBuffer, contiguous and
   // already in the layout JS wants — lend it in place rather than copying.
-  const uint32_t drawOrderCount = frame_.drawOrderCount();
-  const void* drawOrderData = nullptr;
-  if (drawOrderCount > 0) {
-    // FrameDataView deliberately exposes elements rather than the raw vector
-    // pointer; take the address of element 0 the same way, so there is exactly
-    // one place that knows the buffer layout.
-    drawOrderData = frame_.drawOrderPtr();
-  }
+  const auto* drawOrder = frame_ != nullptr ? frame_->draw_order() : nullptr;
+  const uint32_t drawOrderCount = drawOrder != nullptr ? drawOrder->size() : 0;
+  const void* drawOrderData = drawOrderCount > 0 ? drawOrder->Data() : nullptr;
 
   return SsFramePlan(generation_, Borrow(drawOrderData, drawOrderCount * sizeof(uint16_t)),
                      BorrowVector(plan_), static_cast<double>(plan_.size()),

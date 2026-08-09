@@ -35,7 +35,7 @@ Done. The spike, the harness and the result.
 - ✅ `download-sdk` / `build-runtime` / `deploy-examples` / `generate-nitro-code`,
   `.sh` + `.ps1` + `.js` shims
 - ✅ Layer 1: Nitro spec, generated bindings (committed), C++ implementation
-- ✅ Hand-written FlatBuffers reader + `check-framedata` guard
+- ✅ flatc-generated FlatBuffers accessors + `check-framedata` guard
 - ✅ RN Skia `SkCanvas`/`SkPaint` bridge (Nitro `CustomType`)
 - ✅ Expo measurement harness with an auto-run sweep
 - ✅ Measured on the iOS simulator; **(c) is the only variant that holds 60 fps

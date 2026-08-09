@@ -3,7 +3,8 @@
 // Variant (b) of the Phase 0 spike: the per-vertex geometry bake, in C++.
 //
 // Deliberately free of Nitro and of JSI so `tools/ssbake_check.cpp` can link it
-// on the host and diff its output against a reference walk. The Nitro hybrid
+// on the host and drive it under ASan, where an out-of-bounds walk shows up as a
+// report rather than as a wrong pixel on a device. The Nitro hybrid
 // (`HybridSsContext`) only wraps the buffers this produces in ArrayBuffers.
 //
 // SCOPE: Normal batches only. Mesh / Shape / Effect / Instance / Mask, PartColor
@@ -15,7 +16,7 @@
 #include <vector>
 
 #include "SsBatchDesc.hpp"
-#include "SsFrameData.hpp"
+#include "format/framedata.h"
 
 namespace sscore {
 
@@ -37,9 +38,9 @@ struct SsSoAPointers {
 /// shape `30_core/30_render_loop.md` §3 asks for.
 class SsBaker {
  public:
-  /// Rebuilds every output array from `fd` + `soa`. Safe to call with an invalid
-  /// view or null pointers: it just produces empty output.
-  void bake(const FrameDataView& fd, const SsSoAPointers& soa);
+  /// Rebuilds every output array from `fd` + `soa`. Safe to call with a null
+  /// `fd` or null SoA pointers: it just produces empty output.
+  void bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa);
 
   /// Batch descriptors for *every* batch in the frame, in draw order — including
   /// the kinds this spike does not draw, which come back with zero
@@ -66,6 +67,6 @@ class SsBaker {
 /// Fills `out` with one descriptor per batch, geometry ranges left at zero.
 /// This is what `getPlan()` hands variant (a) — the FlatBuffer walk, which is
 /// native in both variants, without any of the baking that is under test.
-void BuildBatchPlan(const FrameDataView& fd, std::vector<SsBatchDesc>& out);
+void BuildBatchPlan(const ss::runtime::FrameData* fd, std::vector<SsBatchDesc>& out);
 
 }  // namespace sscore

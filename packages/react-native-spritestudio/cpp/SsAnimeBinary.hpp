@@ -1,7 +1,8 @@
 #pragma once
 
 // A read-only view over a `.ssab` — the *asset* file, as opposed to the Brain's
-// per-frame output that `SsFrameData.hpp` reads.
+// per-frame `FrameData`, which the hot path reads straight through
+// `format/framedata.h` with no wrapper.
 //
 // The Brain deliberately returns none of the metadata rendering needs — cellmap
 // names, texture paths, animation names — and tells Players to read it out of
@@ -10,12 +11,12 @@
 // this pack need?") instead of being handed a buffer to parse. No FlatBuffer
 // ever crosses into JS.
 //
-// Unlike `SsFrameData.hpp`, this one goes through **flatc's generated
-// accessors** (`cpp/format/ssab.h`, committed; regenerate with
-// `npm run generate-fbs-code`), the same arrangement as SSPlayerForGodot. The
-// hot-path argument for hand-rolling does not apply here: the `.ssab` is read
-// once per load, not once per frame, and generated code cannot drift from the
-// schema — which a hand-written offset table can, silently.
+// It goes through **flatc's generated accessors** (`cpp/format/ssab.h`,
+// committed; regenerate with `npm run generate-fbs-code`), the same arrangement
+// as SSPlayerForGodot — as does the frame path now. This wrapper exists for a
+// reason that does not apply there: the `.ssab`'s metadata needs real decoding
+// (two texture lists presented as one, hash-keyed embedded assets), whereas
+// `FrameData` is read field-for-field.
 //
 // FlatBuffers is header-only here. The reachable set out of
 // `flatbuffers/flatbuffers.h` is all inline, so nothing links against flatc's

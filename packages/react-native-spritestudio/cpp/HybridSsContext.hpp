@@ -8,7 +8,6 @@
 #include "HybridSsResource.hpp"
 #include "SsAnimeBinary.hpp"
 #include "SsBaker.hpp"
-#include "SsFrameData.hpp"
 #include "SsSkiaBridge.hpp"
 // For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
 // pointers opaque precisely so consumers never need the Skia headers.
@@ -101,7 +100,10 @@ class HybridSsContext final : public HybridSsContextSpec {
   float frameNo_ = 0.0f;
   size_t partCount_ = 0;
 
-  sscore::FrameDataView frame_;
+  /// The Brain's FrameData for `frameNo_`, read in place. A raw pointer on
+  /// purpose: it is a borrow into a buffer `libssruntime` recycles on the next
+  /// `update()`, and null whenever there is no frame to read.
+  const ss::runtime::FrameData* frame_ = nullptr;
   sscore::SsSoAPointers soa_;
 
   sscore::SsBaker baker_;

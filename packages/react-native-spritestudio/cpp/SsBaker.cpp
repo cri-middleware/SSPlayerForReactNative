@@ -13,52 +13,56 @@ constexpr int kCornerFloat[4] = {0, 2, 4, 6};
 /// cull, so the winding is free — this order matches SSPlayerForFlutter's.
 constexpr uint16_t kQuadIndices[6] = {0, 1, 2, 1, 3, 2};
 
+/// The batch fields that are a straight copy out of the FlatBuffer, with the
+/// geometry ranges left at zero for the caller to fill in.
+SsBatchDesc DescribeBatch(const ss::runtime::DrawBatch* batch) {
+  SsBatchDesc desc{};
+  desc.kind = static_cast<int32_t>(batch->kind());
+  desc.blendType = static_cast<int32_t>(batch->blend_type());
+  desc.textureHash = static_cast<int32_t>(batch->texture_hash());
+  desc.flags = static_cast<int32_t>(batch->flags());
+  desc.startRank = static_cast<int32_t>(batch->start_rank());
+  desc.count = static_cast<int32_t>(batch->count());
+  return desc;
+}
+
 }  // namespace
 
-void BuildBatchPlan(const FrameDataView& fd, std::vector<SsBatchDesc>& out) {
+void BuildBatchPlan(const ss::runtime::FrameData* fd, std::vector<SsBatchDesc>& out) {
   out.clear();
-  if (!fd.valid()) return;
+  if (fd == nullptr) return;
 
-  const uint32_t batchCount = fd.drawBatchCount();
-  out.reserve(batchCount);
-  for (uint32_t b = 0; b < batchCount; ++b) {
-    const DrawBatchView batch = fd.drawBatchAt(b);
-    SsBatchDesc desc{};
-    desc.kind = static_cast<int32_t>(batch.kind);
-    desc.blendType = static_cast<int32_t>(batch.blendType);
-    desc.textureHash = static_cast<int32_t>(batch.textureHash);
-    desc.flags = static_cast<int32_t>(batch.flags);
-    desc.startRank = static_cast<int32_t>(batch.startRank);
-    desc.count = static_cast<int32_t>(batch.count);
-    out.push_back(desc);
+  // `draw_batches` is `required` in the schema, so a null here means a buffer
+  // the Brain did not write — bail rather than trust the rest of it.
+  const auto* batches = fd->draw_batches();
+  if (batches == nullptr) return;
+
+  out.reserve(batches->size());
+  for (const ss::runtime::DrawBatch* batch : *batches) {
+    out.push_back(DescribeBatch(batch));
   }
 }
 
-void SsBaker::bake(const FrameDataView& fd, const SsSoAPointers& soa) {
+void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
   batches_.clear();
   positions_.clear();
   texCoords_.clear();
   indices_.clear();
 
-  if (!fd.valid() || soa.worldMatrices == nullptr || soa.localVertices == nullptr ||
+  if (fd == nullptr || soa.worldMatrices == nullptr || soa.localVertices == nullptr ||
       soa.localUvs == nullptr) {
     return;
   }
 
-  const uint32_t batchCount = fd.drawBatchCount();
-  const uint32_t drawOrderCount = fd.drawOrderCount();
-  batches_.reserve(batchCount);
+  const auto* batches = fd->draw_batches();
+  const auto* drawOrder = fd->draw_order();
+  if (batches == nullptr || drawOrder == nullptr) return;
 
-  for (uint32_t b = 0; b < batchCount; ++b) {
-    const DrawBatchView batch = fd.drawBatchAt(b);
+  const uint32_t drawOrderCount = drawOrder->size();
+  batches_.reserve(batches->size());
 
-    SsBatchDesc desc{};
-    desc.kind = static_cast<int32_t>(batch.kind);
-    desc.blendType = static_cast<int32_t>(batch.blendType);
-    desc.textureHash = static_cast<int32_t>(batch.textureHash);
-    desc.flags = static_cast<int32_t>(batch.flags);
-    desc.startRank = static_cast<int32_t>(batch.startRank);
-    desc.count = static_cast<int32_t>(batch.count);
+  for (const ss::runtime::DrawBatch* batch : *batches) {
+    SsBatchDesc desc = DescribeBatch(batch);
     desc.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
     desc.indexOffset = static_cast<int32_t>(indices_.size());
 
@@ -67,11 +71,11 @@ void SsBaker::bake(const FrameDataView& fd, const SsSoAPointers& soa) {
     // kinds (world matrix multiply per corner), whereas Effect and Mesh arrive
     // in world space already. Scaling vertex count with Normal geometry is
     // therefore the conservative way to reach particle-scale vertex counts.
-    if (batch.kind == DrawBatchKind::Normal) {
-      for (uint32_t k = 0; k < batch.count; ++k) {
-        const uint32_t rank = static_cast<uint32_t>(batch.startRank) + k;
+    if (batch->kind() == ss::runtime::DrawBatchKind_Normal) {
+      for (uint32_t k = 0; k < batch->count(); ++k) {
+        const uint32_t rank = static_cast<uint32_t>(batch->start_rank()) + k;
         if (rank >= drawOrderCount) break;
-        const uint32_t partIndex = fd.drawOrderAt(rank);
+        const uint32_t partIndex = drawOrder->Get(rank);
         if (partIndex >= soa.partCount) continue;
 
         const float* m = soa.worldMatrices + static_cast<size_t>(partIndex) * 16;
