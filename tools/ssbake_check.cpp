@@ -13,7 +13,11 @@
 //      is deliberately *not* paid per-frame on device (see `refreshFrame()`);
 //   2. bakes it with the shipping `SsBaker` under ASan, so an out-of-bounds walk
 //      is a report here instead of a wrong pixel on a device;
-//   3. asserts the baker's own range invariants.
+//   3. asserts the baker's own range invariants;
+//   4. builds the mask plan the draw path builds, and asserts its range
+//      invariants too — the plan indexes the baked quads and the `.ssab`'s parts
+//      from two different tables, which is exactly the shape of read that ASan
+//      is here to catch.
 //
 // It includes the committed header, not a freshly generated one, on purpose:
 // the header under test has to be the one that ships.
@@ -26,7 +30,9 @@
 #include <string>
 #include <vector>
 
+#include "../packages/react-native-spritestudio/cpp/SsAnimeBinary.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsBaker.hpp"
+#include "../packages/react-native-spritestudio/cpp/SsMask.hpp"
 
 extern "C" {
 void* ss_resource_create_copy(const unsigned char* ptr, size_t len);
@@ -43,6 +49,8 @@ void ss_runtime_get_world_matrices(void* context, const float** out_data, size_t
 void ss_runtime_get_local_vertices(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_local_uvs(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_cell_meta(void* context, const float** out_data, size_t* out_len);
+const unsigned char* ss_runtime_get_ssab_buf(void* context);
+uintptr_t ss_runtime_get_ssab_len(void* context);
 }
 
 namespace {
@@ -88,6 +96,66 @@ void CheckPartCounts(const ss::runtime::FrameData* fd, size_t soaPartCount, int 
   }
 }
 
+/// What one frame's mask plan turned up, accumulated so the run can say whether
+/// the path was exercised at all.
+///
+/// A plan that never fires reports the same "0 problems" a working one does, and
+/// this repo has already shipped one measurement whose constant number meant
+/// "nothing ran" rather than "nothing changed". The totals are printed either
+/// way, so a `.ssab` with masks that reports 0 writers is a visible result
+/// rather than a silent pass.
+struct MaskTotals {
+  size_t writers = 0;
+  size_t targets = 0;
+  size_t framesWithPlan = 0;
+};
+
+/// Drives the plan the draw path builds and asserts its ranges.
+void CheckMaskPlan(const ss::runtime::FrameData* fd, const sscore::SsBaker& baker,
+                   const std::vector<sscore::SsMaskPartFlags>& flags, int frame,
+                   MaskTotals* totals) {
+  if (flags.empty()) return;
+
+  sscore::SsMaskPlan plan;
+  if (!plan.build(fd, baker, flags.data(), flags.size())) return;
+  ++totals->framesWithPlan;
+
+  const size_t partCount = baker.parts().size();
+  for (const sscore::SsMaskWriter& w : plan.writers()) {
+    ++totals->writers;
+    if (w.partDrawIndex < 0 || static_cast<size_t>(w.partDrawIndex) >= partCount) {
+      Fail("mask.partDrawIndex", w.partDrawIndex, static_cast<long long>(partCount), frame,
+           w.bit);
+    }
+    if (w.bit < 0 || w.bit >= sscore::kSsMaxMaskWriters) {
+      Fail("mask.bit", w.bit, sscore::kSsMaxMaskWriters - 1, frame, w.bit);
+    }
+    if (w.partIndex >= flags.size()) {
+      Fail("mask.partIndex", w.partIndex, static_cast<long long>(flags.size()), frame, w.bit);
+    }
+  }
+
+  // The box the coverage bitmap is stretched over. A degenerate one would divide
+  // by zero in `coverageUv`, and `build` is supposed to have rejected it.
+  if (!(plan.width() > 0.0f) || !(plan.height() > 0.0f)) {
+    Fail("mask.bounds", 0, 1, frame, 0);
+  }
+
+  // Every target's resolved test, which is also the walk the draw path makes.
+  // The two sets must stay disjoint: a writer's OP puts it in exactly one plane,
+  // and folding them would make coverage depend on writer order (§3-1-4).
+  for (const sscore::SsPartDraw& info : baker.parts()) {
+    if (info.partIndex >= flags.size()) continue;
+    sscore::SsMaskBits bits;
+    if (!plan.bitsFor(info.drawRank, flags[info.partIndex], &bits)) continue;
+    ++totals->targets;
+    if ((bits.increment & bits.invert) != 0) {
+      Fail("mask.planesOverlap", bits.increment & bits.invert, 0, frame,
+           static_cast<int>(info.partIndex));
+    }
+  }
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -116,7 +184,13 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // PartData, so read once — the same split the draw path keeps.
+  const sscore::SsAnimeBinaryView view(ss_runtime_get_ssab_buf(ctx),
+                                       static_cast<size_t>(ss_runtime_get_ssab_len(ctx)));
+  const std::vector<sscore::SsMaskPartFlags> maskFlags = view.maskFlags();
+
   sscore::SsBaker baker;
+  MaskTotals maskTotals;
   size_t maxVertices = 0;
   size_t maxBatches = 0;
 
@@ -171,6 +245,8 @@ int main(int argc, char** argv) {
         }
       }
     }
+
+    CheckMaskPlan(fd, baker, maskFlags, frame, &maskTotals);
   }
 
   ss_runtime_destroy(ctx);
@@ -181,5 +257,9 @@ int main(int argc, char** argv) {
     return 1;
   }
   std::printf("OK: %d frames, peak %zu vertices / %zu batches\n", frames, maxVertices, maxBatches);
+  // Printed unconditionally, including the zeroes: on a pack with masks these
+  // are the evidence the plan ran, and on one without they say so plainly.
+  std::printf("    mask: %zu frames with a plan, %zu writer-frames, %zu target-frames\n",
+              maskTotals.framesWithPlan, maskTotals.writers, maskTotals.targets);
   return 0;
 }

@@ -28,9 +28,11 @@ struct SsBatchDesc {
   int32_t vertexCount;
   int32_t indexOffset;   // first entry in indices
   int32_t indexCount;
+  int32_t partOffset;    // first entry in SsBaker::parts()
+  int32_t partCount;     // number of parts this batch actually baked
 };
 
-constexpr int kSsBatchDescInts = 10;
+constexpr int kSsBatchDescInts = 12;
 static_assert(sizeof(SsBatchDesc) == kSsBatchDescInts * sizeof(int32_t),
               "SsBatchDesc must stay tightly packed");
 

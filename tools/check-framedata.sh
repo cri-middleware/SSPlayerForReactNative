@@ -68,6 +68,7 @@ clang++ -std=c++17 -O1 -g -fsanitize=address,undefined \
   -I"$FB_INCLUDE" \
   "$SCRIPT_DIR/ssbake_check.cpp" \
   "$ROOT_DIR/packages/react-native-spritestudio/cpp/SsBaker.cpp" \
+  "$ROOT_DIR/packages/react-native-spritestudio/cpp/SsMask.cpp" \
   "$SDK_DIR/target/debug/libssruntime.a" \
   -o "$BUILD_DIR/ssbake_check"
 

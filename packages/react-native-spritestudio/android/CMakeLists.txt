@@ -22,6 +22,7 @@ endif()
 add_library(SsPlayer SHARED
   ../cpp/SsAssets.cpp
   ../cpp/SsBaker.cpp
+  ../cpp/SsMask.cpp
   ../cpp/SsRNSkiaInterop.cpp
   ../cpp/SsSkiaDraw.cpp
   ../cpp/HybridSsResource.cpp

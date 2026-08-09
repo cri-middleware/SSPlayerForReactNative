@@ -9,6 +9,7 @@
 #include "HybridSsResource.hpp"
 #include "SsAnimeBinary.hpp"
 #include "SsBaker.hpp"
+#include "SsMask.hpp"
 #include "SsRNSkiaInterop.hpp"
 // For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
 // pointers opaque precisely so consumers never need the Skia headers.
@@ -135,6 +136,15 @@ class HybridSsContext final : public HybridSsContextSpec {
   /// `drawInto`'s texture table, in the Nitro-free shape `SsSkiaDraw` takes.
   /// A member so the per-frame repack reuses one allocation.
   std::vector<::ssplayer::SsPaintBinding> paintBindings_;
+
+  /// The static half of masking, read once from the `.ssab` at construction and
+  /// indexed by part index. The per-frame half (`mask` / `hide` / the rank) comes
+  /// out of `FrameData` in `maskPlan_`; keeping the two apart is the first thing
+  /// the mask spec asks of a Player.
+  std::vector<sscore::SsMaskPartFlags> maskFlags_;
+  /// Rebuilt every `drawInto`. A member so the writer vector is reused rather
+  /// than reallocated per frame, like `baker_`'s buffers.
+  sscore::SsMaskPlan maskPlan_;
 };
 
 }  // namespace margelo::nitro::ssplayer

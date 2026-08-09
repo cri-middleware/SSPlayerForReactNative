@@ -55,6 +55,10 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // Direct is the mode the SoA + DrawBatch contract is defined against; it also
   // stops the Brain serializing vertices/cells/deforms we never read.
   ss_runtime_set_render_mode(ctx_, 0);
+  // Read once: these are PartData, so they are fixed for the life of the
+  // resource. Re-reading them per frame would be the mistake the mask spec opens
+  // by warning against — the animated `mask` / `hide` come from FrameData.
+  maskFlags_ = ssab().maskFlags();
   // Last, after everything that can throw — a constructor that throws runs no
   // destructor, so an earlier increment would never be balanced.
   gLiveContexts.fetch_add(1, std::memory_order_relaxed);
@@ -307,6 +311,7 @@ void HybridSsContext::refreshFrame() {
   ss_runtime_get_local_vertices(ctx_, &soa_.localVertices, &len);
   ss_runtime_get_local_uvs(ctx_, &soa_.localUvs, &len);
   ss_runtime_get_cell_meta(ctx_, &soa_.cellMeta, &len);
+
 }
 
 double HybridSsContext::drawInto(SkCanvasHandle canvas,
@@ -336,8 +341,21 @@ double HybridSsContext::drawInto(SkCanvasHandle canvas,
   // Same bake as variant (b) — the difference measured here is purely what
   // happens to the result, not how it is produced.
   baker_.bake(frame_, soa_);
+
+  // Built off the baked quads, so a writer's coverage geometry is the very
+  // geometry it would have drawn with. `build` returning false is the ordinary
+  // case — most frames of most packs have no writer — and leaves the input
+  // inactive, which skips the coverage pass entirely.
+  ::ssplayer::SsMaskInput mask;
+  if (!maskFlags_.empty() &&
+      maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
+    mask.plan = &maskPlan_;
+    mask.flags = maskFlags_.data();
+    mask.flagCount = maskFlags_.size();
+  }
+
   return static_cast<double>(::ssplayer::DrawBakedFrame(
-      canvas.canvas, paintBindings_.data(), paintBindings_.size(), baker_));
+      canvas.canvas, paintBindings_.data(), paintBindings_.size(), baker_, mask));
 }
 
 }  // namespace margelo::nitro::ssplayer

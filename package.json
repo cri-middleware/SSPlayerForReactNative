@@ -14,6 +14,8 @@
     "shut Windows contributors out. Same shape as SSPlayerForWeb.",
     "check-framedata is macOS/Linux-only on purpose: it is a developer guard",
     "that needs flatc and a host cargo build, not part of any build path.",
+    "check-mask is macOS-only for the same kind of reason: it links the host",
+    "libskia RN Skia ships, which has no Linux slice.",
     "generate-fbs-code takes an optional output dir so check-framedata can",
     "regenerate into a scratch dir and diff, rather than reimplementing it."
   ],
@@ -23,6 +25,7 @@
     "deploy-examples": "node scripts/deploy-examples.js",
     "generate-nitro-code": "node scripts/generate-nitro-code.js",
     "check-framedata": "bash tools/check-framedata.sh",
+    "check-mask": "bash tools/check-mask.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "generate-fbs-code": "node scripts/generate-fbs-code.js"
   },

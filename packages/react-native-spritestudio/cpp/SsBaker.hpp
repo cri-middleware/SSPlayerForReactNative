@@ -7,9 +7,11 @@
 // report rather than as a wrong pixel on a device. The Nitro hybrid
 // (`HybridSsContext`) only wraps the buffers this produces in ArrayBuffers.
 //
-// SCOPE: Normal batches only. Mesh / Shape / Effect / Instance / Mask, PartColor
-// and the SHDR shaders are Phase 1-2 work (design doc ch.8). That is enough to
-// answer Phase 0's question — see the note in `bake()`.
+// SCOPE: Normal and Mask batches. Both are one textured quad per part, so they
+// bake identically — a Mask part differs only in what the *draw* path does with
+// the result, which is to write coverage instead of colour. Mesh / Shape /
+// Effect / Instance and the SHDR shaders are still Phase 2 work (design doc
+// ch.8).
 
 #include <cstddef>
 #include <cstdint>
@@ -21,12 +23,31 @@
 
 namespace sscore {
 
-/// What the draw path needs to know about one baked quad, beyond its geometry.
+/// What the draw path needs to know about one baked part, beyond its geometry.
 ///
-/// One entry per quad, in bake order, so a batch's run is
-/// `quads()[vertexOffset / 4 ..  + vertexCount / 4]`.
-struct SsQuadInfo {
-  /// True when this quad has to leave its batch and go through the PartColor
+/// One entry per part actually baked, in bake order. The **ranges are carried
+/// rather than derived**: a Normal or Mask part is always four vertices and six
+/// indices, but a Mesh part is however many the Brain skinned, so multiplying by
+/// four stopped being an answer the moment Mesh arrived.
+struct SsPartDraw {
+  /// Which part this is, and where it sits in `draw_order`.
+  ///
+  /// The rank is carried rather than recomputed because it is the pivot the mask
+  /// scope turns on (`SsMask.hpp` §2-1), and bake order only *happens* to equal
+  /// draw order — it is the batch walk that makes it so, and a kind this bake
+  /// skips would silently shift it.
+  uint32_t partIndex = 0;
+  int32_t drawRank = -1;
+
+  /// Global ranges into `positions()`/`texCoords()`/`colors()` and `indices()`.
+  /// The index *values* stay relative to the owning batch's `vertexOffset`, as
+  /// they have always been.
+  int32_t vertexOffset = 0;
+  int32_t vertexCount = 0;
+  int32_t indexOffset = 0;
+  int32_t indexCount = 0;
+
+  /// True when this part has to leave its batch and go through the PartColor
   /// shader: a PartColor that actually tints RGB. Alpha alone never sets this —
   /// a vertex colour carries that exactly (§1-2-4).
   bool needsPartColorShader = false;
@@ -75,8 +96,9 @@ class SsBaker {
   const std::vector<uint32_t>& colors() const noexcept { return colors_; }
   /// Triangle list; entries are relative to their own batch's `vertexOffset`.
   const std::vector<uint16_t>& indices() const noexcept { return indices_; }
-  /// One per baked quad, in bake order.
-  const std::vector<SsQuadInfo>& quads() const noexcept { return quads_; }
+  /// One per baked part, in bake order. A batch's run is
+  /// `parts()[partOffset .. + partCount]`.
+  const std::vector<SsPartDraw>& parts() const noexcept { return parts_; }
 
   size_t vertexCount() const noexcept { return positions_.size() / 2; }
   size_t indexCount() const noexcept { return indices_.size(); }
@@ -87,7 +109,7 @@ class SsBaker {
   std::vector<float> texCoords_;
   std::vector<uint32_t> colors_;
   std::vector<uint16_t> indices_;
-  std::vector<SsQuadInfo> quads_;
+  std::vector<SsPartDraw> parts_;
 };
 
 }  // namespace sscore

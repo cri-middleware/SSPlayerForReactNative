@@ -207,8 +207,46 @@ constant across the Phase 0 sweep while nothing was actually playing.
   measure every row against the GL formula instead of trusting the algebra, and
   this port has no equivalent. "The modes differ from each other" is proven;
   "each mode is *right*" is not.
-- ☐ Mask via the coverage-pass method (Skia has no stencil), matching the
-  Flutter Player's `mask.dart` / `mask_context.dart`
+- 🚧 **Mask and clipping** via the coverage-pass method (§3-2 — Skia has no
+  stencil), matching the Flutter Player's `mask.dart` / `mask_context.dart`.
+  Landed for the two part kinds the renderer bakes, Normal and Mask.
+  `cpp/SsMask.{hpp,cpp}` is the Skia-free half — the roles (`pure_mask` /
+  `is_writer` / `is_clipping`), the per-frame writer set walked off `draw_order`,
+  the player-local coverage box and each target's two writer sets;
+  `cpp/SsMaskShader.hpp` is the SkSL half.
+  Two departures from the reference, both forced and both simplifications.
+  **The coverage is an `SkImages::DeferredFromPicture`, not a render target**,
+  because `drawInto` runs on a *recording* canvas — Layer 4 records one
+  `SkPicture` per frame, so there is no `GrDirectContext` to make a surface
+  from. Skia rasterises it when the outer picture plays back, in the same frame,
+  which deletes §3-2-3 outright: size classes, the lightweight double buffer and
+  the shrink hysteresis all exist to cover a one-frame delay this path does not
+  have. **The replay reads its coverage UV from the texcoord**, the same trick
+  `SsPartColorShader` uses, so the fragment-space inverse Flutter computes per
+  writer disappears. Scope stays resolved on the CPU as it is there, so the
+  shader takes two 24-bit sets instead of the flagship's `mask_meta[]`; the two
+  planes are kept apart to the decision, which is §3-1-4 rather than an
+  optimisation — `Invert` and `Increment` do not commute.
+  Checked on the host in two places, and the split is the lesson. `ssbake_check`
+  builds the plan under ASan every frame and asserts its ranges and that the
+  planes stay disjoint — on `Mask.ssab`, 120 frames with a plan, 840
+  writer-frames, 1560 target-frames. But **the plan was never the fragile half**:
+  it reported those seven healthy writers while nothing whatsoever was masked,
+  because `SkImages::DeferredFromPicture` returns null for a null colour space
+  and the draw path then quietly skipped every target. `tools/check-mask.sh`
+  (`npm run check-mask`) is the guard that would have caught it: the SkSL
+  compiles, all 24 coverage bits survive the image round-trip on both a managed
+  and an unmanaged destination, and the real `DrawBakedFrame` output must differ
+  with the mask input from without.
+  **Verified on the host only — not yet on a simulator or a device.**
+  **What is left:** Mesh and Shape writers (a Mesh can be a clipping writer and a
+  Shape a pure mask, but their coverage is a deformed mesh and a polygon, and
+  neither is baked yet — `Mask.ssab`'s `Mesh-WriteMask-True` and
+  `Shape-Mask-True` are the two parts that do not clip); §2-6's instance
+  composition, which needs Instance parts first; and the same pixel-test gap the
+  blends and PartColor have. A masked part also drops the multi-pass Sub/Invert
+  reconstruction for the one-pass approximation, because the inversion passes
+  cancel only where the middle pass drew.
 - 🚧 **PartColor** — landed for **Normal** parts, the kind the renderer draws.
   The *other* blend (§1-0): shader-side, four modes only, `rate`-weighted.
   `cpp/SsPartColor.hpp` is the data side (§1-4's coefficient table, the four

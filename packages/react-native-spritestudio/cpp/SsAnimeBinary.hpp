@@ -27,7 +27,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
+#include "SsMask.hpp"
 #include "format/ssab.h"
 
 namespace sscore {
@@ -97,6 +99,50 @@ class SsAnimeBinaryView {
   SsTextureEntry textureAt(uint32_t index) const noexcept {
     const uint32_t cellmaps = cellmapCount();
     return index < cellmaps ? cellmapAt(index) : externalTextureAt(index - cellmaps);
+  }
+
+  // --- mask ---------------------------------------------------------------
+
+  uint32_t partCount() const noexcept {
+    const auto* v = root_ != nullptr ? root_->parts() : nullptr;
+    return v == nullptr ? 0 : v->size();
+  }
+
+  /// The mask flags of part `index`, or an all-false set when out of range.
+  ///
+  /// These are the **static** half of masking and the doc leads with the split:
+  /// they are read once at load and never re-read, while `mask` / `priority` /
+  /// `hide` come from `FrameData` every frame. Reading either from the wrong
+  /// table is the mistake §1-2 exists to prevent.
+  SsMaskPartFlags maskFlagsAt(uint32_t index) const noexcept {
+    SsMaskPartFlags out;
+    const auto* v = root_ != nullptr ? root_->parts() : nullptr;
+    if (v == nullptr || index >= v->size()) return out;
+
+    const ss::format::PartData* part = v->Get(index);
+    const ss::format::PartType type = part->part_type_type();
+    // §1-2: `draw_as_mask` is the ssab's single consolidated flag for the
+    // per-type authoring settings on Shape / Text / Nines.
+    out.pureMask = type == ss::format::PartType_PartTypeMask || part->draw_as_mask();
+    out.maskWrite = part->mask_write();
+    out.maskInfluence = part->mask_influence();
+    out.visibleInsideMask = part->visible_inside_mask();
+    // Only the kinds `SsBaker` emits a quad for. A Shape turned into a pure mask
+    // by `draw_as_mask` belongs here too and is deliberately absent: its coverage
+    // is its *polygon*, which nothing bakes yet, and clipping with its bounding
+    // quad instead would be wrong in a way that looks plausible.
+    out.quadGeometry = type == ss::format::PartType_PartTypeNormal ||
+                       type == ss::format::PartType_PartTypeMask;
+    return out;
+  }
+
+  /// Every part's mask flags, in part-index order — the shape `SsMaskPlan` wants.
+  std::vector<SsMaskPartFlags> maskFlags() const {
+    const uint32_t count = partCount();
+    std::vector<SsMaskPartFlags> out;
+    out.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) out.push_back(maskFlagsAt(i));
+    return out;
   }
 
  private:

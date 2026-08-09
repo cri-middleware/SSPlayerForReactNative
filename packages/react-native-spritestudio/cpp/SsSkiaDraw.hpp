@@ -10,9 +10,26 @@
 
 namespace sscore {
 class SsBaker;
+class SsMaskPlan;
+struct SsMaskPartFlags;
 }
 
 namespace ssplayer {
+
+/// The frame's masking, or all-null when nothing writes coverage.
+///
+/// The plan is built by the caller because it needs the *static* half of the
+/// mask flags, which come from the `.ssab` and are read once at load — the split
+/// §1-2 opens by insisting on. Passing them in also keeps this file free of the
+/// `.ssab` reader.
+struct SsMaskInput {
+  const sscore::SsMaskPlan* plan = nullptr;
+  /// Indexed by part index, as `SsAnimeBinaryView::maskFlags()` returns them.
+  const sscore::SsMaskPartFlags* flags = nullptr;
+  size_t flagCount = 0;
+
+  bool active() const { return plan != nullptr && flags != nullptr && flagCount > 0; }
+};
 
 /// One `cellmap.name_hash` → `SkPaint*` entry of the texture table.
 ///
@@ -37,8 +54,12 @@ struct SsPaintBinding {
 /// `canvas` is an `SkCanvas*` and each `paint` an `SkPaint*`, all borrowed for
 /// the duration of the call. Returns the number of vertices drawn, or 0 when the
 /// build has no Skia support (`SSPLAYER_ENABLE_SKIA_DIRECT=0`).
+///
+/// When `mask` is active the coverage bitmap is rasterised first, before any
+/// colour, and every target it reaches is peeled out and drawn through the
+/// replay shader.
 size_t DrawBakedFrame(void* canvas, const SsPaintBinding* textures, size_t textureCount,
-                      const sscore::SsBaker& baker);
+                      const sscore::SsBaker& baker, const SsMaskInput& mask);
 
 /// Whether this build can draw natively at all.
 bool SkiaDirectAvailable();

@@ -19,15 +19,22 @@ import {
  * all four PartColor modes, half of them with the four corners differing so the
  * gradient reconstruction in `SsPartColorShader.hpp` is actually exercised — and
  * every part of it semi-transparent, which is what makes it the alpha check too.
+ * `Mask` is the coverage-bitmap path (`SsMask.hpp` / `SsMaskShader.hpp`): both
+ * features at once, since the pack carries mask parts (`Mask-Hole`) *and*
+ * clipping ones (`Normal-Clipping-True`), which mask in opposite directions —
+ * a mask hides what is drawn before it, a clipping part confines what comes
+ * after. Its `Mesh-WriteMask-True` and `Shape-Mask-True` parts are the two
+ * writers this port deliberately drops for now; see the screen note below.
  *
- * The animation name is per-`.ssab`: the first two use the converter's default
- * `anime_1`, `PartsColor` names its own. All three live in both packs, so this
+ * The animation name is per-`.ssab`: all but one use the converter's default
+ * `anime_1`, `PartsColor` names its own. All four live in both packs, so this
  * axis stays independent of the texture-route toggle below.
  */
 const SSAB_ANIMATIONS = {
   Basic: 'anime_1',
   BlendMode: 'anime_1',
   PartsColor: 'PartsColor_with_Transparent',
+  Mask: 'anime_1',
 } as const
 
 /**

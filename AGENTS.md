@@ -14,8 +14,11 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > leaked native handles", is now closed and, more to the point, *checkable*:
 > `SsRuntime.liveHandles` + `ssCheckForLeaks()`, which found that `dispose()` had
 > never actually released anything). Scope is Normal parts, now with the full
-> framebuffer **blend table** (`cpp/SsBlend.hpp`) — still no masks, effects,
-> PartColor, Mesh/Shape, events, part overrides or Reanimated integration. Read
+> framebuffer **blend table** (`cpp/SsBlend.hpp`), **PartColor**
+> (`cpp/SsPartColor.hpp`) and **mask + clipping** (`cpp/SsMask.hpp`) — still no
+> effects, Instance, Mesh/Shape, events, part overrides or Reanimated
+> integration. Mask is host-verified but **has not been seen on a simulator or a
+> device**, which is a weaker claim than the ones above it. Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
 > it overturned one of the design doc's premises, and its own numbers were then
 > overturned in turn.
@@ -29,6 +32,15 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
   new struct gets its own header), `pod install` / a Gradle sync has to follow or
   the next build fails on a missing header that is sitting right there —
   `expo run:ios` does not always re-run it for you.
+* **Adding a file to `cpp/` needs a step on each platform, and neither is
+  automatic.** The podspec globs `cpp/**`, but the glob is expanded at
+  `pod install` time, so until you re-run it Xcode compiles the old file list and
+  the new code is *silently absent* rather than a build error. Android is the
+  mirror image and louder: `android/CMakeLists.txt` lists sources explicitly, so
+  a missing entry surfaces at link time. Check with `grep -c <name>
+  example/ios/Pods/Pods.xcodeproj/project.pbxproj`. This is the same trap as the
+  nitrogen rule above, one layer down — and it bites hand-written files too, not
+  just generated ones.
 * After editing TypeScript, typecheck (see [Verification](#verification)).
   After touching `framedata.fbs` or the FrameData read path, run
   `npm run check-framedata`.
@@ -115,9 +127,11 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
 | `cpp/format/{ssab,framedata}.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. The Brain's per-frame `FrameData` is read straight through `framedata.h`; there is no wrapper. |
 | `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
-| `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/colour/batch arrays, plus one `SsQuadInfo` per quad saying whether it must be peeled out for the PartColor shader. Nitro-free and JSI-free so the host harness can link it. |
+| `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/colour/batch arrays, plus one `SsPartDraw` **per part** carrying its own vertex/index ranges, so the draw path can peel a part out without deriving where it sits. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsPartColor.hpp` | PartColor's data side: §1-4's coefficient table, the four corners, and `SsMakeUvInverse`. Skia-free, so the maths is checkable on the host. |
 | `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
+| `cpp/SsMask.{hpp,cpp}` | Mask **and** clipping: the part roles, the per-frame writer set, the player-local coverage box and each target's two writer sets. Skia-free, so `ssbake_check` drives it on the host. |
+| `cpp/SsMaskShader.hpp` | The two mask SkSL halves — the coverage writer and the target's replay. Skia-only, same inclusion rule as above. |
 | `cpp/SsRNSkiaInterop.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` JS objects. **The only place RN Skia's internals are touched** — hence `RNSkia` in the name, see the naming rule below. |
 | `cpp/SsSkiaDraw.{hpp,cpp}` | The draw path: the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. Skia's *public* API only — nothing here breaks on an RN Skia bump. |
 | `cpp/Hybrid*.{hpp,cpp}` | The Nitro Hybrid Objects. They `#include "ssruntime.h"` directly — see Traps. |
@@ -335,7 +349,65 @@ later `download-sdk` correctly replaces a local build.
   tint shader — swapping the shader on a coverage or black pass would break the
   inversion those exist to perform.
 * **Mask has no C-API** — roles come from the static `.ssab` `PartData`, read
-  once at load. `FrameData.mask_indices` is *not* the writer list.
+  once at load. `FrameData.mask_indices` is *not* the writer list: it enumerates
+  pure masks only, so it omits every clipping writer and keeps hidden mask parts
+  the Brain already dropped from `draw_order`. Settle writers by walking
+  `draw_order` with §1-2's three formulas, which is what `SsMaskPlan::build` does.
+* **`mask_influence` means two different things and the reader picks which.**
+  On a writer it is the OP (`0` = increment, `1` = invert); on a target it is the
+  opt-in flag. A clipping part is both at once, from the *same* value — so
+  normalising it to one meaning breaks the other. Same field, two questions.
+* **Mask and clipping point in opposite directions.** A pure mask reaches the
+  parts drawn **before** it (`rank < writerRank`), a clipping part the ones
+  **after**. Getting the comparison backwards still renders — it just masks the
+  wrong half of the animation, which reads as an authoring mistake.
+* **A writer needs `mask != 0` *and* `hide == false`, checked here.** The Brain
+  only drops hidden **mask parts** from `draw_order`; a drawn part turned into a
+  mask by `draw_as_mask` still gets its batch when hidden, with only its colour
+  suppressed. Skipping the `hide` test leaves a hidden part still cutting holes.
+* **`drawInto` runs on a *recording* canvas**, so there is no `GrDirectContext`
+  to make an offscreen surface from — Layer 4 records one `SkPicture` per frame.
+  The coverage bitmap is therefore an `SkImages::DeferredFromPicture`, which
+  Skia rasterises when the outer picture plays back. That is also why §3-2-3's
+  size classes, double buffering and hysteresis have nothing to do here: those
+  exist to cover a one-frame delay, and a deferred picture image has none.
+* **`SkImages::DeferredFromPicture` returns null for a null colour space**, and
+  its own doc comment says `may be nullptr`. It is wrong. This shipped once: the
+  coverage image came back null, `masking` stayed false, and every target drew
+  unmasked — no throw, no log, and the plan still reported seven healthy writers.
+  Nothing about the symptom points at colour management.
+* **The coverage bitmap is bits, not pixels, and three things corrupt it.**
+  Antialiasing (partial edge alpha scales the bit under premultiplied `kPlus`),
+  linear sampling (adjacent bits blend), and a colour-space *conversion* (a
+  transfer function changes the numbers). So: `setAntiAlias(false)`,
+  `SkFilterMode::kNearest`, and the **destination canvas's own** colour space on
+  the image — matching it is what makes the conversion the identity, and the
+  null that would sidestep the question outright is not available (above). An
+  unmanaged canvas falls back to sRGB, which is a no-op because Skia does not
+  convert into an unmanaged destination. All three fail *plausibly* — parts mask
+  against writers that never covered them — so `tools/check-mask.sh` round-trips
+  all 24 bits through the real shaders rather than trusting the reasoning.
+* **SkSL runtime effects are ES2**, so the replay has no bitwise operators and no
+  dynamic vector indexing. The 24-bit writer sets come apart with `floor`/`mod`
+  over constant swizzles instead. `SkRuntimeEffect::Options` can lift the
+  restriction and Skia's own header warns the software renderer will still fail;
+  do not reach for it.
+* **`Invert` and `Increment` do not commute**, so the two planes never share an
+  accumulator (§3-1-4) — `increment → invert` covers where `invert → increment`
+  does not. `SsMaskBits` keeps them apart to the very end and unions only at the
+  decision; `ssbake_check` asserts the two sets stay disjoint.
+* **A masked part drops the multi-pass Sub / Invert blend.** Those plans invert
+  the destination and invert it back, and the cancellation only holds where the
+  middle pass drew — which is exactly what a mask prevents, so the leftover
+  inversion would stain the whole quad outside the mask. `BlendModeFor`'s
+  one-pass approximation takes over: an approximate blend in the right shape
+  beats an exact one in the wrong shape.
+* **Only Normal and Mask parts can write coverage today.** A Mesh *can* be a
+  clipping writer and a Shape *can* be a pure mask, but their coverage is a
+  deformed mesh and a polygon respectively, and nothing bakes either yet.
+  `SsMaskPartFlags::quadGeometry` drops them rather than clipping with the
+  bounding quad, which would be wrong in a way that looks deliberate.
+  `Mask.ssab` carries one of each (`Mesh-WriteMask-True`, `Shape-Mask-True`).
 * **A world matrix can be a reflection, and the sign is a product** of authored
   negative scale and the player's flip, so they cancel. Read `determinant()`;
   never infer it from the flip settings.
@@ -464,6 +536,9 @@ build=release` when working on it).
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
 | PartColor and part opacity | On the **Player** screen switch *Animation* to **PartsColor**. Eight tinted quads, all four PartColor modes, half with the four corners differing so the gradient is exercised — and every part semi-transparent, so it is the opacity check too. Flat tints where a gradient is authored means the UV reconstruction is wrong; uniformly opaque means the vertex colours are not reaching `drawVertices`. |
+| Mask and clipping | On the **Player** screen switch *Animation* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. The `Mesh-WriteMask-True` and `Shape-Mask-True` parts are **expected** not to clip yet. |
+| Mask plan, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 840 writer-frames, 1560 target-frames. |
+| Mask **drawing**, on the host | `npm run check-mask` (macOS). The plan was never the fragile half — everything that broke was Skia-side and broke silently. Checks the SkSL compiles (ES2), that all 24 coverage bits survive the image round-trip on both a managed and an unmanaged destination, and that the real `DrawBakedFrame` output actually differs with the mask input from without. |
 | Blend modes reach the framebuffer | On the **Player** screen switch *Animation* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. That pack has no embedded atlas, so if `common.png` were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. |
 | No leaked native handles | On the **Player** screen press **Leak check**: 8 load/dispose cycles, and both counts in the readout above it must come back to where they started. Toggling *Animation* or *Textures* is the same check by hand — the counts must dip and return, not climb. Exact because `dispose()` releases eagerly; a count that stays high is a leak, not a pending GC. **`1→1` is also what a frozen counter prints**, so if you are changing this path, first confirm the counts *move*: hold N undisposed players, watch them reach `1+N`, then dispose and watch them return in the same tick. |
@@ -489,3 +564,14 @@ reverse-subtract and no dst-replace, so each is rebuilt from three passes
 must cover each pixel exactly once, so those batches are peeled into single
 quads. Two overlapping Sub parts drawn together would invert their overlap twice
 and cancel it.
+
+When the frame has any mask writer, one pass runs **before** all of this: each
+writer's quad is drawn into an offscreen coverage bitmap with its own bit set
+(`kPlus`, so disjoint bits OR together), and the bitmap is stretched over the
+writers' union box in player-local space. It has to be complete first — a pure
+mask reaches the parts drawn *before* it, so the very first target can already
+need a writer nobody has walked yet. Each masked target is then peeled to its own
+quad like a tinted one, and its shader is wrapped by the replay: reconstruct the
+coverage UV from the texcoord, read back the writers whose scope reaches this
+rank, and return transparent where `masked != visible_inside`. Scope is resolved
+on the CPU, so the shader gets two 24-bit sets rather than a per-writer array.

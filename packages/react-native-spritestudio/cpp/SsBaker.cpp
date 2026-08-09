@@ -41,7 +41,7 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
   texCoords_.clear();
   colors_.clear();
   indices_.clear();
-  quads_.clear();
+  parts_.clear();
 
   if (fd == nullptr || soa.worldMatrices == nullptr || soa.localVertices == nullptr ||
       soa.localUvs == nullptr) {
@@ -65,12 +65,16 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
     SsBatchDesc desc = DescribeBatch(batch);
     desc.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
     desc.indexOffset = static_cast<int32_t>(indices_.size());
+    desc.partOffset = static_cast<int32_t>(parts_.size());
 
-    // Normal parts only — Phase 1's scope; the other kinds land in Phase 2.
-    // Note the per-kind difference this will have to respect: Normal and Shape
-    // verts are *local* and need the world matrix, while Mesh and Effect arrive
-    // in world space already and must not be transformed again.
-    if (batch->kind() == ss::runtime::DrawBatchKind_Normal) {
+    // Normal and Mask: both are one textured quad per part off the same local
+    // verts, so one loop bakes them and only the draw path tells them apart — a
+    // Mask batch's quads write coverage instead of colour (`SsMask.hpp`).
+    // Note the per-kind difference the remaining kinds will have to respect:
+    // Normal and Shape verts are *local* and need the world matrix, while Mesh
+    // and Effect arrive in world space already and must not be transformed again.
+    const auto kind = batch->kind();
+    if (kind == ss::runtime::DrawBatchKind_Normal || kind == ss::runtime::DrawBatchKind_Mask) {
       for (uint32_t k = 0; k < batch->count(); ++k) {
         const uint32_t rank = static_cast<uint32_t>(batch->start_rank()) + k;
         if (rank >= drawOrderCount) break;
@@ -84,7 +88,11 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
         const ss::runtime::PartState* state =
             partIndex < partStateCount ? parts->Get(partIndex) : nullptr;
 
-        SsQuadInfo info;
+        SsPartDraw info;
+        info.partIndex = partIndex;
+        info.drawRank = static_cast<int32_t>(rank);
+        info.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
+        info.indexOffset = static_cast<int32_t>(indices_.size());
         const bool hasPartColor = SsReadPartColor(fd, state, &info.partColor);
         // Alpha alone never needs the shader: a vertex colour reproduces
         // `a = texel.a * col.a` exactly, and at rate 0 the RGB formula is a
@@ -111,12 +119,15 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
         for (int i = 0; i < 6; ++i) {
           indices_.push_back(static_cast<uint16_t>(base + kQuadIndices[i]));
         }
-        quads_.push_back(info);
+        info.vertexCount = 4;
+        info.indexCount = 6;
+        parts_.push_back(info);
       }
     }
 
     desc.vertexCount = static_cast<int32_t>(positions_.size() / 2) - desc.vertexOffset;
     desc.indexCount = static_cast<int32_t>(indices_.size()) - desc.indexOffset;
+    desc.partCount = static_cast<int32_t>(parts_.size()) - desc.partOffset;
     batches_.push_back(desc);
   }
 }
