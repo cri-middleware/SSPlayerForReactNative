@@ -38,8 +38,12 @@ Done. The spike, the harness and the result.
 - ✅ Hand-written FlatBuffers reader + `check-framedata` guard
 - ✅ RN Skia `SkCanvas`/`SkPaint` bridge (Nitro `CustomType`)
 - ✅ Expo measurement harness with an auto-run sweep
-- ✅ Measured on the iOS simulator; **(c) is 5.1× faster and the only variant
-  that holds 60 fps at full load**
+- ✅ Measured on the iOS simulator; **(c) is the only variant that holds 60 fps
+  at full load** — 4.9× faster at 512 players, and the only one still at 60 fps
+  where (a)/(b) have fallen to 20. (Re-taken in Phase 1: the Phase 0 figures were
+  measured with the RN side in debug *and* the animation never started, so they
+  overstated the gap at low load and understated where it appears. The
+  conclusion held; the numbers did not — `docs/phase0-spike.md`.)
 
 ---
 
@@ -105,7 +109,14 @@ Make one character animate correctly, on both platforms, through the real API.
   for the resource's life, so embedded permanently costs one encoded atlas on top
   of the decoded texture. Needs an SDK-side way to drop `embedded_assets`, or a
   converter that emits a stripped companion.
-- ☐ Re-measure on **release builds and real devices**, iOS and Android.
+- ✅ Re-measure on **release builds** — both sides, iOS simulator, with the
+  animation actually playing. Turned up two measurement bugs and moved every
+  absolute number; see `docs/phase0-spike.md`.
+- ☐ Re-measure on a **real device**. Not done: no device was connected. The
+  simulator's host is an Apple Silicon Mac, so the CPU side — the side (a)/(b)
+  are limited by — is flattered relative to a phone.
+- ⛔ Re-measure on **Android**. Blocked with the rest of Android: without
+  `SSPLAYER_ENABLE_SKIA_DIRECT` there is no (c) to measure.
 - ☐ Scope: Normal parts, normal blending, reference-layout `.ssab`.
 
 **Exit criteria:** Ringo animates correctly from `<SpriteStudioView>` on an iOS

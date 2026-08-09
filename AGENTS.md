@@ -26,9 +26,15 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
   After editing `cpp/SsFrameData.hpp` or touching `framedata.fbs`, run
   `npm run check-framedata`.
 * Fix stale docs in the same turn you notice them (architecture/roadmap drift easily).
-* **Measure the Brain in release.** A `build=debug` `libssruntime` swamps every
-  other cost and flattens the differences a benchmark exists to find. This has
-  already produced one wrong conclusion — see `docs/phase0-spike.md`.
+* **Measure with release on BOTH sides, and check the animation is playing.**
+  A `build=debug` `libssruntime` swamps every other cost; a debug RN/Hermes
+  inflates the JS side, which is exactly the side under comparison. And
+  `setup_animation` leaves the transport stopped, so a harness that forgets
+  `play()` measures one static frame. Phase 0 shipped with the last two, and
+  every absolute number it published was wrong — see `docs/phase0-spike.md`.
+  **`verts` holding perfectly constant across a sweep means nothing is playing.**
+  `native/VERSION` does not record the Brain's build mode, so if you did not
+  build it yourself, assume nothing and rebuild.
 * When a rendering detail is unclear: **SSPlayerForFlutter** first (the closest
   reference — same Skia primitives, same layering), then **SSPlayerForGodot**,
   then the submodule's `libs/ssruntime/docs/`.
@@ -37,13 +43,19 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 
 The design doc assumed the open question was *where to bake the geometry* — in
 JS like the Flutter Player, or natively. Measurement said that was the wrong
-question. 128 players / 8704 vertices, iOS simulator, **release** Brain:
+question. Re-taken in Phase 1 with **release** on both sides and the animation
+actually playing (the Phase 0 run had neither — see `docs/phase0-spike.md`),
+iOS simulator, 512 players / 32960 vertices:
 
 | variant | total ms | fps |
 |---|---:|---:|
-| (a) JS bake → `Skia.MakeVertices` | 29.7 | 33.5 |
-| (b) native bake → `Skia.MakeVertices` | 30.3 | 32.9 |
-| **(c) native bake *and* native draw** | **5.8** | **60.0** |
+| (a) JS bake → `Skia.MakeVertices` | 50.1 | 20.0 |
+| (b) native bake → `Skia.MakeVertices` | 49.7 | 20.1 |
+| **(c) native bake *and* native draw** | **10.2** | **60.0** |
+
+(a) and (b) stay within 1% of each other at every load, and their CPU cost is
+strictly linear in instance count — it *is* the marshalling. (c) is sublinear
+and the gap widens with load: 2.7× at 128 players, 3.8× at 256, 4.9× at 512.
 
 `Skia.MakeVertices(mode, positions, texs, colors, indices)` takes `SkPoint[]` —
 an array of JSI **host objects** — and unmarshals it one vertex at a time

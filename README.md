@@ -14,17 +14,19 @@ React Native, on the New Architecture.
 
 The design doc assumed the open question was **where to bake the geometry** — in
 JS like the Flutter Player, or natively. Measurement said that was the wrong
-question. 128 players / 8704 vertices, iOS simulator, release Brain:
+question. 512 players / 32960 vertices, iOS simulator, release on both sides:
 
 | variant | total ms | fps |
 |---|---:|---:|
-| (a) JS bake → `Skia.MakeVertices` | 29.7 | 33.5 |
-| (b) native bake → `Skia.MakeVertices` | 30.3 | 32.9 |
-| **(c) native bake *and* native draw** | **5.8** | **60.0** |
+| (a) JS bake → `Skia.MakeVertices` | 50.1 | 20.0 |
+| (b) native bake → `Skia.MakeVertices` | 49.7 | 20.1 |
+| **(c) native bake *and* native draw** | **10.2** | **60.0** |
 
 `Skia.MakeVertices` takes `SkPoint[]` — an array of JSI *host objects* — and
 unmarshals it one vertex at a time. Both (a) and (b) pay that, so moving the
-bake buys nothing.
+bake buys nothing: they stay within 1% of each other at every load, and their
+cost is strictly linear in instance count. (c) is sublinear, so the gap widens —
+2.7× at 128 players, 4.9× at 512.
 
 **Layer 1 therefore owns the drawing, not just the geometry**, and JS's
 per-frame job is one call per player.

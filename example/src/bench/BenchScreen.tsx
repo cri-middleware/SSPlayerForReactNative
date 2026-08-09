@@ -38,7 +38,12 @@ import {
 
 const SSAB = require('../../assets/ss/Ringo/Ringo.ssab')
 const ANIMATION = 'dance'
-const INSTANCE_STEPS = [1, 4, 16, 48, 128]
+// 256 and 512 are past what Phase 0 swept, and they had to be added once the
+// measurement was fixed: with the RN side in release and the animation actually
+// playing, every variant clears 60 fps at 128, so 128 no longer finds the
+// ceiling the L1/L2 boundary argument rests on. Five steps, because that is what
+// fits in the results panel without scrolling.
+const INSTANCE_STEPS = [1, 16, 128, 256, 512]
 const VARIANTS: Variant[] = ['js-bake', 'native-bake', 'native-draw']
 const VARIANT_LABELS: Record<Variant, string> = {
   'js-bake': '(a) JS bake',
@@ -141,6 +146,12 @@ export function BenchScreen() {
         if (!ctx.setupAnimation(ANIMATION)) {
           throw new Error(`setupAnimation('${ANIMATION}') failed`)
         }
+        // `setup_animation` leaves the transport stopped *and* paused
+        // (`playback_controller.rs`: `is_playing = false; is_pausing = true`),
+        // and `update` only advances while `is_playing && !is_pausing`. Without
+        // this the sweep measures one static frame — which is what Phase 0
+        // actually measured.
+        ctx.play()
         // Stagger the phase so the instances are not all drawing the identical
         // frame — otherwise the CPU cost is realistic but the fill is not.
         // Milliseconds, like every other delta (~2 frames apart at 60fps).
