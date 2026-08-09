@@ -59,29 +59,55 @@
 
 ### Android（エミュレータ）
 
-Android の (c) が通った直後に取ったもの。debug ビルド / Android エミュレータ
-（Apple Silicon ホスト、arm64）なので、iOS の表とは**絶対値を比較できない**。
-方式間の比較としてのみ読むこと。
+- 端末: Android エミュレータ / API 34 / arm64-v8a（Apple M4 Max ホスト、HVF）
+- GPU: `-gpu host`。GLES は Metal に変換される（`Android Emulator OpenGL ES
+  Translator (Apple M4 Max)`）ので、**ソフトウェアラスタライザではない**
+- **libssruntime: release ビルド**
+- **RN / Hermes / アプリ: release ビルド**
+  （`./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a`）
+- アセット: `Ringo.ssab` の `dance`（Normal パーツのみ描画）、**再生中**
+- 各ステップ: 700 ms のウォームアップを捨てて 1800 ms 計測
 
 | variant | inst | fps | cpu_ms | draw_ms | **total_ms** | verts |
 |---|---:|---:|---:|---:|---:|---:|
-| (a) js-bake | 128 | **35.5** | 27.20 | 0.97 | **28.17** | 8248 |
-| (a) js-bake | 256 | **18.4** | 52.81 | 1.41 | **54.22** | 16488 |
-| (a) js-bake | 512 | **9.6** | 102.05 | 2.49 | **104.54** | 32960 |
-| (b) native-bake | 128 | **35.6** | 26.99 | 0.97 | **27.96** | 8248 |
-| (b) native-bake | 256 | **18.9** | 51.39 | 1.39 | **52.78** | 16488 |
-| (b) native-bake | 512 | **9.6** | 101.18 | 2.27 | **103.45** | 32960 |
-| (c) native-draw | 128 | **60.0** | — | 4.86 | **4.86** | 8248 |
-| (c) native-draw | 256 | **60.0** | — | 8.01 | **8.01** | 16488 |
-| (c) native-draw | 512 | **60.1** | — | 14.90 | **14.90** | 32960 |
+| (a) js-bake | 128 | 60.0 | 13.40 | 0.87 | **14.27** | 8248 |
+| (a) js-bake | 256 | **33.3** | 29.13 | 0.84 | **29.97** | 16488 |
+| (a) js-bake | 512 | **17.2** | 56.48 | 1.51 | **57.99** | 32960 |
+| (b) native-bake | 128 | 60.1 | 13.30 | 0.85 | **14.15** | 8248 |
+| (b) native-bake | 256 | **34.2** | 28.25 | 0.86 | **29.11** | 16488 |
+| (b) native-bake | 512 | **17.5** | 55.71 | 1.53 | **57.24** | 32960 |
+| (c) native-draw | 128 | **60.0** | — | 3.47 | **3.47** | 8248 |
+| (c) native-draw | 256 | **60.0** | — | 5.80 | **5.80** | 16488 |
+| (c) native-draw | 512 | **60.1** | — | 10.01 | **10.01** | 32960 |
 
-**構造は iOS と同じで、差はもっと大きい。** (a)/(b) は互いに 1% 前後、
-インスタンス数に厳密に線形（27 → 52 → 102 ms）。(c) は劣線形（4.9 → 8.0 → 14.9 ms）
-で 512 体でも 60fps。倍率は 128体 5.8x / 256体 6.6x / **512体 7.0x**。
+**構造は iOS と完全に同じ。** (a)/(b) は互いに 3% 以内でインスタンス数に厳密に線形
+（13.4 → 29.1 → 56.5 ms）、(c) は劣線形（3.5 → 5.8 → 10.0 ms）で 512 体でも 60fps。
+倍率は 128体 4.1x / 256体 5.2x / **512体 5.8x**。
+1 体 / 16 体では 3 方式とも 60fps で、差は 3 ms 未満（表からは省略）。
 
-iOS シミュレータより差が開くのは予想通りで、(a)/(b) を律速するのは CPU 側であり、
-そこがエミュレータでは遅いため。**実機でも iOS より Android の方が (c) の優位が
-大きい**と予想されるが、実機は未計測。
+**(c) の絶対値は iOS シミュレータとほぼ同じ**（512 体で 10.01 ms 対 10.15 ms）。
+差がつくのは (a)/(b) の側で、Android のほうが 16% ほど重い（57.99 対 50.09）——
+律速しているのが JSI マーシャリングであることのもう一つの証拠で、
+それは JS エンジン側のコストだから、プラットフォームで変わる。
+
+#### debug で測るとどちらに転ぶか
+
+この表の前に、Android の (c) が通った直後に **debug ビルド**で取った表がある。
+結論は同じだが、**倍率は 128体 5.8x / 256体 6.6x / 512体 7.0x** と、
+release より (c) が**有利に**出ていた。
+
+| | debug | release |
+|---|---:|---:|
+| (a) 512体 total_ms | 104.54 | 57.99 |
+| (c) 512体 total_ms | 14.90 | 10.01 |
+| 倍率 | **7.0x** | **5.8x** |
+
+debug の RN / Hermes が膨らませるのは **(a)/(b) が律速される側そのもの**なので、
+debug は (c) を過大評価する。Brain の debug が (c) の優位を潰した
+（下記「計測上の落とし穴」）のと**向きが逆**で、両側 release でしか正しい比は出ない。
+
+実機は未計測。エミュレータは arm64 ゲストを arm64 ホストで走らせているので、
+CPU 側は iOS シミュレータと同じく実機より**速い**方に振れているはず。
 
 ### 以下は Phase 0 当時の表（保存）
 
@@ -159,29 +185,49 @@ RN が debug だったことの寄与が大きく、release では (a) も 128 �
 - **iOS シミュレータ**。実機は未計測 —— 取り直し時点で端末が接続できなかった。
   実機の絶対値は別途取ること。シミュレータのホストは Apple Silicon の Mac なので、
   CPU 側（(a)/(b) が律速される側）は実機より**速い**方に振れているはず。
-- **Android 未計測**。`SSPLAYER_ENABLE_SKIA_DIRECT=0` で (c) が存在しない。
+- **Android もエミュレータ**。実機は未計測。arm64 ゲストを arm64 ホストで
+  走らせているので、CPU 側は実機より速い方に振れている。
 - `fps` 列は 60 で頭打ちなので、方式の比較に使えるのは `ms` 列だけ。
 
 ## 次にやること
 
-1. **L2 を「(c) 前提」で設計する。** `RenderBackend` の seam は
-   Flutter 版の `render_backend.dart` を写すが、**実装は C++ 側に置く**。
-   TypeScript 側に残るのは transport（play / pause / seek）とイベントだけ。
-2. **Android の (c) を通す。** 現状 `SSPLAYER_ENABLE_SKIA_DIRECT=0`。
-   RN Skia の Android ビルドが libskia の prefab を publish していないため、
-   `libSsPlayer.so` から Skia のシンボルを解決できない。要調査。
-3. 実機 + release での再計測。
+1. ~~L2 を「(c) 前提」で設計する~~ — 済。L2 は native ハンドルとルート変換と
+   1 フレーム 1 コールだけになり、TypeScript 側に残ったのは transport とイベント。
+2. ~~Android の (c) を通す~~ — 済。詰まっていたのは Skia のシンボルではなく、
+   `ReactPackage` が無くて Android がそもそもビルドされていなかったこと
+   （ROADMAP の Phase 1 に経緯）。
+3. **実機での計測。** iOS / Android ともホストが Apple Silicon の
+   シミュレータ / エミュレータなので、**(a)/(b) が律速される CPU 側だけが
+   実機より速い**。倍率は実機のほうが開くはずで、結論の向きは変わらないが、
+   絶対値は別途取ること。
 
 ## 計測方法（再現手順）
 
+**ハーネスは撤去済み。** 上の数字が出そろい、L1/L2 境界の問いが決着したので、
+`example/src/bench/` と L1 の (a)/(b) 表面（`getSoA` / `getPlan` / `bake`）は
+まとめて消した。取り直すなら git 履歴から両方を戻すこと——
+片方だけでは動かない（変種を駆動する API ごと消してある）。
+
+戻したうえで、**両側 release** で回す。ここを外すと数字は意味を失う：
+
 ```bash
-node scripts/download-sdk.js          # または build-runtime.js platform=all build=release
+node scripts/build-runtime.js platform=all build=release   # Brain を release で
 node scripts/deploy-examples.js
-cd example && npx expo prebuild --platform ios && npx expo run:ios
+
+# iOS シミュレータ（release）
+cd example && npx expo prebuild --platform ios
+npx expo run:ios --configuration Release
+
+# Android エミュレータ（release）。エミュレータは -gpu host で起動する
+cd example/android
+./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a
+adb install -r app/build/outputs/apk/release/app-release.apk
 ```
 
-`example/App.tsx` の `AUTO_SWEEP` が `true` なら起動後に自動で全構成を回し、
-結果表を画面に出す。手で触りたいときは `false` にする。
+`AUTO_SWEEP` が `true` なら Bench 画面を開いた時点で全構成を自動で回し、
+結果表を画面に出す。**読む前に `verts` 列を確認すること**——
+全ステップで完全に一定なら、それは再生が始まっていない証拠で、
+その表は捨てるしかない（下記「落とし穴」）。
 
 ## この spike が測っていないもの
 

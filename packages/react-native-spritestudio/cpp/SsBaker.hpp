@@ -64,9 +64,4 @@ class SsBaker {
   std::vector<uint16_t> indices_;
 };
 
-/// Fills `out` with one descriptor per batch, geometry ranges left at zero.
-/// This is what `getPlan()` hands variant (a) — the FlatBuffer walk, which is
-/// native in both variants, without any of the baking that is under test.
-void BuildBatchPlan(const ss::runtime::FrameData* fd, std::vector<SsBatchDesc>& out);
-
 }  // namespace sscore

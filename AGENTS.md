@@ -96,13 +96,13 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 
 | Path | Role |
 |---|---|
-| `src/specs/SsRuntime.nitro.ts` | L1 spec, nitrogen's input. Still carries the Phase 0 variants (a)/(b) — `getSoA`, `getPlan`, `bake` — because the bench reproduces the measurement with them. Nothing above L1 uses them. |
+| `src/specs/SsRuntime.nitro.ts` | L1 spec, nitrogen's input. The Phase 0 variants (a)/(b) — `getSoA`, `getPlan`, `bake` — are **gone**, along with the bench that ran them; `drawInto` is the only draw path. |
 | `src/runtime.ts` | The L1 module singleton. Its own file so `core/` can reach it without importing the barrel. |
 | `src/core/` | **L2, and the react-free boundary.** `SsInternalPlayer`, `SsTextureRegistry`, and the playback/root-transform vocabulary both L2 and L3 name. |
 | `src/core/assets.ts` | **The one place a sibling reference becomes something openable.** `schemeOf` / `resolveAgainst` — used by textures today, by Instance and `.ssqb` next. |
 | `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (what an `SsSource` is, and which L1 door each kind opens). |
 | `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
-| `src/index.ts` | Public exports, layer by layer, plus the `Int32Array` field offsets the bench reads batches with. |
+| `src/index.ts` | Public exports, layer by layer. The batch-layout constants went with the bench — nothing in JS walks batches now. |
 | `plugin/withSpriteStudio.js` + `app.plugin.js` | Expo config plugin: copies the pack directories into the app as native assets, every build, on both platforms. Plain CommonJS — Expo requires it during `prebuild`, unbuilt. |
 | `cpp/SsAssets.{hpp,cpp}` | The read side of that: the `.app`'s resource directory on Apple, `AAssetManager` on Android. |
 | `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output. |
@@ -110,20 +110,27 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
 | `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/batch arrays. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsSkiaBridge.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` host objects. **The only place RN Skia's internals are touched.** |
-| `cpp/SsSkiaDraw.{hpp,cpp}` | Variant (c): the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. |
+| `cpp/SsSkiaDraw.{hpp,cpp}` | The draw path: the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. |
 | `cpp/Hybrid*.{hpp,cpp}` | The Nitro Hybrid Objects. They `#include "ssruntime.h"` directly — see Traps. |
 | `nitrogen/` | **Generated, committed, never hand-edited.** |
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
 
-`example/` is an Expo app with two screens. **Player** drives the SDK's
+`example/` is an Expo app with one screen. **Player** drives the SDK's
 `overall/Basic` through `<SpriteStudioView>` and is what you want when checking
 that a change still renders; its *Textures* toggle points at two different
 conversions of the same animation — `overall-embedded/` (atlas inside the
 `.ssab`) and `overall/` (atlas as a sibling file) — so both texture routes are
 visible. Nothing in the app selects a route; `SsTextureLoader` decides per
-texture. **Bench** is the Phase 0 measurement harness — it still auto-runs the
-whole variant × instance-count sweep (`AUTO_SWEEP`) the moment you open it, so a
-number stays reproducible: launch, tap *Bench*, wait, read the table.
+texture.
+
+There was a second screen, **Bench** — the Phase 0 harness, which drove Layer 1
+directly through all three variants and auto-ran a variant × instance-count
+sweep. It is **retired**: the question it existed to answer is settled, and both
+platforms have now been measured in release (`docs/phase0-spike.md` has the
+numbers and the conditions). It is recoverable from git history — look for
+`example/src/bench/` — but note that re-running it means restoring the `getSoA`
+/ `getPlan` / `bake` spec surface with it, which is rather the point of its
+being gone.
 
 ## Assets: a pack is a directory, not a file
 
@@ -291,10 +298,11 @@ later `download-sdk` correctly replaces a local build.
   buffer and `refreshFrame()` runs once per player per frame.
 * **`partCount` has two independent sources and they are not cross-checked.**
   `HybridSsContext::partCount_` comes from the *world matrix* length ÷ 16, while
-  per-part attributes come from `FrameData.parts`. `getPlan()` clamps to the
-  shorter of the two and leaves the tail opaque; `ssbake_check` reports a
-  disagreement. The old hand-written reader returned a default for an
-  out-of-range index, which silently absorbed this instead of surfacing it.
+  per-part attributes come from `FrameData.parts`. The only thing standing
+  between a disagreement and a read past the end is `SsBaker::bake`'s
+  `partIndex >= soa.partCount` skip; `ssbake_check` reports the disagreement
+  itself. The old hand-written reader returned a default for an out-of-range
+  index, which silently absorbed this instead of surfacing it.
 * **Android autolinking needs a `ReactPackage` implementation, even for a
   C++-only module.** Without one in `android/src/main/`, the package is not a
   Gradle subproject and its native code is never built — silently. That is why
@@ -381,9 +389,9 @@ build=release` when working on it).
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (`overall/Basic`, not Ringo, on purpose: `PlayerScreen.tsx` explains why.) |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. That pack has no embedded atlas, so if `common.png` were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. |
-| Measurement | Open the **Bench** screen with `AUTO_SWEEP = true`; the results table appears in-app |
+| Measurement | The harness is retired — `docs/phase0-spike.md` records the numbers. Re-measuring means restoring `example/src/bench/` and the `getSoA`/`getPlan`/`bake` spec surface from git history, and doing it in **release on both sides** |
 
-## Render recipe (Normal kind, variant (c))
+## Render recipe (Normal kind)
 
 Per frame, per player: `update(dt)` → `get_frame_data(frameNo)` refreshes the
 SoA pointers → for each `kind == Normal` batch, walk

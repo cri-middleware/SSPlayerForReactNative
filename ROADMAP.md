@@ -37,7 +37,8 @@ Done. The spike, the harness and the result.
 - ✅ Layer 1: Nitro spec, generated bindings (committed), C++ implementation
 - ✅ flatc-generated FlatBuffers accessors + `check-framedata` guard
 - ✅ RN Skia `SkCanvas`/`SkPaint` bridge (Nitro `CustomType`)
-- ✅ Expo measurement harness with an auto-run sweep
+- ✅ Expo measurement harness with an auto-run sweep (retired in Phase 1, once
+  both platforms had been measured in release — it lives in git history)
 - ✅ Measured on the iOS simulator; **(c) is the only variant that holds 60 fps
   at full load** — 4.9× faster at 512 players, and the only one still at 60 fps
   where (a)/(b) have fallen to 20. (Re-taken in Phase 1: the Phase 0 figures were
@@ -51,10 +52,14 @@ Done. The spike, the harness and the result.
 
 Make one character animate correctly, on both platforms, through the real API.
 
-- ☐ **Trim the L1 spike surface.** Drop variants (a) and (b) (`getSoA`,
-  `getPlan`, `bake`); keep `drawInto`. The spec stops being a benchmark.
-  Deliberately deferred until the bench screen is retired, so the Phase 0
-  numbers stay reproducible from this tree.
+- ✅ **Trim the L1 spike surface.** Variants (a) and (b) (`getSoA`, `getPlan`,
+  `bake`) are gone; `drawInto` is the only draw path and the spec has stopped
+  being a benchmark. The bench screen went with them — it was what the trim was
+  deferred for, and the last thing keeping it was the missing Android
+  measurement, which is now taken. `BuildBatchPlan` and the `Int32Array` batch
+  offsets `index.ts` exported went too: nothing in JS walks batches any more.
+  `SsBaker` **stays** — `drawInto` bakes through it, and `check-framedata`
+  drives it under ASan as the FrameData read-path guard.
 - ✅ **Extend L1 with the transport** the Brain already owns — play / pause /
   stop / seek / loop / speed / direction / section, plus `is_finished` and
   friends — so no layer above mirrors playback state. Plus `hashString`,
@@ -134,8 +139,16 @@ Make one character animate correctly, on both platforms, through the real API.
 - ☐ Re-measure on a **real device**. Not done: no device was connected. The
   simulator's host is an Apple Silicon Mac, so the CPU side — the side (a)/(b)
   are limited by — is flattered relative to a phone.
-- ⛔ Re-measure on **Android**. Blocked with the rest of Android: without
-  `SSPLAYER_ENABLE_SKIA_DIRECT` there is no (c) to measure.
+- ✅ Re-measure on **Android**, release on both sides. The block this entry
+  carried was stale twice over: Android's (c) landed earlier in Phase 1, and the
+  Android table taken right after it was a *debug* one. In release the structure
+  is iOS's exactly — (a) and (b) within 3% at every load and strictly linear in
+  instance count, (c) sublinear and alone at 60 fps — and (c) at 512 players
+  costs 10.01 ms against the iOS simulator's 10.15. The gap over (a) is 4.1× at
+  128, 5.2× at 256, **5.8× at 512**. Note the direction the debug numbers erred:
+  they made (c) look *better* (7.0× at 512), because a debug RN/Hermes inflates
+  the very side (a)/(b) are limited by. Emulator, not a device —
+  `docs/phase0-spike.md` has the caveats.
 - ☐ Scope: Normal parts, normal blending, reference-layout `.ssab`.
 
 **Exit criteria:** `overall/Basic` animates correctly from `<SpriteStudioView>`
@@ -208,7 +221,8 @@ shader parts on Mesh/Shape/Effect kinds.
   React-free and L3 an interface is what leaves this door open.
 - ☐ Documentation site
 - ☐ Runtime texture replacement, `getPartNames()` and friends
-- ☐ Example app beyond the benchmark harness
+- ☐ Example app beyond one screen — the benchmark harness is gone and what is
+  left is a single player; a real showcase is still owed
 
 ---
 

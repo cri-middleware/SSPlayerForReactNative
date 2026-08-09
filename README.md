@@ -48,7 +48,7 @@ SSPlayerForReactNative/
 │   ├── plugin/                         <- Expo config plugin: ships pack directories
 │   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
 │   └── native/                         <- [gitignored] libssruntime + headers
-├── example/                            <- Expo app: the Phase 0 measurement harness
+├── example/                            <- Expo app: `overall/Basic` through the real API
 ├── tools/check-framedata.sh            <- guards the generated FlatBuffers accessors
 └── docs/phase0-spike.md                <- the measurement
 ```
@@ -70,9 +70,10 @@ npx expo prebuild --platform ios
 npx expo run:ios
 ```
 
-The example app is the benchmark harness: it runs the whole variant ×
-instance-count matrix on launch and renders the results table. Set
-`AUTO_SWEEP = false` in `example/App.tsx` to drive it by hand instead.
+The example app plays the SDK's `overall/Basic` through `<SpriteStudioView>`,
+with transport controls and a *Textures* toggle that switches between a pack
+whose atlas is embedded in the `.ssab` and one that keeps it as a sibling file —
+so both texture routes are visible in one place.
 
 ### Working on the Brain
 

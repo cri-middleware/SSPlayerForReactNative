@@ -2,7 +2,6 @@
 
 #include <NitroModules/ArrayBuffer.hpp>
 
-#include <algorithm>
 #include <stdexcept>
 
 #include "ssruntime.h"
@@ -29,11 +28,6 @@ std::shared_ptr<ArrayBuffer> Borrow(const void* data, size_t byteLength) {
       static_cast<uint8_t*>(const_cast<void*>(data)), byteLength, []() {
         // Intentionally empty — see above.
       });
-}
-
-template <typename T>
-std::shared_ptr<ArrayBuffer> BorrowVector(const std::vector<T>& v) {
-  return Borrow(v.data(), v.size() * sizeof(T));
 }
 
 }  // namespace
@@ -267,57 +261,12 @@ void HybridSsContext::refreshFrame() {
   ss_runtime_get_cell_meta(ctx_, &soa_.cellMeta, &len);
 }
 
-SsFramePlan HybridSsContext::getPlan() {
-  sscore::BuildBatchPlan(frame_, plan_);
-
-  // `partAlpha_` is indexed by the part indices JS gets out of `draw_order`, so
-  // it has to be `partCount_` long — and `partCount_` comes from the *world
-  // matrix* length, a different getter from the one that fills it. The two
-  // should agree, but nothing enforces that across the FFI, so clamp: the tail
-  // stays 1.0f (opaque) rather than reading past `parts`.
-  const auto* parts = frame_ != nullptr ? frame_->parts() : nullptr;
-  const size_t alphaCount =
-      parts != nullptr ? std::min(partCount_, static_cast<size_t>(parts->size())) : 0;
-  partAlpha_.assign(partCount_, 1.0f);
-  for (size_t i = 0; i < alphaCount; ++i) {
-    partAlpha_[i] = parts->Get(static_cast<uint32_t>(i))->alpha();
-  }
-
-  // `draw_order` is a `uint16` vector inside the FlatBuffer, contiguous and
-  // already in the layout JS wants — lend it in place rather than copying.
-  const auto* drawOrder = frame_ != nullptr ? frame_->draw_order() : nullptr;
-  const uint32_t drawOrderCount = drawOrder != nullptr ? drawOrder->size() : 0;
-  const void* drawOrderData = drawOrderCount > 0 ? drawOrder->Data() : nullptr;
-
-  return SsFramePlan(generation_, Borrow(drawOrderData, drawOrderCount * sizeof(uint16_t)),
-                     BorrowVector(plan_), static_cast<double>(plan_.size()),
-                     BorrowVector(partAlpha_));
-}
-
-SsSoAFrame HybridSsContext::getSoA() {
-  const size_t n = partCount_;
-  return SsSoAFrame(generation_, Borrow(soa_.worldMatrices, n * 16 * sizeof(float)),
-                    Borrow(soa_.localVertices, n * 10 * sizeof(float)),
-                    Borrow(soa_.localUvs, n * 10 * sizeof(float)),
-                    Borrow(soa_.cellMeta, n * 6 * sizeof(float)));
-}
-
-SsBakedFrame HybridSsContext::bake() {
-  baker_.bake(frame_, soa_);
-  return SsBakedFrame(generation_, BorrowVector(baker_.positions()),
-                      BorrowVector(baker_.texCoords()), BorrowVector(baker_.indices()),
-                      BorrowVector(baker_.batches()),
-                      static_cast<double>(baker_.vertexCount()),
-                      static_cast<double>(baker_.indexCount()),
-                      static_cast<double>(baker_.batches().size()));
-}
-
 double HybridSsContext::drawInto(SkCanvasHandle canvas,
                                  const std::vector<SsTextureBinding>& textures) {
   if (!::ssplayer::SkiaDirectAvailable()) {
     throw std::runtime_error(
         "SsContext.drawInto: this build has no direct Skia drawing "
-        "(SSPLAYER_ENABLE_SKIA_DIRECT=0). Use bake() instead.");
+        "(SSPLAYER_ENABLE_SKIA_DIRECT=0) — there is no other way to draw.");
   }
   if (textures.empty()) return 0.0;
 

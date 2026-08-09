@@ -28,21 +28,6 @@ SsBatchDesc DescribeBatch(const ss::runtime::DrawBatch* batch) {
 
 }  // namespace
 
-void BuildBatchPlan(const ss::runtime::FrameData* fd, std::vector<SsBatchDesc>& out) {
-  out.clear();
-  if (fd == nullptr) return;
-
-  // `draw_batches` is `required` in the schema, so a null here means a buffer
-  // the Brain did not write — bail rather than trust the rest of it.
-  const auto* batches = fd->draw_batches();
-  if (batches == nullptr) return;
-
-  out.reserve(batches->size());
-  for (const ss::runtime::DrawBatch* batch : *batches) {
-    out.push_back(DescribeBatch(batch));
-  }
-}
-
 void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
   batches_.clear();
   positions_.clear();
@@ -66,11 +51,10 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa) {
     desc.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
     desc.indexOffset = static_cast<int32_t>(indices_.size());
 
-    // Phase 0 draws Normal parts only. That is not a shortcut that biases the
-    // measurement: Normal is the *most* arithmetic-heavy per vertex of all the
-    // kinds (world matrix multiply per corner), whereas Effect and Mesh arrive
-    // in world space already. Scaling vertex count with Normal geometry is
-    // therefore the conservative way to reach particle-scale vertex counts.
+    // Normal parts only — Phase 1's scope; the other kinds land in Phase 2.
+    // Note the per-kind difference this will have to respect: Normal and Shape
+    // verts are *local* and need the world matrix, while Mesh and Effect arrive
+    // in world space already and must not be transformed again.
     if (batch->kind() == ss::runtime::DrawBatchKind_Normal) {
       for (uint32_t k = 0; k < batch->count(); ++k) {
         const uint32_t rank = static_cast<uint32_t>(batch->start_rank()) + k;

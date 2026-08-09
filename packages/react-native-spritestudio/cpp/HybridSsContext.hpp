@@ -15,17 +15,22 @@
 
 namespace margelo::nitro::ssplayer {
 
-/// One playing animation — the Phase 0 measurement subject.
+/// One playing animation.
 ///
 /// Every buffer handed to JS is a borrow that `update()` invalidates. Two
 /// separate things can dangle and they are kept apart deliberately:
 ///
 ///   - the Brain's SoA buffers and FrameData, recycled inside `libssruntime`;
-///   - this object's own `plan_` / `partAlpha_` / baker vectors, resized here.
+///   - this object's own baker vectors, resized here.
 ///
 /// Neither is refcounted by the JS side, so `generation_` is the only thing
 /// standing between a retained ArrayBuffer and a read of recycled memory. It is
 /// stamped into every struct handed out; JS compares before it reads.
+///
+/// Since Phase 0 the geometry no longer leaves C++ at all — `drawInto` bakes and
+/// draws in one call — so the only buffer still crossing is an embedded atlas on
+/// its way to Skia. The rule stays, because the next thing to cross will be
+/// subject to it too.
 class HybridSsContext final : public HybridSsContextSpec {
  public:
   explicit HybridSsContext(const std::shared_ptr<HybridSsResource>& resource);
@@ -68,9 +73,6 @@ class HybridSsContext final : public HybridSsContextSpec {
   std::vector<SsTextureInfo> getTextures() override;
   std::vector<std::string> getAnimationNames() override;
 
-  SsFramePlan getPlan() override;
-  SsSoAFrame getSoA() override;
-  SsBakedFrame bake() override;
   double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) override;
 
  private:
@@ -107,11 +109,6 @@ class HybridSsContext final : public HybridSsContextSpec {
   sscore::SsSoAPointers soa_;
 
   sscore::SsBaker baker_;
-  /// Variant (a)'s batch list — the same walk `bake()` does, without the bake.
-  std::vector<sscore::SsBatchDesc> plan_;
-  /// Variant (a)'s per-part alpha, lifted out of the FrameData `parts` vector
-  /// so JS does not have to know the 144-byte `PartState` layout.
-  std::vector<float> partAlpha_;
   /// `drawInto`'s texture table, in the Nitro-free shape `SsSkiaDraw` takes.
   /// A member so the per-frame repack reuses one allocation.
   std::vector<::ssplayer::SsPaintBinding> paintBindings_;

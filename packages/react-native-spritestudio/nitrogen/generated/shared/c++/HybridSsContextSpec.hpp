@@ -15,21 +15,12 @@
 
 // Forward declaration of `SsTextureInfo` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureInfo; }
-// Forward declaration of `SsFramePlan` to properly resolve imports.
-namespace margelo::nitro::ssplayer { struct SsFramePlan; }
-// Forward declaration of `SsSoAFrame` to properly resolve imports.
-namespace margelo::nitro::ssplayer { struct SsSoAFrame; }
-// Forward declaration of `SsBakedFrame` to properly resolve imports.
-namespace margelo::nitro::ssplayer { struct SsBakedFrame; }
 // Forward declaration of `SsTextureBinding` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 
 #include <string>
 #include "SsTextureInfo.hpp"
 #include <vector>
-#include "SsFramePlan.hpp"
-#include "SsSoAFrame.hpp"
-#include "SsBakedFrame.hpp"
 #include "SsSkiaBridge.hpp"
 #include "SsTextureBinding.hpp"
 
@@ -94,9 +85,6 @@ namespace margelo::nitro::ssplayer {
       virtual double findPartIndex(const std::string& partName) = 0;
       virtual std::vector<SsTextureInfo> getTextures() = 0;
       virtual std::vector<std::string> getAnimationNames() = 0;
-      virtual SsFramePlan getPlan() = 0;
-      virtual SsSoAFrame getSoA() = 0;
-      virtual SsBakedFrame bake() = 0;
       virtual double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) = 0;
 
     protected:

@@ -75,10 +75,10 @@ std::vector<uint8_t> ReadFile(const char* path) {
   return bytes;
 }
 
-/// The counts JS is handed come from two independent getters — `parts` out of
-/// the FlatBuffer, and the part count out of the world-matrix length. Nothing
-/// across the FFI enforces that they agree, and `getPlan()` clamps rather than
-/// trusting them, so surface a disagreement here where it is diagnosable.
+/// The part count has two independent sources — `parts` out of the FlatBuffer,
+/// and the world-matrix length ÷ 16. Nothing across the FFI enforces that they
+/// agree, and `SsBaker::bake` only skips out-of-range indices rather than
+/// reporting them, so surface a disagreement here where it is diagnosable.
 void CheckPartCounts(const ss::runtime::FrameData* fd, size_t soaPartCount, int frame) {
   const auto* parts = fd->parts();
   const uint32_t fbPartCount = parts != nullptr ? parts->size() : 0;

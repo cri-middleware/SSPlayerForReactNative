@@ -1,23 +1,18 @@
-import { useState } from 'react'
-import { Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
+import { Platform, SafeAreaView, StatusBar, StyleSheet, View } from 'react-native'
 
-import { BenchScreen } from './src/bench/BenchScreen'
 import { PlayerScreen } from './src/player/PlayerScreen'
 
-type Screen = 'player' | 'bench'
-
 /**
- * Two screens, because this app answers two different questions.
+ * One screen: `overall/Basic` animating through the real `<SpriteStudioView>`
+ * API. This is what you open to check that a change still renders.
  *
- *  * **player** — Phase 1's target: Ringo animating through the real
- *    `<SpriteStudioView>` API. What you want when checking that a change still
- *    renders.
- *  * **bench** — the Phase 0 measurement harness. It still auto-runs the whole
- *    variant × instance-count sweep the moment you open it, so a number stays
- *    reproducible by someone who was not here: launch, tap *Bench*, wait, read
- *    the table.
+ * There used to be a second one — the Phase 0 measurement harness, which drove
+ * Layer 1 directly through three competing variants to decide where the L1/L2
+ * boundary belongs. It has been retired now that the question is settled and
+ * both platforms have been measured in release; the numbers and the conditions
+ * that produced them are in `docs/phase0-spike.md`, and the harness itself is in
+ * git history if it ever needs re-running.
  */
-const INITIAL_SCREEN: Screen = 'player'
 
 /**
  * Height to keep clear of Android's status bar, 0 elsewhere.
@@ -32,55 +27,21 @@ const ANDROID_STATUS_BAR_INSET =
   Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>(INITIAL_SCREEN)
-
   return (
     <SafeAreaView style={styles.root}>
       {/*
         React Native's `SafeAreaView` is iOS-only, and RN 0.86 draws Android
-        edge-to-edge — so without this the tab row sits *under* the status bar,
-        which then swallows its taps. The buttons look fine and simply do not
-        respond, which is a confusing way to find out.
+        edge-to-edge — so without this the top of the screen sits *under* the
+        status bar, and anything tappable up there silently stops responding.
       */}
-      <View style={[styles.tabs, { paddingTop: ANDROID_STATUS_BAR_INSET }]}>
-        <Tab active={screen === 'player'} onPress={() => setScreen('player')}>
-          Player
-        </Tab>
-        <Tab active={screen === 'bench'} onPress={() => setScreen('bench')}>
-          Bench
-        </Tab>
+      <View style={[styles.body, { paddingTop: ANDROID_STATUS_BAR_INSET }]}>
+        <PlayerScreen />
       </View>
-      {screen === 'player' ? <PlayerScreen /> : <BenchScreen />}
     </SafeAreaView>
-  )
-}
-
-function Tab({
-  active,
-  onPress,
-  children,
-}: {
-  active: boolean
-  onPress: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <Pressable style={[styles.tab, active && styles.tabActive]} onPress={onPress}>
-      <Text style={[styles.tabText, active && styles.tabTextActive]}>{children}</Text>
-    </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#101014' },
-  tabs: { flexDirection: 'row', gap: 8, padding: 12, backgroundColor: '#1a1a20' },
-  tab: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    backgroundColor: '#2c2c34',
-  },
-  tabActive: { backgroundColor: '#0a84ff' },
-  tabText: { color: '#c7c7cc', fontSize: 14 },
-  tabTextActive: { color: '#fff', fontWeight: '600' },
+  body: { flex: 1 },
 })

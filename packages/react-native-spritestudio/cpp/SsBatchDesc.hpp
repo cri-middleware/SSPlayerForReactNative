@@ -4,34 +4,34 @@
 
 namespace sscore {
 
-/// One draw batch, in the shape JS reads it: ten `int32`s, no padding, so the
-/// whole array is walkable from a single `Int32Array` view with no per-batch
-/// object allocation.
+/// One draw batch: the Brain's `DrawBatch` fields plus the geometry ranges
+/// `SsBaker` fills in as it bakes.
 ///
-/// It carries the fields for *both* spike variants:
-///   - `startRank` / `count` drive variant (a), where JS walks `drawOrder`
-///     itself and bakes the geometry.
-///   - `vertexOffset` / `vertexCount` / `indexOffset` / `indexCount` drive
-///     variant (b) and are zero in `getPlan()`'s copy, which is emitted before
-///     any baking has happened.
+/// The flat `int32` layout is a leftover from the Phase 0 spike, when JS walked
+/// this array through an `Int32Array` view. Nothing in JS reads it now — the
+/// batch walk is entirely in `SsSkiaDraw` — so the packing is no longer
+/// load-bearing and the fields could take their natural types whenever that
+/// becomes worth doing.
 ///
-/// Keep this a plain layout of `int32_t` — JS indexes it by
-/// `batchIndex * kSsBatchDescInts + field`.
+/// `startRank` / `count` are the batch's slice of `draw_order`. `SsSkiaDraw`
+/// does not need them (it draws the baked ranges), but they are the batch's
+/// identity in the Brain's terms and Phase 2's mask and blend passes will want
+/// them, so they are kept rather than dropped.
 struct SsBatchDesc {
   int32_t kind;          // DrawBatchKind
   int32_t blendType;     // BlendType
-  int32_t textureHash;   // uint32 reinterpreted; JS reads it via a Uint32Array view
+  int32_t textureHash;   // uint32 reinterpreted
   int32_t flags;
-  int32_t startRank;     // variant (a): first rank in drawOrder
-  int32_t count;         // variant (a): number of parts
-  int32_t vertexOffset;  // variant (b): first vertex (not float) in positions/texCoords
+  int32_t startRank;     // first rank in drawOrder
+  int32_t count;         // number of parts
+  int32_t vertexOffset;  // first vertex (not float) in positions/texCoords
   int32_t vertexCount;
-  int32_t indexOffset;   // variant (b): first entry in indices
+  int32_t indexOffset;   // first entry in indices
   int32_t indexCount;
 };
 
 constexpr int kSsBatchDescInts = 10;
 static_assert(sizeof(SsBatchDesc) == kSsBatchDescInts * sizeof(int32_t),
-              "SsBatchDesc must stay tightly packed — JS reads it as a flat Int32Array");
+              "SsBatchDesc must stay tightly packed");
 
 }  // namespace sscore
