@@ -47,6 +47,19 @@ PROJECTS=(
     "ParticleEffect|ParticleEffect.sspj"
 )
 
+# "<SDK tests subdir>|<.sspj filename>|<output dir name>", always converted with
+# textures baked in, whatever `--embedded` says for the rest.
+#
+# The example needs one of each, because the two texture-supply modes reach
+# different distances on React Native. A reference pack's sibling image has to
+# be findable at runtime, and Metro only ships what a `require()` names — so
+# reference is the mode with a loading path to get wrong, and embedded is the
+# one that is self-contained everywhere. Keeping both means the example
+# exercises both branches of `SsTextureLoader`.
+EMBEDDED_PROJECTS=(
+    "overall|overall.sspj|overall-embedded"
+)
+
 EMBEDDED=""
 for item in "$@"; do
     case "$item" in
@@ -79,26 +92,33 @@ fi
 
 deploy_project() {
     local sdk_sub="$1" sspj="$2"
-    local stem="${sspj%.sspj}"
+    local out_name="${3:-${sspj%.sspj}}"
+    local embedded="${4-$EMBEDDED}"
     local src="${SDK_DIR}/tests/${sdk_sub}/${sspj}"
-    local out="${OUT_ROOT}/${stem}"
+    local out="${OUT_ROOT}/${out_name}"
 
     if [ ! -f "$src" ]; then
         echo "${APP}: ${sdk_sub}/${sspj} not found in the SDK submodule" >&2
         exit 1
     fi
 
-    echo "Converting tests/${sdk_sub}/${sspj} ..."
+    echo "Converting tests/${sdk_sub}/${sspj}${embedded:+ (embedded)} ..."
     rm -rf "$out"
     mkdir -p "$out"
     # The non-embedded converter also copies the referenced textures into the
     # output, so this one call produces the complete asset tree.
-    ( cd "$SDK_DIR" && cargo run -q -p ssconverter-cli -- ${EMBEDDED:+$EMBEDDED} -o "$out" "$src" )
-    echo "   -> example/assets/ss/${stem}/"
+    ( cd "$SDK_DIR" && cargo run -q -p ssconverter-cli -- ${embedded:+$embedded} -o "$out" "$src" )
+    echo "   -> example/assets/ss/${out_name}/"
 }
 
 for entry in "${PROJECTS[@]}"; do
-    deploy_project "${entry%%|*}" "${entry##*|}"
+    IFS='|' read -r sdk_sub sspj <<< "$entry"
+    deploy_project "$sdk_sub" "$sspj"
+done
+
+for entry in "${EMBEDDED_PROJECTS[@]}"; do
+    IFS='|' read -r sdk_sub sspj out_name <<< "$entry"
+    deploy_project "$sdk_sub" "$sspj" "$out_name" "--embedded"
 done
 
 echo "Done."

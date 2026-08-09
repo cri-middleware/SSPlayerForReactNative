@@ -5,24 +5,37 @@ import {
   type SpriteStudioViewRef,
 } from '@spritestudio/react-native-ssplayer'
 
-const SSAB = require('../../assets/ss/overall/Basic.ssab')
 const ANIMATION = 'anime_1'
 
 /**
- * Supplied explicitly, even though loading a `.ssab` now loads its own textures.
+ * The two texture-supply modes, side by side, because on React Native they
+ * reach different distances.
  *
- * This example is inside an npm workspace, and that is exactly where automatic
- * resolution cannot reach: `watchFolders` pushes Metro's server root up to the
- * workspace, so the `.ssab`'s URL is `/assets/example/assets/...`, while Metro
- * resolves an asset request against the *project* root — asking for the sibling
+ * **embedded** carries its atlas inside the `.ssab`, so loading the pack loads
+ * its textures with nothing else supplied. That holds everywhere.
+ *
+ * **reference** names a sibling image, which the loader resolves against the
+ * `.ssab`'s own location — and here it cannot reach it. This example lives in an
+ * npm workspace, so `watchFolders` pushes Metro's server root up to the
+ * workspace and the `.ssab`'s URL is `/assets/example/assets/...`, while Metro
+ * resolves an asset request against the *project* root: asking for the sibling
  * lands on `example/example/assets/...` and 404s. A non-monorepo app has the two
- * roots equal and does not need this prop.
- *
- * The other way to make the example self-resolving is
- * `deploy-examples --embedded`, which puts the atlas inside the `.ssab`. Still
- * to be decided — see the ROADMAP.
+ * roots equal. Either way a release build could not reach it, since Metro ships
+ * only what a `require()` names — so the texture is supplied explicitly, which
+ * is the documented route for exactly that case.
  */
-const TEXTURES = { common: require('../../assets/ss/overall/common.png') }
+const SOURCES = {
+  embedded: {
+    ssab: require('../../assets/ss/overall-embedded/Basic.ssab'),
+    textures: undefined,
+  },
+  reference: {
+    ssab: require('../../assets/ss/overall/Basic.ssab'),
+    textures: { common: require('../../assets/ss/overall/common.png') },
+  },
+} as const
+
+type Mode = keyof typeof SOURCES
 
 /** `Basic`'s authored canvas is 480x480 (`<canvasSize>` in Basic.ssae). */
 const DESIGN_HEIGHT = 480
@@ -43,11 +56,14 @@ const DESIGN_HEIGHT = 480
  */
 export function PlayerScreen() {
   const ref = useRef<SpriteStudioViewRef>(null)
+  const [mode, setMode] = useState<Mode>('embedded')
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1)
   const [flipX, setFlipX] = useState(false)
   const [size, setSize] = useState({ width: 0, height: 0 })
   const [error, setError] = useState<string | null>(null)
+
+  const source = SOURCES[mode]
 
   const onLayout = (event: LayoutChangeEvent) => {
     setSize(event.nativeEvent.layout)
@@ -64,9 +80,13 @@ export function PlayerScreen() {
         {size.height > 0 && (
           <SpriteStudioView
             ref={ref}
+            // Remount on a mode switch: `source` and `textures` change together
+            // and the registry is per-player, so reusing one would leave the
+            // previous mode's texture registered under the same hash.
+            key={mode}
             style={StyleSheet.absoluteFill}
-            source={SSAB}
-            textures={TEXTURES}
+            source={source.ssab}
+            textures={source.textures}
             animation={ANIMATION}
             playing={playing}
             speed={speed}
@@ -80,6 +100,14 @@ export function PlayerScreen() {
 
       <View style={styles.panel}>
         {error != null && <Text style={styles.error}>{error}</Text>}
+        <Text style={styles.label}>Textures</Text>
+        <View style={styles.row}>
+          {(Object.keys(SOURCES) as Mode[]).map((m) => (
+            <Choice key={m} active={mode === m} onPress={() => setMode(m)}>
+              {m === 'embedded' ? 'embedded (auto)' : 'reference (supplied)'}
+            </Choice>
+          ))}
+        </View>
         <View style={styles.row}>
           <Choice active={playing} onPress={() => setPlaying((p) => !p)}>
             {playing ? 'Pause' : 'Play'}

@@ -81,11 +81,30 @@ Make one character animate correctly, on both platforms, through the real API.
   Android has no drawing path at all.
 - ✅ **Texture registry** keyed on `cellmap.name_hash`, multiple textures per
   pack, with the hash coming from the Brain via `SsRuntime.hashString`.
-- ☐ **Read cellmap names out of the `.ssab`** so textures resolve by name
-  without the caller supplying one. Needs an `.ssab` FlatBuffers reader (the
-  Flutter Player's `ssab_info.dart` is the shape). Until then a one-cellmap pack
-  works unnamed, because `drawInto` matches a single-entry table
-  unconditionally.
+- ✅ **Read the `.ssab` in C++** — flatbuffers submodule + `flatc -c` into
+  `cpp/format/ssab.h` (committed), the SSPlayerForGodot arrangement. Layer 1
+  answers typed questions (`getTextures`, `getAnimationNames`); no FlatBuffer
+  crosses into JS and the read happens in place against the Brain's own copy.
+- ✅ **Load a pack's own textures on load**, walking both `cellmaps()` and
+  `external_textures()`, embedded winning over a reference. **Reference mode
+  cannot always reach its sibling on React Native**, and the reason is
+  structural: Flutter and Godot ship asset *directories*, Metro ships a
+  dependency *graph* and bundles only what a `require()` names.
+  - Embedded — works everywhere.
+  - A real filesystem directory (runtime download, or assets copied in
+    out-of-band) — works.
+  - A `require()`d asset in a release build — cannot; the image is not in the
+    bundle.
+  - Inside an npm workspace — cannot, for a second reason: `watchFolders` pushes
+    Metro's server root up to the workspace so the `.ssab`'s URL is
+    `/assets/<pkg>/assets/...`, while Metro resolves an asset request against the
+    *project* root. `example/` hits this and supplies its reference pack's
+    texture explicitly.
+- 🕒 **Free an embedded atlas after decoding.** Blocked on the Brain: the encoded
+  bytes sit inside the same contiguous FlatBuffer `ss_resource_create_copy` holds
+  for the resource's life, so embedded permanently costs one encoded atlas on top
+  of the decoded texture. Needs an SDK-side way to drop `embedded_assets`, or a
+  converter that emits a stripped companion.
 - ☐ Re-measure on **release builds and real devices**, iOS and Android.
 - ☐ Scope: Normal parts, normal blending, reference-layout `.ssab`.
 

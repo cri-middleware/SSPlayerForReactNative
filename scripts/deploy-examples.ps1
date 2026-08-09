@@ -46,6 +46,18 @@ $projects = @(
     @{ Dir = "ParticleEffect"; Sspj = "ParticleEffect.sspj" }
 )
 
+# Always converted with textures baked in, whatever --embedded says for the rest.
+#
+# The example needs one of each, because the two texture-supply modes reach
+# different distances on React Native. A reference pack's sibling image has to be
+# findable at runtime, and Metro only ships what a require() names - so reference
+# is the mode with a loading path to get wrong, and embedded is the one that is
+# self-contained everywhere. Keeping both means the example exercises both
+# branches of SsTextureLoader.
+$embeddedProjects = @(
+    @{ Dir = "overall"; Sspj = "overall.sspj"; Out = "overall-embedded" }
+)
+
 # Accept both spellings: the .js shim forwards arguments verbatim, so the same
 # `npm run deploy-examples -- --embedded` works on every OS.
 $embedded = $false
@@ -77,17 +89,17 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-foreach ($project in $projects) {
-    $stem = [System.IO.Path]::GetFileNameWithoutExtension($project.Sspj)
-    $src = Join-Path $sdkDir "tests/$($project.Dir)/$($project.Sspj)"
-    $out = Join-Path $outRoot $stem
+function Deploy-Project($dir, $sspj, $outName, $bake) {
+    $src = Join-Path $sdkDir "tests/$dir/$sspj"
+    $out = Join-Path $outRoot $outName
 
     if (-not (Test-Path $src)) {
-        Write-Error "$app`: $($project.Dir)/$($project.Sspj) not found in the SDK submodule"
+        Write-Error "$app`: $dir/$sspj not found in the SDK submodule"
         exit 1
     }
 
-    Write-Host "Converting tests/$($project.Dir)/$($project.Sspj) ..."
+    $suffix = if ($bake) { " (embedded)" } else { "" }
+    Write-Host "Converting tests/$dir/$sspj$suffix ..."
     if (Test-Path $out) { Remove-Item -Recurse -Force $out }
     New-Item -ItemType Directory -Force -Path $out | Out-Null
 
@@ -95,7 +107,7 @@ foreach ($project in $projects) {
     # output, so this one call produces the complete asset tree.
     Push-Location $sdkDir
     try {
-        if ($embedded) {
+        if ($bake) {
             cargo run -q -p ssconverter-cli -- --embedded -o $out $src
         } else {
             cargo run -q -p ssconverter-cli -- -o $out $src
@@ -104,7 +116,16 @@ foreach ($project in $projects) {
     } finally {
         Pop-Location
     }
-    Write-Host "   -> example/assets/ss/$stem/"
+    Write-Host "   -> example/assets/ss/$outName/"
+}
+
+foreach ($project in $projects) {
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($project.Sspj)
+    Deploy-Project $project.Dir $project.Sspj $stem $embedded
+}
+
+foreach ($project in $embeddedProjects) {
+    Deploy-Project $project.Dir $project.Sspj $project.Out $true
 }
 
 Write-Host "Done."

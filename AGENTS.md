@@ -90,7 +90,10 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (the dev-URL vs bundled-path split). |
 | `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
 | `src/index.ts` | Public exports, layer by layer, plus the `Int32Array` field offsets the bench reads batches with. |
-| `cpp/SsFrameData.hpp` | Hand-written FlatBuffers reader (see Traps). |
+| `cpp/SsFrameData.hpp` | Hand-written FlatBuffers reader for the Brain's per-frame output (see Traps). |
+| `cpp/SsAnimeBinary.hpp` | Reader for the `.ssab` *asset* — cellmaps, external textures, embedded assets, animation names. Thin wrapper over flatc's output, **not** hand-written. |
+| `cpp/format/ssab.h` | **Generated, committed, never hand-edited.** `npm run generate-fbs-code`. |
+| `third_party/flatbuffers` | Submodule, **headers only**: nothing links flatc's translation units and `flatbuffers/src` is off the include path. |
 | `cpp/SsBaker.{hpp,cpp}` | SoA → vertex/index/batch arrays. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsSkiaBridge.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` host objects. **The only place RN Skia's internals are touched.** |
 | `cpp/SsSkiaDraw.{hpp,cpp}` | Variant (c): the batch walk, `SkVertices::MakeCopy` + `drawVertices`, and the per-batch paint lookup by `texture_hash`. |
@@ -98,11 +101,14 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `nitrogen/` | **Generated, committed, never hand-edited.** |
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
 
-`example/` is an Expo app with two screens. **Player** drives Ringo through
-`<SpriteStudioView>` and is what you want when checking that a change still
-renders. **Bench** is the Phase 0 measurement harness — it still auto-runs the
-whole variant × instance-count sweep (`AUTO_SWEEP`) the moment you open it, so
-a number stays reproducible: launch, tap *Bench*, wait, read the table.
+`example/` is an Expo app with two screens. **Player** drives the SDK's
+`overall/Basic` through `<SpriteStudioView>` and is what you want when checking
+that a change still renders; its *Textures* toggle switches between the
+**embedded** pack (loaded automatically, no `textures` prop) and the
+**reference** one (supplied explicitly — see the Metro trap). **Bench** is the
+Phase 0 measurement harness — it still auto-runs the whole variant ×
+instance-count sweep (`AUTO_SWEEP`) the moment you open it, so a number stays
+reproducible: launch, tap *Bench*, wait, read the table.
 
 ## Toolchain scripts (`scripts/`, `.js` shim → `.sh`+`.ps1`; SDK via `$SSSDK`)
 
@@ -116,6 +122,7 @@ flavours parse the same spellings.
 | `build-runtime` | Build the Brain from the submodule into the *same* layout, stamped `<tag>+submodule-<sha>`. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via the SDK's `ssconverter-cli` (needs Rust). | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
+| `generate-fbs-code` | `flatc -c` over `ssab.fbs` → `cpp/format/ssab.h`. Commit the result. Needs `flatc`. | After an `.ssab` schema change |
 | `check-framedata` | Diff the hand-written FlatBuffers offsets against flatc. macOS/Linux, needs `flatc`. | After a `.fbs` change |
 
 The pinned tag lives in `scripts/SDK_VERSION.txt`. `download-sdk` skips when
@@ -149,10 +156,28 @@ later `download-sdk` correctly replaces a local build.
 * **World matrix is column-major 4×4** — `x' = m0·x + m4·y + m12`.
 * **Texture key = `cellmap.name_hash` == `DrawBatch.texture_hash`** — use the
   pre-baked hash; never re-implement FNV-1a. `SsRuntime.hashString` exposes the
-  Brain's own, which is why there is no TypeScript copy. Nothing here reads
-  cellmap *names* out of the `.ssab` yet, so `drawInto` treats a **single-entry
-  texture table as matching every batch** — that is what lets a one-cellmap pack
-  be drawn without knowing its cellmap's name.
+  Brain's own, which is why there is no TypeScript copy. `drawInto` also treats a
+  **single-entry texture table as matching every batch**, so a one-cellmap pack
+  is drawable without knowing its cellmap's name.
+* **There are TWO texture lists, not one.** `DrawBatch.texture_hash` is the
+  cellmap name's hash normally, but a part under an authored texture change
+  (`TCHG`) carries the hash of a texture *file* name out of
+  `external_textures()`. Skip that list and exactly those parts stop drawing,
+  silently. `SsAnimeBinaryView::textureAt` presents both as one sequence.
+* **`embedded_assets` is keyed by the FILE name's hash**, not the cellmap
+  name's — the two differ, so the lookup goes through `cellmap.image_path_hash`.
+  And an embedded atlas **cannot be freed after decoding**: it lives inside the
+  same contiguous FlatBuffer the Brain holds for the resource's life, so embedded
+  permanently costs one encoded atlas on top of the decoded texture.
+* **Metro ships a dependency graph, not asset directories.** This is why the
+  sibling Players can always resolve `image_path` and this one cannot: Metro
+  bundles only what a `require()` names and never walks a directory. Reference
+  mode therefore reaches embedded-free packs only from a real filesystem
+  directory or a dev server — never from a `require()`d asset in release. And
+  inside an npm workspace it fails for a *second* reason: `watchFolders` pushes
+  Metro's server root up to the workspace, so an asset URL is
+  `/assets/<pkg>/assets/...` while Metro resolves the request against the
+  *project* root. `example/` hits exactly that.
 * **The texture table goes in per draw call, not registered once.** The
   `SkPaint`s are JS-owned and RN Skia may recycle or mutate them between frames,
   so C++ must not hold one past the call. And the batches must be walked in the
