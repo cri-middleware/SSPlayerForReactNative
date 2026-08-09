@@ -60,12 +60,32 @@ Make one character animate correctly, on both platforms, through the real API.
   friends — so no layer above mirrors playback state. Plus `hashString`,
   `createResourceFromBytes`, and a `drawInto` that takes a
   `texture_hash → SkPaint` table instead of one paint.
-- ⛔ **Android native draw.** Currently `SSPLAYER_ENABLE_SKIA_DIRECT=0`: RN Skia's
-  Android build publishes no prefab for `libskia`, so `libSsPlayer.so` cannot
-  resolve Skia's symbols. Needs investigation — possibly a prefab request
-  upstream, or linking against the `.so` RN Skia already ships in its AAR.
-  **This is the single biggest risk in Phase 1**, because without it Android has
-  no viable path at all: (a)/(b) were measured and rejected.
+- ✅ **Android native draw.** `SSPLAYER_ENABLE_SKIA_DIRECT=1`, verified on an
+  emulator: `overall/Basic` renders and animates, with its embedded textures
+  loaded automatically. This was billed as the single biggest risk in Phase 1
+  and as possibly needing an upstream prefab request; neither held.
+  - The premise was wrong three times over. RN Skia **does** publish a prefab
+    (`rnskia`, enabled for RN > 68), it **does** export Skia — 37015 `Sk*`
+    symbols — and, underneath all of it, **the Android side had never been
+    built at all**: no `ReactPackage` implementation meant autolinking skipped
+    the package, so it was not even a Gradle subproject.
+  - Eight of the ten things that had to be fixed were wiring that had simply
+    never been exercised: no `ReactPackage`, no Kotlin plugin (so the generated
+    Kotlin was never compiled), no `JNI_OnLoad` (nitrogen generates the
+    registration but not its caller), a wrong dependency project name, a
+    hardcoded `abiFilters` that ignored the app's choice, `minSdk 21` against
+    React Native's floor of 24, and two stale autolinking caches.
+  - Two are genuinely upstream, and both are worth reporting:
+    **(a)** RN Skia's prefab flattens `cpp/**` into one directory, so
+    `cpp/jsi/JSIConverter.h` lands as `JSIConverter.h` while `JsiSkConverters.h`
+    still includes it as `"jsi/JSIConverter.h"` — its own headers do not compile.
+    We take the library from the prefab and the headers from its source tree.
+    **(b)** Skia is built with hidden visibility and exports only what `SK_API`
+    marks. `SkCanvas::drawVertices` is exported; `SkVertices::MakeCopy` is not,
+    and sits in the same `.so` as a local symbol — while RN Skia ships
+    `JsiSkVertices.h`, whose inline code calls it. Closed by linking `libskia.a`
+    *after* the prefab, so only the un-exported leaves come from the archive and
+    there is still one Skia in the process.
 - ✅ **Layer 2** — `SsInternalPlayer`: native-handle lifecycle, `dispose()`
   discipline, the root transform, one draw call per frame. **Zero
   `react`/`react-native` imports.**
@@ -144,9 +164,33 @@ device and an Android device, at 60 fps, with no leaked native handles.
   frame / speed / blend weight
 - ☐ Expo config plugin (`assetExts` += `ssab`, build settings), verified on both
   prebuild and a bare RN app
+- ☐ **Decide the package name** — must be settled before the first publish, and
+  it is a rename, so earlier is cheaper. All three candidates are free on npm.
+  The problem with the current `@spritestudio/react-native-ssplayer` is that the
+  public API is named after SpriteStudio, not ssplayer, so the import line
+  disagrees with everything in it:
+  `import { SpriteStudioView } from '@spritestudio/react-native-ssplayer'`. And
+  `ssplayer` is not self-explanatory to someone meeting it for the first time —
+  the family stem is legible to maintainers who see every port, while the
+  package name is read almost entirely by people who see only this one.
+  - `react-native-spritestudio` — unscoped, the dominant community shape
+    (`react-native-reanimated`, `react-native-svg`, ...). Best for the Directory
+    listing below and for npm search. Drops the org scope.
+  - `@spritestudio/react-native` — the `@sentry/react-native` shape, which is the
+    one orgs with a cross-platform product converge on. No redundancy, keeps the
+    scope, reads as "SpriteStudio for React Native".
+  - `@spritestudio/ssplayer-react-native` — matches the Web packages
+    (`@spritestudio/ssplayer-webgl`, `ssplayer-pixi`) exactly, at the cost of
+    keeping the stem that started this.
+  Renaming the npm package and the directory is mechanical; renaming the *native*
+  identifiers (`SsPlayer.podspec`, the Gradle project, the JNI library, the
+  `ssplayer` C++ namespace, `com.margelo.nitro.ssplayer`) is a separate and
+  riskier decision, because autolinking keys on them.
 - ☐ npm publishing: decide `react-native-builder-bob` vs plain `tsc` (the
   package currently points `main` at raw TypeScript, which Metro reads but npm
-  consumers should not get)
+  consumers should not get). Also unresolved: the published tarball's `files`
+  lists only `native/VERSION`, so it ships without the Brain — and, now, without
+  the flatbuffers headers `cpp/format/ssab.h` includes.
 - ☐ React Native Directory listing — **iOS/Android badges up, New Architecture
   flag up, "Expo Go does not work" stated in both the Directory and the README**
 
@@ -198,7 +242,7 @@ Not planned. React Native has no editor to host an importer, so `.sspj` →
 | @shopify/react-native-skia | **2.11+**, and the lower bound is real: 2.11 moved the API objects off `jsi::HostObject` onto the `jsi::NativeState` pattern, and `cpp/SsSkiaBridge.cpp` unwraps them the new way |
 | react-native-reanimated | 4+ (required — RN Skia 2.10+ demands it) |
 | iOS | 14+ |
-| Android | API 21+ |
+| Android | API 24+ (React Native 0.79+ ships prefabs built for 24) |
 
 The `.ssab` format and the C-API are both tied to the SDK version, so the pin
 and the README's compatibility table have to move together.

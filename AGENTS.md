@@ -7,14 +7,14 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 `CLAUDE.md` is a symlink to this file.
 
 > [!IMPORTANT]
-> **This repo is mid-Phase 1.** All four layers now exist and
-> `<SpriteStudioView>` plays an animation — but only Normal parts with normal
-> blending, and **on iOS only**: Android still builds with
-> `SSPLAYER_ENABLE_SKIA_DIRECT=0` (RN Skia publishes no `libskia` prefab), so
-> `drawInto()` throws there. No blend modes, masks, effects, events, part
-> overrides or Reanimated integration yet. Read
+> **This repo is mid-Phase 1.** All four layers exist and `<SpriteStudioView>`
+> plays an animation on **both** iOS and Android (simulator and emulator; no
+> physical device has been tried). Scope is still Normal parts with normal
+> blending — no blend modes, masks, effects, events, part overrides or
+> Reanimated integration. Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
-> it overturned one of the design doc's premises.
+> it overturned one of the design doc's premises, and its own numbers were then
+> overturned in turn.
 
 ## Operating rules
 
@@ -224,6 +224,40 @@ later `download-sdk` correctly replaces a local build.
   `30_core/30_render_loop.md` §2 tells Players to raw-read the struct vectors
   anyway. `tools/check-framedata.sh` is the guard; run it after any schema
   change. A size assert alone would miss a same-size field reordering.
+* **Android autolinking needs a `ReactPackage` implementation, even for a
+  C++-only module.** Without one in `android/src/main/`, the package is not a
+  Gradle subproject and its native code is never built — silently. That is why
+  Android went unbuilt for a whole phase. Two follow-ons: **apply the Kotlin
+  plugin** (nitrogen only adds its generated Kotlin to `java.srcDirs`; javac
+  ignores `.kt`), and **write `JNI_OnLoad` yourself** — nitrogen generates
+  `registerAllNatives` but not its caller, so without it the `.so` loads and
+  every `createHybridObject` then throws.
+* **Prose in `SsPlayerPackage.kt` can break the build.** That autolinking lookup
+  is a regex over the whole file, first match wins, so an English sentence
+  naming a type and `ReactPackage` in the wrong order gets picked up as the
+  class name and `PackageList.java` instantiates a word out of a comment. This
+  has happened.
+* **Two Android build caches survive a source fix**, and both present as "I
+  changed it and nothing changed": `android/build/generated/autolinking/` (the
+  dependency list) and `android/app/build/generated/autolinking/` (the generated
+  `PackageList.java`). Delete them when autolinking behaviour looks stale.
+* **Follow the app's `reactNativeArchitectures`, never hardcode `abiFilters`.**
+  A hardcoded list builds ABIs the app is not building, whose prefab
+  dependencies were never materialised — the link line then comes up missing
+  `libNitroModules.so` and `librnskia.so`, and the errors name Nitro symbols
+  rather than the ABI.
+* **RN Skia's Android prefab: take the library, not the headers.** Its
+  `prepareHeaders` flattens `cpp/**`, so `cpp/jsi/JSIConverter.h` becomes
+  `JSIConverter.h` while `JsiSkConverters.h` still asks for `"jsi/JSIConverter.h"`
+  — the published headers do not compile. Use the `rnskia` prefab for linking
+  and RN Skia's own `cpp/` tree for includes, which is also what the podspec
+  does on iOS.
+* **Skia exports only what `SK_API` marks.** `SkCanvas::drawVertices` resolves
+  out of `librnskia.so`; `SkVertices::MakeCopy` and `sk_abort_no_print` sit in
+  the same `.so` as *local* symbols (`nm -C` shows `t`, not `T`) and do not.
+  `libskia.a` is linked **after** the prefab to supply exactly those leaves — the
+  order is load-bearing, since archive-first would satisfy everything from the
+  archive and put a second Skia in the process.
 * **Two copies of a native module is not a duplicated dependency** — it is two
   autolinked pods fighting over one JSI registration. npm auto-installs the
   package's peers at the workspace root, so the root `overrides` block pins each
@@ -273,6 +307,7 @@ build=release` when working on it).
 | FlatBuffers offsets | `npm run check-framedata` (needs `flatc`) |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
+| Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` |
 | Renders correctly | The **Player** screen must draw Ringo upright with its texture — apple on head, face, body — and animate |
 | Measurement | Open the **Bench** screen with `AUTO_SWEEP = true`; the results table appears in-app |
 

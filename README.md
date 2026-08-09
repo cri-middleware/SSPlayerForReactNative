@@ -104,7 +104,7 @@ npm run deploy-examples -- --embedded
 | React | 19+ |
 | Peer deps | `react-native-nitro-modules`, `@shopify/react-native-skia` **2.11+**, `react-native-reanimated` 4+ |
 | iOS | 14+ |
-| Android | API 21+ |
+| Android | API 24+ (React Native 0.79+ ships prefabs built for 24) |
 | SpriteStudio-SDK | `scripts/SDK_VERSION.txt` |
 
 **Expo Go does not work.** The package contains native code, so a prebuild

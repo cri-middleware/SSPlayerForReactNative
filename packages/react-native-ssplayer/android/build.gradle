@@ -9,6 +9,14 @@ buildscript {
 }
 
 apply plugin: "com.android.library"
+// Everything Kotlin here is small — `SsPlayerPackage` and nitrogen's
+// `SsPlayerOnLoad` — but without this plugin neither is compiled at all: the
+// nitrogen autolinking script only adds them to `java.srcDirs`, and javac
+// ignores `.kt`. The app then fails on `PackageList.java` with "cannot find
+// symbol SsPlayerPackage", which points at the app rather than at the cause.
+// The classpath comes from the consuming app's root project, as it does for
+// react-native-nitro-modules.
+apply plugin: "org.jetbrains.kotlin.android"
 
 // Written next to the binaries by whichever of scripts/download-sdk.sh (the
 // release tag) or scripts/build-runtime.sh ("<tag>+submodule-<sha>") installed
@@ -16,12 +24,23 @@ apply plugin: "com.android.library"
 def sdkVersionFile = file("../native/VERSION")
 def sdkVersion = sdkVersionFile.exists() ? sdkVersionFile.text.trim() : "unknown"
 
+/** The ABIs the consuming app asked for, or React Native's default set. */
+def reactNativeArchitectures() {
+  def value = rootProject.getProperties().get("reactNativeArchitectures")
+  return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
+}
+
 android {
   namespace "com.margelo.nitro.ssplayer"
   compileSdk 35
 
   defaultConfig {
-    minSdk 21
+    // 24, not 21: React Native 0.79+ ships its own prefabs built for 24
+    // (`[CXX1214] ... library was built for 24 [//ReactAndroid/hermestooling]`),
+    // and Expo's root plugin defaults the app to the same. 21 was aspirational
+    // and never checked, because the Android side was not autolinked and so was
+    // never built at all.
+    minSdk 24
 
     externalNativeBuild {
       cmake {
@@ -29,7 +48,13 @@ android {
         // it must agree with the SDK release the .a files came from.
         arguments "-DANDROID_STL=c++_shared",
                   "-DSSPLAYER_SDK_VERSION=${sdkVersion}"
-        abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
+        // Follow the app rather than pick our own. A hardcoded list builds ABIs
+        // the app is not building, and their prefab dependencies are not
+        // materialised for those — the link line then silently comes up without
+        // libNitroModules.so and librnskia.so and fails on symbols that have
+        // nothing to do with the real problem. Same helper Nitro's own module
+        // uses.
+        abiFilters(*reactNativeArchitectures())
       }
     }
   }
@@ -60,6 +85,22 @@ repositories {
 dependencies {
   implementation "com.facebook.react:react-android"
   implementation project(":react-native-nitro-modules")
+  // Brings the `rnskia` prefab into scope for CMakeLists.txt — Skia's headers
+  // and, because RN Skia links libskia.a statically into librnskia.so, Skia's
+  // symbols too. See the Skia block in CMakeLists.txt.
+  //
+  // Autolinking derives a Gradle project name from the npm scope, so RN Skia is
+  // `:shopify_react-native-skia`; a hand-written `settings.gradle` include
+  // conventionally calls it `:react-native-skia`. Probe rather than hardcode —
+  // naming the wrong one fails the whole configuration phase, for every app that
+  // depends on this package.
+  def skiaProject = [":shopify_react-native-skia", ":react-native-skia"]
+      .find { rootProject.findProject(it) != null }
+  if (skiaProject != null) {
+    implementation project(skiaProject)
+  } else {
+    logger.warn("SsPlayer: react-native-skia not found — drawInto() will be unavailable")
+  }
 }
 
 apply from: "../nitrogen/generated/android/SsPlayer+autolinking.gradle"

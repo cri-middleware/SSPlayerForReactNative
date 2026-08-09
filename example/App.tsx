@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native'
+import { Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
 
 import { BenchScreen } from './src/bench/BenchScreen'
 import { PlayerScreen } from './src/player/PlayerScreen'
@@ -19,12 +19,30 @@ type Screen = 'player' | 'bench'
  */
 const INITIAL_SCREEN: Screen = 'player'
 
+/**
+ * Height to keep clear of Android's status bar, 0 elsewhere.
+ *
+ * `react-native-safe-area-context` is the real answer and would also cover the
+ * gesture bar and cutouts, but it is a native dependency this example does not
+ * otherwise need — and one more autolinked module is exactly what the Android
+ * bring-up did not need. `StatusBar.currentHeight` covers the case that
+ * actually bites.
+ */
+const ANDROID_STATUS_BAR_INSET =
+  Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>(INITIAL_SCREEN)
 
   return (
     <SafeAreaView style={styles.root}>
-      <View style={styles.tabs}>
+      {/*
+        React Native's `SafeAreaView` is iOS-only, and RN 0.86 draws Android
+        edge-to-edge — so without this the tab row sits *under* the status bar,
+        which then swallows its taps. The buttons look fine and simply do not
+        respond, which is a confusing way to find out.
+      */}
+      <View style={[styles.tabs, { paddingTop: ANDROID_STATUS_BAR_INSET }]}>
         <Tab active={screen === 'player'} onPress={() => setScreen('player')}>
           Player
         </Tab>
