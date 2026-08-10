@@ -7,11 +7,12 @@
 // report rather than as a wrong pixel on a device. The Nitro hybrid
 // (`HybridSsContext`) only wraps the buffers this produces in ArrayBuffers.
 //
-// SCOPE: Normal, Mask, Mesh and Effect batches. Normal and Mask are one textured
+// SCOPE: Normal, Mask, Mesh, Effect and Shape batches. Normal and Mask are one textured
 // quad per part, so they bake identically — a Mask part differs only in what the
 // *draw* path does with the result, which is to write coverage instead of
-// colour. Shape / Nines / Instance and the SHDR shaders are still Phase 2 work
-// (design doc ch.8).
+// colour. Instance contributes no geometry of its own — it records a mount and
+// the child's bake supplies the rest. Nines and the SHDR shaders are still
+// Phase 2 work (design doc ch.8).
 
 #include <cstddef>
 #include <cstdint>
@@ -103,6 +104,23 @@ struct SsSoAPointers {
   /// **These vertices are already world-space** — skinning happens in the Brain —
   /// so the world matrix must NOT be applied again. UVs are static (resolved
   /// once from frame 0's cell) and indices are **part-local 0-based**.
+  /// Shape, in a fixed-stride layout rather than CSR: **24 floats per part**
+  /// (12 vertices x, y), indexed `partIndex * 24`, with only the first
+  /// `shapeVertexCounts[partIndex]` valid and the rest zero-filled. A non-shape
+  /// part carries a zero count.
+  ///
+  /// These are **local** and post-pivot, so the world matrix applies — the
+  /// Normal rule, not the Mesh one. `shapeBoxCoords` pairs with them: `(0,0)` at
+  /// the LT of the pre-pivot bounding box and `(1,1)` at the RB, whatever the
+  /// pivot or coordinate system, which is what lets a PartColor's four corners
+  /// be interpolated without re-deriving that box.
+  const float* shapeVertices = nullptr;
+  const float* shapeBoxCoords = nullptr;
+  const int32_t* shapeVertexCounts = nullptr;
+  size_t shapeVertexCount = 0;
+  size_t shapeBoxCoordCount = 0;
+  size_t shapeVertexCountCount = 0;
+
   const float* meshVerticesX = nullptr;
   const float* meshVerticesY = nullptr;
   const uint32_t* meshVertexOffsets = nullptr;
@@ -186,6 +204,14 @@ class SsBaker {
                        uint32_t partStateCount,
                        const ::flatbuffers::Vector<uint16_t>* drawOrder,
                        uint32_t drawOrderCount, float alphaScale);
+
+  /// The Shape half. Local verts like Normal, several parts to a draw like
+  /// Mesh, and a colour rule of its own — see the implementation.
+  void bakeShapeBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                      const ss::runtime::DrawBatch* batch, const SsBatchDesc& desc,
+                      uint32_t partStateCount,
+                      const ::flatbuffers::Vector<uint16_t>* drawOrder, uint32_t drawOrderCount,
+                      float alphaScale);
 
   /// The Instance half, and the only one that emits **no geometry and no
   /// descriptor** — an instance part is a mount point, and the thing mounted is

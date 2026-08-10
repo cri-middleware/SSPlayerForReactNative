@@ -238,20 +238,24 @@ constant across the Phase 0 sweep while nothing was actually playing.
   compiles, all 24 coverage bits survive the image round-trip on both a managed
   and an unmanaged destination, and the real `DrawBakedFrame` output must differ
   with the mask input from without.
-  **Verified on the host only, and the screen check waits on Shape.** Not an
-  oversight: `Mask.ssab` carries one writer of each unimplemented kind, so until
-  those close the card has two parts that are *expected* not to clip and cannot
-  be read as pass or fail. Effect and Mesh were looked at on the simulator and
-  the emulator; this one is deliberately held back until it can be.
-  **What is left:** the Mesh and Shape writers — a Mesh can be a clipping writer
-  and a Shape a pure mask, and their coverage is a deformed mesh and a polygon
-  rather than a quad (`Mask.ssab`'s `Mesh-WriteMask-True` and `Shape-Mask-True`
-  are the two parts that do not clip). **The Mesh half is no longer blocked**:
-  that geometry is baked now, so what is left there is letting
-  `SsMaskPartFlags::quadGeometry` admit it and giving the coverage pass a
-  non-quad path. The Shape half still needs Shape. Then §2-6's instance
-  composition, which needs Instance parts first; and the same pixel-test gap the
-  blends and PartColor have. A masked part also drops the multi-pass Sub/Invert
+  **The two writers this used to be waiting on are in**, so `Mask.ssab` no
+  longer has parts that are expected to do nothing and can finally be read as
+  pass or fail. Coverage is no longer quad-only: writers carry their own
+  vertex/index ranges, the union box is taken over every vertex rather than four
+  corners, and a writer with no atlas to threshold (a Shape) lays its bit down
+  as a flat colour instead of through the sampling shader. `quadGeometry` became
+  `bakedGeometry` with it — the name was the assumption. `tools/check-mask.sh`
+  reports **9 writers where it reported 7**, which is the whole of the change
+  measured in one number.
+  **Still host-only on the screen**: worth an actual look now that the card is
+  complete.
+  **What is left:** §2-6's instance composition — a mask reaching an instance
+  part applies to the whole sub-animation, and the calling part's settings
+  compose with the callee's rather than replacing them, which is a context to
+  thread down the tree rather than a finished test; and the same pixel-test gap
+  the blends and PartColor have. A Shape *target* is also still unmasked, for
+  the reason a Mesh is: the replay places its coverage sample by inverting an
+  affine quad's UV, and a polygon has no UV at all. A masked part also drops the multi-pass Sub/Invert
   reconstruction for the one-pass approximation, because the inversion passes
   cancel only where the middle pass drew.
 - 🚧 **PartColor** — landed for **Normal** parts, the kind the renderer draws.
@@ -326,10 +330,28 @@ constant across the Phase 0 sweep while nothing was actually playing.
   **What is left:** effects under a mask (excluded like Mesh — the replay wants
   one quad to invert, and an effect is a cloud of them), and the same pixel-test
   gap the blends, PartColor and Mesh have.
-- ☐ Shape, Nines — Shape carries a second job: it is what unblocks the Shape
-  *mask writer*, and with it the first honest screen check of masking, since
-  `Mask.ssab` cannot be read as pass or fail while two of its writers are
-  expected to do nothing.
+- 🚧 **Shape** — landed. The Normal path's geometry rules with the Mesh path's
+  batching: the vertices are **local** and take the world matrix, and several
+  parts concatenate into one draw. Fixed stride rather than CSR — 24 floats per
+  part, 12 vertices, with `shape_vertex_counts` saying how many are real — and
+  triangulated as a **centre-first fan**, vertex 0 being the middle, so `n`
+  vertices give `n - 2` triangles.
+  The colour is the whole of the rest, and it is the one place PartColor does
+  **not** go through the shader: §1-2-3 has a Shape bypass the composite formula
+  outright, so the corner colours *are* the colour, at forced Mix with the rate
+  pinned to 1, interpolated bilinearly per vertex over the Brain's box coords —
+  which is why it emits them, and why the fan's centre lands on the average of
+  the four corners instead of creasing along a diagonal. Without a PartColor it
+  is white at the part's alpha. That collapses the kind onto plain vertex
+  colours, so a Shape needs no texture and no shader at all — and it must be
+  kept away from `PaintFor`, whose single-entry rule would hand it the atlas and
+  texture a polygon that samples nothing.
+  Host-checked: `overall/Shape` bakes 2 parts and 12 vertices a frame, and
+  `Mask.ssab` went from 92 baked vertices to 98 as its Shape writer joined.
+  Both platforms build. **Not yet seen on a simulator or a device.**
+  **What is left:** a Shape as a mask *target* (no UV to invert), and Nines,
+  which shares the box-coord idea but has its own CSR buffers.
+- ☐ Nines
 - 🚧 **Instance parts** — landed. A mount point, and the thing mounted is a
   whole other player: `HybridSsContext` is now both a root and — one level down —
   somebody's instance child, exactly as `SpriteStudioInternalPlayer` is in

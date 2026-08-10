@@ -165,6 +165,11 @@ const SUBJECTS = {
   PartsColor: { pack: 'overall', files: { PartsColor: CENTRED } },
   Mask: { pack: 'overall', files: { Mask: CENTRED } },
   Mesh: { pack: 'overall', files: { Mesh: CENTRED } },
+  // Two polygons, and the kind with no texture at all: a Shape's colour is
+  // entirely its baked vertex colours, so a textured or white-flat shape here
+  // means the PartColor bilinear over the Brain's box coords is not reaching
+  // them. Measured x ∈ [-248, 132], y ∈ [-144, 144]; the authored 480 frames it.
+  Shape: { pack: 'overall', files: { Shape: CENTRED } },
   // Measured y ∈ [-184, 237], so the authored 480 canvas frames it.
   Effect: { pack: 'overall', files: { Effect: CENTRED } },
   // 20 instance parts, every one of them mounting the **external** pack

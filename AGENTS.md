@@ -16,8 +16,8 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > never actually released anything). Scope is Normal parts, now with the full
 > framebuffer **blend table** (`cpp/SsBlend.hpp`), **PartColor**
 > (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`), **Mesh**,
-> **Effect** (`cpp/SsEffect.hpp`) and **Instance** (`cpp/SsInstance.hpp`) —
-> still no Shape/Nines, events, part overrides or Reanimated integration. **Mask is the one feature here that has
+> **Effect** (`cpp/SsEffect.hpp`), **Instance** (`cpp/SsInstance.hpp`) and
+> **Shape** — still no Nines, events, part overrides or Reanimated integration. **Mask is the one feature here that has
 > only ever been checked on the host**, and deliberately: `Mask.ssab` carries a
 > Mesh writer and a Shape writer that are both expected not to clip yet, so the
 > card cannot be read as pass or fail until Shape lands.
@@ -548,12 +548,26 @@ later `download-sdk` correctly replaces a local build.
   inversion would stain the whole quad outside the mask. `BlendModeFor`'s
   one-pass approximation takes over: an approximate blend in the right shape
   beats an exact one in the wrong shape.
-* **Only Normal and Mask parts can write coverage today.** A Mesh *can* be a
-  clipping writer and a Shape *can* be a pure mask, but their coverage is a
-  deformed mesh and a polygon respectively, and nothing bakes either yet.
-  `SsMaskPartFlags::quadGeometry` drops them rather than clipping with the
-  bounding quad, which would be wrong in a way that looks deliberate.
-  `Mask.ssab` carries one of each (`Mesh-WriteMask-True`, `Shape-Mask-True`).
+* **Coverage is not quad-shaped, and the flag that said so was renamed.** A Mesh
+  clipping writer covers with its deformed triangles and a Shape pure mask with
+  its polygon, so writers carry their own vertex/index ranges, the union box is
+  taken over every vertex, and `SsMaskPartFlags::quadGeometry` became
+  `bakedGeometry`. A **Shape writer has no atlas to threshold**, so it lays its
+  bit down as a flat opaque colour rather than through the sampling shader —
+  §2-5's texel threshold is meaningless without a texel. Instance and Effect
+  stay out: one has no geometry of its own and the other is a cloud of quads.
+  `Mask.ssab` has one of each writer, and `check-mask` reporting **9** rather
+  than 7 is the whole change in one number.
+* **A Shape has no texture, and `PaintFor` will happily give it one.** Its
+  `texture_hash` is 0 because it resolves no cell, and the single-entry table
+  rule matches *unconditionally* — so a one-cellmap pack would texture a polygon
+  that samples nothing. The Shape pass uses a plain paint and passes no
+  texcoords at all. Its colour is entirely the baked vertex colours, because
+  §1-2-3 has a Shape **bypass the PartColor composite formula**: the corner
+  colours are the colour, forced Mix, rate pinned to 1, bilinear over
+  `shape_vertex_box_coords`. The fan's centre sits at `(0.5, 0.5)` and so takes
+  the average of the four corners, which is what stops a corner-coloured shape
+  creasing along a diagonal.
 * **A world matrix can be a reflection, and the sign is a product** of authored
   negative scale and the player's flip, so they cancel. Read `determinant()`;
   never infer it from the flip settings.
@@ -700,7 +714,8 @@ build=release` when working on it).
 | A real character, end to end | On the **Player** screen switch *Subject* to **Ringo** — the one asset here that uses the features together rather than one at a time, and the check that they compose. Step through a few of its 24 animations. It is also the widest exercise of the reference texture route, since `Ringo.png` is a plain sibling. Missing limbs mean Mesh; a limb in the wrong place means the world matrix reached vertices that were already world-space. |
 | Instances (seen on both) | On the **Player** screen switch *Subject* to **Instance** (`overall`) — 20 mounts of an external pack, and the subject that says whether the sibling walk ran at all: those parts have no geometry of their own, so an empty canvas means the walk found nothing rather than that the draw is wrong. Then **RingoInstances** (`Ringo_tyu`), which mounts `Ringo`'s own `kaiten` nine times — a whole rig, mesh deforms and all, drawn through the instance path. On the host, `ssbake_check` must report non-zero **mounts**: `overall/Instance.ssab anime_1` gives 20 parts / peak 20, `Ringo/Ringo_tyu.ssab anime_1` gives 9 / peak 7. Mounts but no picture is the child tree, which `ssbake_check` cannot reach — it drives the C-API directly and only ever bakes one player. `RingoInstances` is also the only check on the texture half: it holds no cellmaps of its own, so untextured white there means `getTextures()` stopped at the root instead of recursing into the mounted pack. |
 | Mesh deformation | On the **Player** screen switch *Subject* to **Mesh**. The parts must be *deformed* and sit where the rest of the animation does. A mesh drawn far off-centre, or scaled oddly, is the world matrix having been applied to vertices that were already world-space. On the host, `ssbake_check` on `Mesh.ssab` must report a **non-zero** peak vertex count (it was 0 for the whole of the time Mesh went unbaked) — currently 32, and Ringo's went 68 → 653 when Mesh landed. |
-| Mask and clipping | On the **Player** screen switch *Subject* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. The `Mesh-WriteMask-True` and `Shape-Mask-True` parts are **expected** not to clip yet, which is why this row is the one that has never been run in anger — two known-missing pieces on the card mean it cannot be read as pass or fail. Worth doing properly once Shape lands. |
+| Shape | On the **Player** screen switch *Subject* to **Shape** — two polygons, and the only kind here that samples nothing. Textured polygons mean it reached `PaintFor`; flat white ones mean the PartColor bilinear never reached the vertex colours. On the host, `ssbake_check` must report a non-zero **shape** line: `overall/Shape.ssab anime_1` gives 2 parts / peak 12 vertices. |
+| Mask and clipping | On the **Player** screen switch *Subject* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. `Mesh-WriteMask-True` and `Shape-Mask-True` **now clip too** — they were the two known-missing pieces that made this row unreadable, and with them in the card is complete. It has still never actually been run on a screen; it is worth doing now that it would mean something. |
 | Effect (particles) | On the **Player** screen switch *Subject* to **Effect** — the `overall` feature card, 13 effect parts each authoring the `EventEffect` keys differently, so what fails names itself. Then switch to **ParticleEffect** and walk the *Pack file* dropdown: `e002` (fireworks) and `e019` (holy) are the two heaviest. Particles piled on the origin mean the effect part's world matrix was not applied; particles textured with the whole atlas mean the normalised UVs were not scaled by `size_original`; additive effects rendering dark mean the command's `blend` byte was passed through as a `BlendType`. An effect that freezes while off screen is the `draw_order` trap. |
 | Mask plan **and effect geometry**, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 840 writer-frames, 1680 target-frames. The `effect:` line has the same contract, and its own tell is **`parts > 0` with `peak 0` quads** — enumerated and then never emitting. `overall/Effect.ssab anime_1 120` currently reports 13 parts / 120 frames with geometry / peak 155 quads; `ParticleEffect/e001.ssab emission 120` reports 7 parts / 114 frames / peak 85. |
 | Mask **drawing**, on the host | `npm run check-mask` (macOS). The plan was never the fragile half — everything that broke was Skia-side and broke silently. Checks the SkSL compiles (ES2), that all 24 coverage bits survive the image round-trip on both a managed and an unmanaged destination, and that the real `DrawBakedFrame` output actually differs with the mask input from without. |
@@ -749,6 +764,12 @@ canvas, concatenating the matrix and re-entering `drawSubtree` on the child. So
 the recursion is the ordinary draw one transform down, and a grandchild is the
 same again. The child's clock is not the parent's: `ss_instance_slot_step` seeks
 it, and `update()` only hands it a delta.
+
+**A Shape joins the ordinary path with two substitutions.** Its vertices are
+local like a Normal part's and take the world matrix, but there are up to twelve
+of them and they triangulate as a centre-first fan rather than two triangles;
+and it samples nothing, so the batch draws with a plain paint, no texcoords, and
+its colour entirely in the vertex colours the PartColor bilinear produced.
 
 **The Effect kind joins this at two different points, and that is the shape of
 it.** Its *clock* runs in `update()`, before any of the above: every effect part

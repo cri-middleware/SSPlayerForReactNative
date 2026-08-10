@@ -122,6 +122,18 @@ class SsAnimeBinaryView {
     return out;
   }
 
+  /// How many Shape parts the pack has. Enough for a check that wants to say
+  /// "enumerated but never drawn"; the geometry itself is per frame.
+  uint32_t shapePartCount() const noexcept {
+    const auto* v = root_ != nullptr ? root_->parts() : nullptr;
+    if (v == nullptr) return 0;
+    uint32_t n = 0;
+    for (uint32_t i = 0; i < v->size(); ++i) {
+      if (v->Get(i)->part_type_type() == ss::format::PartType_PartTypeShape) ++n;
+    }
+    return n;
+  }
+
   // --- effect -------------------------------------------------------------
 
   // --- instance -----------------------------------------------------------
@@ -225,12 +237,14 @@ class SsAnimeBinaryView {
     out.maskWrite = part->mask_write();
     out.maskInfluence = part->mask_influence();
     out.visibleInsideMask = part->visible_inside_mask();
-    // Only the kinds `SsBaker` emits a quad for. A Shape turned into a pure mask
-    // by `draw_as_mask` belongs here too and is deliberately absent: its coverage
-    // is its *polygon*, which nothing bakes yet, and clipping with its bounding
-    // quad instead would be wrong in a way that looks plausible.
-    out.quadGeometry = type == ss::format::PartType_PartTypeNormal ||
-                       type == ss::format::PartType_PartTypeMask;
+    // Every kind `SsBaker` emits geometry for. Shape and Mesh joined when they
+    // were baked — a Shape turned into a pure mask by `draw_as_mask` covers with
+    // its polygon and a Mesh clipping writer with its deformed triangles, which
+    // is what the coverage pass now rasterises rather than a bounding quad.
+    out.bakedGeometry = type == ss::format::PartType_PartTypeNormal ||
+                        type == ss::format::PartType_PartTypeMask ||
+                        type == ss::format::PartType_PartTypeShape ||
+                        type == ss::format::PartType_PartTypeMesh;
     return out;
   }
 

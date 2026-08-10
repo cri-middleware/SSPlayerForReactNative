@@ -454,6 +454,15 @@ void HybridSsContext::refreshFrame() {
   ss_runtime_get_local_uvs(ctx_, &soa_.localUvs, &len);
   ss_runtime_get_cell_meta(ctx_, &soa_.cellMeta, &len);
 
+  // Shape. Fixed stride rather than CSR, but the same rule: keep the lengths,
+  // because the count array indexes the vertex array and the guards in
+  // `SsBaker::bakeShapeBatch` are all that stands between a stale count and a
+  // read past the end.
+  ss_runtime_get_shape_vertices(ctx_, &soa_.shapeVertices, &soa_.shapeVertexCount);
+  ss_runtime_get_shape_vertex_box_coords(ctx_, &soa_.shapeBoxCoords, &soa_.shapeBoxCoordCount);
+  ss_runtime_get_shape_vertex_counts(ctx_, &soa_.shapeVertexCounts,
+                                     &soa_.shapeVertexCountCount);
+
   // Mesh. Every length is kept, not discarded like the ones above: these are CSR
   // arrays that index each other, so the guards in `SsBaker::bakeMeshBatch` are
   // the only thing between a malformed offset pair and a read past the end.

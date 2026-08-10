@@ -53,10 +53,9 @@ const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t te
   return nullptr;
 }
 
-/// Vertices per baked part, and indices per baked part. `SsBaker` emits exactly
-/// one quad per Normal part, which is what makes peeling a single part out of a
-/// batch a matter of arithmetic rather than a second bake.
-constexpr int kVertsPerQuad = 4;
+/// Indices per quad. `SsBaker` emits exactly one quad per Normal part, which is
+/// what makes peeling a single part out of a batch arithmetic rather than a
+/// second bake — the kinds that are not quads carry their own ranges instead.
 constexpr int kIndicesPerQuad = 6;
 
 /// `drawVertices`'s own mode blends the shader against *vertex colours*, and
@@ -153,27 +152,52 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
     const sscore::SsPartDraw& part = parts[writer.partDrawIndex];
     const sscore::SsBatchDesc* batch = BatchOfPart(baker, writer.partDrawIndex);
     if (batch == nullptr) continue;
-    const SkPaint* paint = PaintFor(textures, textureCount, batch->textureHash);
-    if (paint == nullptr) continue;
+    if (part.vertexCount < 3 || part.indexCount < 3) continue;
 
-    sk_sp<SkShader> bitShader = MakeMaskWriteShader(writer, paint->refShader());
-    if (bitShader == nullptr) continue;
+    // A Shape writes coverage but samples nothing, so there is no atlas to
+    // threshold and the whole polygon is covered. `mask`'s texel threshold
+    // (§2-5) is meaningless without a texel, so the bit goes down flat.
+    const bool untextured = batch->kind == ss::runtime::DrawBatchKind_Shape;
+    const SkPaint* paint =
+        untextured ? nullptr : PaintFor(textures, textureCount, batch->textureHash);
+    if (!untextured && paint == nullptr) continue;
 
-    uint16_t quadIdx[kIndicesPerQuad];
-    RebaseQuadIndices(indices.data() + part.indexOffset,
-                      part.vertexOffset - batch->vertexOffset, quadIdx);
+    sk_sp<SkShader> bitShader;
+    if (!untextured) {
+      bitShader = MakeMaskWriteShader(writer, paint->refShader());
+      if (bitShader == nullptr) continue;
+    }
+
+    // Rebased onto this writer's own vertices, whatever their number: a quad's
+    // six, a polygon's fan, a mesh's triangles. The subtraction is the same one
+    // the peel path makes, and it is the general form rather than a quad case.
+    const int vertexBase = part.vertexOffset - batch->vertexOffset;
+    std::vector<uint16_t> localIdx(static_cast<size_t>(part.indexCount));
+    for (int32_t i = 0; i < part.indexCount; ++i) {
+      localIdx[static_cast<size_t>(i)] =
+          static_cast<uint16_t>(indices[static_cast<size_t>(part.indexOffset) + i] - vertexBase);
+    }
 
     const int base = part.vertexOffset;
     // No vertex colours: the bit must reach the bitmap unscaled, and `kPlus` is
     // premultiplied, so a colour carrying the part's alpha would dim it into a
     // value that decodes as a different writer's bit — or as none.
-    sk_sp<SkVertices> vertices =
-        SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode, kVertsPerQuad, positions + base,
-                             texCoords + base, nullptr, kIndicesPerQuad, quadIdx);
+    sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
+        SkVertices::kTriangles_VertexMode, part.vertexCount, positions + base,
+        untextured ? nullptr : texCoords + base, nullptr, part.indexCount, localIdx.data());
     if (vertices == nullptr) continue;
 
     SkPaint cover;
-    cover.setShader(std::move(bitShader));
+    if (untextured) {
+      // The bit as a flat colour, opaque. Same encoding the shader would have
+      // returned where a texel passed — `kPlus` then ORs it in exactly as it
+      // does for every other writer.
+      float rgb[3];
+      SsMaskBitColor(writer.bit, rgb);
+      cover.setColor4f({rgb[0], rgb[1], rgb[2], 1.0f}, nullptr);
+    } else {
+      cover.setShader(std::move(bitShader));
+    }
     cover.setBlendMode(SkBlendMode::kPlus);
     // Antialiasing is the same trap in geometric form: a partial edge coverage
     // scales the bit, and the replay would read a writer that never covered the
@@ -273,7 +297,15 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     // baked for the pass above and must not reach the framebuffer.
     if (batch.kind == ss::runtime::DrawBatchKind_Mask) continue;
 
-    const SkPaint* paint = PaintFor(textures, textureCount, batch.textureHash);
+    // A Shape samples nothing: its colour is entirely in the baked vertex
+    // colours (§1-2-3 bypasses the composite formula), and its `texture_hash` is
+    // 0 because it resolves no cell. So it must **not** go through `PaintFor` —
+    // the single-entry rule matches unconditionally and would hand it the
+    // atlas, texturing a polygon that was never meant to sample one.
+    const bool untextured = batch.kind == ss::runtime::DrawBatchKind_Shape;
+    SkPaint plain;
+    const SkPaint* paint =
+        untextured ? &plain : PaintFor(textures, textureCount, batch.textureHash);
     if (paint == nullptr) continue;
 
     // `SkPoint` is two floats with no padding, so the baker's flat float arrays
@@ -314,8 +346,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // path at 10 ms for 512 players — so the layering is worth more than the
       // memcpy.
       sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
-          SkVertices::kTriangles_VertexMode, batch.vertexCount, pos, uv,
-          reinterpret_cast<const SkColor*>(col), batch.indexCount, idx);
+          SkVertices::kTriangles_VertexMode, batch.vertexCount, pos,
+          untextured ? nullptr : uv, reinterpret_cast<const SkColor*>(col),
+          batch.indexCount, idx);
       if (vertices == nullptr) continue;
 
       const SkPaint passPaint = PaintForPass(*paint, plan.passes[0]);
@@ -389,7 +422,8 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       }
 
       sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
-          SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base, uv + base,
+          SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base,
+          untextured ? nullptr : uv + base,
           tint != nullptr ? nullptr : reinterpret_cast<const SkColor*>(col + base),
           info.indexCount, useIdx);
       if (vertices == nullptr) continue;

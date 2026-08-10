@@ -34,9 +34,10 @@ bool SsMaskPlan::build(const ss::runtime::FrameData* fd, const SsBaker& baker,
     const SsMaskPartFlags& f = flags[info.partIndex];
     if (!f.isWriter()) continue;
     // A writer whose shape the coverage pass cannot rasterise is dropped rather
-    // than clipping its targets with a wrong-shaped stand-in. `quadShaped` is
-    // the same rule read off the bake instead of off the part type.
-    if (!f.quadGeometry || !info.quadShaped) continue;
+    // than clipping its targets with a wrong-shaped stand-in. Only the part type
+    // decides now: `quadShaped` is about inverting a UV, which the *target* side
+    // needs and a writer never does.
+    if (!f.bakedGeometry) continue;
 
     if (info.partIndex >= partStateCount) continue;
     const ss::runtime::PartState* state = parts->Get(info.partIndex);
@@ -51,7 +52,10 @@ bool SsMaskPlan::build(const ss::runtime::FrameData* fd, const SsBaker& baker,
     if (state->hide()) continue;
 
     const size_t base = static_cast<size_t>(info.vertexOffset) * 2;
-    if (info.vertexCount != 4 || base + 8 > positions.size()) continue;
+    const size_t floats = static_cast<size_t>(info.vertexCount) * 2;
+    // Any vertex count now, not four: a polygon and a deformed mesh both write
+    // coverage. Three is the fewest that encloses anything.
+    if (info.vertexCount < 3 || base + floats > positions.size()) continue;
 
     SsMaskWriter writer;
     writer.partIndex = info.partIndex;
@@ -67,9 +71,11 @@ bool SsMaskPlan::build(const ss::runtime::FrameData* fd, const SsBaker& baker,
     const float t = (255.0f - mask) / 255.0f;
     writer.threshold = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
 
-    for (int c = 0; c < 4; ++c) {
-      const float x = positions[base + c * 2];
-      const float y = positions[base + c * 2 + 1];
+    // Over every vertex, not four corners — the union box has to contain the
+    // whole writer or its own coverage is clipped by the bitmap's edge.
+    for (int32_t c = 0; c < info.vertexCount; ++c) {
+      const float x = positions[base + static_cast<size_t>(c) * 2];
+      const float y = positions[base + static_cast<size_t>(c) * 2 + 1];
       if (!haveBounds) {
         left = right = x;
         top = bottom = y;

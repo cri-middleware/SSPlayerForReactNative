@@ -20,10 +20,17 @@ uint32_t WhiteWithAlpha(float alpha) {
   return (a << 24) | 0x00ffffffu;
 }
 
+/// `0xAARRGGBB` from four 0..1 channels, with `alphaScale` folded into the alpha.
+uint32_t Argb(float a, float alphaScale, float r, float g, float b);
+
 /// One 0..1 channel as a byte, clamped.
 uint32_t Channel(float value) {
   const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
   return static_cast<uint32_t>(clamped * 255.0f + 0.5f);
+}
+
+uint32_t Argb(float a, float alphaScale, float r, float g, float b) {
+  return (Channel(a * alphaScale) << 24) | (Channel(r) << 16) | (Channel(g) << 8) | Channel(b);
 }
 
 /// The most vertices one batch may hold, since the index arrays are `uint16_t`.
@@ -167,6 +174,9 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
         info.indexCount = 6;
         parts_.push_back(info);
       }
+    } else if (kind == ss::runtime::DrawBatchKind_Shape) {
+      bakeShapeBatch(fd, soa, batch, desc, partStateCount, drawOrder, drawOrderCount,
+                     alphaScale);
     } else if (kind == ss::runtime::DrawBatchKind_Mesh) {
       bakeMeshBatch(fd, soa, batch, desc, partStateCount, drawOrder, drawOrderCount,
                     alphaScale);
@@ -389,6 +399,112 @@ void SsBaker::bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPoint
       }
       i = j;
     }
+  }
+}
+
+/// Floats per part in the shape SoA: 12 vertices, interleaved x/y.
+static constexpr uint32_t kShapeStride = 24;
+/// ...and therefore the most vertices one shape part can have.
+static constexpr int32_t kShapeMaxVertices = 12;
+
+void SsBaker::bakeShapeBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                             const ss::runtime::DrawBatch* batch, const SsBatchDesc& desc,
+                             uint32_t partStateCount,
+                             const ::flatbuffers::Vector<uint16_t>* drawOrder,
+                             uint32_t drawOrderCount, float alphaScale) {
+  if (soa.shapeVertices == nullptr || soa.shapeVertexCounts == nullptr) return;
+  const auto* parts = fd->parts();
+
+  for (uint32_t k = 0; k < batch->count(); ++k) {
+    const uint32_t rank = static_cast<uint32_t>(batch->start_rank()) + k;
+    if (rank >= drawOrderCount) break;
+    const uint32_t partIndex = drawOrder->Get(rank);
+    if (partIndex >= soa.partCount) continue;
+    if (partIndex >= soa.shapeVertexCountCount) continue;
+
+    const int32_t count = soa.shapeVertexCounts[partIndex];
+    // Zero is how every non-shape part appears here, and how a shape whose size
+    // collapsed does — not an error. A fan needs three.
+    if (count < 3 || count > kShapeMaxVertices) continue;
+    const size_t base = static_cast<size_t>(partIndex) * kShapeStride;
+    if (base + static_cast<size_t>(count) * 2 > soa.shapeVertexCount) continue;
+    const bool haveBox = soa.shapeBoxCoords != nullptr &&
+                         base + static_cast<size_t>(count) * 2 <= soa.shapeBoxCoordCount;
+
+    const float* m = soa.worldMatrices + static_cast<size_t>(partIndex) * 16;
+    const ss::runtime::PartState* state =
+        (parts != nullptr && partIndex < partStateCount) ? parts->Get(partIndex) : nullptr;
+
+    SsPartDraw info;
+    info.partIndex = partIndex;
+    info.drawRank = static_cast<int32_t>(rank);
+    info.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
+    info.indexOffset = static_cast<int32_t>(indices_.size());
+    // A polygon, not four corners in lt/rt/lb/rb order — so nothing downstream
+    // may invert its UV, of which it has none anyway.
+    info.quadShaped = false;
+    // §1-2-3: a Shape **bypasses the composite formula** outright. Its PartColor
+    // is the colour, at forced Mix with the rate pinned to 1, so it never
+    // reaches the shader the Normal path peels a tint out for.
+    info.needsPartColorShader = false;
+
+    const bool hasPartColor = SsReadPartColor(fd, state, &info.partColor);
+    // Without a PartColor a shape is white at the part's alpha. With one, the
+    // corner alphas already carry the hierarchical alpha — the converter even
+    // forces `a = 255` on a Mix shape so the product lands exactly on it — so
+    // `PartState.alpha` must NOT be applied again. Only the instance chain's
+    // scale is still owed either way.
+    const float partAlpha = (state != nullptr ? state->alpha() : 1.0f) * alphaScale;
+    const SsPartColorCorner& lt = info.partColor.lt;
+    const SsPartColorCorner& rt = info.partColor.rt;
+    const SsPartColorCorner& lb = info.partColor.lb;
+    const SsPartColorCorner& rb = info.partColor.rb;
+
+    const uint16_t vertexBase =
+        static_cast<uint16_t>(positions_.size() / 2 - desc.vertexOffset);
+    for (int32_t v = 0; v < count; ++v) {
+      const float lx = soa.shapeVertices[base + static_cast<size_t>(v) * 2];
+      const float ly = soa.shapeVertices[base + static_cast<size_t>(v) * 2 + 1];
+      positions_.push_back(m[0] * lx + m[4] * ly + m[12]);
+      positions_.push_back(m[1] * lx + m[5] * ly + m[13]);
+      // A shape samples nothing. The texcoords are pushed anyway so every
+      // vertex array stays the same length — the draw path slices them all by
+      // one offset — and the Shape pass simply passes none to Skia.
+      texCoords_.push_back(0.0f);
+      texCoords_.push_back(0.0f);
+
+      if (!hasPartColor) {
+        colors_.push_back(WhiteWithAlpha(partAlpha));
+        continue;
+      }
+      // Bilinear over the Brain's box coords, which is the whole reason it
+      // emits them. The fan's centre sits at (0.5, 0.5) and so gets the average
+      // of the four corners, which is what makes a corner-coloured shape
+      // gradient smoothly instead of creasing along a diagonal.
+      const float fx = haveBox ? soa.shapeBoxCoords[base + static_cast<size_t>(v) * 2] : 0.5f;
+      const float fy =
+          haveBox ? soa.shapeBoxCoords[base + static_cast<size_t>(v) * 2 + 1] : 0.5f;
+      const float wLt = (1.0f - fx) * (1.0f - fy);
+      const float wRt = fx * (1.0f - fy);
+      const float wLb = (1.0f - fx) * fy;
+      const float wRb = fx * fy;
+      colors_.push_back(
+          Argb(lt.a * wLt + rt.a * wRt + lb.a * wLb + rb.a * wRb, alphaScale,
+               lt.r * wLt + rt.r * wRt + lb.r * wLb + rb.r * wRb,
+               lt.g * wLt + rt.g * wRt + lb.g * wLb + rb.g * wRb,
+               lt.b * wLt + rt.b * wRt + lb.b * wLb + rb.b * wRb));
+    }
+
+    // Centre-first fan: vertex 0 is the middle, the rest walk the perimeter.
+    for (int32_t t = 0; t < count - 2; ++t) {
+      indices_.push_back(vertexBase);
+      indices_.push_back(static_cast<uint16_t>(vertexBase + t + 1));
+      indices_.push_back(static_cast<uint16_t>(vertexBase + t + 2));
+    }
+
+    info.vertexCount = count;
+    info.indexCount = (count - 2) * 3;
+    parts_.push_back(info);
   }
 }
 

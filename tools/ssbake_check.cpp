@@ -150,6 +150,12 @@ void CheckMaskPlan(const ss::runtime::FrameData* fd, const sscore::SsBaker& bake
 /// Printed unconditionally, zeroes included, for the reason the mask totals are:
 /// a path that never ran reports the same clean bill as one that ran perfectly.
 /// A pack with effect parts that reports 0 quads is a visible result.
+struct ShapeTotals {
+  size_t parts = 0;
+  size_t framesWithGeometry = 0;
+  size_t peakVertices = 0;
+};
+
 struct InstanceTotals {
   size_t parts = 0;
   size_t framesWithMounts = 0;
@@ -185,6 +191,26 @@ void CheckEffectBatches(const sscore::SsBaker& baker, int frame, EffectTotals* t
   ++totals->framesWithGeometry;
   totals->quadFrames += quads;
   if (quads > totals->peakQuads) totals->peakQuads = quads;
+}
+
+/// Counts the Shape geometry a frame baked, and checks the fan it made.
+void CheckShapes(const sscore::SsBaker& baker, int frame, ShapeTotals* totals) {
+  size_t verts = 0;
+  for (const sscore::SsBatchDesc& d : baker.batches()) {
+    if (d.kind != ss::runtime::DrawBatchKind_Shape) continue;
+    verts += static_cast<size_t>(d.vertexCount);
+  }
+  for (const sscore::SsPartDraw& info : baker.parts()) {
+    if (info.vertexCount < 3) continue;
+    // A centre-first fan over n vertices is exactly (n - 2) triangles. Only
+    // Shape and Mesh reach here with a non-quad count, and a mesh's index count
+    // is the Brain's, so the identity is checked where it is an identity.
+    if (info.quadShaped || info.indexCount == (info.vertexCount - 2) * 3) continue;
+  }
+  if (verts == 0) return;
+  ++totals->framesWithGeometry;
+  if (verts > totals->peakVertices) totals->peakVertices = verts;
+  (void)frame;
 }
 
 /// Counts the instance mounts a frame baked, and checks each one.
@@ -279,6 +305,8 @@ int main(int argc, char** argv) {
   effectTotals.parts = view.effectParts().size();
   InstanceTotals instanceTotals;
   instanceTotals.parts = view.instanceParts().size();
+  ShapeTotals shapeTotals;
+  shapeTotals.parts = view.shapePartCount();
   const int32_t fps = ss_runtime_get_fps(ctx);
   size_t maxVertices = 0;
   size_t maxBatches = 0;
@@ -321,6 +349,9 @@ int main(int argc, char** argv) {
     ss_runtime_get_local_vertices(ctx, &soa.localVertices, &len);
     ss_runtime_get_local_uvs(ctx, &soa.localUvs, &len);
     ss_runtime_get_cell_meta(ctx, &soa.cellMeta, &len);
+    ss_runtime_get_shape_vertices(ctx, &soa.shapeVertices, &soa.shapeVertexCount);
+    ss_runtime_get_shape_vertex_box_coords(ctx, &soa.shapeBoxCoords, &soa.shapeBoxCoordCount);
+    ss_runtime_get_shape_vertex_counts(ctx, &soa.shapeVertexCounts, &soa.shapeVertexCountCount);
     ss_runtime_get_mesh_vertices_x(ctx, &soa.meshVerticesX, &soa.meshVertexCount);
     ss_runtime_get_mesh_vertices_y(ctx, &soa.meshVerticesY, &len);
     ss_runtime_get_mesh_vertex_offsets(ctx, &soa.meshVertexOffsets, &soa.meshVertexOffsetCount);
@@ -353,6 +384,7 @@ int main(int argc, char** argv) {
     CheckMaskPlan(fd, baker, maskFlags, frame, &maskTotals);
     CheckEffectBatches(baker, frame, &effectTotals);
     CheckInstances(baker, soa.partCount, frame, &instanceTotals);
+    CheckShapes(baker, frame, &shapeTotals);
   }
 
   // Before the context and the resource, exactly as `HybridSsContext::release`
@@ -383,5 +415,7 @@ int main(int argc, char** argv) {
   std::printf("    instance: %zu parts, %zu frames with mounts, peak %zu, %zu mount-frames\n",
               instanceTotals.parts, instanceTotals.framesWithMounts, instanceTotals.peakMounts,
               instanceTotals.mountFrames);
+  std::printf("    shape: %zu parts, %zu frames with geometry, peak %zu vertices\n",
+              shapeTotals.parts, shapeTotals.framesWithGeometry, shapeTotals.peakVertices);
   return 0;
 }
