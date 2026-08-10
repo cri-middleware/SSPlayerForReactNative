@@ -568,6 +568,34 @@ later `download-sdk` correctly replaces a local build.
   redundant. Nothing about a black shape points at the paint — the bake is
   provably correct, and on `Shape.ssab` its colours match the authored `<rgba>`
   values byte for byte.
+* **A `draw_as_mask` part gets TWO batches at the same rank**, and baking both
+  is a bug with a plausible face. The Brain emits a `Mask` batch marking the
+  slot *and* the part's own kind batch carrying the real geometry — so a masking
+  Shape arrives as `Mask`(rank 2) + `Shape`(rank 2). Baking the Mask one as a
+  quad off `local_vertices` gives a **bounding rectangle**, which the coverage
+  pass then takes as a second writer: one authored mask covers a rectangle as
+  well as its true shape, burns a second bit, and thresholds against whatever
+  atlas the texture table hands it. The tell is a writer count that is too high
+  by exactly the number of Shape/Mesh writers — `Mask.ssab` read 10 per frame
+  where `check-mask` said 9. `HasOwnGeometry` skips the quad, off the SoA rather
+  than the part type because the baker has FrameData and no `.ssab`.
+* **"Draws no colour" is a property of the PART, not of the batch.** A
+  `PartTypeMask` gets a `Mask` batch and a kind test catches it; a Shape, Text or
+  Nines turned into a pure mask by `draw_as_mask` keeps its own kind, sails past
+  that test and paints itself over the animation it was meant to cut a hole in.
+  Test `SsMaskPartFlags::pureMask` per part — and independently of whether a
+  plan built, since a writer that opted out with `mask == 0` still must not
+  draw. That is why `SsMaskInput.flags` is filled even when `plan` is null.
+* **A Shape can be a mask target, and the reason is that it has nothing to
+  sample.** The replay reconstructs the coverage position from the interpolated
+  texcoord, which is why a Mesh cannot be one — it needs that channel for its
+  atlas. A Shape does not, so the coverage UV is written straight into it per
+  vertex and the shader is handed the **unit square** as both its UV corners and
+  its coverage corners, which collapses `SsMakeUvInverse` and the bilinear to
+  the identity. Exact, not approximate: `coverageUv` is affine in the world
+  position. The gate then has no atlas to modulate, so it gates opaque white and
+  `kModulate` against the vertex colours keeps the shape's own gradient — the
+  same trick SSPlayerForFlutter's masked-shape path uses.
 * **A Shape has no texture, and `PaintFor` will happily give it one.** Its
   `texture_hash` is 0 because it resolves no cell, and the single-entry table
   rule matches *unconditionally* — so a one-cellmap pack would texture a polygon

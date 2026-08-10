@@ -49,6 +49,25 @@ SsCellMapSize CellMapSizeFor(const SsEffectFrame& effects, uint32_t textureHash)
   return {};
 }
 
+/// Whether this part's geometry comes from a buffer of its own rather than from
+/// `local_vertices` — i.e. whether it is a Shape or a Mesh.
+///
+/// Read off the SoA rather than the part type, because the baker has FrameData
+/// and no `.ssab`: a shape says so with a non-zero vertex count, a mesh with a
+/// non-empty CSR range.
+bool HasOwnGeometry(const SsSoAPointers& soa, uint32_t partIndex) {
+  if (soa.shapeVertexCounts != nullptr && partIndex < soa.shapeVertexCountCount &&
+      soa.shapeVertexCounts[partIndex] > 0) {
+    return true;
+  }
+  if (soa.meshVertexOffsets != nullptr &&
+      static_cast<size_t>(partIndex) + 1 < soa.meshVertexOffsetCount &&
+      soa.meshVertexOffsets[partIndex + 1] > soa.meshVertexOffsets[partIndex]) {
+    return true;
+  }
+  return false;
+}
+
 /// The batch fields that are a straight copy out of the FlatBuffer, with the
 /// geometry ranges left at zero for the caller to fill in.
 SsBatchDesc DescribeBatch(const ss::runtime::DrawBatch* batch) {
@@ -130,6 +149,15 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
         if (rank >= drawOrderCount) break;
         const uint32_t partIndex = drawOrder->Get(rank);
         if (partIndex >= soa.partCount) continue;
+        // A part turned into a pure mask by `draw_as_mask` gets **two batches at
+        // the same rank**: a `Mask` one marking the slot, and its own kind's one
+        // carrying the real geometry. Baking the Mask batch as a quad then
+        // produces a second, bounding-rectangle copy of the part — which the
+        // coverage pass happily takes as another writer, so one authored mask
+        // covers a rectangle as well as its true shape, burns a second bit, and
+        // samples whatever atlas the texture table hands it. The part's own
+        // batch is the one with the geometry; this one has nothing to add.
+        if (kind == ss::runtime::DrawBatchKind_Mask && HasOwnGeometry(soa, partIndex)) continue;
 
         const float* m = soa.worldMatrices + static_cast<size_t>(partIndex) * 16;
         const float* lv = soa.localVertices + static_cast<size_t>(partIndex) * 10;
@@ -441,8 +469,10 @@ void SsBaker::bakeShapeBatch(const ss::runtime::FrameData* fd, const SsSoAPointe
     info.vertexOffset = static_cast<int32_t>(positions_.size() / 2);
     info.indexOffset = static_cast<int32_t>(indices_.size());
     // A polygon, not four corners in lt/rt/lb/rb order — so nothing downstream
-    // may invert its UV, of which it has none anyway.
+    // may invert its UV, of which it has none anyway. That missing UV is also
+    // an opportunity: see `SsPartDraw::untextured`.
     info.quadShaped = false;
+    info.untextured = true;
     // §1-2-3: a Shape **bypasses the composite formula** outright. Its PartColor
     // is the colour, at forced Mix with the rate pinned to 1, so it never
     // reaches the shader the Normal path peels a tint out for.

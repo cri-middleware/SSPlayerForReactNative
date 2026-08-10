@@ -15,6 +15,7 @@
 // hands back an `sk_sp<SkPicture>` whose destructor needs the complete type.
 #include "include/core/SkPicture.h"
 #include "include/core/SkPictureRecorder.h"
+#include "include/core/SkShader.h"
 #include "include/core/SkVertices.h"
 
 #include "SsBlend.hpp"
@@ -257,8 +258,28 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   /// mesh than one clipped against a shape nobody authored.
   const auto maskBitsOf = [&](const sscore::SsPartDraw& info,
                               sscore::SsMaskBits* bits) -> bool {
-    if (!masking || !info.quadShaped || info.partIndex >= mask.flagCount) return false;
+    if (!mask.active() || !masking || info.partIndex >= mask.flagCount) return false;
+    // A quad reconstructs its coverage position by inverting its UV, so a part
+    // that is not one needs another route. A **Shape** has one: it samples
+    // nothing, so its texcoord channel is free and the coverage UV goes in
+    // there directly (see the peel below). A **Mesh** does not — it needs that
+    // channel for its atlas, and there is only one — so it still draws
+    // unmasked, which beats clipping it against a shape nobody authored.
+    if (!info.quadShaped && !info.untextured) return false;
     return mask.plan->bitsFor(info.drawRank, mask.flags[info.partIndex], bits);
+  };
+
+  /// §3-3: this part writes coverage and draws **no colour**.
+  ///
+  /// Per part, not per batch, and that is the whole point. A `PartTypeMask` gets
+  /// a `Mask` batch and is caught by kind below, but a Shape (or Text, or
+  /// Nines) turned into a pure mask by `draw_as_mask` keeps its own kind — so a
+  /// masking Shape sails past a kind test and paints itself over the animation
+  /// it was supposed to cut a hole in. Independent of the plan: a writer that
+  /// opted out with `mask == 0` still must not draw.
+  const auto pureMaskOf = [&](const sscore::SsPartDraw& info) {
+    return mask.flags != nullptr && info.partIndex < mask.flagCount &&
+           mask.flags[info.partIndex].pureMask;
   };
 
   size_t drawn = 0;
@@ -336,7 +357,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     for (int p = 0; p < batch.partCount && !anyPeel; ++p) {
       const sscore::SsPartDraw& info = parts[batch.partOffset + p];
       sscore::SsMaskBits bits;
-      anyPeel = info.needsPartColorShader || maskBitsOf(info, &bits);
+      // A pure mask forces the peel too — the batched draw has no way to leave
+      // one part out, and leaving it in is the bug this exists to prevent.
+      anyPeel = info.needsPartColorShader || pureMaskOf(info) || maskBitsOf(info, &bits);
     }
 
     if (!plan.multiPass() && !anyPeel) {
@@ -372,6 +395,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     for (int pi = 0; pi < batch.partCount; ++pi) {
       const sscore::SsPartDraw& info = parts[batch.partOffset + pi];
       if (info.vertexCount == 0 || info.indexCount == 0) continue;
+      // Coverage only. Its geometry was baked for the pass above and must not
+      // reach the framebuffer.
+      if (pureMaskOf(info)) continue;
 
       // Relative to the batch, which is the space the baker's index values and
       // the `pos`/`uv`/`col` bases are all in.
@@ -414,22 +440,60 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
       // The shader the part's own pass draws with, or null to keep the paint's.
       sk_sp<SkShader> partShader = tint;
+      // Only set for an untextured target, whose coverage UVs are written per
+      // vertex rather than reconstructed. Declared out here so it outlives the
+      // `MakeCopy` that reads it.
+      std::vector<SkPoint> covTex;
       if (partMasked) {
+        // The unit square, twice over. `SsMakeUvInverse` turns the first into
+        // the identity, so the shader's `(s, t)` *is* the interpolated
+        // texcoord, and bilinear-ing the second by it gives back `(s, t)`
+        // again. Net effect: the coverage is sampled exactly where the texcoord
+        // says — which is what the branch below writes there.
+        static constexpr float kUnitSquare[8] = {0.0f, 0.0f, 1.0f, 0.0f,
+                                                 0.0f, 1.0f, 1.0f, 1.0f};
+        const float* replayUv = partUv;
         float covUv[8];
-        for (int c = 0; c < 4; ++c) {
-          const SkPoint& corner = pos[base + c];
-          mask.plan->coverageUv(corner.fX, corner.fY, &covUv[c * 2], &covUv[c * 2 + 1]);
+        if (info.untextured) {
+          // `coverageUv` is affine in the world position — a translate and a
+          // scale — so writing it per vertex and letting `drawVertices`
+          // interpolate is exact, not an approximation. This is the whole
+          // reason a Shape can be masked at all where a Mesh cannot: it has a
+          // texcoord channel going spare.
+          covTex.resize(static_cast<size_t>(info.vertexCount));
+          for (int c = 0; c < info.vertexCount; ++c) {
+            const SkPoint& p = pos[base + c];
+            mask.plan->coverageUv(p.fX, p.fY, &covTex[c].fX, &covTex[c].fY);
+          }
+          replayUv = kUnitSquare;
+          for (int i = 0; i < 8; ++i) covUv[i] = kUnitSquare[i];
+        } else {
+          for (int c = 0; c < 4; ++c) {
+            const SkPoint& corner = pos[base + c];
+            mask.plan->coverageUv(corner.fX, corner.fY, &covUv[c * 2], &covUv[c * 2 + 1]);
+          }
         }
-        sk_sp<SkShader> replay = MakeMaskReplayShader(
-            tint != nullptr ? tint : paint->refShader(), coverage, bits, partUv, covUv);
+        // An untextured part has no atlas for the replay to gate, so it gates
+        // opaque white and `kModulate` against the vertex colours keeps the
+        // shape's own gradient — SSPlayerForFlutter's trick, and the reason its
+        // masked-shape path reuses the PartColor program as a no-op.
+        sk_sp<SkShader> inner = tint;
+        if (inner == nullptr) {
+          inner = info.untextured ? SkShaders::Color(SK_ColorWHITE) : paint->refShader();
+        }
+        sk_sp<SkShader> replay =
+            MakeMaskReplayShader(std::move(inner), coverage, bits, replayUv, covUv);
         // A replay that would not build degrades to the unmasked draw — a part
         // that ignores its mask beats a part that is not there.
         if (replay != nullptr) partShader = std::move(replay);
       }
 
+      // A masked untextured part carries the coverage UV in the texcoord slot;
+      // an unmasked one carries nothing at all.
+      const SkPoint* useUv = untextured ? nullptr : uv + base;
+      if (!covTex.empty()) useUv = covTex.data();
       sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
-          SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base,
-          untextured ? nullptr : uv + base,
+          SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base, useUv,
           tint != nullptr ? nullptr : reinterpret_cast<const SkColor*>(col + base),
           info.indexCount, useIdx);
       if (vertices == nullptr) continue;

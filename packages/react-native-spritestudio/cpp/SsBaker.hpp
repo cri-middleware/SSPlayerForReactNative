@@ -60,6 +60,18 @@ struct SsPartDraw {
   /// collapses to a constant and the inverse stops mattering.
   bool quadShaped = true;
 
+  /// Whether this part samples no texture at all — a Shape, whose colour is
+  /// entirely its vertex colours.
+  ///
+  /// It earns the part two things the textured kinds cannot have. Its batch
+  /// draws with a plain white paint instead of an atlas, and — because the
+  /// texcoord channel is therefore free — it can be a **mask target** despite
+  /// not being quad-shaped: the coverage UV is written straight into that
+  /// channel per vertex rather than reconstructed by inverting a quad's UV. A
+  /// Mesh needs that channel for its atlas, which is exactly why a Mesh target
+  /// still draws unmasked.
+  bool untextured = false;
+
   /// True when this part has to leave its batch and go through the PartColor
   /// shader: a PartColor that actually tints RGB. Alpha alone never sets this —
   /// a vertex colour carries that exactly (§1-2-4).

@@ -538,11 +538,17 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
   baker_.bake(frame_, soa_, effects_.frame(), alphaScale);
 
   ::ssplayer::SsMaskInput mask;
-  if (!maskFlags_.empty() &&
-      maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
-    mask.plan = &maskPlan_;
+  // The flags go in **whether or not a plan builds**. They are static PartData,
+  // and the draw path needs one of them — `pureMask` — even on a frame with no
+  // coverage at all: a pure mask writes coverage and never colour, and that is
+  // true of a writer that opted out with `mask == 0` just as much as of one that
+  // is cutting holes. Only `plan` is conditional.
+  if (!maskFlags_.empty()) {
     mask.flags = maskFlags_.data();
     mask.flagCount = maskFlags_.size();
+    if (maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
+      mask.plan = &maskPlan_;
+    }
   }
 
   const size_t drawn =

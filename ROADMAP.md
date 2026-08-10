@@ -253,9 +253,9 @@ constant across the Phase 0 sweep while nothing was actually playing.
   part applies to the whole sub-animation, and the calling part's settings
   compose with the callee's rather than replacing them, which is a context to
   thread down the tree rather than a finished test; and the same pixel-test gap
-  the blends and PartColor have. A Shape *target* is also still unmasked, for
-  the reason a Mesh is: the replay places its coverage sample by inverting an
-  affine quad's UV, and a polygon has no UV at all. A masked part also drops the multi-pass Sub/Invert
+  the blends and PartColor have. A **Mesh target** is still unmasked: the replay
+  places its coverage sample from the texcoord, and a mesh needs that channel
+  for its atlas — a Shape can be masked precisely because it does not. A masked part also drops the multi-pass Sub/Invert
   reconstruction for the one-pass approximation, because the inversion passes
   cancel only where the middle pass drew.
 - 🚧 **PartColor** — landed for **Normal** parts, the kind the renderer draws.
@@ -349,8 +349,17 @@ constant across the Phase 0 sweep while nothing was actually playing.
   Host-checked: `overall/Shape` bakes 2 parts and 12 vertices a frame, and
   `Mask.ssab` went from 92 baked vertices to 98 as its Shape writer joined.
   Both platforms build. **Not yet seen on a simulator or a device.**
-  **What is left:** a Shape as a mask *target* (no UV to invert), and Nines,
-  which shares the box-coord idea but has its own CSR buffers.
+  A Shape is also a mask **target**, which this port's replay could not do for
+  a non-quad — it reconstructs the coverage position by inverting a quad's UV.
+  The way out is that a Shape samples nothing, so its texcoord channel is free:
+  the coverage UV goes straight in there per vertex and the shader is handed the
+  unit square for both its inverse and its corners, which makes the whole
+  reconstruction the identity. No shader change. `coverageUv` is affine in the
+  world position, so interpolating it across a triangle is exact rather than an
+  approximation. A **Mesh** target still draws unmasked, and now for a reason
+  that can be stated precisely: it needs that one channel for its atlas.
+  **What is left:** Nines, which shares the box-coord idea but has its own CSR
+  buffers.
 - ☐ Nines
 - 🚧 **Instance parts** — landed. A mount point, and the thing mounted is a
   whole other player: `HybridSsContext` is now both a root and — one level down —
