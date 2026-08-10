@@ -304,6 +304,12 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     // atlas, texturing a polygon that was never meant to sample one.
     const bool untextured = batch.kind == ss::runtime::DrawBatchKind_Shape;
     SkPaint plain;
+    // **White, explicitly.** With no shader, `drawVertices` uses the paint's
+    // *colour* as the thing the vertex colours are blended against, and
+    // `SkPaint`'s default is opaque black — so `kModulate` multiplies every
+    // shape by zero and the whole kind renders black. It draws, it is the right
+    // shape, and it is the right alpha; only the colour is gone.
+    plain.setColor(SK_ColorWHITE);
     const SkPaint* paint =
         untextured ? &plain : PaintFor(textures, textureCount, batch.textureHash);
     if (paint == nullptr) continue;

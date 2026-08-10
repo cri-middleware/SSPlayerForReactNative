@@ -558,6 +558,16 @@ later `download-sdk` correctly replaces a local build.
   stay out: one has no geometry of its own and the other is a cloud of quads.
   `Mask.ssab` has one of each writer, and `check-mask` reporting **9** rather
   than 7 is the whole change in one number.
+* **`drawVertices` with no shader multiplies by the PAINT COLOUR, whose default
+  is opaque black.** With vertex colours and `kModulate`, Skia blends them
+  against the paint's shader — or, when there is none, against its *colour*. An
+  untouched `SkPaint` is `0xFF000000`, so every Shape came out **black**: right
+  geometry, right alpha, colour multiplied away. `plain.setColor(SK_ColorWHITE)`
+  is the whole fix and the reason SSPlayerForFlutter writes
+  `..color = const ui.Color(0xFFFFFFFF)` on a line that otherwise looks
+  redundant. Nothing about a black shape points at the paint — the bake is
+  provably correct, and on `Shape.ssab` its colours match the authored `<rgba>`
+  values byte for byte.
 * **A Shape has no texture, and `PaintFor` will happily give it one.** Its
   `texture_hash` is 0 because it resolves no cell, and the single-entry table
   rule matches *unconditionally* — so a one-cellmap pack would texture a polygon
