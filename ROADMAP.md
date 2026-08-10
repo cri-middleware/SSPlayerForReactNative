@@ -247,8 +247,23 @@ constant across the Phase 0 sweep while nothing was actually playing.
   `bakedGeometry` with it — the name was the assumption. `tools/check-mask.sh`
   reports **9 writers where it reported 7**, which is the whole of the change
   measured in one number.
-  **Still host-only on the screen**: worth an actual look now that the card is
-  complete.
+  **Looked at, and it does not agree across platforms.** Android draws
+  `Mask.ssab` as expected; on the iOS simulator `Normal-Clipping-True`,
+  `mask_Circle_Reversed` and `mask_Circle_1` do not. Whether that predates this
+  work is unknown — the card could not be read as pass or fail until now, so it
+  had never been run. **Not reproducible on the host**, which is the difficulty:
+  sRGB and Display P3 destinations produce byte-identical output there, with and
+  without an `SkPicture` in the middle, so the CPU raster backend does not model
+  whatever iOS's Metal path is doing.
+  What the hunt did establish, and what is fixed: a flat-colour writer stated its
+  bit in sRGB rather than in the coverage's own space, which corrupts *other*
+  writers' bits through `kPlus` — real, now guarded by two new `check-mask`
+  cases. And the coverage image is **always** tagged sRGB, because a recording
+  canvas has no colour space; the "match the destination" rule this repo wrote
+  down has therefore never once operated. That leaves colour conversion at
+  playback as the best-supported explanation for the iOS divergence, and the
+  structural answer to it is to stop storing bits in colour channels at all —
+  three A8 images rather than one RGB, since alpha is not gamut-mapped.
   **What is left:** §2-6's instance composition — a mask reaching an instance
   part applies to the whole sub-animation, and the calling part's settings
   compose with the callee's rather than replacing them, which is a context to

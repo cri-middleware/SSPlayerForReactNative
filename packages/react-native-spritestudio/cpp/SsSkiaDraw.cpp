@@ -128,6 +128,13 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   const float h = plan.height();
   if (!(w > 0.0f) || !(h > 0.0f)) return nullptr;
 
+  // Settled before anything is drawn, because the writers' colours have to be
+  // stated *in it*. `DeferredFromPicture` rejects a null colour space outright,
+  // so an unmanaged destination becomes sRGB here — which is a no-op, since
+  // Skia does not convert into an unmanaged destination.
+  sk_sp<SkColorSpace> coverageCs =
+      dstColorSpace != nullptr ? std::move(dstColorSpace) : SkColorSpace::MakeSRGB();
+
   const float longEdge = w > h ? w : h;
   const float scale = longEdge > kMaxCoverageEdge ? kMaxCoverageEdge / longEdge : 1.0f;
   const int pw = std::max(1, static_cast<int>(std::ceil(w * scale)));
@@ -195,7 +202,13 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
       // does for every other writer.
       float rgb[3];
       SsMaskBitColor(writer.bit, rgb);
-      cover.setColor4f({rgb[0], rgb[1], rgb[2], 1.0f}, nullptr);
+      // **In the coverage's own colour space, not sRGB.** A null here means
+      // "these components are sRGB", so on a wide-gamut destination Skia
+      // converts them — and a converted bit pattern is not a bit pattern. It
+      // bleeds across channels under `kPlus` and corrupts the *other* writers'
+      // bits too, which is why the symptom is a handful of unrelated parts
+      // masking wrongly on one platform and not the other.
+      cover.setColor4f({rgb[0], rgb[1], rgb[2], 1.0f}, coverageCs.get());
     } else {
       cover.setShader(std::move(bitShader));
     }
@@ -221,10 +234,9 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   // bit patterns, not colour, so any transfer function between here and the
   // sampler would decode as writers that never covered the pixel. Matching the
   // destination is what makes the conversion the identity by construction.
-  return SkImages::DeferredFromPicture(
-      recorder.finishRecordingAsPicture(), SkISize::Make(pw, ph), nullptr, nullptr,
-      SkImages::BitDepth::kU8,
-      dstColorSpace != nullptr ? std::move(dstColorSpace) : SkColorSpace::MakeSRGB());
+  return SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                       SkISize::Make(pw, ph), nullptr, nullptr,
+                                       SkImages::BitDepth::kU8, std::move(coverageCs));
 }
 
 }  // namespace

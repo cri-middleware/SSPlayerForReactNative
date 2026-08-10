@@ -517,6 +517,25 @@ later `download-sdk` correctly replaces a local build.
   Skia rasterises when the outer picture plays back. That is also why §3-2-3's
   size classes, double buffering and hysteresis have nothing to do here: those
   exist to cover a one-frame delay, and a deferred picture image has none.
+* **The coverage image is ALWAYS tagged sRGB, and the reasoning that used to be
+  written here never actually operated.** This list said to pass "the
+  destination canvas's own colour space", because matching it makes the
+  conversion the identity. But the canvas `drawInto` receives is a **recording**
+  one — Layer 4 records an `SkPicture` per frame — and a recording canvas has no
+  colour space at all: `canvas->imageInfo().colorSpace()` is measurably `NULL`,
+  so the fallback is taken every single time. The destination is not knowable at
+  record time, so the coverage is sRGB and whatever the picture is finally played
+  into decides whether a conversion happens. On an sRGB surface (the Android
+  emulator) that is identity; on a **Display P3** one (iOS) it is not. See the
+  open iOS divergence in ROADMAP.md — unproven as the cause, but this is the
+  mechanism that fits.
+* **A writer that lays its bit down as a flat colour must state it in the
+  coverage's colour space.** `setColor4f(c, nullptr)` means "these components are
+  sRGB", so on a wide-gamut destination Skia converts them — and a converted bit
+  pattern is not a bit pattern. Worse, `kPlus` accumulates every writer into one
+  bitmap, so one mis-stated colour corrupts the decode of *other* writers' bits.
+  `check-mask` now covers this: a **Display P3** destination and a **flat
+  writer** are both new cases, and reverting the fix fails 14 of the 24 bits.
 * **`SkImages::DeferredFromPicture` returns null for a null colour space**, and
   its own doc comment says `may be nullptr`. It is wrong. This shipped once: the
   coverage image came back null, `masking` stayed false, and every target drew

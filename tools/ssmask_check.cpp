@@ -150,16 +150,29 @@ void CheckShadersCompile() {
 
 /// Builds a coverage bitmap in which `bit` covers the LEFT half of a `w x h`
 /// box, exactly the way `SsSkiaDraw::BuildCoverage` does.
-sk_sp<SkImage> CoverageWithBit(int bit, int w, int h, sk_sp<SkColorSpace> cs) {
+sk_sp<SkImage> CoverageWithBit(int bit, int w, int h, sk_sp<SkColorSpace> cs, bool flat) {
   sscore::SsMaskWriter writer;
   writer.bit = bit;
   writer.threshold = 0.0f;
+
+  // Settled first, because a flat writer states its colour *in* it — see below.
+  sk_sp<SkColorSpace> coverageCs = cs != nullptr ? cs : SkColorSpace::MakeSRGB();
 
   SkPictureRecorder recorder;
   SkCanvas* canvas = recorder.beginRecording(SkRect::MakeIWH(w, h));
 
   SkPaint cover;
-  cover.setShader(ssplayer::MakeMaskWriteShader(writer, WhiteAtlas()));
+  if (flat) {
+    // The Shape-writer path: no atlas to threshold, so the bit goes down as a
+    // flat colour. It has to be stated in the coverage's colour space — a null
+    // there means sRGB, and on a wide-gamut destination Skia would convert it,
+    // which turns a bit pattern into something that is not one.
+    float rgb[3];
+    ssplayer::SsMaskBitColor(bit, rgb);
+    cover.setColor4f({rgb[0], rgb[1], rgb[2], 1.0f}, coverageCs.get());
+  } else {
+    cover.setShader(ssplayer::MakeMaskWriteShader(writer, WhiteAtlas()));
+  }
   cover.setBlendMode(SkBlendMode::kPlus);
   cover.setAntiAlias(false);
   canvas->drawVertices(UnitQuad(static_cast<float>(w) / 2.0f, static_cast<float>(h)),
@@ -168,21 +181,21 @@ sk_sp<SkImage> CoverageWithBit(int bit, int w, int h, sk_sp<SkColorSpace> cs) {
   // The same fallback `BuildCoverage` applies: an unmanaged destination still
   // needs a non-null colour space here, because a null one makes
   // `DeferredFromPicture` return null outright.
-  return SkImages::DeferredFromPicture(
-      recorder.finishRecordingAsPicture(), SkISize::Make(w, h), nullptr, nullptr,
-      SkImages::BitDepth::kU8, cs != nullptr ? std::move(cs) : SkColorSpace::MakeSRGB());
+  return SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                       SkISize::Make(w, h), nullptr, nullptr,
+                                       SkImages::BitDepth::kU8, std::move(coverageCs));
 }
 
 /// Runs the replay over a full-box quad and reports whether each half survived.
 ///
 /// `visibleInside` is true, so a pixel the writer covered must be KEPT and one it
 /// did not must be dropped — the left half opaque, the right half transparent.
-void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> cs) {
+void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> cs, bool flat = false) {
   constexpr int kW = 64;
   constexpr int kH = 16;
 
   for (int bit = 0; bit < sscore::kSsMaxMaskWriters; ++bit) {
-    sk_sp<SkImage> coverage = CoverageWithBit(bit, kW, kH, cs);
+    sk_sp<SkImage> coverage = CoverageWithBit(bit, kW, kH, cs, flat);
     if (coverage == nullptr) {
       // Exactly the regression that shipped: a null image disables masking with
       // no other symptom.
@@ -364,6 +377,17 @@ int main(int argc, char** argv) {
   // canvas: an unmanaged one falls back to sRGB, a managed one must match.
   CheckBitRoundTrip("unmanaged dst", nullptr);
   CheckBitRoundTrip("sRGB dst", SkColorSpace::MakeSRGB());
+  // **Wide gamut, and it is not hypothetical**: an iOS surface is routinely
+  // Display P3 while the Android emulator is sRGB, so this is the one axis on
+  // which the two platforms genuinely disagree — and the first bug it caught
+  // showed up as three unrelated parts masking wrongly on iOS only.
+  sk_sp<SkColorSpace> p3 =
+      SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB, SkNamedGamut::kDisplayP3);
+  CheckBitRoundTrip("Display P3 dst", p3);
+  // The Shape writer's flat-colour path, which the shader cases never touch.
+  CheckBitRoundTrip("unmanaged dst, flat writer", nullptr, true);
+  CheckBitRoundTrip("sRGB dst, flat writer", SkColorSpace::MakeSRGB(), true);
+  CheckBitRoundTrip("Display P3 dst, flat writer", p3, true);
 
   std::printf("==> the whole draw path still masks\n");
   CheckEndToEnd(ssab, animation, frame);
