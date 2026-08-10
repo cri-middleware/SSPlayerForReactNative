@@ -1,0 +1,90 @@
+#include "SsInstance.hpp"
+
+#include "SsAnimeBinary.hpp"
+#include "ssruntime.h"
+
+namespace sscore {
+
+SsInstanceSlots::~SsInstanceSlots() { release(); }
+
+std::vector<SsInstancePart> SsInstanceSlots::instancePartsOf(const SsAnimeBinaryView& view) {
+  return view.instanceParts();
+}
+
+void* SsInstanceSlots::createSlot() { return ss_instance_slot_create(); }
+
+void SsInstanceSlots::destroyChild(SsInstanceChild* child) { delete child; }
+
+void SsInstanceSlots::step(void* parentContext, float parentFrame, float dtMilliseconds,
+                           bool parentLooped) {
+  if (parentContext == nullptr || states_.empty()) return;
+  const float deltaSeconds = dtMilliseconds / 1000.0f;
+
+  for (SsInstanceState& state : states_) {
+    if (state.slot == nullptr || state.child == nullptr) continue;
+
+    // Slot index == part index: the ssab keys `EventInstance` by part index. The
+    // event is resolved against the **parent**, the step runs against the child.
+    const ss_event_instance_info ev =
+        ss_runtime_get_active_event_instance(parentContext, state.partIndex);
+    const ss_instance_step_result r = ss_instance_slot_step(
+        state.slot, ev, state.child->instanceContext(), parentFrame, deltaSeconds, parentLooped);
+
+    // A new `EventInstance` edge. See `SsInstanceChild::instancePlay` for why
+    // this is required rather than a notification.
+    if (r.transitioned) state.child->instancePlay();
+
+    state.visible = r.visible;
+    if (!r.visible) continue;
+
+    // On a transition tick `step` reports the child's frame from *before*
+    // `play()` snapped it to the new start — it says so itself, and steps no
+    // further so the child's first frame is not skipped. Taking that value would
+    // show one frame of the previous playthrough. Every other tick it is the
+    // freshly stepped one.
+    state.childFrame = r.transitioned ? state.child->instanceFrameNo() : r.child_frame_no;
+
+    // The child's *animation* clock is the Brain's, but its effects and its own
+    // nested instances still need a tick, at the frame it was just moved to.
+    // `child_looped` rather than `parentLooped`: an independent child runs on
+    // its own elapsed time, so "the parent looped" for a grandchild is this
+    // pulse and not the root animation's.
+    state.child->instanceStepSlots(state.childFrame, dtMilliseconds, r.child_looped);
+  }
+}
+
+void SsInstanceSlots::reset() {
+  for (SsInstanceState& state : states_) {
+    if (state.slot != nullptr) ss_instance_slot_reset(state.slot);
+    state.childFrame = 0.0f;
+    state.visible = false;
+    if (state.child != nullptr) {
+      state.child->instanceStop();
+      state.child->instanceResetSlots();
+    }
+  }
+}
+
+void SsInstanceSlots::release() noexcept {
+  for (SsInstanceState& state : states_) {
+    // Child first, then the slot that drove it. The child borrows nothing from
+    // the slot, but both reference ports order it this way and a future child
+    // that does would break silently under the other order.
+    delete state.child;
+    state.child = nullptr;
+    if (state.slot != nullptr) {
+      ss_instance_slot_destroy(state.slot);
+      state.slot = nullptr;
+    }
+  }
+  states_.clear();
+}
+
+const SsInstanceState* SsInstanceSlots::stateFor(uint32_t partIndex) const noexcept {
+  for (const SsInstanceState& state : states_) {
+    if (state.partIndex == partIndex) return &state;
+  }
+  return nullptr;
+}
+
+}  // namespace sscore

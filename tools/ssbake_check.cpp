@@ -24,6 +24,7 @@
 //
 // Build and run: tools/check-framedata.sh
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -33,6 +34,7 @@
 #include "../packages/react-native-spritestudio/cpp/SsAnimeBinary.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsBaker.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsEffect.hpp"
+#include "../packages/react-native-spritestudio/cpp/SsInstance.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsMask.hpp"
 // cbindgen's own header, for the same reason `cpp/` uses it rather than a
 // hand-copied subset: the C-API is `extern "C"`, so a signature that has drifted
@@ -148,6 +150,13 @@ void CheckMaskPlan(const ss::runtime::FrameData* fd, const sscore::SsBaker& bake
 /// Printed unconditionally, zeroes included, for the reason the mask totals are:
 /// a path that never ran reports the same clean bill as one that ran perfectly.
 /// A pack with effect parts that reports 0 quads is a visible result.
+struct InstanceTotals {
+  size_t parts = 0;
+  size_t framesWithMounts = 0;
+  size_t mountFrames = 0;
+  size_t peakMounts = 0;
+};
+
 struct EffectTotals {
   size_t parts = 0;
   size_t framesWithGeometry = 0;
@@ -176,6 +185,42 @@ void CheckEffectBatches(const sscore::SsBaker& baker, int frame, EffectTotals* t
   ++totals->framesWithGeometry;
   totals->quadFrames += quads;
   if (quads > totals->peakQuads) totals->peakQuads = quads;
+}
+
+/// Counts the instance mounts a frame baked, and checks each one.
+///
+/// A mount carries no geometry, so nothing else in this program would notice it
+/// being wrong. What can be checked is that it names a part the frame has and
+/// that its matrix is finite — a NaN there propagates into `SkMatrix::concat`
+/// and silently drops the whole sub-animation off the canvas.
+void CheckInstances(const sscore::SsBaker& baker, size_t soaPartCount, int frame,
+                    InstanceTotals* totals) {
+  const std::vector<sscore::SsInstanceDraw>& mounts = baker.instances();
+  if (mounts.empty()) return;
+  ++totals->framesWithMounts;
+  totals->mountFrames += mounts.size();
+  if (mounts.size() > totals->peakMounts) totals->peakMounts = mounts.size();
+
+  int32_t previousRank = -1;
+  for (const sscore::SsInstanceDraw& mount : mounts) {
+    if (mount.partIndex >= soaPartCount) {
+      Fail("instance.partIndex", mount.partIndex, static_cast<long long>(soaPartCount), frame,
+           mount.drawRank);
+    }
+    // The draw path drains this list in step with the batch walk, so it has to
+    // be in rank order or a sub-animation lands at the wrong depth.
+    if (mount.drawRank <= previousRank) {
+      Fail("instance.rankOrder", mount.drawRank, previousRank, frame, 0);
+    }
+    previousRank = mount.drawRank;
+    for (int i = 0; i < 6; ++i) {
+      if (!std::isfinite(mount.m[i])) Fail("instance.matrix", i, 0, frame, mount.drawRank);
+    }
+    if (!(mount.alpha >= 0.0f) || mount.alpha > 1.0f) {
+      Fail("instance.alpha", static_cast<long long>(mount.alpha * 1000), 1000, frame,
+           mount.drawRank);
+    }
+  }
 }
 
 }  // namespace
@@ -232,6 +277,8 @@ int main(int argc, char** argv) {
   MaskTotals maskTotals;
   EffectTotals effectTotals;
   effectTotals.parts = view.effectParts().size();
+  InstanceTotals instanceTotals;
+  instanceTotals.parts = view.instanceParts().size();
   const int32_t fps = ss_runtime_get_fps(ctx);
   size_t maxVertices = 0;
   size_t maxBatches = 0;
@@ -305,6 +352,7 @@ int main(int argc, char** argv) {
 
     CheckMaskPlan(fd, baker, maskFlags, frame, &maskTotals);
     CheckEffectBatches(baker, frame, &effectTotals);
+    CheckInstances(baker, soa.partCount, frame, &instanceTotals);
   }
 
   // Before the context and the resource, exactly as `HybridSsContext::release`
@@ -329,5 +377,11 @@ int main(int argc, char** argv) {
   std::printf("    effect: %zu parts, %zu frames with geometry, peak %zu quads, %zu quad-frames\n",
               effectTotals.parts, effectTotals.framesWithGeometry, effectTotals.peakQuads,
               effectTotals.quadFrames);
+  // Same contract again. `parts > 0` with `peak 0` is a pack whose instance
+  // parts were enumerated and then never mounted anything — an unresolved pack,
+  // or a slot the Brain never reported visible.
+  std::printf("    instance: %zu parts, %zu frames with mounts, peak %zu, %zu mount-frames\n",
+              instanceTotals.parts, instanceTotals.framesWithMounts, instanceTotals.peakMounts,
+              instanceTotals.mountFrames);
   return 0;
 }

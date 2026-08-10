@@ -31,6 +31,22 @@ struct SsMaskInput {
   bool active() const { return plan != nullptr && flags != nullptr && flagCount > 0; }
 };
 
+/// Draws the sub-animation mounted on an instance part.
+///
+/// An Instance batch carries no geometry: the thing to draw is another player's
+/// whole bake. Rather than teach this file about the player tree, the batch walk
+/// sets up the canvas — save, concat the mount matrix — and calls back through
+/// here, which lands in the child's own `DrawBakedFrame` and recurses naturally.
+struct SsInstanceRenderer {
+  virtual ~SsInstanceRenderer() = default;
+
+  /// `canvas` is already transformed into the child's space. `alphaScale` is the
+  /// mount point's opacity, folded into the child's *bake* rather than applied
+  /// as a layer, because SpriteStudio modulates a sub-animation per part.
+  /// Returns the vertices drawn; 0 when there is nothing mounted there.
+  virtual size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale) = 0;
+};
+
 /// One `cellmap.name_hash` → `SkPaint*` entry of the texture table.
 ///
 /// Deliberately not the Nitro struct: this header is included by
@@ -58,8 +74,12 @@ struct SsPaintBinding {
 /// When `mask` is active the coverage bitmap is rasterised first, before any
 /// colour, and every target it reaches is peeled out and drawn through the
 /// replay shader.
+///
+/// `instances` is called for each live instance part, or may be null in a pack
+/// that has none — in which case an Instance batch simply draws nothing.
 size_t DrawBakedFrame(void* canvas, const SsPaintBinding* textures, size_t textureCount,
-                      const sscore::SsBaker& baker, const SsMaskInput& mask);
+                      const sscore::SsBaker& baker, const SsMaskInput& mask,
+                      SsInstanceRenderer* instances = nullptr);
 
 /// Whether this build can draw natively at all.
 bool SkiaDirectAvailable();

@@ -15,7 +15,8 @@
 
 
 
-
+#include <string>
+#include <vector>
 
 namespace margelo::nitro::ssplayer {
 
@@ -48,7 +49,7 @@ namespace margelo::nitro::ssplayer {
 
     public:
       // Methods
-      
+      virtual std::vector<std::string> getExternalInstancePackNames() = 0;
 
     protected:
       // Hybrid Setup

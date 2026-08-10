@@ -13,11 +13,15 @@
 #error NitroModules cannot be found! Are you sure you installed NitroModules properly?
 #endif
 
+// Forward declaration of `HybridSsResourceSpec` to properly resolve imports.
+namespace margelo::nitro::ssplayer { class HybridSsResourceSpec; }
 // Forward declaration of `SsTextureInfo` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureInfo; }
 // Forward declaration of `SsTextureBinding` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 
+#include <memory>
+#include "HybridSsResourceSpec.hpp"
 #include <string>
 #include "SsTextureInfo.hpp"
 #include <vector>
@@ -69,6 +73,7 @@ namespace margelo::nitro::ssplayer {
 
     public:
       // Methods
+      virtual bool bindInstancePack(const std::shared_ptr<HybridSsResourceSpec>& pack) = 0;
       virtual bool setupAnimation(const std::string& name) = 0;
       virtual double update(double dtMilliseconds) = 0;
       virtual void play() = 0;

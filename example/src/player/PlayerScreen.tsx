@@ -167,6 +167,15 @@ const SUBJECTS = {
   Mesh: { pack: 'overall', files: { Mesh: CENTRED } },
   // Measured y ∈ [-184, 237], so the authored 480 canvas frames it.
   Effect: { pack: 'overall', files: { Effect: CENTRED } },
+  // 20 instance parts, every one of them mounting the **external** pack
+  // `Instance_SourceAnime` — so this is the subject that says whether the
+  // sibling-pack walk ran at all. An empty canvas here means the walk found
+  // nothing; the parts themselves have no geometry of their own.
+  //
+  // The frame is composed rather than measured in one pass: the host tool bakes
+  // one player, so this is the mounts' own span (x ∈ [-192, 96], y ∈ [-320,
+  // 256]) widened by the child's box (±32), with margin.
+  Instance: { pack: 'overall', files: { Instance: { height: 700, centerY: -32 } } },
   Ringo: {
     pack: 'Ringo',
     // Measured across dance/wait1/run/jump: x ∈ [-178, 217], y ∈ [-4, 612].
@@ -177,6 +186,11 @@ const SUBJECTS = {
     // and a character introducing itself mid-swing is a poor opening frame.
     initialAnimation: 'dance',
   },
+  // The character case for instances: nine mounts of `Ringo`'s own `kaiten`,
+  // which makes it the one asset here where a *whole rig* — mesh deforms and
+  // all — is drawn nine times through the instance path. All nine sit at the
+  // origin, so it is framed like Ringo itself.
+  RingoInstances: { pack: 'Ringo', files: { Ringo_tyu: { height: 700, centerY: 300 } } },
   ParticleEffect: { pack: 'ParticleEffect', files: PARTICLE_FRAMES },
 } as const satisfies Record<string, Subject>
 

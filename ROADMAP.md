@@ -330,13 +330,56 @@ constant across the Phase 0 sweep while nothing was actually playing.
   *mask writer*, and with it the first honest screen check of masking, since
   `Mask.ssab` cannot be read as pass or fail while two of its writers are
   expected to do nothing.
-- ☐ Instance parts — and it splits in two. **Same-pack children** (Ringo's 9
-  instance parts all name `Ringo`/`kaiten`) need no asset work at all and reuse
-  the slot scaffolding Effect just built; **external packs**
-  (`overall/Instance.ssab` → `Instance_SourceAnime`) are where
-  `external_instances`, `core/assets.ts`'s second consumer, the JS-owned texture
-  table and the leak arithmetic all arrive at once. Also unblocks §2-6's
-  instance composition for masks.
+- 🚧 **Instance parts** — landed. A mount point, and the thing mounted is a
+  whole other player: `HybridSsContext` is now both a root and — one level down —
+  somebody's instance child, exactly as `SpriteStudioInternalPlayer` is in
+  SSPlayerForFlutter and `SsInternalPlayer` in SSPlayerForGodot. `drawInto` and
+  the child draw share one `drawSubtree`, so a child cannot quietly miss a
+  feature the root has, and the recursion falls out of that.
+  **The staging this entry used to propose was based on a wrong reading and is
+  gone.** It said Ringo's nine instance parts were same-pack and would need no
+  asset work; they are not in `Ringo.ssab` at all. They live in `Ringo_tyu.ssab`,
+  which mounts `Ringo` — *external*. So does `overall/Instance.ssab`, whose 20
+  parts all mount `Instance_SourceAnime`. **Every instance asset this repo has is
+  an external reference**, which makes the sibling-pack walk not a second phase
+  but the only way to see the feature work at all. Checking the converted `.ssab`
+  rather than the authored `.ssae` is what surfaced it.
+  That walk is JS's, through `core/assets.ts`'s `resolveAgainst` — the seam the
+  textures already use, which is why it works from an asset directory, an
+  unpacked one and a dev server without three code paths. Breadth-first over
+  each pack's `external_instances` manifest with a `seen` set, because it is
+  genuinely transitive and two packs can name the same third one;
+  SSPlayerForWeb's `PackResolver` settles the same question the same way. One
+  resource per pack, which is also what keeps `liveHandles` meaningful. A pack
+  that will not load is warned about and skipped, so one missing sibling does not
+  take the animation down.
+  Four things the reference ports had to settle. **`ss_instance_slot_step` owns
+  every playback attribute** — labels, loop count, speed, reverse, pingpong,
+  independent — so nothing here reads `PartAttributeInstance`. **A transition
+  edge requires `play()` on the child**, and the two ports disagree about why
+  (Godot: the side effect; Flutter: the child is otherwise left stopped and an
+  independent one freezes forever) — it is correct under both, since a
+  transition *is* a head-out. **On that tick the reported frame is stale**,
+  from before `play()` snapped it, so the child's clock is re-read. And **the
+  child's own effects and nested instances still need a tick**, at the frame the
+  Brain moved it to, with `child_looped` rather than the parent's edge.
+  The mount point's alpha folds into the child's **bake** as an `alphaScale`
+  rather than becoming a layer, because SpriteStudio modulates a sub-animation
+  per part and a group alpha disagrees wherever the child's own parts overlap —
+  the one place Flutter's comment is explicit that the flagship's behaviour is
+  per-part. `SsBaker` records the mount matrices because the draw path has no
+  SoA to read them from.
+  Host-checked under ASan: `overall/Instance` 20 parts / 20 mounts a frame,
+  `Ringo_tyu` 9 parts / 7, with the mounts asserted in rank order, in range and
+  finite. **Both subjects seen drawing on the iOS simulator and the Android
+  emulator.** `RingoInstances` is the one that proves the texture half: it holds
+  no cellmaps of its own, so every texture it draws with was collected out of the
+  pack it mounts — and its nine copies are a whole rig, mesh deforms included,
+  which is a child subtree rather than a sprite.
+  **What is left:** the instance part's own PartColor, which both ports apply as
+  a whole-subtree *group tint* and this port does not do at all; §2-6 mask
+  composition into a child, which waits on masking being finished anyway; and a
+  depth cap of 8 standing in for real cycle detection.
 - ☐ The 13 `ss-*` integration shaders, GLSL → **SkSL** (the maths is identical;
   impellerc's restrictions do not apply, so the port relaxes rather than tightens)
 - ☐ Audio behind an `IAudioManager` seam — **L2 must not know the playback

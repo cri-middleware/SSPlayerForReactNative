@@ -39,7 +39,11 @@ std::shared_ptr<ArrayBuffer> Borrow(const void* data, size_t byteLength) {
 }  // namespace
 
 HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resource)
-    : HybridObject(TAG), resource_(resource) {
+    : HybridSsContext(resource, 0, {}) {}
+
+HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resource, int depth,
+                                 std::vector<SsInstancePackEntry> packs)
+    : HybridObject(TAG), resource_(resource), depth_(depth), instancePacks_(std::move(packs)) {
   if (resource_ == nullptr || resource_->handle() == nullptr) {
     throw std::runtime_error("SsContext: resource is null or already disposed");
   }
@@ -75,6 +79,67 @@ int32_t HybridSsContext::liveCount() noexcept {
   return gLiveContexts.load(std::memory_order_relaxed);
 }
 
+// --- instance children -------------------------------------------------------
+
+std::shared_ptr<HybridSsResource> HybridSsContext::resolvePack(uint32_t packNameHash) const {
+  for (const SsInstancePackEntry& entry : instancePacks_) {
+    if (entry.nameHash == packNameHash) return entry.resource;
+  }
+  if (packNameHash == 0 || packNameHash == ssab().packNameHash()) return resource_;
+  return nullptr;
+}
+
+bool HybridSsContext::bindInstancePack(const std::shared_ptr<HybridSsResourceSpec>& spec) {
+  const auto pack = std::dynamic_pointer_cast<HybridSsResource>(spec);
+  if (pack == nullptr || pack->handle() == nullptr) return false;
+  // After the children exist the binding can no longer reach them, and silently
+  // accepting it would leave the parts that wanted this pack undrawn with
+  // nothing to say why.
+  if (instancesBuilt_) return false;
+  const uint32_t hash = pack->packNameHash();
+  for (const SsInstancePackEntry& entry : instancePacks_) {
+    // Not an error: one pack can satisfy references from several places, and a
+    // caller walking the manifest transitively will meet it more than once.
+    if (entry.nameHash == hash) return true;
+  }
+  instancePacks_.push_back({hash, pack});
+  return true;
+}
+
+void HybridSsContext::buildInstanceChildren() {
+  if (instancesBuilt_ || ctx_ == nullptr) return;
+  instancesBuilt_ = true;
+  // Not an error, and not silently wrong either: a pack that mounts itself
+  // resolves to its own resource forever, so the tree is cut here rather than
+  // at whatever depth the stack happens to give out.
+  if (depth_ >= kMaxInstanceDepth) return;
+
+  const sscore::SsAnimeBinaryView view = ssab();
+  if (!view.valid()) return;
+
+  instances_.build(view, [&](const sscore::SsInstancePart& part) -> sscore::SsInstanceChild* {
+    const std::shared_ptr<HybridSsResource> resource = resolvePack(part.packNameHash);
+    // An unresolved pack means the child is simply never drawn — the same
+    // fail-safe as an invisible slot, and the shape an unbound external pack
+    // takes before Stage B's `bindInstancePack` has run.
+    if (resource == nullptr || resource->handle() == nullptr) return nullptr;
+
+    HybridSsContext* child = nullptr;
+    try {
+      child = new HybridSsContext(resource, depth_ + 1, instancePacks_);
+    } catch (const std::exception&) {
+      // The Brain refused a context for this resource. One dead mount is better
+      // than a load that throws and takes the whole animation with it.
+      return nullptr;
+    }
+    if (!child->setupAnimation(part.animeName)) {
+      delete child;
+      return nullptr;
+    }
+    return child;
+  });
+}
+
 void HybridSsContext::release() noexcept {
   if (ctx_ == nullptr) {
     // Nothing of ours to give back, but a constructor that threw after taking
@@ -86,7 +151,9 @@ void HybridSsContext::release() noexcept {
 
   // Before the context and before the resource: a slot was created against the
   // resource and its plan buffer is the slot's own, so both are dangling the
-  // moment either goes.
+  // moment either goes. The children go first of all — each is a whole player
+  // holding its own context, and one of them may be holding *this* resource.
+  instances_.release();
   effects_.release();
 
   ss_runtime_destroy(ctx_);
@@ -130,8 +197,15 @@ bool HybridSsContext::setupAnimation(const std::string& name) {
   // exists — without this the first key of the new animation is debounced as
   // one already played and the effect never fires.
   effects_.reset();
+  // Built on the first `setupAnimation` and reset on every later one, for the
+  // same reason the effect slots are: a new animation has different
+  // `EventInstance` keys, so each slot's memory of the last key it started is
+  // about a timeline that no longer exists.
+  buildInstanceChildren();
+  instances_.reset();
   refreshFrame();
   stepEffects(0.0f, false);
+  instances_.step(ctx_, frameNo_, 0.0f, false);
   return true;
 }
 
@@ -145,7 +219,9 @@ double HybridSsContext::update(double dtMilliseconds) {
   // Read *after* the update: `is_looped` is cleared at the top of each one, so
   // what it reports here is this tick's loop **edge**, which is what re-arms a
   // synced effect. Read before, it would be the previous tick's.
-  stepEffects(static_cast<float>(dtMilliseconds), ss_runtime_is_looped(ctx_));
+  const bool looped = ss_runtime_is_looped(ctx_);
+  stepEffects(static_cast<float>(dtMilliseconds), looped);
+  instances_.step(ctx_, frameNo_, static_cast<float>(dtMilliseconds), looped);
   return static_cast<double>(frameNo_);
 }
 
@@ -160,6 +236,7 @@ void HybridSsContext::resync() {
   // frame and a zero delta leaves its own clock exactly where it was — which is
   // what "independent" means. Not a loop edge, whatever the playhead did.
   stepEffects(0.0f, false);
+  instances_.step(ctx_, frameNo_, 0.0f, false);
 }
 
 void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
@@ -217,6 +294,7 @@ void HybridSsContext::play() {
   if (ctx_ == nullptr) return;
   ss_runtime_play(ctx_);
   effects_.reset();
+  instances_.reset();
   resync();
 }
 
@@ -224,6 +302,7 @@ void HybridSsContext::playFrom(double frameNo) {
   if (ctx_ == nullptr) return;
   ss_runtime_play_with_start_frame(ctx_, static_cast<float>(frameNo));
   effects_.reset();
+  instances_.reset();
   resync();
 }
 
@@ -300,14 +379,27 @@ sscore::SsAnimeBinaryView HybridSsContext::ssab() const {
 }
 
 std::vector<SsTextureInfo> HybridSsContext::getTextures() {
-  const sscore::SsAnimeBinaryView view = ssab();
   std::vector<SsTextureInfo> out;
-  if (!view.valid()) return out;
+  collectTextures(out);
+  return out;
+}
+
+void HybridSsContext::collectTextures(std::vector<SsTextureInfo>& out) {
+  const sscore::SsAnimeBinaryView view = ssab();
+  if (!view.valid()) return;
 
   const uint32_t count = view.textureCount();
-  out.reserve(count);
+  out.reserve(out.size() + count);
   for (uint32_t i = 0; i < count; ++i) {
     const sscore::SsTextureEntry entry = view.textureAt(i);
+    // Deduplicated by hash: the table is one flat lookup space for the whole
+    // tree, and two packs naming the same cellmap must not produce two entries
+    // for JS to load twice.
+    bool seen = false;
+    for (const SsTextureInfo& had : out) {
+      if (static_cast<uint32_t>(had.textureHash) == entry.textureHash) { seen = true; break; }
+    }
+    if (seen) continue;
     out.emplace_back(static_cast<double>(entry.textureHash), std::string(entry.name),
                      std::string(entry.imagePath), static_cast<double>(entry.wrapMode),
                      static_cast<double>(entry.filterMode),
@@ -315,7 +407,13 @@ std::vector<SsTextureInfo> HybridSsContext::getTextures() {
                      // buffer, which outlives this call.
                      Borrow(entry.embedded, entry.embeddedLength));
   }
-  return out;
+
+  // The children's, so one call answers for the whole tree. They exist only
+  // after `setupAnimation`, which is why the spec says to ask afterwards.
+  for (const sscore::SsInstanceState& state : instances_.states()) {
+    if (state.child == nullptr) continue;
+    static_cast<HybridSsContext*>(state.child)->collectTextures(out);
+  }
 }
 
 std::vector<std::string> HybridSsContext::getAnimationNames() {
@@ -367,6 +465,84 @@ void HybridSsContext::refreshFrame() {
   ss_runtime_get_mesh_index_offsets(ctx_, &soa_.meshIndexOffsets, &soa_.meshIndexOffsetCount);
 }
 
+// --- this player, driven as somebody else's instance child -------------------
+
+float HybridSsContext::instanceFrameNo() const {
+  return ctx_ == nullptr ? 0.0f : ss_runtime_get_frame_no(ctx_);
+}
+
+void HybridSsContext::instancePlay() {
+  if (ctx_ == nullptr) return;
+  // Deliberately *not* this class's `play()`: that one also rewinds the slots,
+  // and the slot that just reported the transition is the caller. What is wanted
+  // here is only the Brain-side head-out that `ss_instance_slot_step` has
+  // configured and left un-started.
+  ss_runtime_play(ctx_);
+}
+
+void HybridSsContext::instanceStop() {
+  if (ctx_ == nullptr) return;
+  ss_runtime_stop(ctx_);
+}
+
+void HybridSsContext::instanceResetSlots() {
+  effects_.reset();
+  instances_.reset();
+}
+
+void HybridSsContext::instanceStepSlots(float childFrame, float dtMilliseconds,
+                                        bool childLooped) {
+  if (ctx_ == nullptr) return;
+  // The playhead is **not** advanced here: `ss_instance_slot_step` already
+  // seeked this context, and running `ss_runtime_update` on top would advance it
+  // twice. All that is left is to publish the frame it was moved to and give
+  // this player's own slots their tick at it.
+  frameNo_ = childFrame;
+  ++generation_;
+  refreshFrame();
+  stepEffects(dtMilliseconds, childLooped);
+  instances_.step(ctx_, frameNo_, dtMilliseconds, childLooped);
+}
+
+size_t HybridSsContext::drawInstance(void* canvas, uint32_t partIndex, float alphaScale) {
+  const sscore::SsInstanceState* state = instances_.stateFor(partIndex);
+  if (state == nullptr || !state->visible || state->child == nullptr) return 0;
+  // The canvas already carries the mount transform; the child draws its whole
+  // subtree into it, and its own instance parts recurse from there. The table is
+  // handed straight down rather than copied per child: it is the root's, keyed
+  // by `cellmap.name_hash`, and one lookup space covers the whole tree — a
+  // same-pack child needs no entries of its own at all.
+  return static_cast<HybridSsContext*>(state->child)
+      ->drawSubtree(canvas, drawTextures_, drawTextureCount_, alphaScale);
+}
+
+size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBinding* textures,
+                                    size_t textureCount, float alphaScale) {
+  if (ctx_ == nullptr || textures == nullptr || textureCount == 0) return 0;
+
+  // Borrowed for the duration of this call only, so `drawInstance` — which
+  // `DrawBakedFrame` calls back into from inside it — can pass the same table
+  // one level down without a copy per child per frame.
+  drawTextures_ = textures;
+  drawTextureCount_ = textureCount;
+
+  baker_.bake(frame_, soa_, effects_.frame(), alphaScale);
+
+  ::ssplayer::SsMaskInput mask;
+  if (!maskFlags_.empty() &&
+      maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
+    mask.plan = &maskPlan_;
+    mask.flags = maskFlags_.data();
+    mask.flagCount = maskFlags_.size();
+  }
+
+  const size_t drawn =
+      ::ssplayer::DrawBakedFrame(canvas, textures, textureCount, baker_, mask, this);
+  drawTextures_ = nullptr;
+  drawTextureCount_ = 0;
+  return drawn;
+}
+
 double HybridSsContext::drawInto(SkCanvasHandle canvas,
                                  const std::vector<SsTextureBinding>& textures) {
   if (!::ssplayer::SkiaDirectAvailable()) {
@@ -391,26 +567,11 @@ double HybridSsContext::drawInto(SkCanvasHandle canvas,
     paintBindings_.push_back({static_cast<uint32_t>(binding.textureHash), binding.paint.paint});
   }
 
-  // Same bake as variant (b) — the difference measured here is purely what
-  // happens to the result, not how it is produced. The effect plans ride
-  // alongside the SoA rather than in it: they are the slots' own buffers, valid
-  // since the `update()` that produced them and until the next one.
-  baker_.bake(frame_, soa_, effects_.frame());
-
-  // Built off the baked quads, so a writer's coverage geometry is the very
-  // geometry it would have drawn with. `build` returning false is the ordinary
-  // case — most frames of most packs have no writer — and leaves the input
-  // inactive, which skips the coverage pass entirely.
-  ::ssplayer::SsMaskInput mask;
-  if (!maskFlags_.empty() &&
-      maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
-    mask.plan = &maskPlan_;
-    mask.flags = maskFlags_.data();
-    mask.flagCount = maskFlags_.size();
-  }
-
-  return static_cast<double>(::ssplayer::DrawBakedFrame(
-      canvas.canvas, paintBindings_.data(), paintBindings_.size(), baker_, mask));
+  // The root of the same recursion an instance mount enters one level down, at
+  // `alphaScale` 1 because nothing above it dims it. Keeping the two on one path
+  // is what stops a child from quietly missing a feature the root has.
+  return static_cast<double>(
+      drawSubtree(canvas.canvas, paintBindings_.data(), paintBindings_.size(), 1.0f));
 }
 
 }  // namespace margelo::nitro::ssplayer

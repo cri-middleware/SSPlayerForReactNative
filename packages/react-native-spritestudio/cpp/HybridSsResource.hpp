@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "HybridSsResourceSpec.hpp"
 
@@ -28,6 +29,24 @@ class HybridSsResource final : public HybridSsResourceSpec {
   ~HybridSsResource() override;
 
   double getByteLength() override { return static_cast<double>(byteLength_); }
+
+  /// The packs this one's Instance parts reach into.
+  ///
+  /// Read **once, from the bytes on their way in**, and kept — a few short
+  /// strings. It cannot be answered later: `ss_resource_create_copy` hands the
+  /// only surviving copy to the Brain and the C-API offers no way to get a
+  /// `.ssab` back out of a resource, so the choice is this or standing up a
+  /// throwaway context per pack just to ask.
+  std::vector<std::string> getExternalInstancePackNames() override {
+    return externalPackNames_;
+  }
+
+  /// This pack's own `SsAnimeBinary.name_hash`, read at the same moment.
+  ///
+  /// Not on the spec: it is how `HybridSsContext::bindInstancePack` files a pack
+  /// without the caller having to say which reference it satisfies, and JS never
+  /// needs to see it.
+  uint32_t packNameHash() const noexcept { return packNameHash_; }
 
   /// Releases the Brain-side resource **now**, instead of whenever JS gets round
   /// to collecting this object.
@@ -58,6 +77,8 @@ class HybridSsResource final : public HybridSsResourceSpec {
 
   size_t byteLength_ = 0;
   void* resource_ = nullptr;
+  uint32_t packNameHash_ = 0;
+  std::vector<std::string> externalPackNames_;
 };
 
 }  // namespace margelo::nitro::ssplayer

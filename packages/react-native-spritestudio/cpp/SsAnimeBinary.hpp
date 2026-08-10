@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "SsEffect.hpp"
+#include "SsInstance.hpp"
 #include "SsMask.hpp"
 #include "format/ssab.h"
 
@@ -117,6 +118,60 @@ class SsAnimeBinaryView {
       const ss::format::Vec2* size = cellmap->size_original();
       if (size == nullptr) continue;
       out.push_back({cellmap->name_hash(), size->v1(), size->v2()});
+    }
+    return out;
+  }
+
+  // --- effect -------------------------------------------------------------
+
+  // --- instance -----------------------------------------------------------
+
+  /// This pack's own `name_hash` — the identity a reference is compared against
+  /// to spot a same-file sub-animation.
+  uint32_t packNameHash() const noexcept {
+    return root_ != nullptr ? root_->name_hash() : 0;
+  }
+
+  /// Every instance-hosting part, in part-index order.
+  ///
+  /// A binding with no target animation is authored garbage and is skipped
+  /// rather than spawning a child that can never resolve.
+  std::vector<SsInstancePart> instanceParts() const {
+    std::vector<SsInstancePart> out;
+    const auto* v = root_ != nullptr ? root_->parts() : nullptr;
+    if (v == nullptr) return out;
+    for (uint32_t i = 0; i < v->size(); ++i) {
+      const ss::format::PartData* part = v->Get(i);
+      if (part->part_type_type() != ss::format::PartType_PartTypeInstance) continue;
+      const auto* type = part->part_type_as_PartTypeInstance();
+      if (type == nullptr) continue;
+      const ::flatbuffers::String* anime = type->ref_anime_name();
+      if (anime == nullptr || anime->size() == 0) continue;
+      out.push_back({i, type->ref_anime_pack_hash(), std::string(anime->c_str(), anime->size())});
+    }
+    return out;
+  }
+
+  /// The packs this one reaches into through instance parts, deduplicated.
+  ///
+  /// Read from the `.ssab`'s own `external_instances` manifest, so a same-file
+  /// sub-animation is correctly absent and the caller only has to fetch what is
+  /// genuinely elsewhere. Resolution is **transitive** — an external pack can
+  /// reach further still — which is the caller's walk, not this one's.
+  std::vector<SsExternalPack> externalInstancePacks() const {
+    std::vector<SsExternalPack> out;
+    const auto* v = root_ != nullptr ? root_->external_instances() : nullptr;
+    if (v == nullptr) return out;
+    for (uint32_t i = 0; i < v->size(); ++i) {
+      const auto* entry = v->Get(i);
+      const ::flatbuffers::String* name = entry->anime_pack_name();
+      if (name == nullptr || name->size() == 0) continue;
+      const uint32_t hash = entry->anime_pack_name_hash();
+      bool seen = false;
+      for (const SsExternalPack& had : out) {
+        if (had.nameHash == hash) { seen = true; break; }
+      }
+      if (!seen) out.push_back({std::string(name->c_str(), name->size()), hash});
     }
     return out;
   }

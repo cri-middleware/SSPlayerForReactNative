@@ -1,4 +1,4 @@
-import { fileSystemPathOf, normalizeUri, schemeOf } from '../core/assets'
+import { fileSystemPathOf, normalizeUri, resolveAgainst, schemeOf } from '../core/assets'
 import { SsRuntimeModule } from '../runtime'
 import type { SsResource } from '../specs/SsRuntime.nitro'
 
@@ -95,6 +95,53 @@ export async function loadResource(source: SsSource): Promise<LoadedResource> {
       }
     }
   }
+}
+
+/**
+ * Loads every pack this one's Instance parts reach into, transitively.
+ *
+ * A reference is a **sibling name** like everything else a `.ssab` points at, so
+ * each one is `resolveAgainst` the pack's own URI plus `.ssab` — the same seam
+ * the textures go through, which is why an instance tree works from an asset
+ * directory, an unpacked one and a dev server without three code paths.
+ *
+ * Breadth-first with a `seen` set, because the walk is genuinely transitive: a
+ * mounted pack can mount further packs, and two of them can name the same one.
+ * SSPlayerForWeb's `PackResolver` does the same, and the dedup is not just an
+ * optimisation — one resource per pack is what keeps `liveHandles` honest.
+ *
+ * A pack that will not load is **warned about and skipped**, not thrown: the
+ * parts that wanted it then draw nothing, which is the same fail-safe the C++
+ * side applies to a slot it cannot resolve, and it keeps one missing sibling
+ * from taking the whole animation down with it.
+ *
+ * The returned resources are the caller's to dispose.
+ */
+export async function loadInstancePacks(
+  root: SsResource,
+  baseUri: string
+): Promise<SsResource[]> {
+  const queue = [...root.getExternalInstancePackNames()]
+  if (queue.length === 0) return []
+
+  const loaded: SsResource[] = []
+  const seen = new Set<string>()
+  while (queue.length > 0) {
+    const name = queue.shift()!
+    if (name.length === 0 || seen.has(name)) continue
+    seen.add(name)
+    try {
+      const { resource } = await loadResource(resolveAgainst(baseUri, `${name}.ssab`))
+      loaded.push(resource)
+      queue.push(...resource.getExternalInstancePackNames())
+    } catch (e) {
+      console.warn(
+        `react-native-spritestudio: instance pack '${name}' referenced by ` +
+          `'${baseUri}' could not be loaded — those parts will not draw. ${String(e)}`
+      )
+    }
+  }
+  return loaded
 }
 
 /** A loaded `.ssab` and where it came from. */

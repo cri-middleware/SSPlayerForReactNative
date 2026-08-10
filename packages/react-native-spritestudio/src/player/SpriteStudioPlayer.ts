@@ -12,7 +12,7 @@ import {
   type SsRootTransform,
 } from '../core/types'
 import type { SsResource } from '../specs/SsRuntime.nitro'
-import { loadResource, type SsSource } from './source'
+import { loadInstancePacks, loadResource, type SsSource } from './source'
 
 /**
  * The transport surface, with no drawing backend in it.
@@ -92,6 +92,13 @@ export const MAX_STEP_MS = 1000 / 15
 export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private internalPlayer: SsInternalPlayer | null = null
   private resource: SsResource | null = null
+  /**
+   * The packs this animation's Instance parts mount, owned here because they
+   * were loaded here. Disposed with the player, after the context that mounted
+   * them — the Brain refcounts a resource, but the order still states the
+   * dependency.
+   */
+  private instancePacks: SsResource[] = []
   private disposed = false
 
   /**
@@ -156,9 +163,23 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       return
     }
 
+    // The packs this one's Instance parts mount, transitively. Loaded before the
+    // context exists because binding has to happen before `setupAnimation`, and
+    // it is a second await, so the supersede check has to run again after it.
+    const packs = await loadInstancePacks(resource, uri)
+    if (token !== this.loadToken || this.disposed) {
+      for (const pack of packs) pack.dispose()
+      resource.dispose()
+      return
+    }
+
     this.releaseNative()
     this.resource = resource
+    this.instancePacks = packs
     const internal = new SsInternalPlayer(resource, this.textures)
+    // Before `setAnimation` below, which is what spawns the child players — a
+    // pack bound after that has nothing left to reach.
+    for (const pack of packs) internal.bindInstancePack(pack)
     if (this.root != null) internal.rootTransform = { ...this.root }
     this.internalPlayer = internal
 
@@ -428,10 +449,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private releaseNative(): void {
     // Order matters: the context borrows from the resource, so it goes first.
+    // That covers the child players too — they are inside the context and go
+    // down with it, which is why the mounted packs can only be released after.
     this.internalPlayer?.dispose()
     this.internalPlayer = null
     this.resource?.dispose()
     this.resource = null
+    for (const pack of this.instancePacks) pack.dispose()
+    this.instancePacks = []
   }
 
   /**

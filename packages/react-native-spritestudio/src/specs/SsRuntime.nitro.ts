@@ -133,6 +133,21 @@ export interface SsLiveHandles {
 export interface SsResource
   extends HybridObject<{ ios: 'c++'; android: 'c++' }> {
   readonly byteLength: number
+
+  /**
+   * The packs this one's Instance parts reach into, as bare names.
+   *
+   * From the `.ssab`'s own `external_instances` manifest, so a same-file
+   * sub-animation is correctly absent and the caller only fetches what is
+   * genuinely elsewhere. Read once when the resource is created, because the
+   * Brain offers no way to get a `.ssab` back out of a resource and creating a
+   * throwaway context to ask would be the alternative.
+   *
+   * **Resolution is transitive and that walk is the caller's**: an external
+   * pack can reach further still, so a loader has to ask each pack it loads.
+   * `Ringo_tyu` → `Ringo` is one level; nothing stops there being more.
+   */
+  getExternalInstancePackNames(): string[]
 }
 
 /** One playing animation. */
@@ -141,6 +156,21 @@ export interface SsContext
   readonly partCount: number
   readonly generation: number
   readonly frameNo: number
+
+  /**
+   * Makes `pack` available to this player's Instance parts.
+   *
+   * **Must be called before `setupAnimation`**, which is when the child players
+   * are spawned; a pack bound after that is ignored, and the parts that wanted
+   * it stay silently undrawn. The pack identifies itself — its `name_hash` is
+   * read out of the `.ssab` — so the caller does not have to say which of the
+   * names from `getExternalInstancePackNames` this one satisfies.
+   *
+   * Returns false when the pack is already released or the children have been
+   * built. Binding the same pack twice is not an error; a pack referenced from
+   * several places is loaded once and mounted many times.
+   */
+  bindInstancePack(pack: SsResource): boolean
 
   setupAnimation(name: string): boolean
   /**
@@ -255,6 +285,12 @@ export interface SsContext
    * change (`TCHG`) carries the hash of a texture *file* name out of
    * `external_textures` instead; miss those and exactly those parts silently
    * stop drawing (`30_core/10_initialization.md` §3).
+   *
+   * **Includes every bound instance pack's textures**, deduplicated by hash, so
+   * one table covers the whole player tree — which is what `drawInto` needs,
+   * since a child draws through the root's table. Call it *after*
+   * `setupAnimation`: the children do not exist until then, and their textures
+   * come with them.
    */
   getTextures(): SsTextureInfo[]
 

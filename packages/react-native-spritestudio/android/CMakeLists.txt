@@ -36,6 +36,7 @@ add_library(SsPlayer SHARED
   ../cpp/SsAssets.cpp
   ../cpp/SsBaker.cpp
   ../cpp/SsEffect.cpp
+  ../cpp/SsInstance.cpp
   ../cpp/SsMask.cpp
   ../cpp/SsRNSkiaInterop.cpp
   ../cpp/SsSkiaDraw.cpp

@@ -74,6 +74,17 @@ export class SsInternalPlayer {
 
   // --- lifecycle ---------------------------------------------------------
 
+  /**
+   * Makes `pack` available to this player's Instance parts.
+   *
+   * **Before `setupAnimation`**, which is when the child players are spawned —
+   * Layer 1 refuses a late binding rather than accepting one that can no longer
+   * reach anything.
+   */
+  bindInstancePack(pack: SsResource): boolean {
+    return this.require().bindInstancePack(pack)
+  }
+
   setupAnimation(name: string): boolean {
     return this.require().setupAnimation(name)
   }

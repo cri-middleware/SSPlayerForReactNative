@@ -67,6 +67,24 @@ struct SsPartDraw {
   SsPartColor partColor;
 };
 
+/// Where one instance part mounts its child, recorded during the bake.
+///
+/// The draw path has no SoA — it walks baked arrays — so the world matrix an
+/// Instance batch needs has to be carried out of the bake like everything else.
+/// Two floats' worth of it are dropped: an instance transform is the 2D affine
+/// slice of the column-major 4x4, exactly as a Normal part's vertices use it.
+struct SsInstanceDraw {
+  uint32_t partIndex = 0;
+  int32_t drawRank = -1;
+  /// `a, b, c, d, tx, ty` — `x' = a*x + c*y + tx`, `y' = b*x + d*y + ty`.
+  float m[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+  /// The instance part's own alpha, already multiplied by the chain scale it was
+  /// baked under. It folds into the child's bake rather than becoming a layer:
+  /// SpriteStudio modulates a sub-animation **per part**, so a group alpha would
+  /// disagree wherever the child's own parts overlap.
+  float alpha = 1.0f;
+};
+
 /// The Brain's SoA buffers for the current frame, as lent by the
 /// `ss_runtime_get_*` getters. Every pointer is a borrow that dies at the next
 /// `ss_runtime_update` (design doc ch.9 F).
@@ -108,8 +126,13 @@ class SsBaker {
   /// Rebuilds every output array from `fd` + `soa`, plus `effects` for the one
   /// kind whose geometry does not ride the SoA. Safe to call with a null `fd`,
   /// null SoA pointers or an inactive `effects`: it just produces less output.
+  ///
+  /// `alphaScale` multiplies every vertex alpha this frame. It is 1 for a root
+  /// player and the product of the instance parts above it for a child, which is
+  /// how a sub-animation inherits its mount point's opacity — per part, which is
+  /// what SpriteStudio does, rather than as one layer over the finished subtree.
   void bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
-            const SsEffectFrame& effects = {});
+            const SsEffectFrame& effects = {}, float alphaScale = 1.0f);
 
   /// Batch descriptors for *every* batch in the frame, in draw order — including
   /// the kinds this spike does not draw, which come back with zero
@@ -133,6 +156,9 @@ class SsBaker {
   /// One per baked part, in bake order. A batch's run is
   /// `parts()[partOffset .. + partCount]`.
   const std::vector<SsPartDraw>& parts() const noexcept { return parts_; }
+  /// One per instance part that is live this frame, in draw order. Carries no
+  /// geometry of its own — the child's bake is that — only where to put it.
+  const std::vector<SsInstanceDraw>& instances() const noexcept { return instances_; }
 
   size_t vertexCount() const noexcept { return positions_.size() / 2; }
   size_t indexCount() const noexcept { return indices_.size(); }
@@ -144,7 +170,8 @@ class SsBaker {
   void bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
                      const ss::runtime::DrawBatch* batch, const SsBatchDesc& desc,
                      uint32_t partStateCount,
-                     const ::flatbuffers::Vector<uint16_t>* drawOrder, uint32_t drawOrderCount);
+                     const ::flatbuffers::Vector<uint16_t>* drawOrder, uint32_t drawOrderCount,
+                     float alphaScale);
 
   /// The Effect half, and the one that **pushes its own batch descriptors**.
   ///
@@ -158,7 +185,15 @@ class SsBaker {
                        const ss::runtime::DrawBatch* batch, const SsEffectFrame& effects,
                        uint32_t partStateCount,
                        const ::flatbuffers::Vector<uint16_t>* drawOrder,
-                       uint32_t drawOrderCount);
+                       uint32_t drawOrderCount, float alphaScale);
+
+  /// The Instance half, and the only one that emits **no geometry and no
+  /// descriptor** — an instance part is a mount point, and the thing mounted is
+  /// a whole other player's bake. All this records is where to put it.
+  void bakeInstanceBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                         const ss::runtime::DrawBatch* batch, uint32_t partStateCount,
+                         const ::flatbuffers::Vector<uint16_t>* drawOrder,
+                         uint32_t drawOrderCount, float alphaScale);
 
   /// Appends one (cellmap, blend) run of `plan`'s commands as a single batch.
   ///
@@ -175,6 +210,7 @@ class SsBaker {
   std::vector<uint32_t> colors_;
   std::vector<uint16_t> indices_;
   std::vector<SsPartDraw> parts_;
+  std::vector<SsInstanceDraw> instances_;
 };
 
 }  // namespace sscore

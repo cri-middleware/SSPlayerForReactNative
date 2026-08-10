@@ -15,6 +15,7 @@ namespace margelo::nitro::ssplayer {
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridGetter("byteLength", &HybridSsResourceSpec::getByteLength);
+      prototype.registerHybridMethod("getExternalInstancePackNames", &HybridSsResourceSpec::getExternalInstancePackNames);
     });
   }
 

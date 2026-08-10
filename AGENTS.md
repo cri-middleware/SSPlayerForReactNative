@@ -15,9 +15,9 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > `SsRuntime.liveHandles` + `ssCheckForLeaks()`, which found that `dispose()` had
 > never actually released anything). Scope is Normal parts, now with the full
 > framebuffer **blend table** (`cpp/SsBlend.hpp`), **PartColor**
-> (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`), **Mesh** and
-> **Effect** (`cpp/SsEffect.hpp`) — still no Instance, Shape/Nines, events, part
-> overrides or Reanimated integration. **Mask is the one feature here that has
+> (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`), **Mesh**,
+> **Effect** (`cpp/SsEffect.hpp`) and **Instance** (`cpp/SsInstance.hpp`) —
+> still no Shape/Nines, events, part overrides or Reanimated integration. **Mask is the one feature here that has
 > only ever been checked on the host**, and deliberately: `Mask.ssab` carries a
 > Mesh writer and a Shape writer that are both expected not to clip yet, so the
 > card cannot be read as pass or fail until Shape lands.
@@ -135,6 +135,7 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `cpp/SsBaker.{hpp,cpp}` | SoA (**and the effect plans**) → vertex/index/colour/batch arrays, plus one `SsPartDraw` **per part** carrying its own vertex/index ranges — a Normal part is always four vertices, a Mesh part is however many the Brain skinned, an Effect part is however many particles are alive, so the ranges are carried rather than derived. Nitro-free and JSI-free so the host harness can link it. |
 | `cpp/SsPartColor.hpp` | PartColor's data side: §1-4's coefficient table, the four corners, and `SsMakeUvInverse`. Skia-free, so the maths is checkable on the host. |
 | `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
+| `cpp/SsInstance.{hpp,cpp}` | The Instance kind: one `ss_instance_slot` per instance part **and the child player it drives**, reached through an `SsInstanceChild` interface so the slot logic sits below the hybrid. Same C-API-client shape as `SsEffect`. |
 | `cpp/SsEffect.{hpp,cpp}` | The Effect kind's **clock**: one persistent `ss_effect_slot` per effect part, enumerated from `PartData` and stepped from `update()`. The only `cpp/` file besides the hybrids that is a C-API client and not a data reader — the *geometry* half lives in `SsBaker`, which stays C-API-free. |
 | `cpp/SsMask.{hpp,cpp}` | Mask **and** clipping: the part roles, the per-frame writer set, the player-local coverage box and each target's two writer sets. Skia-free, so `ssbake_check` drives it on the host. |
 | `cpp/SsMaskShader.hpp` | The two mask SkSL halves — the coverage writer and the target's replay. Skia-only, same inclusion rule as above. |
@@ -385,6 +386,40 @@ later `download-sdk` correctly replaces a local build.
   are fixed (`set_loop(-1)` then `play`, delta `1000/60`), and the visible
   consequence is that `Mask.ssab` now reports 1680 target-frames where the docs
   recorded 1560.
+* **Every instance asset in this repo is an *external* reference, and the
+  authored `.ssae` will tell you otherwise.** `Ringo.ssae` has no instance parts
+  at all — the nine are in `Ringo_tyu.ssae`, which converts to its own
+  `Ringo_tyu.ssab` and mounts the `Ringo` pack; `overall/Instance.ssab`'s 20 all
+  mount `Instance_SourceAnime`. A part-type histogram of the `.ssae` glob counts
+  both files and reads as "Ringo has 9 instance parts", which is how this got
+  planned as "same-pack first, external later" before anyone looked at the
+  converted output. **Check the `.ssab`.**
+* **An instance child is a whole player, and it must not advance its own
+  clock.** `ss_instance_slot_step` seeks the child context itself, so
+  `instanceStepSlots` publishes the frame and ticks the child's *own* effects and
+  nested instances — calling `ss_runtime_update` there advances it twice. And on
+  a **transition** tick the frame the step reports is the one from *before*
+  `play()` snapped it: take it and you show a frame of the previous playthrough,
+  so the child's clock is re-read instead.
+* **`play()` on the transition edge is required, and the ports disagree about
+  why.** SSPlayerForGodot says `step` leaves the child configured *and playing*
+  and calls `play()` only for the host-side event; SSPlayerForFlutter says it
+  leaves it **stopped** and that an independent child otherwise freezes forever
+  on a stopped controller. Calling it is right under both readings — a
+  transition *is* "start this instance from its start" — which is why this port
+  does, and why `instancePlay()` is deliberately not the hybrid's own `play()`
+  (that one also rewinds the slots, and the slot reporting the transition is the
+  caller).
+* **A mount point's alpha folds into the child's bake, not into a layer.**
+  SpriteStudio modulates a sub-animation **per part**, so one group alpha over
+  the finished subtree disagrees wherever the child's own parts overlap — the
+  one behaviour Flutter's comment is explicit about the flagship on.
+  `SsBaker::bake`'s `alphaScale` is that, and it compounds down a chain.
+* **`bindInstancePack` has to happen before `setupAnimation`**, which is when the
+  children are spawned; L1 returns false for a late binding rather than
+  accepting one that can no longer reach anything. `getTextures()` is the mirror
+  image — call it *after*, because the children's cellmaps only exist once they
+  do, and a child draws through the **root's** texture table.
 * **Never drive an effect's `step` from `draw_order`.** The Brain drops a
   *hidden* Effect part from `draw_order` / `DrawBatch` entirely, so "walk the
   batches and step the effects you find" freezes a hidden independent effect's
@@ -663,6 +698,7 @@ build=release` when working on it).
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (It **opens** on `overall/Basic` rather than Ringo on purpose: `PlayerScreen.tsx` explains why.) |
 | PartColor and part opacity | On the **Player** screen switch *Subject* to **PartsColor**. It opens on `PartsColor_only`: eight tinted quads, all four PartColor modes, half with the four corners differing so the gradient is exercised. Flat tints where a gradient is authored means the UV reconstruction is wrong. Then take the *Animation* dropdown to **`PartsColor_with_Transparent`** — the same quads with part opacity on top, which is the alpha half of the check; uniformly opaque there means the vertex colours are not reaching `drawVertices`. Two animations because they are two variables, and the pack separates them so a failure names itself. |
 | A real character, end to end | On the **Player** screen switch *Subject* to **Ringo** — the one asset here that uses the features together rather than one at a time, and the check that they compose. Step through a few of its 24 animations. It is also the widest exercise of the reference texture route, since `Ringo.png` is a plain sibling. Missing limbs mean Mesh; a limb in the wrong place means the world matrix reached vertices that were already world-space. |
+| Instances (seen on both) | On the **Player** screen switch *Subject* to **Instance** (`overall`) — 20 mounts of an external pack, and the subject that says whether the sibling walk ran at all: those parts have no geometry of their own, so an empty canvas means the walk found nothing rather than that the draw is wrong. Then **RingoInstances** (`Ringo_tyu`), which mounts `Ringo`'s own `kaiten` nine times — a whole rig, mesh deforms and all, drawn through the instance path. On the host, `ssbake_check` must report non-zero **mounts**: `overall/Instance.ssab anime_1` gives 20 parts / peak 20, `Ringo/Ringo_tyu.ssab anime_1` gives 9 / peak 7. Mounts but no picture is the child tree, which `ssbake_check` cannot reach — it drives the C-API directly and only ever bakes one player. `RingoInstances` is also the only check on the texture half: it holds no cellmaps of its own, so untextured white there means `getTextures()` stopped at the root instead of recursing into the mounted pack. |
 | Mesh deformation | On the **Player** screen switch *Subject* to **Mesh**. The parts must be *deformed* and sit where the rest of the animation does. A mesh drawn far off-centre, or scaled oddly, is the world matrix having been applied to vertices that were already world-space. On the host, `ssbake_check` on `Mesh.ssab` must report a **non-zero** peak vertex count (it was 0 for the whole of the time Mesh went unbaked) — currently 32, and Ringo's went 68 → 653 when Mesh landed. |
 | Mask and clipping | On the **Player** screen switch *Subject* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. The `Mesh-WriteMask-True` and `Shape-Mask-True` parts are **expected** not to clip yet, which is why this row is the one that has never been run in anger — two known-missing pieces on the card mean it cannot be read as pass or fail. Worth doing properly once Shape lands. |
 | Effect (particles) | On the **Player** screen switch *Subject* to **Effect** — the `overall` feature card, 13 effect parts each authoring the `EventEffect` keys differently, so what fails names itself. Then switch to **ParticleEffect** and walk the *Pack file* dropdown: `e002` (fireworks) and `e019` (holy) are the two heaviest. Particles piled on the origin mean the effect part's world matrix was not applied; particles textured with the whole atlas mean the normalised UVs were not scaled by `size_original`; additive effects rendering dark mean the command's `blend` byte was passed through as a `BlendType`. An effect that freezes while off screen is the `draw_order` trap. |
@@ -704,6 +740,15 @@ quad like a tinted one, and its shader is wrapped by the replay: reconstruct the
 coverage UV from the texcoord, read back the writers whose scope reaches this
 rank, and return transparent where `masked != visible_inside`. Scope is resolved
 on the CPU, so the shader gets two 24-bit sets rather than a per-writer array.
+
+**An Instance part joins at neither point: it is a mount, and the thing mounted
+is another player's whole subtree.** The bake records where — the 2D affine and
+the compounded alpha, because the draw path has no SoA to read a matrix from —
+and the batch walk drains those in rank order alongside the batches, saving the
+canvas, concatenating the matrix and re-entering `drawSubtree` on the child. So
+the recursion is the ordinary draw one transform down, and a grandchild is the
+same again. The child's clock is not the parent's: `ss_instance_slot_step` seeks
+it, and `update()` only hands it a delta.
 
 **The Effect kind joins this at two different points, and that is the shape of
 it.** Its *clock* runs in `update()`, before any of the above: every effect part

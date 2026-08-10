@@ -9,6 +9,7 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkImage.h"
+#include "include/core/SkMatrix.h"
 #include "include/core/SkPaint.h"
 // SkPictureRecorder.h only forward-declares SkPicture, and `finishRecordingAsPicture`
 // hands back an `sk_sp<SkPicture>` whose destructor needs the complete type.
@@ -204,7 +205,8 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
 }  // namespace
 
 size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t textureCount,
-                      const sscore::SsBaker& baker, const SsMaskInput& mask) {
+                      const sscore::SsBaker& baker, const SsMaskInput& mask,
+                      SsInstanceRenderer* instances) {
   auto* canvas = static_cast<SkCanvas*>(canvasPtr);
   if (canvas == nullptr || textures == nullptr || textureCount == 0) return 0;
 
@@ -237,7 +239,35 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
   size_t drawn = 0;
 
+  // Instance parts, walked alongside the batches below and matched by rank.
+  //
+  // They are not batches: `SsBaker` emits no descriptor for an Instance batch,
+  // because it has no geometry of its own. Keeping them in one rank-ordered list
+  // and draining it in step with the batch walk is what puts a sub-animation at
+  // the right depth without inventing a batch to hold it.
+  const std::vector<sscore::SsInstanceDraw>& mounts = baker.instances();
+  size_t nextMount = 0;
+
+  /// Draws every mount whose rank comes before `rank` (or all of them).
+  const auto drawMountsBefore = [&](int32_t rank) {
+    if (instances == nullptr) return;
+    while (nextMount < mounts.size() &&
+           (rank < 0 || mounts[nextMount].drawRank < rank)) {
+      const sscore::SsInstanceDraw& mount = mounts[nextMount++];
+      SkMatrix m;
+      m.setAffine(mount.m);
+      // `save`/`restore` rather than a layer: the child draws into the same
+      // canvas at the mount point, and its alpha has already been folded into
+      // its own bake, so there is nothing a layer would be needed to composite.
+      canvas->save();
+      canvas->concat(m);
+      drawn += instances->drawInstance(canvas, mount.partIndex, mount.alpha);
+      canvas->restore();
+    }
+  };
+
   for (const sscore::SsBatchDesc& batch : baker.batches()) {
+    drawMountsBefore(batch.startRank);
     if (batch.vertexCount == 0 || batch.indexCount == 0) continue;
     // §3-3: a pure mask writes coverage and draws no colour. Its geometry was
     // baked for the pass above and must not reach the framebuffer.
@@ -392,6 +422,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       drawn += static_cast<size_t>(info.vertexCount);
     }
   }
+  // Anything mounted after the last batch — an instance part at the very front
+  // of the draw order has no batch behind it to trigger the drain.
+  drawMountsBefore(-1);
   return drawn;
 }
 

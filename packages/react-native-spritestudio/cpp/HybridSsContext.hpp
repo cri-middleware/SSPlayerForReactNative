@@ -10,6 +10,7 @@
 #include "SsAnimeBinary.hpp"
 #include "SsBaker.hpp"
 #include "SsEffect.hpp"
+#include "SsInstance.hpp"
 #include "SsMask.hpp"
 #include "SsRNSkiaInterop.hpp"
 // For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
@@ -17,6 +18,17 @@
 #include "SsSkiaDraw.hpp"
 
 namespace margelo::nitro::ssplayer {
+
+/// A pack an instance part can mount, keyed by `SsAnimeBinary.name_hash`.
+///
+/// Shared down the whole tree by value-copy of the vector, which is a handful of
+/// `shared_ptr`s: a pack referenced twice is loaded once and both mounts hold
+/// the same resource, which is also what keeps `liveHandles`' resource count
+/// meaningful.
+struct SsInstancePackEntry {
+  uint32_t nameHash = 0;
+  std::shared_ptr<HybridSsResource> resource;
+};
 
 /// One playing animation.
 ///
@@ -34,7 +46,10 @@ namespace margelo::nitro::ssplayer {
 /// draws in one call — so the only buffer still crossing is an embedded atlas on
 /// its way to Skia. The rule stays, because the next thing to cross will be
 /// subject to it too.
-class HybridSsContext final : public HybridSsContextSpec {
+
+class HybridSsContext final : public HybridSsContextSpec,
+                              public sscore::SsInstanceChild,
+                              public ::ssplayer::SsInstanceRenderer {
  public:
   explicit HybridSsContext(const std::shared_ptr<HybridSsResource>& resource);
   ~HybridSsContext() override;
@@ -73,6 +88,10 @@ class HybridSsContext final : public HybridSsContextSpec {
   double getPlaybackStyle() override;
   bool getSkipFrames() override;
 
+  /// Takes the *spec* type, because that is what nitrogen declares — every
+  /// `SsResource` crossing from JS is one of ours, so the downcast below is
+  /// checked rather than assumed only to keep a hand-rolled implementer honest.
+  bool bindInstancePack(const std::shared_ptr<HybridSsResourceSpec>& pack) override;
   bool setupAnimation(const std::string& name) override;
   double update(double dtMilliseconds) override;
 
@@ -95,7 +114,63 @@ class HybridSsContext final : public HybridSsContextSpec {
 
   double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) override;
 
+  // --- `SsInstanceChild`: this player driven as somebody else's instance ----
+  //
+  // The same object is a root player and a child, exactly as
+  // `SpriteStudioInternalPlayer` is in SSPlayerForFlutter. What differs is only
+  // who owns the clock: a root advances its own in `update()`, a child has
+  // `ss_instance_slot_step` seek it and then only refreshes.
+
+  void* instanceContext() const override { return ctx_; }
+  float instanceFrameNo() const override;
+  void instancePlay() override;
+  void instanceStop() override;
+  void instanceResetSlots() override;
+  void instanceStepSlots(float childFrame, float dtMilliseconds, bool childLooped) override;
+
+  // --- `SsInstanceRenderer`: draw the child mounted on one of my parts ------
+
+  size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale) override;
+
  private:
+  /// The child constructor. `depth` guards against a pack that mounts itself —
+  /// `resolvePack` hands back the own resource for a same-pack reference, so a
+  /// self-referencing animation would otherwise recurse until the stack ran out
+  /// at load time. `packs` is the resolved external set, passed down unchanged.
+  HybridSsContext(const std::shared_ptr<HybridSsResource>& resource, int depth,
+                  std::vector<SsInstancePackEntry> packs);
+
+  /// How deep a chain of instance parts may go before children stop being
+  /// spawned. Authored content nests two or three levels; this is a stack guard,
+  /// not a feature limit.
+  static constexpr int kMaxInstanceDepth = 8;
+
+  /// Bakes and draws this player's whole subtree into `canvas`.
+  ///
+  /// Shared by `drawInto` (root, `alphaScale` 1) and `drawInstance` (child,
+  /// carrying the mount point's opacity), so the two cannot drift — a child is
+  /// not a special case of drawing, it is the same draw one transform down.
+  size_t drawSubtree(void* canvas, const ::ssplayer::SsPaintBinding* textures,
+                     size_t textureCount, float alphaScale);
+
+  /// Spawns one child per instance part, once.
+  ///
+  /// Deferred to the first `setupAnimation` rather than done in the constructor,
+  /// which is what SSPlayerForWeb's `PackResolver` does and for the same reason:
+  /// an external pack has to be bound before its child can resolve, and binding
+  /// happens after `createContext`.
+  void buildInstanceChildren();
+
+  /// Appends this player's textures and then every child's, skipping hashes
+  /// already present. Recursive, so a pack three mounts down still contributes.
+  void collectTextures(std::vector<SsTextureInfo>& out);
+
+  /// The resource holding `packNameHash`'s animations, or null.
+  ///
+  /// External packs win, then the own pack, matching the flagship's
+  /// `_resolve_ssab_by_hash`. A hash of 0 is an author who left the reference
+  /// pack-less, which also means the own pack.
+  std::shared_ptr<HybridSsResource> resolvePack(uint32_t packNameHash) const;
   /// Refreshes `frame_`, the SoA pointers and `partCount_` from the Brain for
   /// the current frame. Called by `update()`; the getters below just read it.
   void refreshFrame();
@@ -161,6 +236,21 @@ class HybridSsContext final : public HybridSsContextSpec {
   /// because a hidden independent effect must keep running even though the Brain
   /// has dropped it from `draw_order`.
   sscore::SsEffectSlots effects_;
+
+  /// One slot **and one child player** per instance part. Same stepping rule as
+  /// the effects, and the same reason.
+  sscore::SsInstanceSlots instances_;
+  /// Built once, at the first `setupAnimation`.
+  bool instancesBuilt_ = false;
+  /// 0 for a root player; one more than its parent for a child.
+  int depth_ = 0;
+  /// The external packs this subtree may mount, resolved by JS and handed down.
+  std::vector<SsInstancePackEntry> instancePacks_;
+
+  /// The texture table of the `drawSubtree` currently on the stack, borrowed so
+  /// `drawInstance` can pass it down. Null outside a draw.
+  const ::ssplayer::SsPaintBinding* drawTextures_ = nullptr;
+  size_t drawTextureCount_ = 0;
 };
 
 }  // namespace margelo::nitro::ssplayer

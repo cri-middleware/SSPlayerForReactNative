@@ -58,13 +58,14 @@ SsBatchDesc DescribeBatch(const ss::runtime::DrawBatch* batch) {
 }  // namespace
 
 void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
-                   const SsEffectFrame& effects) {
+                   const SsEffectFrame& effects, float alphaScale) {
   batches_.clear();
   positions_.clear();
   texCoords_.clear();
   colors_.clear();
   indices_.clear();
   parts_.clear();
+  instances_.clear();
 
   if (fd == nullptr || soa.worldMatrices == nullptr || soa.localVertices == nullptr ||
       soa.localUvs == nullptr) {
@@ -91,7 +92,15 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
     // none, where every other produces exactly one. Handled before `desc` is
     // built so there is no half-filled descriptor to reconcile.
     if (kind == ss::runtime::DrawBatchKind_Effect) {
-      bakeEffectBatch(fd, soa, batch, effects, partStateCount, drawOrder, drawOrderCount);
+      bakeEffectBatch(fd, soa, batch, effects, partStateCount, drawOrder, drawOrderCount,
+                      alphaScale);
+      continue;
+    }
+    // Instance produces no descriptor at all: it contributes no geometry of its
+    // own, only a place to hang somebody else's. The draw path pairs these
+    // against the batch by rank.
+    if (kind == ss::runtime::DrawBatchKind_Instance) {
+      bakeInstanceBatch(fd, soa, batch, partStateCount, drawOrder, drawOrderCount, alphaScale);
       continue;
     }
 
@@ -148,7 +157,8 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
           positions_.push_back(m[1] * x + m[5] * y + m[13]);
           texCoords_.push_back(uv[kCornerFloat[c]]);
           texCoords_.push_back(uv[kCornerFloat[c] + 1]);
-          colors_.push_back(WhiteWithAlpha(hasPartColor ? corners[c]->a : partAlpha));
+          colors_.push_back(
+              WhiteWithAlpha((hasPartColor ? corners[c]->a : partAlpha) * alphaScale));
         }
         for (int i = 0; i < 6; ++i) {
           indices_.push_back(static_cast<uint16_t>(base + kQuadIndices[i]));
@@ -158,7 +168,8 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
         parts_.push_back(info);
       }
     } else if (kind == ss::runtime::DrawBatchKind_Mesh) {
-      bakeMeshBatch(fd, soa, batch, desc, partStateCount, drawOrder, drawOrderCount);
+      bakeMeshBatch(fd, soa, batch, desc, partStateCount, drawOrder, drawOrderCount,
+                    alphaScale);
     }
 
     desc.vertexCount = static_cast<int32_t>(positions_.size() / 2) - desc.vertexOffset;
@@ -172,7 +183,7 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
                             const ss::runtime::DrawBatch* batch, const SsBatchDesc& desc,
                             uint32_t partStateCount,
                             const ::flatbuffers::Vector<uint16_t>* drawOrder,
-                            uint32_t drawOrderCount) {
+                            uint32_t drawOrderCount, float alphaScale) {
   if (soa.meshVerticesX == nullptr || soa.meshVerticesY == nullptr ||
       soa.meshVertexOffsets == nullptr || soa.meshUvs == nullptr || soa.meshIndices == nullptr ||
       soa.meshIndexOffsets == nullptr) {
@@ -227,7 +238,8 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
     info.needsPartColorShader = hasPartColor && info.partColor.tintsRgb();
 
     const float partAlpha = state != nullptr ? state->alpha() : 1.0f;
-    const uint32_t color = WhiteWithAlpha(hasPartColor ? info.partColor.lt.a : partAlpha);
+    const uint32_t color =
+        WhiteWithAlpha((hasPartColor ? info.partColor.lt.a : partAlpha) * alphaScale);
 
     const uint16_t base = static_cast<uint16_t>(positions_.size() / 2 - desc.vertexOffset);
     for (uint32_t v = v0; v < v1; ++v) {
@@ -263,7 +275,7 @@ void SsBaker::bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPoint
                               const ss::runtime::DrawBatch* batch, const SsEffectFrame& effects,
                               uint32_t partStateCount,
                               const ::flatbuffers::Vector<uint16_t>* drawOrder,
-                              uint32_t drawOrderCount) {
+                              uint32_t drawOrderCount, float alphaScale) {
   if (!effects.active()) return;
   const auto* parts = fd->parts();
 
@@ -292,7 +304,7 @@ void SsBaker::bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPoint
     // Effect kind, and there is no quad to reconstruct a gradient across.
     const ss::runtime::PartState* state =
         (parts != nullptr && partIndex < partStateCount) ? parts->Get(partIndex) : nullptr;
-    const float partAlpha = state != nullptr ? state->alpha() : 1.0f;
+    const float partAlpha = (state != nullptr ? state->alpha() : 1.0f) * alphaScale;
 
     const uint32_t commandCount = commands->size();
     uint32_t i = 0;
@@ -377,6 +389,42 @@ void SsBaker::bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPoint
       }
       i = j;
     }
+  }
+}
+
+void SsBaker::bakeInstanceBatch(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
+                                const ss::runtime::DrawBatch* batch, uint32_t partStateCount,
+                                const ::flatbuffers::Vector<uint16_t>* drawOrder,
+                                uint32_t drawOrderCount, float alphaScale) {
+  const auto* parts = fd->parts();
+
+  for (uint32_t k = 0; k < batch->count(); ++k) {
+    const uint32_t rank = static_cast<uint32_t>(batch->start_rank()) + k;
+    if (rank >= drawOrderCount) break;
+    const uint32_t partIndex = drawOrder->Get(rank);
+    if (partIndex >= soa.partCount) continue;
+
+    const float* m = soa.worldMatrices + static_cast<size_t>(partIndex) * 16;
+    const ss::runtime::PartState* state =
+        (parts != nullptr && partIndex < partStateCount) ? parts->Get(partIndex) : nullptr;
+
+    SsInstanceDraw draw;
+    draw.partIndex = partIndex;
+    draw.drawRank = static_cast<int32_t>(rank);
+    // The 2D affine slice of the column-major 4x4, in the order Skia's
+    // `SkMatrix::setAffine` reads: a, b, c, d, tx, ty.
+    draw.m[0] = m[0];
+    draw.m[1] = m[1];
+    draw.m[2] = m[4];
+    draw.m[3] = m[5];
+    draw.m[4] = m[12];
+    draw.m[5] = m[13];
+    // Compounds down the chain: a child three instances deep is dimmed by all
+    // three. Not read from a PartColor — an instance part can carry one, and
+    // both reference ports treat that as a whole-subtree *tint*, which is a
+    // group filter this port does not do yet (see AGENTS.md).
+    draw.alpha = (state != nullptr ? state->alpha() : 1.0f) * alphaScale;
+    instances_.push_back(draw);
   }
 }
 

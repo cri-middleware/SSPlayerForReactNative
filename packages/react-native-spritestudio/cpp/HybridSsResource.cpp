@@ -1,5 +1,7 @@
 #include "HybridSsResource.hpp"
 
+#include "SsAnimeBinary.hpp"
+
 #include <atomic>
 #include <cstdio>
 #include <stdexcept>
@@ -73,6 +75,20 @@ void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
                              "' — is it a .ssab from a matching SDK version?");
   }
   byteLength_ = byteLength;
+
+  // The `.ssab`'s own identity and its instance manifest, read here because
+  // this is the last moment the bytes are reachable: the Brain has taken its
+  // copy and the C-API will not give one back. Both are tiny and both are
+  // needed before any context exists — the pack walk that loads siblings runs
+  // in JS, before `createContext`.
+  const sscore::SsAnimeBinaryView view(bytes, byteLength);
+  if (view.valid()) {
+    packNameHash_ = view.packNameHash();
+    for (const sscore::SsExternalPack& pack : view.externalInstancePacks()) {
+      externalPackNames_.push_back(pack.name);
+    }
+  }
+
   // Counted here rather than on entry to the constructor: everything above can
   // throw, and a constructor that throws never runs a destructor, so an earlier
   // increment would strand a count that no release ever balances — a leak check
