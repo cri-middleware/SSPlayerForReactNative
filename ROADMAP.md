@@ -209,7 +209,9 @@ constant across the Phase 0 sweep while nothing was actually playing.
   "each mode is *right*" is not.
 - 🚧 **Mask and clipping** via the coverage-pass method (§3-2 — Skia has no
   stencil), matching the Flutter Player's `mask.dart` / `mask_context.dart`.
-  Landed for the two part kinds the renderer bakes, Normal and Mask.
+  Writers are every kind the renderer bakes geometry for — Normal, Mask, Mesh
+  and Shape; targets are the quad-shaped ones plus Shape, which can be one
+  precisely because it samples nothing.
   `cpp/SsMask.{hpp,cpp}` is the Skia-free half — the roles (`pure_mask` /
   `is_writer` / `is_clipping`), the per-frame writer set walked off `draw_order`,
   the player-local coverage box and each target's two writer sets;
@@ -229,15 +231,15 @@ constant across the Phase 0 sweep while nothing was actually playing.
   optimisation — `Invert` and `Increment` do not commute.
   Checked on the host in two places, and the split is the lesson. `ssbake_check`
   builds the plan under ASan every frame and asserts its ranges and that the
-  planes stay disjoint — on `Mask.ssab`, 120 frames with a plan, 840
-  writer-frames, 1560 target-frames. But **the plan was never the fragile half**:
+  planes stay disjoint — on `Mask.ssab`, 120 frames with a plan, 1080
+  writer-frames, 1680 target-frames. But **the plan was never the fragile half**:
   it reported those seven healthy writers while nothing whatsoever was masked,
   because `SkImages::DeferredFromPicture` returns null for a null colour space
   and the draw path then quietly skipped every target. `tools/check-mask.sh`
   (`npm run check-mask`) is the guard that would have caught it: the SkSL
-  compiles, all 24 coverage bits survive the image round-trip on both a managed
-  and an unmanaged destination, and the real `DrawBakedFrame` output must differ
-  with the mask input from without.
+  compiles, all 24 coverage bits survive the image round-trip into an unmanaged,
+  an sRGB and a Display P3 destination, the coverage planes stay apart, and the
+  real `DrawBakedFrame` output must differ with the mask input from without.
   **The two writers this used to be waiting on are in**, so `Mask.ssab` no
   longer has parts that are expected to do nothing and can finally be read as
   pass or fail. Coverage is no longer quad-only: writers carry their own
@@ -247,23 +249,38 @@ constant across the Phase 0 sweep while nothing was actually playing.
   `bakedGeometry` with it — the name was the assumption. `tools/check-mask.sh`
   reports **9 writers where it reported 7**, which is the whole of the change
   measured in one number.
-  **Looked at, and it does not agree across platforms.** Android draws
-  `Mask.ssab` as expected; on the iOS simulator `Normal-Clipping-True`,
-  `mask_Circle_Reversed` and `mask_Circle_1` do not. Whether that predates this
-  work is unknown — the card could not be read as pass or fail until now, so it
-  had never been run. **Not reproducible on the host**, which is the difficulty:
-  sRGB and Display P3 destinations produce byte-identical output there, with and
-  without an `SkPicture` in the middle, so the CPU raster backend does not model
-  whatever iOS's Metal path is doing.
-  What the hunt did establish, and what is fixed: a flat-colour writer stated its
-  bit in sRGB rather than in the coverage's own space, which corrupts *other*
-  writers' bits through `kPlus` — real, now guarded by two new `check-mask`
-  cases. And the coverage image is **always** tagged sRGB, because a recording
-  canvas has no colour space; the "match the destination" rule this repo wrote
-  down has therefore never once operated. That leaves colour conversion at
-  playback as the best-supported explanation for the iOS divergence, and the
-  structural answer to it is to stop storing bits in colour channels at all —
-  three A8 images rather than one RGB, since alpha is not gamut-mapped.
+  **The iOS divergence is found, and it was colour management.** Android drew
+  `Mask.ssab` as expected while the iOS simulator got `Normal-Clipping-True`,
+  `mask_Circle_Reversed` and `mask_Circle_1` wrong, and the cause is that the
+  bits used to ride in the coverage's **RGB** channels. RGB is colour, so Skia
+  converts it: the coverage image is always tagged sRGB (a recording canvas has
+  no colour space to match and `DeferredFromPicture` refuses a null one), RN
+  Skia's Apple surface is `MakeRGB(kSRGB, kDisplayP3)` whenever the screen's
+  gamut is P3 and its Android GL surface is unmanaged. The gamut matrix scales
+  the channels by ~0.82/0.97/0.91 and bleeds each into the others, so bit 2
+  decodes as bits 0+1 — six of `Mask.ssab`'s nine writers decoded as the wrong
+  writer, on iOS only.
+  It was "not reproducible on the host" only because **the check was wiring the
+  two ends together**: `ssmask_check` built the coverage with the *destination's*
+  colour space, so `src == dst`, the transform was skipped, and its Display P3
+  case passed. Fixing the check to model the real pairing — sRGB coverage,
+  varying destination — reproduces it in one run, 14 of 24 bits.
+  The fix is the structural one this entry called for, one step better than the
+  three A8 images it sketched: the bits move into **alpha**, which
+  `SkColorSpaceXformSteps` passes through untouched (measured: all 256 values
+  round-trip through sRGB → P3), and the three 8-bit planes are stacked
+  vertically in the **one** deferred picture image rather than split across three
+  of them — one child shader, one image, and only the planes a frame reaches get
+  built. Two things fall out: the coverage's colour space becomes a formality,
+  and a flat Shape writer no longer has to state one at all. The coverage UV's
+  upper bound became exclusive with it, since `cuv.y == 1.0` now lands in the
+  next plane rather than off the image.
+  **Seen drawing on the iOS simulator**, with the three parts that were wrong
+  now right, and the end-to-end host numbers are unchanged either side of the
+  encoding change (`lit 49152 -> 33701, 15451 px differ`), so the Android
+  emulator's picture is the same one it already was. This card is now the only
+  place in the repo where the two platforms have ever disagreed, which is the
+  argument for reading it on **both** rather than one.
   **What is left:** §2-6's instance composition — a mask reaching an instance
   part applies to the whole sub-animation, and the calling part's settings
   compose with the callee's rather than replacing them, which is a context to

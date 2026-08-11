@@ -19,8 +19,33 @@
 /// Runtime effects are ES2-restricted (`SkRuntimeEffect::Options::allowPrivate…`
 /// lifts it, and Skia's own header warns the software renderer will still fail),
 /// so there are no bitwise operators and no dynamic vector indexing. The
-/// 24-bit sets therefore come apart with `floor`/`mod`, one channel at a time
+/// 24-bit sets therefore come apart with `floor`/`mod`, one plane at a time
 /// with constant swizzles, in a loop with a constant bound.
+///
+/// ### Why the bits live in ALPHA
+///
+/// They used to live in the RGB channels, 8 bits each, and that is a colour, so
+/// Skia colour-manages it. The coverage image is tagged sRGB — it has to be,
+/// because `drawInto` runs on a recording canvas that has no colour space to
+/// match and `DeferredFromPicture` rejects a null one — while RN Skia's Apple
+/// surface is **Display P3** whenever the screen's gamut is. The gamut matrix
+/// then scales each channel by ~0.82/0.97/0.91 and bleeds them into each other,
+/// so a bit pattern arrives as a different bit pattern: on `Mask.ssab` six of
+/// the nine writers decoded as the wrong writer, which is the iOS-only mask
+/// divergence this repo chased for a phase. Android never showed it because its
+/// GL surface is unmanaged, and neither did the host check, which handed the
+/// coverage and the destination the *same* colour space and so made every
+/// conversion the identity by construction.
+///
+/// Alpha is not a colour: `SkColorSpaceXformSteps` transforms RGB and passes
+/// alpha through untouched, so an 8-bit alpha plane survives any destination
+/// exactly (measured: all 256 values round-trip through sRGB -> Display P3).
+/// One plane is 8 writers, so the coverage image carries up to
+/// `kSsMaskPlaneCount` of them **stacked vertically** — plane `p` occupies rows
+/// `[p * height, (p+1) * height)` — and only as many as the frame needs are
+/// built. That keeps it one image, one child shader and one deferred picture,
+/// where the three A8 images this was first sketched as would have been three
+/// of each.
 
 #include <cstdio>
 
@@ -38,23 +63,23 @@ namespace ssplayer {
 
 /// One writer's contribution to the coverage bitmap.
 ///
-/// `uBit.rgb` is the writer's bit already placed in its owning channel, and
-/// `uBit.a` is §2-5's cutout threshold (negative = no cutout). The quad goes in
+/// `uBit.x` is the writer's bit as an 8-bit alpha within its own plane, and
+/// `uBit.y` is §2-5's cutout threshold (negative = no cutout). The quad goes in
 /// with `SkBlendMode::kPlus` so the disjoint per-writer bits OR together
-/// losslessly — which is also why the output alpha must be 1 rather than the
-/// texel's: `kPlus` is premultiplied and would scale the bit away.
+/// losslessly. RGB stays 0, which keeps the returned colour a valid
+/// premultiplied one whatever the bit is.
 inline const char* kSsMaskWriteSkSL = R"SKSL(
 uniform shader atlas;
-uniform float4 uBit;
+uniform float2 uBit;
 
 half4 main(float2 coord) {
     // §2-5: only texels above the threshold contribute. threshold == 0 writes
     // every non-transparent texel; a negative one is the textureless case, where
     // the geometry itself is the mask.
-    if (uBit.a >= 0.0 && float(atlas.eval(coord).a) <= uBit.a) {
+    if (uBit.y >= 0.0 && float(atlas.eval(coord).a) <= uBit.y) {
         return half4(0.0);
     }
-    return half4(half3(uBit.rgb), 1.0);
+    return half4(0.0, 0.0, 0.0, half(uBit.x));
 }
 )SKSL";
 
@@ -67,7 +92,7 @@ inline const char* kSsMaskReplaySkSL = R"SKSL(
 uniform shader inner;
 uniform shader coverage;
 
-uniform float2 uCovSize;       // coverage bitmap size, pixels
+uniform float2 uPlaneSize;     // ONE coverage plane's size, pixels
 uniform float2 uUvOrigin;      // the quad's lt corner UV, texture pixels
 uniform float4 uUvInv;         // 2x2 inverse [m00,m01,m10,m11]: uv-origin -> (s,t)
 uniform float4 uCovA;          // coverage uv at (lt, rt)
@@ -76,11 +101,18 @@ uniform float3 uInc;           // increment-plane writer set, 3 bytes
 uniform float3 uInv;           // invert-plane writer set, 3 bytes
 uniform float  uVisibleInside; // §2-4 polarity: 1 = draw inside the mask
 
-// (any increment bit set, invert bits set) contributed by one coverage channel.
+// Plane `plane`'s byte at the coverage uv `cuv`. The planes are stacked
+// vertically in the one image, so the band offset is a whole plane height.
+float ss_byte(float2 cuv, float plane) {
+    half4 cov = coverage.eval(float2(cuv.x, cuv.y + plane) * uPlaneSize);
+    // Rounded back to a whole byte before anything reads a bit out of it: the
+    // sample arrives as n/255 through a half, and flooring the raw product
+    // would lose the top bit at the boundary.
+    return floor(float(cov.a) * 255.0 + 0.5);
+}
+
+// (any increment bit set, invert bits set) contributed by one coverage plane.
 float2 ss_plane(float byte, float mInc, float mInv) {
-    // Both uniforms, so this branch is coherent across the whole draw: a pack
-    // with 8 writers or fewer never enters the loop for the other two channels.
-    if (mInc == 0.0 && mInv == 0.0) return float2(0.0);
     float anyI = 0.0;
     float par = 0.0;
     float p = 1.0;
@@ -109,15 +141,20 @@ half4 main(float2 coord) {
     bool masked = false;
     // §3-3: outside the box counts as "no writer". Without this, sampling at the
     // edge would let a writer's coverage bleed across the rest of the scene.
-    if (cuv.x >= 0.0 && cuv.x <= 1.0 && cuv.y >= 0.0 && cuv.y <= 1.0) {
-        half4 cov = coverage.eval(cuv * uCovSize);
-        // Rounded back to whole bytes before anything reads a bit out of them:
-        // the sample arrives as n/255 through a half, and flooring the raw
-        // product would lose the top bit at the boundary.
-        float3 bytes = floor(float3(cov.rgb) * 255.0 + 0.5);
-        float2 acc = ss_plane(bytes.r, uInc.x, uInv.x)
-                   + ss_plane(bytes.g, uInc.y, uInv.y)
-                   + ss_plane(bytes.b, uInc.z, uInv.z);
+    //
+    // The upper bound is **exclusive**, and with stacked planes that is
+    // load-bearing rather than pedantic: `cuv.y == 1.0` lands on row 0 of the
+    // *next* plane, so a sample at the box's far edge would decode as some
+    // other writer's bits. Skia's kDecal used to absorb exactly that case, back
+    // when one plane filled the whole image and there was nothing below it.
+    if (cuv.x >= 0.0 && cuv.x < 1.0 && cuv.y >= 0.0 && cuv.y < 1.0) {
+        // Each plane is read only when this target has a writer in it — both
+        // uniforms, so the branch is coherent across the whole draw and a pack
+        // with 8 writers or fewer samples the coverage exactly once.
+        float2 acc = float2(0.0);
+        if (uInc.x != 0.0 || uInv.x != 0.0) acc += ss_plane(ss_byte(cuv, 0.0), uInc.x, uInv.x);
+        if (uInc.y != 0.0 || uInv.y != 0.0) acc += ss_plane(ss_byte(cuv, 1.0), uInc.y, uInv.y);
+        if (uInc.z != 0.0 || uInv.z != 0.0) acc += ss_plane(ss_byte(cuv, 2.0), uInc.z, uInv.z);
         // §3-1-4: the two planes stay apart to the very end — "any" on the
         // counter, odd/even on the invert side — and then union.
         masked = acc.x > 0.5 || mod(acc.y, 2.0) >= 0.5;
@@ -157,14 +194,28 @@ inline SkRuntimeEffect* SsMaskReplayEffect() {
   return effect;
 }
 
-/// The colour writer `bit` writes into the coverage bitmap: its own bit, in its
-/// own channel, as a 0..1 component.
-inline void SsMaskBitColor(int32_t bit, float* rgb) {
-  rgb[0] = rgb[1] = rgb[2] = 0.0f;
-  const int channel = bit / 8;
-  if (channel < 0 || channel > 2) return;
-  rgb[channel] = static_cast<float>(1 << (bit % 8)) / 255.0f;
+/// Which coverage plane `bit` lives in.
+inline int SsMaskBitPlane(int32_t bit) { return static_cast<int>(bit) / 8; }
+
+/// `bit`'s value inside its own plane, as a 0..1 alpha component.
+inline float SsMaskBitAlpha(int32_t bit) {
+  if (bit < 0 || bit >= sscore::kSsMaxMaskWriters) return 0.0f;
+  return static_cast<float>(1 << (bit % 8)) / 255.0f;
 }
+
+/// The coverage bitmap, and how its planes sit inside it.
+///
+/// `width` / `height` are ONE plane's; the image is `planeCount` of them
+/// stacked vertically. The replay is handed the plane size rather than the
+/// image size for that reason — see the shader's `uPlaneSize`.
+struct SsMaskCoverage {
+  sk_sp<SkImage> image;
+  int width = 0;
+  int height = 0;
+  int planeCount = 0;
+
+  bool valid() const { return image != nullptr && width > 0 && height > 0 && planeCount > 0; }
+};
 
 /// The shader that writes `writer`'s bit, sampling `atlas` for the §2-5 cutout.
 inline sk_sp<SkShader> MakeMaskWriteShader(const sscore::SsMaskWriter& writer,
@@ -172,12 +223,9 @@ inline sk_sp<SkShader> MakeMaskWriteShader(const sscore::SsMaskWriter& writer,
   SkRuntimeEffect* effect = SsMaskWriteEffect();
   if (effect == nullptr || atlas == nullptr) return nullptr;
 
-  float rgb[3];
-  SsMaskBitColor(writer.bit, rgb);
-
   SkRuntimeShaderBuilder builder(sk_ref_sp(effect));
   builder.child("atlas") = std::move(atlas);
-  builder.uniform("uBit") = SkV4{rgb[0], rgb[1], rgb[2], writer.threshold};
+  builder.uniform("uBit") = SkV2{SsMaskBitAlpha(writer.bit), writer.threshold};
   return builder.makeShader();
 }
 
@@ -185,11 +233,11 @@ inline sk_sp<SkShader> MakeMaskWriteShader(const sscore::SsMaskWriter& writer,
 ///
 /// `uv` is the quad's four UV corners (8 floats: lt, rt, lb, rb, texture pixels)
 /// and `covUv` its four coverage UVs in the same corner order.
-inline sk_sp<SkShader> MakeMaskReplayShader(sk_sp<SkShader> inner, sk_sp<SkImage> coverage,
+inline sk_sp<SkShader> MakeMaskReplayShader(sk_sp<SkShader> inner, const SsMaskCoverage& coverage,
                                             const sscore::SsMaskBits& bits, const float* uv,
                                             const float* covUv) {
   SkRuntimeEffect* effect = SsMaskReplayEffect();
-  if (effect == nullptr || inner == nullptr || coverage == nullptr || uv == nullptr ||
+  if (effect == nullptr || inner == nullptr || !coverage.valid() || uv == nullptr ||
       covUv == nullptr) {
     return nullptr;
   }
@@ -198,10 +246,11 @@ inline sk_sp<SkShader> MakeMaskReplayShader(sk_sp<SkShader> inner, sk_sp<SkImage
   sscore::SsMakeUvInverse(uv, &inv);
 
   // Nearest is required, not a preference: with linear filtering adjacent bits
-  // blend and decode as writers that never covered the pixel (§3-2 note).
+  // blend and decode as writers that never covered the pixel (§3-2 note) — and
+  // with the planes stacked it would blend across a plane boundary too.
   // kDecal keeps a sample that escapes the bounds check transparent rather than
   // repeating the edge.
-  sk_sp<SkShader> covShader = coverage->makeShader(
+  sk_sp<SkShader> covShader = coverage.image->makeShader(
       SkTileMode::kDecal, SkTileMode::kDecal, SkSamplingOptions(SkFilterMode::kNearest));
   if (covShader == nullptr) return nullptr;
 
@@ -212,8 +261,8 @@ inline sk_sp<SkShader> MakeMaskReplayShader(sk_sp<SkShader> inner, sk_sp<SkImage
   SkRuntimeShaderBuilder builder(sk_ref_sp(effect));
   builder.child("inner") = std::move(inner);
   builder.child("coverage") = std::move(covShader);
-  builder.uniform("uCovSize") =
-      SkV2{static_cast<float>(coverage->width()), static_cast<float>(coverage->height())};
+  builder.uniform("uPlaneSize") =
+      SkV2{static_cast<float>(coverage.width), static_cast<float>(coverage.height)};
   builder.uniform("uUvOrigin") = SkV2{inv.origin[0], inv.origin[1]};
   builder.uniform("uUvInv") = SkV4{inv.m[0], inv.m[1], inv.m[2], inv.m[3]};
   builder.uniform("uCovA") = SkV4{covUv[0], covUv[1], covUv[2], covUv[3]};

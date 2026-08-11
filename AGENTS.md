@@ -17,10 +17,12 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > framebuffer **blend table** (`cpp/SsBlend.hpp`), **PartColor**
 > (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`), **Mesh**,
 > **Effect** (`cpp/SsEffect.hpp`), **Instance** (`cpp/SsInstance.hpp`) and
-> **Shape** — still no Nines, events, part overrides or Reanimated integration. **Mask is the one feature here that has
-> only ever been checked on the host**, and deliberately: `Mask.ssab` carries a
-> Mesh writer and a Shape writer that are both expected not to clip yet, so the
-> card cannot be read as pass or fail until Shape lands.
+> **Shape** — still no Nines, events, part overrides or Reanimated integration.
+> **Mask has now been read on both screens and draws as authored on both**,
+> which is what turned up the one place the two platforms genuinely disagreed:
+> the coverage bits used to ride in RGB, which Skia gamut-maps into iOS's
+> Display P3 surface and not into Android's unmanaged one. They ride in
+> **alpha** now — see the mask traps.
 > Read
 > [`docs/phase0-spike.md`](docs/phase0-spike.md) before designing anything —
 > it overturned one of the design doc's premises, and its own numbers were then
@@ -517,41 +519,59 @@ later `download-sdk` correctly replaces a local build.
   Skia rasterises when the outer picture plays back. That is also why §3-2-3's
   size classes, double buffering and hysteresis have nothing to do here: those
   exist to cover a one-frame delay, and a deferred picture image has none.
-* **The coverage image is ALWAYS tagged sRGB, and the reasoning that used to be
-  written here never actually operated.** This list said to pass "the
-  destination canvas's own colour space", because matching it makes the
-  conversion the identity. But the canvas `drawInto` receives is a **recording**
-  one — Layer 4 records an `SkPicture` per frame — and a recording canvas has no
-  colour space at all: `canvas->imageInfo().colorSpace()` is measurably `NULL`,
-  so the fallback is taken every single time. The destination is not knowable at
-  record time, so the coverage is sRGB and whatever the picture is finally played
-  into decides whether a conversion happens. On an sRGB surface (the Android
-  emulator) that is identity; on a **Display P3** one (iOS) it is not. See the
-  open iOS divergence in ROADMAP.md — unproven as the cause, but this is the
-  mechanism that fits.
-* **A writer that lays its bit down as a flat colour must state it in the
-  coverage's colour space.** `setColor4f(c, nullptr)` means "these components are
-  sRGB", so on a wide-gamut destination Skia converts them — and a converted bit
-  pattern is not a bit pattern. Worse, `kPlus` accumulates every writer into one
-  bitmap, so one mis-stated colour corrupts the decode of *other* writers' bits.
-  `check-mask` now covers this: a **Display P3** destination and a **flat
-  writer** are both new cases, and reverting the fix fails 14 of the 24 bits.
+* **The coverage bits live in ALPHA, because RGB is colour and Skia will
+  colour-manage it.** They used to be three 8-bit RGB channels, the way the
+  Godot and Flutter flagships pack them, and that is what the iOS-only mask
+  divergence turned out to be. The coverage image is **always** tagged sRGB — it
+  has to be: `drawInto` runs on a recording canvas, whose
+  `imageInfo().colorSpace()` is measurably `NULL`, so there is no destination to
+  match, and `DeferredFromPicture` will not take a null. RN Skia's Apple surface
+  is `MakeRGB(kSRGB, kDisplayP3)` whenever the screen's gamut is P3
+  (`apple/MetalWindowContext.mm`); its Android GL surface passes `nullptr` and is
+  unmanaged. So iOS converts sRGB → P3 on every coverage sample and Android
+  converts nothing — the gamut matrix scales the channels by ~0.82/0.97/0.91 and
+  bleeds each into the others, so bit 2 (value 4) decodes as 3, i.e. as bits
+  0+1. On `Mask.ssab` six of the nine writers decoded as the wrong writer.
+  Alpha is not colour: `SkColorSpaceXformSteps` transforms RGB and passes alpha
+  through, so an 8-bit alpha plane survives any destination exactly (measured:
+  all 256 values round-trip through sRGB → P3). One plane is 8 writers, so up to
+  `kSsMaskPlaneCount` of them are **stacked vertically** in the one image and
+  only the ones the frame reaches are built. Two consequences worth keeping:
+  the coverage's colour space is now a formality, and a flat writer needs no
+  colour space stated at all (`setColor4f({0,0,0,bit}, nullptr)` is exact,
+  where the RGB version had to name one and got it wrong first).
+* **A stacked plane makes the coverage UV's upper bound load-bearing.** The
+  replay's box test is `cuv < 1.0`, *exclusive*: `cuv.y == 1.0` lands on row 0
+  of the next plane, so a target sampling at the box's far edge would decode
+  another writer's bits. It used to be `<= 1.0` and `SkTileMode::kDecal` absorbed
+  the case, because there was nothing below plane 0 to hit. Same for
+  `SkFilterMode::kNearest`, which now also stops a sample blending *across* a
+  plane boundary.
 * **`SkImages::DeferredFromPicture` returns null for a null colour space**, and
   its own doc comment says `may be nullptr`. It is wrong. This shipped once: the
   coverage image came back null, `masking` stayed false, and every target drew
   unmasked — no throw, no log, and the plan still reported seven healthy writers.
-  Nothing about the symptom points at colour management.
+  Nothing about the symptom points at colour management. `reinterpretColorSpace(nullptr)`
+  is not the way round it either — that returns null too, so an *unmanaged*
+  deferred coverage image is simply not available and alpha is the answer.
 * **The coverage bitmap is bits, not pixels, and three things corrupt it.**
   Antialiasing (partial edge alpha scales the bit under premultiplied `kPlus`),
-  linear sampling (adjacent bits blend), and a colour-space *conversion* (a
-  transfer function changes the numbers). So: `setAntiAlias(false)`,
-  `SkFilterMode::kNearest`, and the **destination canvas's own** colour space on
-  the image — matching it is what makes the conversion the identity, and the
-  null that would sidestep the question outright is not available (above). An
-  unmanaged canvas falls back to sRGB, which is a no-op because Skia does not
-  convert into an unmanaged destination. All three fail *plausibly* — parts mask
-  against writers that never covered them — so `tools/check-mask.sh` round-trips
-  all 24 bits through the real shaders rather than trusting the reasoning.
+  linear sampling (adjacent bits blend, and now across plane boundaries too),
+  and colour management (see above). So: `setAntiAlias(false)`,
+  `SkFilterMode::kNearest`, and the bits in alpha. All three fail *plausibly* —
+  parts mask against writers that never covered them — so
+  `tools/check-mask.sh` round-trips all 24 bits through the real shaders rather
+  than trusting the reasoning.
+* **A check that hands the source and the destination the same colour space
+  proves nothing, and this one did for a whole phase.** `ssmask_check` built the
+  coverage with the *destination's* colour space, so `SkColorSpaceXformSteps`
+  saw `src == dst`, skipped the transform, and its "Display P3 destination" case
+  passed while the real thing was broken on every iOS screen. Production pairs a
+  **sRGB coverage** with whatever destination it is played into; the check now
+  fixes the coverage at sRGB and varies only the destination, and reverting the
+  alpha encoding fails 14 of the 24 bits. The general form: when a check
+  parameterises both ends of a conversion, make sure it is not quietly
+  parameterising them together.
 * **SkSL runtime effects are ES2**, so the replay has no bitwise operators and no
   dynamic vector indexing. The 24-bit writer sets come apart with `floor`/`mod`
   over constant swizzles instead. `SkRuntimeEffect::Options` can lift the
@@ -772,10 +792,10 @@ build=release` when working on it).
 | Instances (seen on both) | On the **Player** screen switch *Subject* to **Instance** (`overall`) — 20 mounts of an external pack, and the subject that says whether the sibling walk ran at all: those parts have no geometry of their own, so an empty canvas means the walk found nothing rather than that the draw is wrong. Then **RingoInstances** (`Ringo_tyu`), which mounts `Ringo`'s own `kaiten` nine times — a whole rig, mesh deforms and all, drawn through the instance path. On the host, `ssbake_check` must report non-zero **mounts**: `overall/Instance.ssab anime_1` gives 20 parts / peak 20, `Ringo/Ringo_tyu.ssab anime_1` gives 9 / peak 7. Mounts but no picture is the child tree, which `ssbake_check` cannot reach — it drives the C-API directly and only ever bakes one player. `RingoInstances` is also the only check on the texture half: it holds no cellmaps of its own, so untextured white there means `getTextures()` stopped at the root instead of recursing into the mounted pack. |
 | Mesh deformation | On the **Player** screen switch *Subject* to **Mesh**. The parts must be *deformed* and sit where the rest of the animation does. A mesh drawn far off-centre, or scaled oddly, is the world matrix having been applied to vertices that were already world-space. On the host, `ssbake_check` on `Mesh.ssab` must report a **non-zero** peak vertex count (it was 0 for the whole of the time Mesh went unbaked) — currently 32, and Ringo's went 68 → 653 when Mesh landed. |
 | Shape | On the **Player** screen switch *Subject* to **Shape** — two polygons, and the only kind here that samples nothing. Textured polygons mean it reached `PaintFor`; flat white ones mean the PartColor bilinear never reached the vertex colours. On the host, `ssbake_check` must report a non-zero **shape** line: `overall/Shape.ssab anime_1` gives 2 parts / peak 12 vertices. |
-| Mask and clipping | On the **Player** screen switch *Subject* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. `Mesh-WriteMask-True` and `Shape-Mask-True` **now clip too** — they were the two known-missing pieces that made this row unreadable, and with them in the card is complete. It has still never actually been run on a screen; it is worth doing now that it would mean something. |
+| Mask and clipping | On the **Player** screen switch *Subject* to **Mask**. Both directions have to be visible at once: `Mask-Hole` cuts holes in the parts *under* it, `Normal-Clipping-True` confines the parts *over* it. Everything drawing unclipped means the coverage never reached the replay (check the bitmap is not antialiased and the sampler is nearest); everything vanishing means the polarity is inverted — `masked == visible_inside` is the test, and getting it backwards is the one failure that still looks deliberate. `Mesh-WriteMask-True` and `Shape-Mask-True` **now clip too** — they were the two known-missing pieces that made this row unreadable, and with them in the card is complete. **Read it on both platforms, not one**: the only defect this card has ever caught was iOS-only (the coverage bits in RGB, gamut-mapped into a Display P3 surface), and it presented as three unrelated parts — `Normal-Clipping-True`, `mask_Circle_Reversed`, `mask_Circle_1` — masking wrongly while everything else looked right. |
 | Effect (particles) | On the **Player** screen switch *Subject* to **Effect** — the `overall` feature card, 13 effect parts each authoring the `EventEffect` keys differently, so what fails names itself. Then switch to **ParticleEffect** and walk the *Pack file* dropdown: `e002` (fireworks) and `e019` (holy) are the two heaviest. Particles piled on the origin mean the effect part's world matrix was not applied; particles textured with the whole atlas mean the normalised UVs were not scaled by `size_original`; additive effects rendering dark mean the command's `blend` byte was passed through as a `BlendType`. An effect that freezes while off screen is the `draw_order` trap. |
-| Mask plan **and effect geometry**, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 840 writer-frames, 1680 target-frames. The `effect:` line has the same contract, and its own tell is **`parts > 0` with `peak 0` quads** — enumerated and then never emitting. `overall/Effect.ssab anime_1 120` currently reports 13 parts / 120 frames with geometry / peak 155 quads; `ParticleEffect/e001.ssab emission 120` reports 7 parts / 114 frames / peak 85. |
-| Mask **drawing**, on the host | `npm run check-mask` (macOS). The plan was never the fragile half — everything that broke was Skia-side and broke silently. Checks the SkSL compiles (ES2), that all 24 coverage bits survive the image round-trip on both a managed and an unmanaged destination, and that the real `DrawBakedFrame` output actually differs with the mask input from without. |
+| Mask plan **and effect geometry**, on the host | `tools/.build/ssbake_check example/assets/ss/overall/Mask.ssab anime_1 120` — the plan is built under ASan and its ranges asserted. Read the `mask:` line: **zeroes mean the path never ran**, which is the same trap as `verts` holding constant across the Phase 0 sweep. It currently reports 120 frames with a plan, 1080 writer-frames, 1680 target-frames. The `effect:` line has the same contract, and its own tell is **`parts > 0` with `peak 0` quads** — enumerated and then never emitting. `overall/Effect.ssab anime_1 120` currently reports 13 parts / 120 frames with geometry / peak 155 quads; `ParticleEffect/e001.ssab emission 120` reports 7 parts / 114 frames / peak 85. |
+| Mask **drawing**, on the host | `npm run check-mask` (macOS). The plan was never the fragile half — everything that broke was Skia-side and broke silently. Checks the SkSL compiles (ES2), that all 24 coverage bits survive the image round-trip into an unmanaged, an sRGB **and a Display P3** destination (the last is iOS, and is what the RGB encoding failed), that the three coverage planes stay apart, and that the real `DrawBakedFrame` output actually differs with the mask input from without. |
 | Blend modes reach the framebuffer | On the **Player** screen switch *Subject* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. Those packs have no embedded atlas, so if the sibling image were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. Worth doing on **Ringo** as well as `overall`: the toggle now switches conversions of whichever pack is selected, and `deploy-examples` produces both for each. |
 | No leaked native handles | On the **Player** screen press **Leak check**: 8 load/dispose cycles, and both counts in the readout above it must come back to where they started. Toggling *Animation* or *Textures* is the same check by hand — the counts must dip and return, not climb. Exact because `dispose()` releases eagerly; a count that stays high is a leak, not a pending GC. **`1→1` is also what a frozen counter prints**, so if you are changing this path, first confirm the counts *move*: hold N undisposed players, watch them reach `1+N`, then dispose and watch them return in the same tick. |
