@@ -121,19 +121,23 @@ const sscore::SsBatchDesc* BatchOfPart(const sscore::SsBaker& baker, int32_t par
 /// canvas is set up so its coordinate space *is* player-local, which is what
 /// makes the local → UV map resolution-independent and independent of the root
 /// transform (§3-2-2).
-sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBaker& baker,
-                             const SsPaintBinding* textures, size_t textureCount,
-                             sk_sp<SkColorSpace> dstColorSpace) {
+///
+/// Writers past the first eight go into further **planes**, stacked vertically
+/// in the same image and each carrying its byte in alpha — see
+/// `SsMaskShader.hpp` for why the bits are not in RGB. Only the planes the
+/// frame actually reaches are built, so the usual pack pays for exactly one.
+SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBaker& baker,
+                             const SsPaintBinding* textures, size_t textureCount) {
+  SsMaskCoverage out;
   const float w = plan.width();
   const float h = plan.height();
-  if (!(w > 0.0f) || !(h > 0.0f)) return nullptr;
+  if (!(w > 0.0f) || !(h > 0.0f)) return out;
 
-  // Settled before anything is drawn, because the writers' colours have to be
-  // stated *in it*. `DeferredFromPicture` rejects a null colour space outright,
-  // so an unmanaged destination becomes sRGB here — which is a no-op, since
-  // Skia does not convert into an unmanaged destination.
-  sk_sp<SkColorSpace> coverageCs =
-      dstColorSpace != nullptr ? std::move(dstColorSpace) : SkColorSpace::MakeSRGB();
+  int planeCount = 1;
+  for (const sscore::SsMaskWriter& writer : plan.writers()) {
+    planeCount = std::max(planeCount, SsMaskBitPlane(writer.bit) + 1);
+  }
+  planeCount = std::min(planeCount, sscore::kSsMaskPlaneCount);
 
   const float longEdge = w > h ? w : h;
   const float scale = longEdge > kMaxCoverageEdge ? kMaxCoverageEdge / longEdge : 1.0f;
@@ -141,10 +145,8 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   const int ph = std::max(1, static_cast<int>(std::ceil(h * scale)));
 
   SkPictureRecorder recorder;
-  SkCanvas* canvas = recorder.beginRecording(SkRect::MakeIWH(pw, ph));
-  if (canvas == nullptr) return nullptr;
-  canvas->scale(static_cast<float>(pw) / w, static_cast<float>(ph) / h);
-  canvas->translate(-plan.left(), -plan.top());
+  SkCanvas* canvas = recorder.beginRecording(SkRect::MakeIWH(pw, ph * planeCount));
+  if (canvas == nullptr) return out;
 
   const auto* positions = reinterpret_cast<const SkPoint*>(baker.positions().data());
   const auto* texCoords = reinterpret_cast<const SkPoint*>(baker.texCoords().data());
@@ -197,18 +199,11 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
 
     SkPaint cover;
     if (untextured) {
-      // The bit as a flat colour, opaque. Same encoding the shader would have
-      // returned where a texel passed — `kPlus` then ORs it in exactly as it
-      // does for every other writer.
-      float rgb[3];
-      SsMaskBitColor(writer.bit, rgb);
-      // **In the coverage's own colour space, not sRGB.** A null here means
-      // "these components are sRGB", so on a wide-gamut destination Skia
-      // converts them — and a converted bit pattern is not a bit pattern. It
-      // bleeds across channels under `kPlus` and corrupts the *other* writers'
-      // bits too, which is why the symptom is a handful of unrelated parts
-      // masking wrongly on one platform and not the other.
-      cover.setColor4f({rgb[0], rgb[1], rgb[2], 1.0f}, coverageCs.get());
+      // The bit as a flat colour, black with the bit in alpha. Same encoding the
+      // shader would have returned where a texel passed — `kPlus` then ORs it in
+      // exactly as it does for every other writer. No colour space has to be
+      // stated: RGB is 0 in every space, and alpha is not colour-managed at all.
+      cover.setColor4f({0.0f, 0.0f, 0.0f, SsMaskBitAlpha(writer.bit)}, nullptr);
     } else {
       cover.setShader(std::move(bitShader));
     }
@@ -217,7 +212,14 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
     // scales the bit, and the replay would read a writer that never covered the
     // pixel. The sampler is nearest for the matching reason.
     cover.setAntiAlias(false);
+    // The plane's band first, then the player-local frame inside it, so the
+    // vertices below go in unchanged whichever plane they land in.
+    canvas->save();
+    canvas->translate(0.0f, static_cast<float>(SsMaskBitPlane(writer.bit) * ph));
+    canvas->scale(static_cast<float>(pw) / w, static_cast<float>(ph) / h);
+    canvas->translate(-plan.left(), -plan.top());
     canvas->drawVertices(vertices, kVertexColorBlend, cover);
+    canvas->restore();
   }
 
   // A deferred picture image rather than a render target, because `drawInto`
@@ -227,16 +229,18 @@ sk_sp<SkImage> BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   // which is also why §3-2-3's size classes and its one-frame-delay
   // countermeasures have nothing to do here: there is no delay to cover for.
   //
-  // The colour space is the **destination's**, and both halves of that matter.
-  // It cannot be null — `DeferredFromPicture` returns null outright for a null
-  // colour space, whatever its doc comment says, and the whole mask then
-  // silently does nothing. And it must not be an arbitrary one either: these are
-  // bit patterns, not colour, so any transfer function between here and the
-  // sampler would decode as writers that never covered the pixel. Matching the
-  // destination is what makes the conversion the identity by construction.
-  return SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
-                                       SkISize::Make(pw, ph), nullptr, nullptr,
-                                       SkImages::BitDepth::kU8, std::move(coverageCs));
+  // sRGB, and it no longer matters which: the bits ride in alpha, which Skia
+  // passes through untouched whatever the destination turns out to be. What
+  // does still matter is that it is **not null** — `DeferredFromPicture`
+  // returns null outright for a null colour space, whatever its doc comment
+  // says, and the whole mask then silently does nothing.
+  out.image = SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                            SkISize::Make(pw, ph * planeCount), nullptr, nullptr,
+                                            SkImages::BitDepth::kU8, SkColorSpace::MakeSRGB());
+  out.width = pw;
+  out.height = ph;
+  out.planeCount = planeCount;
+  return out;
 }
 
 }  // namespace
@@ -256,12 +260,11 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   // Built up front, not lazily at the first masked part: a pure mask reaches the
   // parts drawn *before* it, so the very first target can already need the
   // coverage of a writer that has not been walked yet.
-  sk_sp<SkImage> coverage;
+  SsMaskCoverage coverage;
   if (mask.active() && !mask.plan->empty()) {
-    coverage = BuildCoverage(*mask.plan, baker, textures, textureCount,
-                             canvas->imageInfo().refColorSpace());
+    coverage = BuildCoverage(*mask.plan, baker, textures, textureCount);
   }
-  const bool masking = coverage != nullptr;
+  const bool masking = coverage.valid();
 
   /// This part's mask test, or false when it draws unmasked.
   ///

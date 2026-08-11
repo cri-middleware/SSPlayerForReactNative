@@ -24,6 +24,7 @@
 // macOS only: it links the `libskia.a` that RN Skia ships for the host, which
 // has no Linux slice. Build and run: tools/check-mask.sh
 
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -118,14 +119,17 @@ sk_sp<SkShader> WhiteAtlas() {
                                   SkSamplingOptions(SkFilterMode::kNearest));
 }
 
-/// One quad as `SkVertices`, positions and texcoords equal, so the replay's
-/// `(s,t)` reconstruction is the identity on the unit box and the coverage UV
-/// bilinear is exercised without a cell's UV layout in the way.
-sk_sp<SkVertices> UnitQuad(float w, float h) {
-  const SkPoint pos[4] = {{0, 0}, {w, 0}, {0, h}, {w, h}};
+/// The `[x0, x1) x [0, h)` slice of a box as `SkVertices`, positions and
+/// texcoords equal, so the replay's `(s,t)` reconstruction is the identity on
+/// the unit box and the coverage UV bilinear is exercised without a cell's UV
+/// layout in the way.
+sk_sp<SkVertices> SliceQuad(float x0, float x1, float h) {
+  const SkPoint pos[4] = {{x0, 0}, {x1, 0}, {x0, h}, {x1, h}};
   const uint16_t idx[6] = {0, 1, 2, 1, 3, 2};
   return SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode, 4, pos, pos, nullptr, 6, idx);
 }
+
+sk_sp<SkVertices> UnitQuad(float w, float h) { return SliceQuad(0.0f, w, h); }
 
 // --- 1. the shaders compile ------------------------------------------------
 
@@ -148,55 +152,115 @@ void CheckShadersCompile() {
 
 // --- 2. the coverage encoding round-trips ----------------------------------
 
-/// Builds a coverage bitmap in which `bit` covers the LEFT half of a `w x h`
-/// box, exactly the way `SsSkiaDraw::BuildCoverage` does.
-sk_sp<SkImage> CoverageWithBit(int bit, int w, int h, sk_sp<SkColorSpace> cs, bool flat) {
-  sscore::SsMaskWriter writer;
-  writer.bit = bit;
-  writer.threshold = 0.0f;
+constexpr int kW = 64;
+constexpr int kH = 16;
 
-  // Settled first, because a flat writer states its colour *in* it — see below.
-  sk_sp<SkColorSpace> coverageCs = cs != nullptr ? cs : SkColorSpace::MakeSRGB();
+/// One writer for `BuildCoverage`: its bit, the horizontal slice of the box it
+/// covers (as a fraction of the width), and whether it goes down flat.
+struct CoverSpec {
+  int bit;
+  float x0;
+  float x1;
+  bool flat;
+};
+
+/// Builds a coverage image exactly the way `SsSkiaDraw::BuildCoverage` does: the
+/// bit in **alpha**, one 8-bit plane per 8 writers, planes stacked vertically in
+/// one deferred picture image.
+///
+/// **The colour space is not a parameter, and that is the point.** `drawInto`
+/// runs on a *recording* canvas, which has no colour space at all, so
+/// `BuildCoverage`'s "match the destination" fallback is taken every single
+/// time and the coverage is **always** sRGB. Handing this the destination's
+/// space — which is what this program used to do — wires src and dst together,
+/// makes every conversion the identity by construction, and tests nothing. It
+/// is why an RGB encoding that six of `Mask.ssab`'s nine writers did not
+/// survive on a Display P3 destination passed here for a whole phase.
+ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int w, int h) {
+  ssplayer::SsMaskCoverage out;
+
+  int planeCount = 1;
+  for (const CoverSpec& spec : specs) {
+    planeCount = std::max(planeCount, ssplayer::SsMaskBitPlane(spec.bit) + 1);
+  }
 
   SkPictureRecorder recorder;
-  SkCanvas* canvas = recorder.beginRecording(SkRect::MakeIWH(w, h));
+  SkCanvas* canvas = recorder.beginRecording(SkRect::MakeIWH(w, h * planeCount));
 
-  SkPaint cover;
-  if (flat) {
-    // The Shape-writer path: no atlas to threshold, so the bit goes down as a
-    // flat colour. It has to be stated in the coverage's colour space — a null
-    // there means sRGB, and on a wide-gamut destination Skia would convert it,
-    // which turns a bit pattern into something that is not one.
-    float rgb[3];
-    ssplayer::SsMaskBitColor(bit, rgb);
-    cover.setColor4f({rgb[0], rgb[1], rgb[2], 1.0f}, coverageCs.get());
-  } else {
-    cover.setShader(ssplayer::MakeMaskWriteShader(writer, WhiteAtlas()));
+  for (const CoverSpec& spec : specs) {
+    sscore::SsMaskWriter writer;
+    writer.bit = spec.bit;
+    writer.threshold = 0.0f;
+
+    SkPaint cover;
+    if (spec.flat) {
+      // The Shape-writer path: no atlas to threshold, so the bit goes down as a
+      // flat colour — black, with the bit in alpha. Stating no colour space is
+      // correct here and was not when the bit lived in RGB: alpha is not
+      // colour-managed, so there is nothing for a destination to convert.
+      cover.setColor4f({0.0f, 0.0f, 0.0f, ssplayer::SsMaskBitAlpha(spec.bit)}, nullptr);
+    } else {
+      cover.setShader(ssplayer::MakeMaskWriteShader(writer, WhiteAtlas()));
+    }
+    cover.setBlendMode(SkBlendMode::kPlus);
+    cover.setAntiAlias(false);
+    canvas->save();
+    canvas->translate(0.0f, static_cast<float>(ssplayer::SsMaskBitPlane(spec.bit) * h));
+    canvas->drawVertices(SliceQuad(spec.x0 * w, spec.x1 * w, static_cast<float>(h)),
+                         SkBlendMode::kModulate, cover);
+    canvas->restore();
   }
-  cover.setBlendMode(SkBlendMode::kPlus);
-  cover.setAntiAlias(false);
-  canvas->drawVertices(UnitQuad(static_cast<float>(w) / 2.0f, static_cast<float>(h)),
-                       SkBlendMode::kModulate, cover);
 
-  // The same fallback `BuildCoverage` applies: an unmanaged destination still
-  // needs a non-null colour space here, because a null one makes
-  // `DeferredFromPicture` return null outright.
-  return SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
-                                       SkISize::Make(w, h), nullptr, nullptr,
-                                       SkImages::BitDepth::kU8, std::move(coverageCs));
+  // Non-null, because a null colour space makes `DeferredFromPicture` return
+  // null outright — whatever its doc comment says — and the whole mask then
+  // silently does nothing.
+  out.image = SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                            SkISize::Make(w, h * planeCount), nullptr, nullptr,
+                                            SkImages::BitDepth::kU8, SkColorSpace::MakeSRGB());
+  out.width = w;
+  out.height = h;
+  out.planeCount = planeCount;
+  return out;
 }
 
-/// Runs the replay over a full-box quad and reports whether each half survived.
+/// Replays `bits` over the whole box and reports the alpha a few px inside each
+/// half. `visibleInside` is true throughout, so a pixel a writer in the set
+/// covered must be KEPT and one it did not must be dropped.
 ///
-/// `visibleInside` is true, so a pixel the writer covered must be KEPT and one it
-/// did not must be dropped — the left half opaque, the right half transparent.
-void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> cs, bool flat = false) {
-  constexpr int kW = 64;
-  constexpr int kH = 16;
+/// `dstCs` is the **destination's** colour space; the coverage's is fixed at
+/// sRGB, because that is the pairing production actually has. Anything Skia
+/// does between the two lands on the bits.
+bool ReplayHalves(const ssplayer::SsMaskCoverage& coverage, const sscore::SsMaskBits& bits,
+                  sk_sp<SkColorSpace> dstCs, int* leftA, int* rightA) {
+  const float uv[8] = {0, 0, kW, 0, 0, kH, kW, kH};
+  const float covUv[8] = {0, 0, 1, 0, 0, 1, 1, 1};
+  sk_sp<SkShader> replay = ssplayer::MakeMaskReplayShader(WhiteAtlas(), coverage, bits, uv, covUv);
+  if (replay == nullptr) return false;
 
+  sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kW, kH, dstCs));
+  SkCanvas* canvas = surface->getCanvas();
+  canvas->clear(SK_ColorTRANSPARENT);
+  SkPaint paint;
+  paint.setShader(std::move(replay));
+  paint.setAntiAlias(false);
+  canvas->drawVertices(UnitQuad(kW, kH), SkBlendMode::kModulate, paint);
+
+  SkBitmap out;
+  out.allocN32Pixels(kW, kH);
+  surface->readPixels(out, 0, 0);
+  // Sampled a few px inside each half so a rounding disagreement at the seam is
+  // not read as a decode failure.
+  *leftA = SkColorGetA(out.getColor(4, kH / 2));
+  *rightA = SkColorGetA(out.getColor(kW - 5, kH / 2));
+  return true;
+}
+
+/// Every bit, one at a time, covering the left half of the box.
+void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> dstCs, bool flat = false) {
   for (int bit = 0; bit < sscore::kSsMaxMaskWriters; ++bit) {
-    sk_sp<SkImage> coverage = CoverageWithBit(bit, kW, kH, cs, flat);
-    if (coverage == nullptr) {
+    const ssplayer::SsMaskCoverage coverage =
+        BuildCoverage({{bit, 0.0f, 0.5f, flat}}, kW, kH);
+    if (!coverage.valid()) {
       // Exactly the regression that shipped: a null image disables masking with
       // no other symptom.
       Fail("%s bit %d: coverage image is null (DeferredFromPicture rejects a null "
@@ -209,41 +273,73 @@ void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> cs, bool flat = fa
     bits.increment = 1u << bit;
     bits.visibleInside = true;
 
-    const float uv[8] = {0, 0, kW, 0, 0, kH, kW, kH};
-    const float covUv[8] = {0, 0, 1, 0, 0, 1, 1, 1};
-    sk_sp<SkShader> replay =
-        ssplayer::MakeMaskReplayShader(WhiteAtlas(), coverage, bits, uv, covUv);
-    if (replay == nullptr) {
+    int left = 0;
+    int right = 0;
+    if (!ReplayHalves(coverage, bits, dstCs, &left, &right)) {
       Fail("%s bit %d: replay shader would not build", label, bit);
       return;
     }
-
-    sk_sp<SkSurface> surface =
-        SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kW, kH, cs));
-    SkCanvas* canvas = surface->getCanvas();
-    canvas->clear(SK_ColorTRANSPARENT);
-    SkPaint paint;
-    paint.setShader(std::move(replay));
-    paint.setAntiAlias(false);
-    canvas->drawVertices(UnitQuad(kW, kH), SkBlendMode::kModulate, paint);
-
-    SkBitmap out;
-    out.allocN32Pixels(kW, kH);
-    surface->readPixels(out, 0, 0);
-
-    // Sampled a few px inside each half so a rounding disagreement at the seam
-    // is not read as a decode failure.
-    const SkColor inside = out.getColor(4, kH / 2);
-    const SkColor outside = out.getColor(kW - 5, kH / 2);
-    if (SkColorGetA(inside) == 0) {
+    if (left == 0) {
       Fail("%s bit %d: covered half was dropped — the bit did not survive the "
-           "image round-trip (a colour-space transform is decoding it away)",
-           label, bit);
+           "image round-trip (a colour-space transform is decoding it away, or "
+           "plane %d is being read at the wrong band)",
+           label, bit, ssplayer::SsMaskBitPlane(bit));
     }
-    if (SkColorGetA(outside) != 0) {
+    if (right != 0) {
       Fail("%s bit %d: uncovered half survived — a bit is being read that no "
            "writer set",
            label, bit);
+    }
+  }
+}
+
+/// Three writers, one per plane, covering different halves — so a plane read at
+/// the wrong band offset, or one plane's bits leaking into another's decode,
+/// shows up as the wrong half surviving.
+///
+/// This is the case `Mask.ssab` itself reaches: nine writers is two planes, and
+/// nothing below eight writers ever leaves plane 0.
+void CheckPlaneIsolation(const char* label, sk_sp<SkColorSpace> dstCs) {
+  const ssplayer::SsMaskCoverage coverage = BuildCoverage(
+      {{1, 0.0f, 0.5f, false}, {9, 0.5f, 1.0f, false}, {17, 0.0f, 1.0f, true}}, kW, kH);
+  if (!coverage.valid()) {
+    Fail("%s: coverage image is null", label);
+    return;
+  }
+  if (coverage.planeCount != 3) {
+    Fail("%s: %d planes built for bits spanning three of them", label, coverage.planeCount);
+    return;
+  }
+
+  const struct {
+    const char* what;
+    uint32_t set;
+    bool wantLeft;
+    bool wantRight;
+  } kCases[] = {
+      {"plane 0 (bit 1), left half", 1u << 1, true, false},
+      {"plane 1 (bit 9), right half", 1u << 9, false, true},
+      {"plane 2 (bit 17), whole box", 1u << 17, true, true},
+      {"planes 0+1, both halves", (1u << 1) | (1u << 9), true, true},
+  };
+  for (const auto& c : kCases) {
+    sscore::SsMaskBits bits;
+    bits.increment = c.set;
+    bits.visibleInside = true;
+
+    int left = 0;
+    int right = 0;
+    if (!ReplayHalves(coverage, bits, dstCs, &left, &right)) {
+      Fail("%s / %s: replay shader would not build", label, c.what);
+      return;
+    }
+    if ((left != 0) != c.wantLeft) {
+      Fail("%s / %s: left half %s — a plane is being read at the wrong band", label, c.what,
+           c.wantLeft ? "was dropped" : "survived");
+    }
+    if ((right != 0) != c.wantRight) {
+      Fail("%s / %s: right half %s — a plane is being read at the wrong band", label, c.what,
+           c.wantRight ? "was dropped" : "survived");
     }
   }
 }
@@ -373,8 +469,11 @@ int main(int argc, char** argv) {
   CheckShadersCompile();
 
   std::printf("==> the coverage encoding round-trips, all %d bits\n", sscore::kSsMaxMaskWriters);
-  // Both destinations, because the coverage takes its colour space from the
-  // canvas: an unmanaged one falls back to sRGB, a managed one must match.
+  // The coverage is sRGB in every one of these, because it is sRGB in
+  // production; what varies is the destination it is sampled into. RN Skia's
+  // Android surface is unmanaged and its Apple one is Display P3 whenever the
+  // screen's gamut is, so these are not hypothetical destinations — they are
+  // the two this package actually ships onto.
   CheckBitRoundTrip("unmanaged dst", nullptr);
   CheckBitRoundTrip("sRGB dst", SkColorSpace::MakeSRGB());
   // **Wide gamut, and it is not hypothetical**: an iOS surface is routinely
@@ -388,6 +487,11 @@ int main(int argc, char** argv) {
   CheckBitRoundTrip("unmanaged dst, flat writer", nullptr, true);
   CheckBitRoundTrip("sRGB dst, flat writer", SkColorSpace::MakeSRGB(), true);
   CheckBitRoundTrip("Display P3 dst, flat writer", p3, true);
+
+  std::printf("==> the coverage planes stay apart\n");
+  CheckPlaneIsolation("unmanaged dst", nullptr);
+  CheckPlaneIsolation("sRGB dst", SkColorSpace::MakeSRGB());
+  CheckPlaneIsolation("Display P3 dst", p3);
 
   std::printf("==> the whole draw path still masks\n");
   CheckEndToEnd(ssab, animation, frame);

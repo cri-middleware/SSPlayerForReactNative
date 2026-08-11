@@ -30,10 +30,18 @@ namespace sscore {
 
 class SsBaker;
 
-/// §3-2: one bit per writer, and the bits live in the coverage bitmap's RGB
-/// channels only (8 x 3) — alpha is the premultiplied-blend accumulator, as in
-/// the Godot flagship. Writers past the cap are dropped.
+/// §3-2: one bit per writer, in three 8-bit planes of the coverage bitmap.
+/// Writers past the cap are dropped.
+///
+/// The flagships pack the three planes into RGB and leave alpha to the
+/// premultiplied blend; this port puts each in the **alpha** of its own plane
+/// instead, because RGB is colour and Skia gamut-maps it into a Display P3
+/// destination — `SsMaskShader.hpp` has the whole story.
 constexpr int kSsMaxMaskWriters = 24;
+
+/// The number of 8-bit planes `kSsMaxMaskWriters` needs. Also the width of the
+/// per-plane split `SsMaskBits` does, which is why both are byte-shaped.
+constexpr int kSsMaskPlaneCount = (kSsMaxMaskWriters + 7) / 8;
 
 /// `SsMaskWriter::threshold` for a writer with no texel to cut out (§2-5's shape
 /// special case). Below every possible alpha, so nothing is thresholded away.
