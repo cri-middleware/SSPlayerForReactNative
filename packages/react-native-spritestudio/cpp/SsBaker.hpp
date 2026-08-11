@@ -21,6 +21,7 @@
 #include "SsBatchDesc.hpp"
 #include "SsEffect.hpp"
 #include "SsPartColor.hpp"
+#include "SsPartShader.hpp"
 #include "format/effect_draw_plan.h"
 #include "format/framedata.h"
 
@@ -76,8 +77,22 @@ struct SsPartDraw {
   /// shader: a PartColor that actually tints RGB. Alpha alone never sets this —
   /// a vertex colour carries that exactly (§1-2-4).
   bool needsPartColorShader = false;
-  /// Only meaningful when `needsPartColorShader`.
+  /// Meaningful when `needsPartColorShader` **or** `needsShader`: twelve of the
+  /// thirteen built-ins fold the PartColor composite as their own output tail,
+  /// so the `SHDR` path needs the corners too. Default-constructed it is a
+  /// passthrough (every rate 0), which is what a part with no PartColor wants.
   SsPartColor partColor;
+
+  /// True when this part carries an `SHDR` attribute naming a built-in this
+  /// port implements. Like a tint it forces the part out of its batch, and for
+  /// the same reason: the effect's parameters speak for one part.
+  ///
+  /// Independent of `needsPartColorShader`, and the two are **not** additive —
+  /// when both are set the `SHDR` shader is the one that runs, because it
+  /// already applies the PartColor tail. Running both would tint twice.
+  bool needsShader = false;
+  /// Only meaningful when `needsShader`.
+  SsPartShader partShader;
 };
 
 /// Where one instance part mounts its child, recorded during the bake.

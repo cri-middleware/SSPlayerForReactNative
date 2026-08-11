@@ -170,6 +170,12 @@ const SUBJECTS = {
   // means the PartColor bilinear over the Brain's box coords is not reaching
   // them. Measured x ∈ [-248, 132], y ∈ [-144, 144]; the authored 480 frames it.
   Shape: { pack: 'overall', files: { Shape: CENTRED } },
+  // The `SHDR` attribute: SpriteStudio's built-in integration shaders (`ss-*`),
+  // one part per effect. A part whose effect has no SkSL body yet degrades to
+  // the plain textured draw rather than vanishing, so **this card reads as
+  // "which ones are done", not as pass/fail** — an un-effected sprite is the
+  // expected look for an unported one. Only `ss-sepia` is ported today.
+  Shader: { pack: 'overall', files: { Shader: CENTRED } },
   // Measured y ∈ [-184, 237], so the authored 480 canvas frames it.
   Effect: { pack: 'overall', files: { Effect: CENTRED } },
   // 20 instance parts, every one of them mounting the **external** pack

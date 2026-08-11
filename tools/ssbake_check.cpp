@@ -156,6 +156,24 @@ struct ShapeTotals {
   size_t peakVertices = 0;
 };
 
+/// Whether the `SHDR` attribute reaches the baker at all, and which built-ins
+/// the pack names. Same "zeroes mean the path never ran" contract as the mask
+/// and effect lines: `parts 0` on a pack that authors shaders says the
+/// attribute never arrived, which is a different bug from one that arrived and
+/// drew nothing.
+struct ShaderTotals {
+  size_t parts = 0;
+  size_t framesWithShader = 0;
+  size_t recognised = 0;
+  size_t byId[sscore::kSsShaderCount] = {};
+  // An effect that runs with every parameter at 0 is a passthrough for most of
+  // the thirteen (sepia's `mix(Pixel, toned, abs(param0))` is the clearest), so
+  // "the attribute arrived" is not the same claim as "it will do anything".
+  float loP0[sscore::kSsShaderCount] = {};
+  float hiP0[sscore::kSsShaderCount] = {};
+  bool seen[sscore::kSsShaderCount] = {};
+};
+
 struct InstanceTotals {
   size_t parts = 0;
   size_t framesWithMounts = 0;
@@ -191,6 +209,31 @@ void CheckEffectBatches(const sscore::SsBaker& baker, int frame, EffectTotals* t
   ++totals->framesWithGeometry;
   totals->quadFrames += quads;
   if (quads > totals->peakQuads) totals->peakQuads = quads;
+}
+
+/// Counts the parts this frame that carry an `SHDR` the port recognises.
+void CheckShaders(const sscore::SsBaker& baker, ShaderTotals* totals) {
+  size_t here = 0;
+  for (const sscore::SsPartDraw& info : baker.parts()) {
+    if (!info.needsShader) continue;
+    ++here;
+    ++totals->recognised;
+    const int i = static_cast<int>(info.partShader.id);
+    if (i >= 0 && i < sscore::kSsShaderCount) {
+      ++totals->byId[i];
+      const float p0 = info.partShader.params[0];
+      if (!totals->seen[i]) {
+        totals->seen[i] = true;
+        totals->loP0[i] = p0;
+        totals->hiP0[i] = p0;
+      }
+      if (p0 < totals->loP0[i]) totals->loP0[i] = p0;
+      if (p0 > totals->hiP0[i]) totals->hiP0[i] = p0;
+    }
+  }
+  if (here == 0) return;
+  ++totals->framesWithShader;
+  if (here > totals->parts) totals->parts = here;
 }
 
 /// Counts the Shape geometry a frame baked, and checks the fan it made.
@@ -306,6 +349,7 @@ int main(int argc, char** argv) {
   InstanceTotals instanceTotals;
   instanceTotals.parts = view.instanceParts().size();
   ShapeTotals shapeTotals;
+  ShaderTotals shaderTotals;
   shapeTotals.parts = view.shapePartCount();
   const int32_t fps = ss_runtime_get_fps(ctx);
   size_t maxVertices = 0;
@@ -385,6 +429,7 @@ int main(int argc, char** argv) {
     CheckEffectBatches(baker, frame, &effectTotals);
     CheckInstances(baker, soa.partCount, frame, &instanceTotals);
     CheckShapes(baker, frame, &shapeTotals);
+    CheckShaders(baker, &shaderTotals);
   }
 
   // Before the context and the resource, exactly as `HybridSsContext::release`
@@ -417,5 +462,14 @@ int main(int argc, char** argv) {
               instanceTotals.mountFrames);
   std::printf("    shape: %zu parts, %zu frames with geometry, peak %zu vertices\n",
               shapeTotals.parts, shapeTotals.framesWithGeometry, shapeTotals.peakVertices);
+  std::printf("    shader: peak %zu parts, %zu frames with a shader, %zu part-frames\n",
+              shaderTotals.parts, shaderTotals.framesWithShader, shaderTotals.recognised);
+  for (int i = 0; i < sscore::kSsShaderCount; ++i) {
+    if (shaderTotals.byId[i] != 0) {
+      std::printf("            id %d: %zu  param0 %.4f .. %.4f\n", i, shaderTotals.byId[i],
+                  static_cast<double>(shaderTotals.loP0[i]),
+                  static_cast<double>(shaderTotals.hiP0[i]));
+    }
+  }
   return 0;
 }

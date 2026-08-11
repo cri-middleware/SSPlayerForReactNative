@@ -176,6 +176,10 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
         // `a = texel.a * col.a` exactly, and at rate 0 the RGB formula is a
         // texel passthrough (§1-2-4). Only a real tint is peeled out.
         info.needsPartColorShader = hasPartColor && info.partColor.tintsRgb();
+        // `SHDR` peels for the same reason a tint does and independently of one:
+        // the effect's parameters speak for a single part. When both are present
+        // the effect is what runs, since it applies the PartColor tail itself.
+        info.needsShader = SsReadPartShader(fd, state, &info.partShader);
 
         // §1-3: with a PartColor the hierarchical alpha is already folded into
         // the corner alphas, so `PartState.alpha` must NOT be applied again.

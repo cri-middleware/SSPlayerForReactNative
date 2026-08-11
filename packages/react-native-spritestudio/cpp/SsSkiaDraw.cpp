@@ -22,6 +22,7 @@
 #include "SsMask.hpp"
 #include "SsMaskShader.hpp"
 #include "SsPartColorShader.hpp"
+#include "SsPartShaderSkSL.hpp"
 #endif
 
 namespace ssplayer {
@@ -374,7 +375,8 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       sscore::SsMaskBits bits;
       // A pure mask forces the peel too — the batched draw has no way to leave
       // one part out, and leaving it in is the bug this exists to prevent.
-      anyPeel = info.needsPartColorShader || pureMaskOf(info) || maskBitsOf(info, &bits);
+      anyPeel = info.needsPartColorShader || info.needsShader || pureMaskOf(info) ||
+                maskBitsOf(info, &bits);
     }
 
     if (!plan.multiPass() && !anyPeel) {
@@ -443,7 +445,17 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // only thing carrying the part's opacity, so they must go through. The
       // mask wraps whichever of the two it turns out to be and changes neither.
       sk_sp<SkShader> tint;
-      if (info.needsPartColorShader) {
+      if (info.needsShader) {
+        // Twelve of the thirteen built-ins fold the PartColor composite as their
+        // own output tail, so the effect takes the corners and
+        // `MakePartColorShader` is deliberately **not** also run — that would
+        // apply the tint twice. A built-in with no body yet returns null here
+        // and falls through to the tint below, which is the same degradation an
+        // unrecognised `id_hash` takes.
+        tint = MakePartShaderShader(info.partShader, info.partColor, partUv,
+                                    paint->refShader());
+      }
+      if (tint == nullptr && info.needsPartColorShader) {
         // A mesh reaches this with its four corners already equalised to `lt`
         // (§1-2, whole-only), so the shader's gradient collapses to a constant
         // and the UV inverse it is handed never has to be meaningful.

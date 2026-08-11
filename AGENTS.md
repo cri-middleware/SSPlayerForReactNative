@@ -59,9 +59,22 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
   **`verts` holding perfectly constant across a sweep means nothing is playing.**
   `native/VERSION` does not record the Brain's build mode, so if you did not
   build it yourself, assume nothing and rebuild.
-* When a rendering detail is unclear: **SSPlayerForFlutter** first (the closest
-  reference — same Skia primitives, same layering), then **SSPlayerForGodot**,
-  then the submodule's `libs/ssruntime/docs/`.
+* When a rendering detail is unclear, **which reference to reach for depends on
+  what you are asking**, and "Flutter first" is only half right:
+  * **Architecture** — SSPlayerForFlutter. It is the closest port (same Skia
+    primitives, same layering) and, decisively, it faces the same constraint
+    this one does: no custom per-vertex varyings, so per-part values are
+    reconstructed per fragment rather than fed from a vertex stage. Anything
+    Godot solves with a varying does not port.
+  * **The maths inside a shader or a formula** — SSPlayerForGodot. Its bodies
+    cite the **SS6 SDK original per constant, with file and line**
+    (`ss-sepia.fs:33-35`), and spell out what a parameter's sign means. Flutter
+    has the same arithmetic with no provenance, so Godot is where you check a
+    magic number.
+  * Then the submodule's `libs/ssruntime/docs/`.
+  Where the two agree, that is two independent implementations agreeing — worth
+  more than either alone. `ss_partcolor_blend` matching Flutter's `ssBlend`
+  is what corroborates `SsPartColor.hpp`'s coefficient row.
 
 ## The Phase 0 result, and what it means for the architecture
 

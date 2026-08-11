@@ -494,9 +494,22 @@ constant across the Phase 0 sweep while nothing was actually playing.
 - ☐ React Native Directory listing — **iOS/Android badges up, New Architecture
   flag up, "Expo Go does not work" stated in both the Directory and the README**
 
-**Deliberate non-goals, matching the Web / Flutter / Godot ports:** shader × mask
-combined (a masked part drops its shader); `map0`/`map1` extra shader textures;
-shader parts on Mesh/Shape/Effect kinds.
+**Deliberate non-goals** — but **not** "matching the Web / Flutter / Godot
+ports", which is what this line used to claim and is false on two counts:
+SSPlayerForGodot declares `map0`/`map1` (`ss_library_fs.glsl`) *and* combines
+shader with mask, since its `ss_output_color()` calls `ss_mask_passes()` and
+discards. Each of these is this port's own decision and needs its own argument:
+
+* `map0`/`map1` extra shader textures — no asset here authors one, and they
+  would need a second and third entry in the per-call texture table.
+* Shader parts on Mesh/Shape/Effect kinds — the reconstruction wants one affine
+  quad, the same reason those kinds are excluded from masking.
+* **Shader × mask is now doubtful as a non-goal and should be tried before it is
+  kept.** `SsSkiaDraw`'s replay already wraps "whichever shader it turns out to
+  be" and changes neither, so an `SHDR` effect slotted in where the PartColor
+  tint goes should compose with masking for free. Do not hard-code
+  "masked ⇒ drop the shader" while wiring `SHDR` in; wire it so the two can
+  meet, then read `Mask.ssab` against `Shader.ssab` and let the result decide.
 
 ---
 
