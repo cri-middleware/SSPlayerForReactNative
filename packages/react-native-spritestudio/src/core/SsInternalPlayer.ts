@@ -2,9 +2,12 @@ import type { SkCanvas } from '@shopify/react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
 import type {
+  SsBox,
   SsContext,
+  SsPartTransform,
   SsResource,
   SsTextureInfo,
+  SsUserDataEvent,
 } from '../specs/SsRuntime.nitro'
 import { SsTextureRegistry } from './SsTextureRegistry'
 import {
@@ -230,6 +233,17 @@ export class SsInternalPlayer {
   }
 
   /**
+   * The box `animations` draw into, in player-local units — see the spec.
+   *
+   * **Moves the playhead and leaves the last name set up**, so it belongs
+   * between `bindInstancePack` and `setupAnimation` rather than anywhere a
+   * query could go.
+   */
+  measureContentBox(animations: string[], maxFrames = 0): SsBox {
+    return this.require().measureContentBox(animations, maxFrames)
+  }
+
+  /**
    * Every texture this pack needs, read out of the `.ssab` in C++.
    *
    * The `embedded` buffers are borrows of the Brain's copy — decode them during
@@ -237,6 +251,58 @@ export class SsInternalPlayer {
    */
   getTextures(): SsTextureInfo[] {
     return this.require().getTextures()
+  }
+
+  /** Where part `partIndex` is this frame, in player-local units. */
+  getPartTransform(partIndex: number): SsPartTransform {
+    return this.require().getPartTransform(partIndex)
+  }
+
+  /** Events the last `advance` crossed — the cheap gate in front of the next one. */
+  get passedEventCount(): number {
+    return this.context?.passedEventCount ?? 0
+  }
+
+  /** The user-data keys the last `advance` crossed. A read, not a drain. */
+  getUserDataEvents(): SsUserDataEvent[] {
+    return this.require().getUserDataEvents()
+  }
+
+  // --- the override layer -------------------------------------------------
+  //
+  // Straight through. The Brain owns the override state, exactly as it owns the
+  // playback state, and mirroring either here would give two answers.
+
+  setPartVisibility(partIndex: number, force: number, cascade = true): boolean {
+    return this.require().setPartVisibility(partIndex, force, cascade)
+  }
+  clearPartVisibility(partIndex: number): boolean {
+    return this.require().clearPartVisibility(partIndex)
+  }
+  setPartColor(
+    partIndex: number,
+    blendOp: number,
+    rgba: number,
+    priority = 2
+  ): boolean {
+    return this.require().setPartColor(partIndex, blendOp, rgba, priority)
+  }
+  clearPartColor(partIndex: number): boolean {
+    return this.require().clearPartColor(partIndex)
+  }
+  setPartCell(
+    partIndex: number,
+    cellmapNameHash: number,
+    cellNameHash: number,
+    priority = 2
+  ): boolean {
+    return this.require().setPartCell(partIndex, cellmapNameHash, cellNameHash, priority)
+  }
+  clearPartCell(partIndex: number): boolean {
+    return this.require().clearPartCell(partIndex)
+  }
+  clearPartOverrides(): boolean {
+    return this.require().clearPartOverrides()
   }
 
   /** Animation names in this pack, for feeding to `setupAnimation`. */

@@ -13,6 +13,7 @@ import {
   type SsTextureInfo,
 } from '../specs/SsRuntime.nitro'
 import { resolveAgainst, schemeOf } from './assets'
+import { ssImageCache } from './caches'
 import type { SsTextureOptions, SsTextureRegistry } from './SsTextureRegistry'
 
 /**
@@ -25,6 +26,14 @@ import type { SsTextureOptions, SsTextureRegistry } from './SsTextureRegistry'
 export interface SsTextureLoadReport {
   /** `image_path` (or a `texture#<hash>` placeholder) per unresolved texture. */
   unresolved: string[]
+  /**
+   * Cache keys this pass took a lease on, for the caller to give back.
+   *
+   * The loader cannot release them itself: an atlas outlives the call that
+   * decoded it, and only whoever owns the registry knows when the last user of
+   * it is gone. `SpriteStudioPlayer` holds these and releases them on dispose.
+   */
+  imageKeys: string[]
 }
 
 /**
@@ -69,6 +78,7 @@ export class SsTextureLoader {
     baseUri?: string
   ): Promise<SsTextureLoadReport> {
     const unresolved: string[] = []
+    const imageKeys: string[] = []
 
     // Sequential rather than concurrent: the skip-if-registered check is only
     // sound if the calls are ordered, and two cellmaps naming one atlas would
@@ -76,8 +86,29 @@ export class SsTextureLoader {
     for (const texture of textures) {
       if (registry.has(texture.textureHash)) continue
 
-      const image = await this.decode(texture, baseUri)
+      // Keyed by where the atlas came from, so two packs naming one sibling
+      // image decode it once. An embedded atlas has no URI of its own, so it is
+      // keyed by the pack it lives inside plus the hash it is stored under.
+      const key =
+        texture.embedded.byteLength > 0 || texture.imagePath.length === 0 || baseUri == null
+          ? `${baseUri ?? ''}#${texture.textureHash}`
+          : resolveAgainst(baseUri, texture.imagePath)
+
+      let image: SkImage | null = null
+      try {
+        image = await ssImageCache.acquire(key, async () => {
+          const decoded = await this.decode(texture, baseUri)
+          // Thrown rather than returned: a null must not be cached, or the pack
+          // whose atlas arrives late is permanently textureless.
+          if (decoded == null) throw new Error(`unresolved texture '${key}'`)
+          return decoded
+        })
+      } catch {
+        image = null
+      }
+
       if (image != null) {
+        imageKeys.push(key)
         registry.registerByHash(texture.textureHash, image, samplingOf(texture))
         continue
       }
@@ -88,7 +119,7 @@ export class SsTextureLoader {
       )
     }
 
-    return { unresolved }
+    return { unresolved, imageKeys }
   }
 
   private static async decode(

@@ -1,3 +1,4 @@
+import { ssClearCaches } from '../core/caches'
 import { SsRuntimeModule } from '../runtime'
 import type { SsLiveHandles } from '../specs/SsRuntime.nitro'
 import { SpriteStudioPlayer } from './SpriteStudioPlayer'
@@ -43,12 +44,23 @@ export interface SsLeakCheckResult {
  * Growth rather than inequality, because an app is free to be doing other things
  * on other players while this runs; a count that *fell* is someone else's
  * teardown landing mid-check, which is not a failure.
+ *
+ * ## The caches have to be drained first
+ *
+ * `ssResourceCache` keeps a pack alive for as long as something holds a lease,
+ * and `preload` holds one nothing balances. Both are correct and both are
+ * indistinguishable from a leak when the measurement is a count of live
+ * handles: the baseline would be taken before the first cycle warmed the cache
+ * and the reading after it would be one resource higher, every time, on a
+ * player that leaks nothing. So the caches are emptied **before the baseline**
+ * and again at the end, which also leaves the app where it found it.
  */
 export async function ssCheckForLeaks(
   source: SsSource,
   options?: { cycles?: number; animation?: string }
 ): Promise<SsLeakCheckResult> {
   const cycles = options?.cycles ?? 8
+  ssClearCaches()
   const before = ssLiveHandles()
 
   for (let i = 0; i < cycles; i += 1) {
@@ -63,6 +75,10 @@ export async function ssCheckForLeaks(
     }
   }
 
+  // The last cycle's dispose gave its leases back, so nothing should be held —
+  // but a `preload` from elsewhere in the app would be, and it would read as a
+  // leak. Cleared again rather than trusted.
+  ssClearCaches()
   const after = ssLiveHandles()
   return {
     cycles,

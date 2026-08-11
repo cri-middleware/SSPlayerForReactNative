@@ -1,5 +1,13 @@
 import type { SkCanvas } from '@shopify/react-native-skia'
 
+import { ssImageCache } from '../core/caches'
+import type { SsFrameScope } from '../core/fit'
+import {
+  ssPackColor,
+  SsOverridePriority,
+  SsPartColorBlend,
+  type SsPartOverrides,
+} from '../core/parts'
 import { SsInternalPlayer } from '../core/SsInternalPlayer'
 import {
   SsTextureLoader,
@@ -11,8 +19,20 @@ import {
   SsPlaybackStyle,
   type SsRootTransform,
 } from '../core/types'
-import type { SsResource } from '../specs/SsRuntime.nitro'
-import { loadInstancePacks, loadResource, type SsSource } from './source'
+import { SsRuntimeModule } from '../runtime'
+import type {
+  SsBox,
+  SsPartTransform,
+  SsResource,
+  SsUserDataEvent,
+} from '../specs/SsRuntime.nitro'
+import {
+  loadInstancePacks,
+  loadResource,
+  releaseResource,
+  type LoadedResource,
+  type SsSource,
+} from './source'
 
 /**
  * The transport surface, with no drawing backend in it.
@@ -68,6 +88,27 @@ export interface SpriteStudioPlayerOptions {
 export type SsCompleteCallback = () => void
 
 /**
+ * What to measure the content box over, and how far.
+ *
+ * The cost is a bake per frame walked, so the scope is the caller's call:
+ * `animation` walks one, `pack` walks every animation in the file. Measured on
+ * a debug-built Brain, `Ringo`'s 24 animations at 120 frames each took 1.3s;
+ * `Basic`'s single one took 16ms. Release is far faster and the resource cache
+ * makes it once-per-pack, but the ratio between the two scopes is the point.
+ */
+export interface SsMeasureRequest {
+  scope: SsFrameScope
+  /**
+   * Frames to walk per animation; 0 walks one authored cycle.
+   *
+   * A cycle is right for a character and wrong for an effect, whose extent keeps
+   * growing for as long as it is simulated — `e030`'s box only settles after a
+   * couple of hundred frames.
+   */
+  maxFrames?: number
+}
+
+/**
  * The largest step a clock will hand to `advance`, in milliseconds (~15fps).
  *
  * Without it, returning from the background delivers one enormous delta and the
@@ -98,7 +139,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * them — the Brain refcounts a resource, but the order still states the
    * dependency.
    */
-  private instancePacks: SsResource[] = []
+  private instancePacks: LoadedResource[] = []
+  /** The URI `resource` was leased under, for giving the lease back. */
+  private resourceUri: string | null = null
   private disposed = false
 
   /**
@@ -122,12 +165,32 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private root: SsRootTransform | null = null
 
+  /** What `load()` was asked to measure, kept so a later `setAnimation` can redo it. */
+  /**
+   * The last override map, replayed onto each newly loaded animation for the
+   * same reason the transport settings are: `setupAnimation` is a fresh start,
+   * and a prop that survives a source change should survive it here too.
+   */
+  private pendingOverrides: SsPartOverrides | null = null
+  /** Parts the last map touched, so dropping one from it can revert just that one. */
+  private readonly overriddenParts = new Set<string>()
+
+  private measureRequest: SsMeasureRequest | null = null
+  private contentBoxValue: SsBox | null = null
+
   private clock: ReturnType<typeof requestAnimationFrame> | null = null
 
   /** Fires on the rising edge of the Brain's `isFinished`, so once per run. */
   onComplete: SsCompleteCallback | null = null
   /** Fires on any frame the playhead crossed a loop boundary. */
   onLoop: SsCompleteCallback | null = null
+  /**
+   * Fires once per user-data key the playhead crossed, in `advance`.
+   *
+   * Only read from Layer 1 when something is listening — the Brain rebuilds its
+   * list every collection, so a tick nobody watched costs nothing.
+   */
+  onUserData: ((event: SsUserDataEvent) => void) | null = null
 
   private readonly listeners = new Set<() => void>()
 
@@ -151,15 +214,27 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    */
   async load(
     source: SsSource,
-    options?: { animation?: string; loadTextures?: boolean }
+    options?: {
+      animation?: string
+      loadTextures?: boolean
+      /**
+       * Measure the content box while loading, for `fit` to place against.
+       *
+       * Off by default because it costs a bake of every frame it walks, and a
+       * caller who supplies a `frame` — or wants the old scale-1 placement —
+       * should not pay for it. See `SsMeasureRequest`.
+       */
+      measure?: SsMeasureRequest
+    }
   ): Promise<void> {
     const token = ++this.loadToken
     const { resource, uri } = await loadResource(source)
 
     if (token !== this.loadToken || this.disposed) {
-      // Superseded mid-flight. Nothing else holds this, so release it here
-      // rather than leaving the Brain's copy to sit until GC.
-      resource.dispose()
+      // Superseded mid-flight. The lease goes back rather than the resource
+      // being disposed: another player may be holding the same pack, and the
+      // cache disposes it only when the last lease goes.
+      releaseResource(uri)
       return
     }
 
@@ -168,18 +243,19 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // it is a second await, so the supersede check has to run again after it.
     const packs = await loadInstancePacks(resource, uri)
     if (token !== this.loadToken || this.disposed) {
-      for (const pack of packs) pack.dispose()
-      resource.dispose()
+      for (const pack of packs) releaseResource(pack.uri)
+      releaseResource(uri)
       return
     }
 
     this.releaseNative()
     this.resource = resource
+    this.resourceUri = uri
     this.instancePacks = packs
     const internal = new SsInternalPlayer(resource, this.textures)
     // Before `setAnimation` below, which is what spawns the child players — a
     // pack bound after that has nothing left to reach.
-    for (const pack of packs) internal.bindInstancePack(pack)
+    for (const pack of packs) internal.bindInstancePack(pack.resource)
     if (this.root != null) internal.rootTransform = { ...this.root }
     this.internalPlayer = internal
 
@@ -190,6 +266,17 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // first is the only defensible choice, and it is what `currentAnimation`
     // will then report, so a caller can still find out what it got.
     const requested = options?.animation ?? internal.getAnimationNames()[0]
+
+    // Before `setAnimation`, which is the ordering Layer 1 requires: measuring
+    // walks each animation's frames and leaves the last one set up, so it has to
+    // happen while there is still a `setupAnimation` to come. Storing the
+    // request as well as the result is what lets an *animation*-scoped box be
+    // re-measured when the animation changes.
+    this.measureRequest = options?.measure ?? null
+    if (this.measureRequest != null && requested != null) {
+      this.remeasure(requested)
+    }
+
     if (requested != null) this.setAnimation(requested)
     else this.applySettings()
 
@@ -210,8 +297,27 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       internal.getTextures(),
       uri
     )
-    if (token !== this.loadToken || this.disposed) return
+    if (token !== this.loadToken || this.disposed) {
+      // The leases this pass took belong to a load that is no longer wanted.
+      for (const key of report.imageKeys) ssImageCache.release(key)
+      return
+    }
     this.lastTextureReport = report
+    this.imageKeys = report.imageKeys
+
+    // A missing texture is otherwise **silent**: `drawInto` skips a batch it has
+    // no paint for, so the symptom is a part that is simply not there, and a
+    // pack that resolved none of its textures draws nothing at all. Both read as
+    // "the renderer broke" rather than "the atlas is not next to the .ssab".
+    // Dev only — a release build should not pay for the string work, and an app
+    // that wants this in production has `lastTextureReport`.
+    if (__DEV__ && report.unresolved.length > 0) {
+      console.warn(
+        `react-native-spritestudio: '${uri}' resolved ` +
+          `${report.imageKeys.length}/${report.imageKeys.length + report.unresolved.length}` +
+          ` textures. Missing: ${report.unresolved.join(', ')}. Those parts will not draw.`
+      )
+    }
     this.notify()
   }
 
@@ -229,6 +335,16 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.textureReport = value
   }
   private textureReport: SsTextureLoadReport | null = null
+  /** Atlas cache leases taken by the last load, given back on teardown. */
+  private imageKeys: string[] = []
+
+  /**
+   * Atlas cache keys the last load leased — what `ssPreload` retains so its
+   * throwaway player's `dispose` does not evict the very entries it warmed.
+   */
+  get textureCacheKeys(): string[] {
+    return [...this.imageKeys]
+  }
 
   /** The Layer 2 player, or null before the first successful load. */
   get internal(): SsInternalPlayer | null {
@@ -269,6 +385,13 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.animation = name
     const internal = this.internalPlayer
     if (internal == null) return false
+
+    // An animation-scoped box describes *this* animation, so switching makes it
+    // stale. A pack-scoped one is the union over the whole file and does not
+    // change — which is the point of asking for it.
+    if (this.measureRequest?.scope === 'animation' && this.contentBoxValue != null) {
+      this.remeasure(name)
+    }
 
     if (!internal.setupAnimation(name)) return false
     // setup resets playback, so the settings have to be replayed onto it — the
@@ -354,6 +477,135 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     internal.setPlaybackDirection(this.settings.direction, this.settings.style)
     if (this.settings.playing) internal.play()
     else internal.pause()
+    // After `setup_animation`, which resets the override layer along with
+    // everything else — and after the part indices are therefore valid again,
+    // since they are resolved against the animation that is now set up.
+    if (this.pendingOverrides != null) {
+      this.overriddenParts.clear()
+      this.setPartOverrides(this.pendingOverrides)
+    }
+  }
+
+  // --- parts -------------------------------------------------------------
+
+  /**
+   * Where a part is this frame, in player-local units, or null if it has no
+   * matrix — an unknown name, or a frame before the first `advance`.
+   *
+   * Player-local: `rootTransform` still has to be applied to reach the screen,
+   * and `ssProjectPart` is what does that.
+   */
+  getPartTransform(part: string | number): SsPartTransform | null {
+    const internal = this.internalPlayer
+    if (internal == null) return null
+    const index =
+      typeof part === 'number' ? part : internal.findPartIndex(part)
+    if (index < 0) return null
+    const transform = internal.getPartTransform(index)
+    return transform.valid ? transform : null
+  }
+
+  /**
+   * Applies a whole override map, and **clears what a previous one set**.
+   *
+   * Declarative rather than incremental: a part that has dropped out of the map
+   * goes back to the animation, which is what makes the map describe the state
+   * rather than a history of calls. That is also why `clearPartOverrides` is not
+   * enough on its own — it would clear overrides another caller set through the
+   * escape hatch, so only the parts this method last touched are reverted.
+   */
+  setPartOverrides(overrides: SsPartOverrides): void {
+    const internal = this.internalPlayer
+    if (internal == null) {
+      this.pendingOverrides = overrides
+      return
+    }
+    this.pendingOverrides = overrides
+
+    for (const name of this.overriddenParts) {
+      if (name in overrides) continue
+      const index = internal.findPartIndex(name)
+      if (index < 0) continue
+      internal.clearPartVisibility(index)
+      internal.clearPartColor(index)
+      internal.clearPartCell(index)
+    }
+    this.overriddenParts.clear()
+
+    for (const [name, override] of Object.entries(overrides)) {
+      const index = internal.findPartIndex(name)
+      if (index < 0) {
+        console.warn(
+          `react-native-spritestudio: no part called '${name}' in ` +
+            `'${this.animation ?? '(no animation)'}' — its override is ignored.`
+        )
+        continue
+      }
+      this.overriddenParts.add(name)
+      const priority = override.priority ?? SsOverridePriority.permanent
+
+      if (override.visible == null) internal.clearPartVisibility(index)
+      else {
+        internal.setPartVisibility(
+          index,
+          override.visible ? 2 : 1,
+          override.cascade ?? true
+        )
+      }
+
+      if (override.color == null) internal.clearPartColor(index)
+      else {
+        internal.setPartColor(
+          index,
+          override.colorBlend ?? SsPartColorBlend.mix,
+          ssPackColor(override.color),
+          priority
+        )
+      }
+
+      if (override.cell == null) internal.clearPartCell(index)
+      else {
+        internal.setPartCell(
+          index,
+          SsRuntimeModule.hashString(override.cell.cellmap),
+          SsRuntimeModule.hashString(override.cell.cell),
+          priority
+        )
+      }
+    }
+  }
+
+  // --- content box -------------------------------------------------------
+
+  /**
+   * The box the art occupies, in player-local units, or null when nothing has
+   * been measured. What `fit` places against.
+   *
+   * Null is not a failure — it is what a player loaded without a `measure`
+   * request reports, and Layer 4 falls back to the unfitted placement.
+   */
+  get contentBox(): SsBox | null {
+    return this.contentBoxValue
+  }
+
+  /**
+   * Re-measures for `animation` under the standing request.
+   *
+   * Leaves the context set up on whichever animation was measured last, which is
+   * why every caller here follows it with `setupAnimation`.
+   */
+  private remeasure(animation: string): void {
+    const internal = this.internalPlayer
+    const request = this.measureRequest
+    if (internal == null || request == null) return
+    const names =
+      request.scope === 'pack' ? internal.getAnimationNames() : [animation]
+    if (names.length === 0) return
+    const box = internal.measureContentBox(names, request.maxFrames ?? 0)
+    // A zero-sized box means nothing drew — keep null rather than publishing a
+    // box that a fit would divide by.
+    this.contentBoxValue = box.width > 0 && box.height > 0 ? box : null
+    this.notify()
   }
 
   // --- root transform ----------------------------------------------------
@@ -388,6 +640,15 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     internal.advance(dtMilliseconds)
 
     if (internal.isLooped) this.onLoop?.()
+
+    // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
+    // rebuilds this list on every collection, so an unread tick's events are
+    // simply overwritten rather than queued. Without the gates this would be a
+    // vector allocation and a Nitro array marshal per player per frame, sixty
+    // times a second, almost always to report nothing.
+    if (this.onUserData != null && internal.passedEventCount > 0) {
+      for (const event of internal.getUserDataEvents()) this.onUserData(event)
+    }
 
     const finished = internal.isFinished
     if (finished && !this.wasFinished) this.onComplete?.()
@@ -453,10 +714,16 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // down with it, which is why the mounted packs can only be released after.
     this.internalPlayer?.dispose()
     this.internalPlayer = null
-    this.resource?.dispose()
+    // Leases, not handles: the cache disposes the resource when the last player
+    // holding it lets go. Order still matters for the same reason it did — the
+    // context borrows from the resource, so it goes first.
     this.resource = null
-    for (const pack of this.instancePacks) pack.dispose()
+    if (this.resourceUri != null) releaseResource(this.resourceUri)
+    this.resourceUri = null
+    for (const pack of this.instancePacks) releaseResource(pack.uri)
     this.instancePacks = []
+    for (const key of this.imageKeys) ssImageCache.release(key)
+    this.imageKeys = []
   }
 
   /**

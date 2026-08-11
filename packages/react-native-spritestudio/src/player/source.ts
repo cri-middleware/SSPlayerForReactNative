@@ -1,4 +1,5 @@
 import { fileSystemPathOf, normalizeUri, resolveAgainst, schemeOf } from '../core/assets'
+import { ssResourceCache } from '../core/caches'
 import { SsRuntimeModule } from '../runtime'
 import type { SsResource } from '../specs/SsRuntime.nitro'
 
@@ -66,33 +67,64 @@ export function resolveSourceUri(source: SsSource): string {
 }
 
 /**
- * Loads a `.ssab` into a Layer 1 resource.
+ * Loads a `.ssab` into a Layer 1 resource, **taking a cache lease on it**.
  *
  * Two of the three routes keep the bytes out of the JS heap entirely (design
  * doc ch.5 A) — C++ opens the file or the APK entry. Only a remote URL has to
  * be fetched, and only a dev server or a CDN is one.
  *
- * The resource is the caller's to `dispose()`.
+ * The lease is the caller's to give back with `releaseResource(uri)`, and that
+ * replaces the `dispose()` this used to ask for: a second player of the same
+ * pack shares this resource, so disposing it directly would pull the `.ssab`
+ * out from under a player that is still drawing.
  */
 export async function loadResource(source: SsSource): Promise<LoadedResource> {
   const uri = resolveSourceUri(source)
+  const resource = await ssResourceCache.acquire(uri, () => createResource(uri))
+  return { resource, uri }
+}
 
+/** Gives back a lease taken by `loadResource`. */
+export function releaseResource(uri: string): void {
+  ssResourceCache.release(uri)
+}
+
+/**
+ * Loads a pack and **keeps it loaded**, so the mount that needs it does not wait.
+ *
+ * The lease this takes is never balanced by a `release` — see
+ * `SsRefCache.retain`. `ssUnloadPack` gives it back, and `ssClearCaches`
+ * gives every one of them back at once.
+ */
+export async function preloadResource(source: SsSource): Promise<void> {
+  const uri = resolveSourceUri(source)
+  await ssResourceCache.acquire(uri, () => createResource(uri))
+  ssResourceCache.retain(uri)
+  // The lease taken above, given straight back: `retain` is now holding the
+  // pack, and leaving both would need two releases to free one pack.
+  ssResourceCache.release(uri)
+}
+
+/** Drops what `preloadResource` retained. A pack still in use stays loaded. */
+export function unloadResource(source: SsSource): void {
+  ssResourceCache.releaseRetained(resolveSourceUri(source))
+}
+
+/** The uncached build, which is what the cache calls on a miss. */
+async function createResource(uri: string): Promise<SsResource> {
   switch (schemeOf(uri)) {
     case 'asset':
-      return { resource: SsRuntimeModule.createResourceFromAsset(uri), uri }
+      return SsRuntimeModule.createResourceFromAsset(uri)
     case 'file': {
       const path = fileSystemPathOf(uri)!
-      return { resource: SsRuntimeModule.createResourceFromPath(path), uri }
+      return SsRuntimeModule.createResourceFromPath(path)
     }
     case 'remote': {
       const response = await fetch(uri)
       if (!response.ok) {
         throw new Error(`SsSource: ${response.status} fetching '${uri}'`)
       }
-      return {
-        resource: SsRuntimeModule.createResourceFromBytes(await response.arrayBuffer()),
-        uri,
-      }
+      return SsRuntimeModule.createResourceFromBytes(await response.arrayBuffer())
     }
   }
 }
@@ -115,25 +147,27 @@ export async function loadResource(source: SsSource): Promise<LoadedResource> {
  * side applies to a slot it cannot resolve, and it keeps one missing sibling
  * from taking the whole animation down with it.
  *
- * The returned resources are the caller's to dispose.
+ * Each entry carries a cache lease, given back with `releaseResource(uri)` —
+ * which is why the URI comes back alongside the resource rather than the
+ * resource alone.
  */
 export async function loadInstancePacks(
   root: SsResource,
   baseUri: string
-): Promise<SsResource[]> {
+): Promise<LoadedResource[]> {
   const queue = [...root.getExternalInstancePackNames()]
   if (queue.length === 0) return []
 
-  const loaded: SsResource[] = []
+  const loaded: LoadedResource[] = []
   const seen = new Set<string>()
   while (queue.length > 0) {
     const name = queue.shift()!
     if (name.length === 0 || seen.has(name)) continue
     seen.add(name)
     try {
-      const { resource } = await loadResource(resolveAgainst(baseUri, `${name}.ssab`))
-      loaded.push(resource)
-      queue.push(...resource.getExternalInstancePackNames())
+      const entry = await loadResource(resolveAgainst(baseUri, `${name}.ssab`))
+      loaded.push(entry)
+      queue.push(...entry.resource.getExternalInstancePackNames())
     } catch (e) {
       console.warn(
         `react-native-spritestudio: instance pack '${name}' referenced by ` +

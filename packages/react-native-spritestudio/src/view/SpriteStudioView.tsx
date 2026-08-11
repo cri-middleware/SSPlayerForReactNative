@@ -5,66 +5,60 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from 'react'
-import { View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native'
 import {
-  Canvas,
-  Picture,
-  Skia,
-  type SkPicture,
-} from '@shopify/react-native-skia'
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native'
+import { Canvas, Picture, Skia, type SkPicture } from '@shopify/react-native-skia'
 import { useSharedValue } from 'react-native-reanimated'
 
+import { resolveRootTransform, type SsAlign } from '../core/fit'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
-import { sourceUriOf, type SsSource } from '../player/source'
-import { useSsTextures, type SsTextureSources } from './useSsTextures'
+import {
+  useSpriteStudioPlayer,
+  type SsPlayerProps,
+} from './useSpriteStudioPlayer'
 
-export interface SpriteStudioViewProps {
+export interface SpriteStudioViewProps extends SsPlayerProps {
   /**
    * The `.ssab` — a path into the app's asset directory
    * (`'ss/overall/Basic.ssab'`), a filesystem path, or a URL. Never a
    * `require()`: see `SsSource`.
-   */
-  source: SsSource
-  /**
-   * Textures to use **instead of** the ones the pack names, keyed by cellmap
-   * name (a bare source covers a one-cellmap pack).
    *
-   * Not needed to make a pack draw. Loading a `.ssab` loads its own textures,
-   * resolving each `image_path` against the `.ssab`'s own directory, and that
-   * now reaches wherever the `.ssab` came from. This prop is for **replacing**
-   * one — a costume, a recoloured atlas, an image the app downloaded — and a
-   * `require()`d image is allowed here because a replacement has no siblings to
-   * resolve.
+   * Inherited from `SsPlayerProps` along with `textures`, `animation`,
+   * `playing`, `speed`, `loop`, the `fit`/`frame`/`frameScope`/`measureFrames`
+   * measurement controls and the three callbacks — all of which mean exactly
+   * what they mean on `<SpriteStudioSprite>`.
    */
-  textures?: SsTextureSources
-  /**
-   * Which animation in the pack to set up. Defaults to the pack's **first**;
-   * `ref.player.currentAnimation` reports which that turned out to be.
-   */
-  animation?: string
 
-  playing?: boolean
-  /** Multiplier on the authored frame rate; negative plays backwards. */
-  speed?: number
-  /** 0 = infinite. */
-  loop?: number
+  /** Which point of the art lands on the matching point of the view. */
+  align?: SsAlign
   flipX?: boolean
   flipY?: boolean
   /**
-   * Where the animation's origin sits inside the view, in pixels, measured from
-   * the view's centre. A SpriteStudio origin is wherever the author put it —
-   * often at a character's feet — so this is how you get the art into the box.
+   * Pixels from where `fit`/`align` put the art. Under `fit="none"` this is
+   * measured from the view's centre, which is what it always meant.
    */
   offset?: { x: number; y: number }
+  /** Multiplier **on top of** the fit's scale. */
   scale?: number
 
   style?: StyleProp<ViewStyle>
-
-  onLoad?: () => void
-  onError?: (error: unknown) => void
-  /** Fires once per completed run, not on every frame past the end. */
-  onComplete?: () => void
+  /**
+   * Shown until the first frame is drawable — the pack loaded and at least one
+   * texture registered.
+   *
+   * Worth having as a prop rather than left to `onLoad`: until the textures
+   * land `drawInto` skips every batch, so the honest alternative is a blank
+   * rectangle that looks exactly like a broken pack. `ssPreload` is the way to
+   * make this window short enough not to matter.
+   */
+  placeholder?: ReactNode
 }
 
 export interface SpriteStudioViewRef {
@@ -73,7 +67,7 @@ export interface SpriteStudioViewRef {
 }
 
 /**
- * Layer 4 — the declarative view.
+ * Layer 4 — the declarative view: **one animation, fitted to its own box**.
  *
  * A Skia `Canvas` plus a frame loop. Each tick advances Layer 3 and re-records
  * one `SkPicture`; the picture goes to the canvas through a Reanimated shared
@@ -83,31 +77,30 @@ export interface SpriteStudioViewRef {
  * — Phase 0 measured that routing vertices through JS caps the frame rate no
  * matter where they are baked (`docs/phase0-spike.md`), so Layer 1 owns the
  * drawing and this component owns only the clock and the placement.
+ *
+ * **For several animations at once, reach for `<SpriteStudioScene>` instead.**
+ * This component is one canvas and one `requestAnimationFrame` loop, so twenty
+ * of them are twenty of each; a scene is one of each for the lot, which is the
+ * arrangement Layer 3 was built for (`advance(dt)` is externally clocked
+ * precisely so a tree can tick off one clock).
  */
 export const SpriteStudioView = forwardRef<
   SpriteStudioViewRef,
   SpriteStudioViewProps
 >(function SpriteStudioView(props, ref) {
   const {
-    source,
-    textures,
-    animation,
-    playing = true,
-    speed = 1,
-    loop = 0,
+    align = 'center',
     flipX = false,
     flipY = false,
     offset,
     scale = 1,
     style,
-    onLoad,
-    onError,
-    onComplete,
+    placeholder,
   } = props
+  const fit = props.fit ?? 'contain'
 
-  const [player, setPlayer] = useState<SpriteStudioPlayer | null>(null)
   const [size, setSize] = useState({ width: 0, height: 0 })
-  const images = useSsTextures(textures)
+  const { player, measured, ready } = useSpriteStudioPlayer(props)
 
   // `<Picture>` has no null state, so seed it with an empty recording rather
   // than letting the first frame render before the loop has run once.
@@ -118,85 +111,38 @@ export const SpriteStudioView = forwardRef<
   }, [])
   const picture = useSharedValue<SkPicture>(emptyPicture)
 
-  // Callbacks go through a ref so a caller passing inline arrows does not
-  // restart the frame loop on every render.
-  const callbacks = useRef({ onLoad, onError, onComplete })
-  callbacks.current = { onLoad, onError, onComplete }
+  const errorRef = useRef(props.onError)
+  errorRef.current = props.onError
 
   useImperativeHandle(ref, () => ({ player }), [player])
 
-  // --- load ---------------------------------------------------------------
-  //
-  // Keyed on the URI rather than on `source`: an inline `{ uri }` is a new
-  // object every render, and reloading the pack on every render would be an
-  // expensive way to draw the same frame. The string is the whole of the
-  // source, so passing it on loses nothing.
-  //
-  // A malformed source throws here, during render, rather than through
-  // `onError` — `onError` is for a pack that could not be loaded, and a
-  // `require()` or a missing `uri` is a mistake in the call, not in the asset.
-  const sourceUri = sourceUriOf(source)
-  useEffect(() => {
-    const next = new SpriteStudioPlayer()
-    setPlayer(next)
-    next
-      .load(sourceUri, { animation })
-      .then(() => {
-        callbacks.current.onLoad?.()
-      })
-      .catch((error: unknown) => {
-        callbacks.current.onError?.(error)
-      })
-    return () => {
-      // Explicit teardown, never GC: every buffer Layer 1 handed out is a
-      // borrow of memory this player owns (design doc ch.9 F).
-      next.dispose()
-      setPlayer(null)
-    }
-  }, [sourceUri, animation])
-
-  // --- textures -----------------------------------------------------------
-  useEffect(() => {
-    if (player == null || images == null) return
-    for (const [name, image] of Object.entries(images)) {
-      player.textures.register(name, image)
-    }
-  }, [player, images])
-
-  // --- transport props ----------------------------------------------------
-  useEffect(() => {
-    player?.setSpeed(speed)
-  }, [player, speed])
-
-  useEffect(() => {
-    player?.setLoop(loop)
-  }, [player, loop])
-
-  useEffect(() => {
-    if (player == null) return
-    if (playing) player.play()
-    else player.pause()
-  }, [player, playing])
-
-  useEffect(() => {
-    if (player == null) return
-    player.onComplete = () => callbacks.current.onComplete?.()
-    return () => {
-      player.onComplete = null
-    }
-  }, [player])
-
   // --- placement ----------------------------------------------------------
+  const box = props.frame ?? measured
   useEffect(() => {
     if (player == null) return
-    player.setRootTransform({
-      x: size.width / 2 + (offset?.x ?? 0),
-      y: size.height / 2 + (offset?.y ?? 0),
-      scale,
-      flipX,
-      flipY,
-    })
-  }, [player, size.width, size.height, offset?.x, offset?.y, scale, flipX, flipY])
+    player.setRootTransform(
+      resolveRootTransform(box, size.width, size.height, {
+        fit,
+        align,
+        offset,
+        scale,
+        flipX,
+        flipY,
+      })
+    )
+  }, [
+    player,
+    box,
+    size.width,
+    size.height,
+    fit,
+    align,
+    offset?.x,
+    offset?.y,
+    scale,
+    flipX,
+    flipY,
+  ])
 
   // --- the frame loop -----------------------------------------------------
   //
@@ -227,7 +173,7 @@ export const SpriteStudioView = forwardRef<
         picture.value = recorder.finishRecordingAsPicture()
       } catch (error) {
         cancelAnimationFrame(raf)
-        callbacks.current.onError?.(error)
+        errorRef.current?.(error)
       }
     }
 
@@ -247,6 +193,11 @@ export const SpriteStudioView = forwardRef<
       <Canvas style={{ flex: 1 }}>
         <Picture picture={picture} />
       </Canvas>
+      {!ready && placeholder != null && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {placeholder}
+        </View>
+      )}
     </View>
   )
 })

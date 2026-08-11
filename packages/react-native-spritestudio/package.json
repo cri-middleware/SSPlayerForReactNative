@@ -7,6 +7,7 @@
   "types": "src/index.ts",
   "files": [
     "src",
+    "bin",
     "cpp",
     "nitrogen",
     "android",
@@ -46,5 +47,8 @@
     "animation",
     "skia",
     "nitro"
-  ]
+  ],
+  "bin": {
+    "react-native-spritestudio": "./bin/spritestudio.js"
+  }
 }
