@@ -218,6 +218,49 @@ class SsAnimeBinaryView {
     return v == nullptr ? 0 : v->size();
   }
 
+  /// Authored name of part `index`, or empty when out of range.
+  ///
+  /// Points into the `.ssab` buffer like everything else here, so it is only
+  /// valid while the resource is.
+  std::string_view partName(uint32_t index) const noexcept {
+    const auto* v = root_ != nullptr ? root_->parts() : nullptr;
+    if (v == nullptr || index >= v->size()) return {};
+    return toView(v->Get(index)->name());
+  }
+
+  /// Index of the animation called `name`, or -1.
+  ///
+  /// The `.ssab` is the only thing that knows the order, and the Brain reports
+  /// passed events as indices into *that* animation's `events` table — so
+  /// resolving a name to an index is what connects the two.
+  int32_t animationIndex(std::string_view name) const noexcept {
+    const uint32_t count = animationCount();
+    for (uint32_t i = 0; i < count; ++i) {
+      if (animationName(i) == name) return static_cast<int32_t>(i);
+    }
+    return -1;
+  }
+
+  /// The `EventsPerFrame` at `eventIndex` of animation `animationIndex`, or null.
+  ///
+  /// Indexed rather than searched by frame: `ss_runtime_get_passed_event_index`
+  /// hands back a position in this very vector, so looking the frame up again
+  /// would be re-deriving what the Brain already resolved.
+  const ss::format::EventsPerFrame* eventsAt(int32_t animationIndex,
+                                             int32_t eventIndex) const noexcept {
+    const auto* animations = root_ != nullptr ? root_->animations() : nullptr;
+    if (animations == nullptr || animationIndex < 0 ||
+        static_cast<uint32_t>(animationIndex) >= animations->size()) {
+      return nullptr;
+    }
+    const auto* events = animations->Get(static_cast<uint32_t>(animationIndex))->events();
+    if (events == nullptr || eventIndex < 0 ||
+        static_cast<uint32_t>(eventIndex) >= events->size()) {
+      return nullptr;
+    }
+    return events->Get(static_cast<uint32_t>(eventIndex));
+  }
+
   /// The mask flags of part `index`, or an all-false set when out of range.
   ///
   /// These are the **static** half of masking and the doc leads with the split:

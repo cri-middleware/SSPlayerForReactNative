@@ -104,6 +104,74 @@ export interface SsTextureInfo {
 }
 
 /**
+ * A box in **player-local units, Y-up** — the space the root transform works in,
+ * and the same one `local_vertices` and the world matrices are expressed in.
+ *
+ * Y-up rather than Skia's Y-down because that is the Brain's convention all the
+ * way up to `SsInternalPlayer.draw`, which is the single place the flip happens
+ * (`canvas.scale(s, -s)`). A box that arrived Y-down would have to be flipped
+ * back there, and the two conventions would meet somewhere less obvious.
+ */
+export interface SsBox {
+  /** Left edge. */
+  x: number
+  /** **Bottom** edge, +Y being up. */
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * One part's placement this frame, in **player-local units, Y-up**.
+ *
+ * Decomposed rather than handed over as a matrix because the callers are
+ * placement code — attaching a React view to a hand, spawning a projectile at a
+ * muzzle — and every one of them would otherwise decompose it identically.
+ *
+ * `determinant` is here because a world matrix **can be a reflection** and the
+ * sign is the product of authored negative scale and the player's flip, so the
+ * two cancel: reading it off the flip settings gives the wrong answer, and
+ * `scaleX`/`scaleY` alone cannot tell a mirror from a rotation.
+ */
+export interface SsPartTransform {
+  /** False when the index is out of range or the frame carries no matrix. */
+  valid: boolean
+  x: number
+  y: number
+  /** Radians, taken from the matrix — so a parent's rotation is already in it. */
+  rotation: number
+  scaleX: number
+  scaleY: number
+  /** Negative for a reflection. See above. */
+  determinant: number
+}
+
+/**
+ * One authored user-data key the playhead crossed.
+ *
+ * Four independent payloads, each optional, which is how SpriteStudio authors
+ * them — a key can carry an integer *and* a string. The `has*` flags are not
+ * decoration: `integer: 0` is a value an author can mean.
+ */
+export interface SsUserDataEvent {
+  partIndex: number
+  /** The authored part name, so a caller need not keep an index table. */
+  partName: string
+  /** The frame the key sits on, not the frame it was noticed on. */
+  frameNo: number
+
+  hasInteger: boolean
+  integer: number
+  hasPoint: boolean
+  pointX: number
+  pointY: number
+  hasRect: boolean
+  rect: SsBox
+  hasText: boolean
+  text: string
+}
+
+/**
  * How many native handles are alive right now — the leak check, made observable.
  *
  * Phase 1's exit criteria ask for "no leaked native handles", which was an
@@ -267,6 +335,118 @@ export interface SsContext
 
   /** Part index for `partName`, or -1. Stable for the loaded pack. */
   findPartIndex(partName: string): number
+
+  /**
+   * The box `animations` actually draw into, measured by baking each of them
+   * and unioning every vertex — the subtrees Instance parts mount included.
+   *
+   * **The authored canvas cannot answer this**, which is the whole reason this
+   * costs a bake. `AnimationData.canvas` carries a size and no origin, and a
+   * SpriteStudio origin is wherever the author put it, so the canvas says
+   * nothing about where the art sits relative to it. Measured on this repo's own
+   * packs, every one overflows a canvas centred on its origin: `Basic` 480x480
+   * against art `x[-250.5, 232.0]`, `Shape` 320x320 against `x[-248.0, 131.9]`,
+   * and `Ringo` 800x600 against `y[0.7, 528.1]` — it stands on its origin, so
+   * the character is entirely above a box centred on it. A `fit` reading the
+   * canvas would clip all three.
+   *
+   * **Moves the playhead and leaves the last of `animations` set up**, so it
+   * runs *before* `setupAnimation` — the same ordering rule `bindInstancePack`
+   * has, and for a related reason: it is load-time setup, not a query. Layer 3
+   * already calls `setAnimation` after a load, which restores the intended one.
+   *
+   * `maxFrames` caps the walk per animation; 0 means one authored cycle. An
+   * effect's extent grows for as long as it is simulated, so a pack of those
+   * wants a real cap rather than a cycle.
+   *
+   * Returns a zero-sized box when nothing drew — a caller should fall back to
+   * placing at scale 1 rather than dividing by it.
+   */
+  measureContentBox(animations: string[], maxFrames: number): SsBox
+
+  /**
+   * Where part `partIndex` is this frame — see `SsPartTransform`.
+   *
+   * Player-local, so the root transform still has to be applied to reach the
+   * screen. That is deliberate: the root transform is Layer 2's and is applied
+   * exactly once, and folding it in here would give two places that know it.
+   */
+  getPartTransform(partIndex: number): SsPartTransform
+
+  /**
+   * How many events the last `update()` crossed — user data, signals and all.
+   *
+   * A **cheap gate** in front of `getUserDataEvents`, which is otherwise one
+   * vector allocation and one Nitro array marshal per player per frame to say
+   * "none", on a path that runs 60 times a second for every player on screen.
+   * Almost every frame answers 0.
+   */
+  readonly passedEventCount: number
+
+  /**
+   * The user-data keys the last `update()` crossed.
+   *
+   * A **read, not a drain**: the Brain's `collect_events` clears its list at the
+   * top of each collection, so calling this twice in a tick returns the same
+   * events and never calling it loses nothing. That is why it is safe to gate
+   * on `passedEventCount` and on whether anyone is listening.
+   *
+   * A long `update()` can cross several frames at once and reports all of
+   * them, unless `setSkipFrames(true)` let it skip — which is exactly the
+   * trade-off that setting exists to make.
+   */
+  getUserDataEvents(): SsUserDataEvent[]
+
+  // --- the override layer -------------------------------------------------
+  //
+  // Per-part overrides that sit *on top of* the animation, from the Brain's own
+  // override layer rather than anything reimplemented here. Every one takes a
+  // part index from `findPartIndex`, and every one returns false rather than
+  // throwing when the part cannot take that kind of override — a Shape has no
+  // cell, so `setPartCell` on one is a no-op and says so.
+
+  /**
+   * `force`: 0 reverts to the animation, 1 force-hides, 2 force-shows.
+   * `cascade` propagates a force-hide to descendants, which is what "hide this
+   * limb" almost always means.
+   */
+  setPartVisibility(partIndex: number, force: number, cascade: boolean): boolean
+  clearPartVisibility(partIndex: number): boolean
+
+  /**
+   * `rgba` is `0xRRGGBBAA` and fills all four corners. `blendOp` is the
+   * **PartColor** blend — `0=Mix 1=Mul 2=Add 3=Sub`, and only those four —
+   * *not* `DrawBatch.blend_type`'s twelve. Conflating the two is the mistake
+   * the SDK's own PartColor doc opens by warning against.
+   *
+   * `priority`: `0` until the next keyframe, `1` until the next animation,
+   * `2` permanent.
+   */
+  setPartColor(
+    partIndex: number,
+    blendOp: number,
+    rgba: number,
+    priority: number
+  ): boolean
+  clearPartColor(partIndex: number): boolean
+
+  /**
+   * Swaps which cell a part samples — a costume change, or a mouth shape.
+   *
+   * Both hashes come from `hashString`, of the cellmap name (no `.ssce`) and
+   * the cell name. Normal and Mask parts only; fails if the cell cannot be
+   * resolved, which is what makes a typo visible rather than silent.
+   */
+  setPartCell(
+    partIndex: number,
+    cellmapNameHash: number,
+    cellNameHash: number,
+    priority: number
+  ): boolean
+  clearPartCell(partIndex: number): boolean
+
+  /** Drops every per-part override on this player at once. */
+  clearPartOverrides(): boolean
 
   // --- `.ssab` metadata ---------------------------------------------------
   //

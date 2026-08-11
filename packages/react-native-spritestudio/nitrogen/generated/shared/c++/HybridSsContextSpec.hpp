@@ -15,6 +15,12 @@
 
 // Forward declaration of `HybridSsResourceSpec` to properly resolve imports.
 namespace margelo::nitro::ssplayer { class HybridSsResourceSpec; }
+// Forward declaration of `SsBox` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsBox; }
+// Forward declaration of `SsPartTransform` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsPartTransform; }
+// Forward declaration of `SsUserDataEvent` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsUserDataEvent; }
 // Forward declaration of `SsTextureInfo` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureInfo; }
 // Forward declaration of `SsTextureBinding` to properly resolve imports.
@@ -23,8 +29,11 @@ namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 #include <memory>
 #include "HybridSsResourceSpec.hpp"
 #include <string>
-#include "SsTextureInfo.hpp"
+#include "SsBox.hpp"
 #include <vector>
+#include "SsPartTransform.hpp"
+#include "SsUserDataEvent.hpp"
+#include "SsTextureInfo.hpp"
 #include "SsRNSkiaInterop.hpp"
 #include "SsTextureBinding.hpp"
 
@@ -70,6 +79,7 @@ namespace margelo::nitro::ssplayer {
       virtual double getPlaybackDirection() = 0;
       virtual double getPlaybackStyle() = 0;
       virtual bool getSkipFrames() = 0;
+      virtual double getPassedEventCount() = 0;
 
     public:
       // Methods
@@ -88,6 +98,16 @@ namespace margelo::nitro::ssplayer {
       virtual void setSkipFrames(bool skip) = 0;
       virtual void setSection(double startFrame, double endFrame) = 0;
       virtual double findPartIndex(const std::string& partName) = 0;
+      virtual SsBox measureContentBox(const std::vector<std::string>& animations, double maxFrames) = 0;
+      virtual SsPartTransform getPartTransform(double partIndex) = 0;
+      virtual std::vector<SsUserDataEvent> getUserDataEvents() = 0;
+      virtual bool setPartVisibility(double partIndex, double force, bool cascade) = 0;
+      virtual bool clearPartVisibility(double partIndex) = 0;
+      virtual bool setPartColor(double partIndex, double blendOp, double rgba, double priority) = 0;
+      virtual bool clearPartColor(double partIndex) = 0;
+      virtual bool setPartCell(double partIndex, double cellmapNameHash, double cellNameHash, double priority) = 0;
+      virtual bool clearPartCell(double partIndex) = 0;
+      virtual bool clearPartOverrides() = 0;
       virtual std::vector<SsTextureInfo> getTextures() = 0;
       virtual std::vector<std::string> getAnimationNames() = 0;
       virtual double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) = 0;

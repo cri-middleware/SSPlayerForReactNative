@@ -109,6 +109,22 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   double findPartIndex(const std::string& partName) override;
 
+  SsBox measureContentBox(const std::vector<std::string>& animations,
+                          double maxFrames) override;
+
+  SsPartTransform getPartTransform(double partIndex) override;
+  double getPassedEventCount() override;
+  std::vector<SsUserDataEvent> getUserDataEvents() override;
+
+  bool setPartVisibility(double partIndex, double force, bool cascade) override;
+  bool clearPartVisibility(double partIndex) override;
+  bool setPartColor(double partIndex, double blendOp, double rgba, double priority) override;
+  bool clearPartColor(double partIndex) override;
+  bool setPartCell(double partIndex, double cellmapNameHash, double cellNameHash,
+                   double priority) override;
+  bool clearPartCell(double partIndex) override;
+  bool clearPartOverrides() override;
+
   std::vector<SsTextureInfo> getTextures() override;
   std::vector<std::string> getAnimationNames() override;
 
@@ -175,6 +191,15 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// the current frame. Called by `update()`; the getters below just read it.
   void refreshFrame();
 
+  /// Unions this player's baked vertices into `box`, mapped through the 2D
+  /// affine `m`, and recurses into every child an Instance part mounts.
+  ///
+  /// Mirrors `drawSubtree` deliberately: an instance contributes no geometry of
+  /// its own, so a walk that stopped here would measure an empty box for a pack
+  /// like `overall/Instance.ssab`, whose art is *entirely* mounted. `box` is
+  /// `{minX, minY, maxX, maxY}` and is left untouched when nothing drew.
+  void accumulateSubtreeBox(float box[4], const float m[6]);
+
   /// A view over the bound `.ssab`, read in place out of the Brain's copy.
   /// Cheap (two pointers), so the load-time metadata queries just build one each
   /// rather than caching a parse nothing else needs.
@@ -209,6 +234,12 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   double generation_ = 0;
   float frameNo_ = 0.0f;
+  /// Index of the animation `setupAnimation` last selected, or -1.
+  ///
+  /// The Brain reports a passed event as a position in *that* animation's
+  /// `events` vector, so without this the indices cannot be resolved back to
+  /// the keys they name.
+  int32_t animationIndex_ = -1;
   size_t partCount_ = 0;
 
   /// The Brain's FrameData for `frameNo_`, read in place. A raw pointer on

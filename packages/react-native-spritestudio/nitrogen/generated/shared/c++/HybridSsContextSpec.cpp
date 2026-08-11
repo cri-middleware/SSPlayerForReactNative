@@ -29,6 +29,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridGetter("playbackDirection", &HybridSsContextSpec::getPlaybackDirection);
       prototype.registerHybridGetter("playbackStyle", &HybridSsContextSpec::getPlaybackStyle);
       prototype.registerHybridGetter("skipFrames", &HybridSsContextSpec::getSkipFrames);
+      prototype.registerHybridGetter("passedEventCount", &HybridSsContextSpec::getPassedEventCount);
       prototype.registerHybridMethod("bindInstancePack", &HybridSsContextSpec::bindInstancePack);
       prototype.registerHybridMethod("setupAnimation", &HybridSsContextSpec::setupAnimation);
       prototype.registerHybridMethod("update", &HybridSsContextSpec::update);
@@ -44,6 +45,16 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridMethod("setSkipFrames", &HybridSsContextSpec::setSkipFrames);
       prototype.registerHybridMethod("setSection", &HybridSsContextSpec::setSection);
       prototype.registerHybridMethod("findPartIndex", &HybridSsContextSpec::findPartIndex);
+      prototype.registerHybridMethod("measureContentBox", &HybridSsContextSpec::measureContentBox);
+      prototype.registerHybridMethod("getPartTransform", &HybridSsContextSpec::getPartTransform);
+      prototype.registerHybridMethod("getUserDataEvents", &HybridSsContextSpec::getUserDataEvents);
+      prototype.registerHybridMethod("setPartVisibility", &HybridSsContextSpec::setPartVisibility);
+      prototype.registerHybridMethod("clearPartVisibility", &HybridSsContextSpec::clearPartVisibility);
+      prototype.registerHybridMethod("setPartColor", &HybridSsContextSpec::setPartColor);
+      prototype.registerHybridMethod("clearPartColor", &HybridSsContextSpec::clearPartColor);
+      prototype.registerHybridMethod("setPartCell", &HybridSsContextSpec::setPartCell);
+      prototype.registerHybridMethod("clearPartCell", &HybridSsContextSpec::clearPartCell);
+      prototype.registerHybridMethod("clearPartOverrides", &HybridSsContextSpec::clearPartOverrides);
       prototype.registerHybridMethod("getTextures", &HybridSsContextSpec::getTextures);
       prototype.registerHybridMethod("getAnimationNames", &HybridSsContextSpec::getAnimationNames);
       prototype.registerHybridMethod("drawInto", &HybridSsContextSpec::drawInto);

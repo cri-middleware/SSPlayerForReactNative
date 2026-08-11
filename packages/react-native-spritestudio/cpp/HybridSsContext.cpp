@@ -3,6 +3,8 @@
 #include <NitroModules/ArrayBuffer.hpp>
 
 #include <atomic>
+#include <cmath>
+#include <limits>
 #include <stdexcept>
 
 #include "ssruntime.h"
@@ -166,6 +168,7 @@ void HybridSsContext::release() noexcept {
   soa_ = {};
   partCount_ = 0;
   frameNo_ = 0.0f;
+  animationIndex_ = -1;
   // Same signal an `update()` gives: anything JS is still holding from an
   // earlier frame is stale now. JS has one rule to follow, not a special case
   // for teardown.
@@ -192,6 +195,7 @@ bool HybridSsContext::setupAnimation(const std::string& name) {
   // stale. Bump the generation and republish.
   ++generation_;
   frameNo_ = 0.0f;
+  animationIndex_ = ssab().animationIndex(name);
   // A different animation has different `EventEffect` keys, so each slot's
   // memory of the last key it started is about a timeline that no longer
   // exists — without this the first key of the new animation is debounced as
@@ -367,6 +371,215 @@ void HybridSsContext::setSection(double startFrame, double endFrame) {
 double HybridSsContext::findPartIndex(const std::string& partName) {
   if (ctx_ == nullptr) return -1.0;
   return static_cast<double>(ss_runtime_find_part_index(ctx_, partName.c_str()));
+}
+
+void HybridSsContext::accumulateSubtreeBox(float box[4], const float m[6]) {
+  if (ctx_ == nullptr) return;
+
+  // The same bake the draw does, minus the drawing. `alphaScale` is 1 because
+  // opacity does not move a vertex, and a fully transparent part still occupies
+  // the box it would occupy if it were visible — hiding is a per-frame state and
+  // this is measuring the extent over every frame.
+  baker_.bake(frame_, soa_, effects_.frame(), 1.0f);
+
+  const std::vector<float>& p = baker_.positions();
+  for (size_t i = 0; i + 1 < p.size(); i += 2) {
+    const float x = m[0] * p[i] + m[2] * p[i + 1] + m[4];
+    const float y = m[1] * p[i] + m[3] * p[i + 1] + m[5];
+    if (x < box[0]) box[0] = x;
+    if (y < box[1]) box[1] = y;
+    if (x > box[2]) box[2] = x;
+    if (y > box[3]) box[3] = y;
+  }
+
+  for (const sscore::SsInstanceDraw& mount : baker_.instances()) {
+    const sscore::SsInstanceState* state = instances_.stateFor(mount.partIndex);
+    if (state == nullptr || state->child == nullptr) continue;
+    // `m ∘ mount.m`, so a grandchild composes the same way — which is what makes
+    // this the measuring twin of `drawInstance`'s `canvas.concat`.
+    const float c[6] = {
+        m[0] * mount.m[0] + m[2] * mount.m[1], m[1] * mount.m[0] + m[3] * mount.m[1],
+        m[0] * mount.m[2] + m[2] * mount.m[3], m[1] * mount.m[2] + m[3] * mount.m[3],
+        m[0] * mount.m[4] + m[2] * mount.m[5] + m[4],
+        m[1] * mount.m[4] + m[3] * mount.m[5] + m[5],
+    };
+    // Not gated on `state->visible`: an instance hidden on this frame is drawn
+    // on another, and the box is the union over all of them.
+    static_cast<HybridSsContext*>(state->child)->accumulateSubtreeBox(box, c);
+  }
+}
+
+SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animations,
+                                         double maxFrames) {
+  float box[4] = {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity(),
+                  -std::numeric_limits<float>::infinity(),
+                  -std::numeric_limits<float>::infinity()};
+  if (ctx_ == nullptr) return SsBox(0.0, 0.0, 0.0, 0.0);
+
+  static constexpr float kIdentity[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+
+  for (const std::string& name : animations) {
+    if (!setupAnimation(name)) continue;
+
+    // Looping and playing, because `setup_animation` leaves the transport
+    // stopped and a walk that forgets this measures frame 0 N times — the trap
+    // AGENTS.md has warned about since Phase 0, and which `ssbake_check` itself
+    // shipped with for a whole phase.
+    ss_runtime_set_loop(ctx_, -1);
+    ss_runtime_play(ctx_);
+
+    const int32_t fps = ss_runtime_get_fps(ctx_);
+    const float stepMs = 1000.0f / (fps > 0 ? static_cast<float>(fps) : 60.0f);
+    int32_t frames = static_cast<int32_t>(maxFrames);
+    if (frames <= 0) {
+      // One authored cycle. Inclusive of both ends, and at least one frame so a
+      // single-frame animation still gets measured.
+      frames = ss_runtime_get_end_frame(ctx_) - ss_runtime_get_start_frame(ctx_) + 1;
+      if (frames <= 0) frames = 1;
+    }
+
+    // Frame 0 before any advance: `play()` rewound to the start frame, and that
+    // pose is part of the animation even for a one-frame one.
+    accumulateSubtreeBox(box, kIdentity);
+    for (int32_t f = 1; f < frames; ++f) {
+      update(stepMs);
+      accumulateSubtreeBox(box, kIdentity);
+    }
+  }
+
+  if (box[0] > box[2] || box[1] > box[3]) return SsBox(0.0, 0.0, 0.0, 0.0);
+  return SsBox(static_cast<double>(box[0]), static_cast<double>(box[1]),
+               static_cast<double>(box[2] - box[0]), static_cast<double>(box[3] - box[1]));
+}
+
+SsPartTransform HybridSsContext::getPartTransform(double partIndex) {
+  const auto index = static_cast<size_t>(partIndex);
+  if (ctx_ == nullptr || soa_.worldMatrices == nullptr || partIndex < 0 ||
+      index >= partCount_) {
+    return SsPartTransform(false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+  }
+
+  // Column-major 4x4, of which a 2D placement needs six: `x' = m0*x + m4*y + m12`.
+  const float* m = soa_.worldMatrices + index * 16;
+  const float a = m[0], b = m[1], c = m[4], d = m[5];
+
+  // Length of each mapped basis vector. `scaleY` carries the sign of the
+  // determinant so that a mirrored part reads as a negative scale on one axis
+  // rather than as a 180-degree rotation, which is the decomposition every
+  // caller placing a view expects.
+  const float determinant = a * d - b * c;
+  const float scaleX = std::sqrt(a * a + b * b);
+  const float scaleYMagnitude = std::sqrt(c * c + d * d);
+  const float scaleY = determinant < 0.0f ? -scaleYMagnitude : scaleYMagnitude;
+
+  return SsPartTransform(true, static_cast<double>(m[12]), static_cast<double>(m[13]),
+                         static_cast<double>(std::atan2(b, a)),
+                         static_cast<double>(scaleX), static_cast<double>(scaleY),
+                         static_cast<double>(determinant));
+}
+
+double HybridSsContext::getPassedEventCount() {
+  if (ctx_ == nullptr) return 0.0;
+  return static_cast<double>(ss_runtime_get_passed_event_count(ctx_));
+}
+
+std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
+  std::vector<SsUserDataEvent> out;
+  if (ctx_ == nullptr || animationIndex_ < 0) return out;
+
+  const int32_t count = ss_runtime_get_passed_event_count(ctx_);
+  if (count <= 0) return out;
+
+  const sscore::SsAnimeBinaryView view = ssab();
+  if (!view.valid()) return out;
+
+  for (int32_t i = 0; i < count; ++i) {
+    const ss::format::EventsPerFrame* frame =
+        view.eventsAt(animationIndex_, ss_runtime_get_passed_event_index(ctx_, i));
+    if (frame == nullptr) continue;
+    const auto* users = frame->users();
+    if (users == nullptr) continue;
+
+    for (uint32_t u = 0; u < users->size(); ++u) {
+      const ss::format::EventUserData* entry = users->Get(u);
+      const ss::format::PartAttributeUserData* value = entry->value();
+      if (value == nullptr) continue;
+
+      // Four independent payloads, each optional — a flatbuffers table field
+      // that was never written reads back as null, which is exactly the
+      // distinction the `has*` flags carry up. `integer: 0` is a value an
+      // author can mean, so absence cannot be encoded as a zero.
+      const auto* integer = value->integer();
+      const ss::format::Vec2* point = value->point();
+      const ss::format::Rect* rect = value->rect();
+      const auto* text = value->str();
+
+      out.push_back(SsUserDataEvent(
+          static_cast<double>(entry->part_index()),
+          std::string(view.partName(entry->part_index())),
+          static_cast<double>(frame->frame_index()), integer != nullptr,
+          integer != nullptr ? static_cast<double>(integer->value()) : 0.0, point != nullptr,
+          point != nullptr ? static_cast<double>(point->v1()) : 0.0,
+          point != nullptr ? static_cast<double>(point->v2()) : 0.0, rect != nullptr,
+          rect != nullptr ? SsBox(static_cast<double>(rect->x1()),
+                                  static_cast<double>(rect->y1()),
+                                  static_cast<double>(rect->x2() - rect->x1()),
+                                  static_cast<double>(rect->y2() - rect->y1()))
+                          : SsBox(0.0, 0.0, 0.0, 0.0),
+          text != nullptr, text != nullptr ? text->str() : std::string()));
+    }
+  }
+  return out;
+}
+
+// --- the override layer ------------------------------------------------------
+//
+// Straight through to the Brain's own override layer. Nothing is mirrored here:
+// the Brain applies these while it evaluates the frame, so a copy up here would
+// be a second answer to "what colour is this part" that the next keyframe could
+// disagree with.
+
+bool HybridSsContext::setPartVisibility(double partIndex, double force, bool cascade) {
+  if (ctx_ == nullptr || partIndex < 0) return false;
+  return ss_runtime_set_part_visibility_override(
+      ctx_, static_cast<uint32_t>(partIndex), static_cast<unsigned char>(force),
+      cascade ? 1 : 0);
+}
+
+bool HybridSsContext::clearPartVisibility(double partIndex) {
+  if (ctx_ == nullptr || partIndex < 0) return false;
+  return ss_runtime_clear_part_visibility_override(ctx_, static_cast<uint32_t>(partIndex));
+}
+
+bool HybridSsContext::setPartColor(double partIndex, double blendOp, double rgba,
+                                   double priority) {
+  if (ctx_ == nullptr || partIndex < 0) return false;
+  return ss_runtime_set_part_color_override(
+      ctx_, static_cast<uint32_t>(partIndex), static_cast<unsigned char>(blendOp),
+      static_cast<uint32_t>(rgba), static_cast<unsigned char>(priority));
+}
+
+bool HybridSsContext::clearPartColor(double partIndex) {
+  if (ctx_ == nullptr || partIndex < 0) return false;
+  return ss_runtime_clear_part_color_override(ctx_, static_cast<uint32_t>(partIndex));
+}
+
+bool HybridSsContext::setPartCell(double partIndex, double cellmapNameHash,
+                                  double cellNameHash, double priority) {
+  if (ctx_ == nullptr || partIndex < 0) return false;
+  return ss_runtime_set_part_cell_override(
+      ctx_, static_cast<uint32_t>(partIndex), static_cast<uint32_t>(cellmapNameHash),
+      static_cast<uint32_t>(cellNameHash), static_cast<unsigned char>(priority));
+}
+
+bool HybridSsContext::clearPartCell(double partIndex) {
+  if (ctx_ == nullptr || partIndex < 0) return false;
+  return ss_runtime_clear_part_cell_override(ctx_, static_cast<uint32_t>(partIndex));
+}
+
+bool HybridSsContext::clearPartOverrides() {
+  if (ctx_ == nullptr) return false;
+  return ss_runtime_clear_all_part_overrides(ctx_);
 }
 
 sscore::SsAnimeBinaryView HybridSsContext::ssab() const {
