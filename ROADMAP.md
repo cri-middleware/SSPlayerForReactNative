@@ -449,9 +449,32 @@ constant across the Phase 0 sweep while nothing was actually playing.
   mechanism**
 - ☐ Events: end / user data / signal
 - ☐ Override Layer API (colour / cell / visibility), flip / offset, part following
-- ☐ **Reanimated integration** (design doc ch.3 D): UI-thread tick via
-  `useFrameCallback`; part transforms out as SharedValues; SharedValues in as
-  frame / speed / blend weight
+- 🚧 **Reanimated integration** (design doc ch.3 D). Part transforms now go out
+  as a SharedValue (`useSsPartTransform`), which is the consumer-facing half and
+  the one that does not change when the tick moves. **What is left is the tick
+  itself**: it is still `requestAnimationFrame` on the JS thread, so the hook
+  samples there and publishes across. `useFrameCallback` needs the whole
+  update→bake→draw chain reachable from a worklet runtime, and the borrow rule
+  (ch.9 F) says update and draw cannot land on different threads. SharedValues
+  *in* — frame / speed / blend weight — are untouched; the blend-source and
+  crossfade C-API they would drive is already there (`ss_runtime_add_blend_source`,
+  `ss_runtime_crossfade`) and unbound.
+- ✅ **Override Layer API** (colour / cell / visibility) — declarative, as a
+  `parts` prop keyed by part name, over the Brain's own override layer. A part
+  dropped from the map reverts, which is what makes the prop describe state
+  rather than a history of calls. Flip / offset are props on both L4 components;
+  part *following* is `useSsPartTransform`.
+- ✅ **Events: user data.** `takeUserDataEvents` drains the Brain's passed-event
+  list and resolves each index back through the `.ssab`'s `EventsPerFrame`,
+  surfacing as an `onUserData` prop. **Signals and audio are not done** — the
+  C-API and the schema both carry them (`EventSignal`, `EventAudio`), so it is
+  the same shape one table across.
+- ✅ **Placement**: `fit`/`align`/`frame`, backed by `measureContentBox`. The
+  authored canvas turned out not to frame the art — see the traps.
+- ✅ **Resource and atlas caches** + `ssPreload`, so N players of one pack cost
+  one parse and one decode.
+- ✅ **`<SpriteStudioScene>`**: one canvas and one clock for many sprites.
+- ✅ **Typed asset manifest**: `npx react-native-spritestudio assets`.
 - 🚧 **Expo config plugin.** Landed in Phase 1 because the asset-path work
   needed it: it copies the pack directories into the app on every build (Xcode
   run-script phase; Gradle `Sync` task feeding an asset source set), verified

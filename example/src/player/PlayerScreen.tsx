@@ -15,6 +15,8 @@ import {
   type SpriteStudioViewRef,
 } from 'react-native-spritestudio'
 
+import { SsAssets } from '../ss-assets'
+
 /**
  * How a pack's art sits relative to its origin, in **player-local units**.
  *
@@ -324,6 +326,19 @@ export function PlayerScreen() {
   const dir = (mode === 'embedded' ? embeddedDir : null) ?? packDir(subject.pack, 'reference')
   const source = `${dir}/${file}.ssab`
 
+  // The generated manifest, used the way an app with *computed* paths has to
+  // use it: as a check rather than as the source of the string. A pack this
+  // screen names but `deploy-examples` never converted is otherwise a blank
+  // stage with nothing to say why — `drawInto` skips what it cannot resolve.
+  // An app naming its packs literally gets the stronger form for free, because
+  // `SsAssets['overall/Basic']` is a type error when the key is wrong.
+  if (__DEV__ && !(source.replace(/^ss\/|\.ssab$/g, '') in SsAssets)) {
+    console.warn(
+      `PlayerScreen: '${source}' is not in ss-assets.ts. Re-run ` +
+        '`npm run deploy-examples`, then `npm run generate-assets`.'
+    )
+  }
+
   // Left **undefined** when the subject names none, which is most of them: the
   // player then sets up the pack's first, and `loaded.current` reads back which
   // that was. Resolving it here instead would mean either guessing a name before
@@ -423,12 +438,21 @@ export function PlayerScreen() {
     setSize(event.nativeEvent.layout)
   }
 
-  // Fit the subject's measured box into the shorter axis, then move the origin
-  // so the art's centre lands in the middle of the view rather than the origin
-  // itself. `offset` is screen pixels and the root transform flips Y, so a pack
-  // standing on its origin (centerY > 0) needs the origin pushed *down*.
-  const scale = size.height === 0 ? 1 : Math.min(size.width, size.height) / frame.height
-  const offset = { x: 0, y: frame.centerY * scale }
+  // The measured table is now a *`frame` prop*, not arithmetic this screen has
+  // to do: `fit` takes the box and lands it in the view. The numbers stayed
+  // because supplying the box is the documented way to skip the measurement,
+  // and this screen switches packs often enough to care — `measureFrames` on
+  // `ParticleEffect` alone would be 240 bakes per switch.
+  //
+  // `height`/`centerY` are what was measured, so the box is reconstructed from
+  // them. Its width is left at the height: `fit="contain"` takes the tighter
+  // axis, and the vertical one is the one every entry here was measured on.
+  const box = {
+    x: -frame.height / 2,
+    y: frame.centerY - frame.height / 2,
+    width: frame.height,
+    height: frame.height,
+  }
 
   return (
     <View style={styles.root}>
@@ -442,8 +466,8 @@ export function PlayerScreen() {
             playing={playing}
             speed={speed}
             flipX={flipX}
-            scale={scale}
-            offset={offset}
+            fit="contain"
+            frame={box}
             onLoad={onLoad}
             onError={(e) => setError(String(e))}
           />

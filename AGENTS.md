@@ -139,8 +139,12 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `src/runtime.ts` | The L1 module singleton. Its own file so `core/` can reach it without importing the barrel. |
 | `src/core/` | **L2, and the react-free boundary.** `SsInternalPlayer`, `SsTextureRegistry`, and the playback/root-transform vocabulary both L2 and L3 name. |
 | `src/core/assets.ts` | **The one place a sibling reference becomes something openable.** `schemeOf` / `resolveAgainst` — used by textures today, by Instance and `.ssqb` next. |
-| `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (what an `SsSource` is, and which L1 door each kind opens) + `leakCheck.ts`, which drives the same load/dispose path a mount/unmount does and compares `SsRuntime.liveHandles` either side. |
-| `src/view/` | L4: `SpriteStudioView` + `useSsTextures`. |
+| `src/core/fit.ts` | Placement: `resolveRootTransform` turns a content box plus a view size into the root transform, and it is the **only** copy of that arithmetic — both L4 components call it. React-free and Skia-free, so it is checkable without a renderer. |
+| `src/core/SsRefCache.ts` + `caches.ts` | Refcounted URI-keyed caches for `SsResource` and decoded `SkImage`. Destroyed on the **last release** rather than kept in an LRU, because `liveHandles` has to stay exact — see the leak-check trap. |
+| `src/core/parts.ts` | The override layer's vocabulary — the 4-value PartColor blend, the priority modes, and `ssPackColor`. |
+| `src/player/` | L3: `SpriteStudioPlayer` + `source.ts` (what an `SsSource` is, and which L1 door each kind opens) + `preload.ts` (`ssPreload`/`ssUnload`, which warm the two caches) + `leakCheck.ts`, which drives the same load/dispose path a mount/unmount does and compares `SsRuntime.liveHandles` either side. |
+| `src/view/` | L4, and now **two shapes, not one**: `SpriteStudioView` is one animation fitted to its own canvas; `SpriteStudioScene` + `SpriteStudioSprite` are many animations sharing one canvas and one clock, which is what L3's externally-clocked `advance(dt)` was always for. `useSpriteStudioPlayer` is the half they share, so the two cannot drift on what a prop means. Plus `useSsTextures` and `useSsPartTransform`. |
+| `bin/spritestudio.js` | `npx react-native-spritestudio assets` — the typed asset manifest. A package **bin** rather than one of `scripts/`, because it runs in the user's app, not here. |
 | `src/index.ts` | Public exports, layer by layer. The batch-layout constants went with the bench — nothing in JS walks batches now. |
 | `plugin/withSpriteStudio.js` + `app.plugin.js` | Expo config plugin: copies the pack directories into the app as native assets, every build, on both platforms, and narrows `reactNativeArchitectures` to the ABIs the Brain actually ships. Plain CommonJS — Expo requires it during `prebuild`, unbuilt. |
 | `cpp/SsAssets.{hpp,cpp}` | The read side of that: the `.app`'s resource directory on Apple, `AAssetManager` on Android. |
@@ -152,6 +156,7 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
 | `cpp/SsInstance.{hpp,cpp}` | The Instance kind: one `ss_instance_slot` per instance part **and the child player it drives**, reached through an `SsInstanceChild` interface so the slot logic sits below the hybrid. Same C-API-client shape as `SsEffect`. |
 | `cpp/SsEffect.{hpp,cpp}` | The Effect kind's **clock**: one persistent `ss_effect_slot` per effect part, enumerated from `PartData` and stepped from `update()`. The only `cpp/` file besides the hybrids that is a C-API client and not a data reader — the *geometry* half lives in `SsBaker`, which stays C-API-free. |
+| `cpp/SsAnimeBinary.hpp` (part/event readers) | `partName`, `animationIndex` and `eventsAt` — what turns the Brain's *passed-event indices* back into the authored keys they name. |
 | `cpp/SsMask.{hpp,cpp}` | Mask **and** clipping: the part roles, the per-frame writer set, the player-local coverage box and each target's two writer sets. Skia-free, so `ssbake_check` drives it on the host. |
 | `cpp/SsMaskShader.hpp` | The two mask SkSL halves — the coverage writer and the target's replay. Skia-only, same inclusion rule as above. |
 | `cpp/SsRNSkiaInterop.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` JS objects. **The only place RN Skia's internals are touched** — hence `RNSkia` in the name, see the naming rule below. |
@@ -340,6 +345,49 @@ later `download-sdk` correctly replaces a local build.
   compiles, runs, draws, and renders all twelve types as Mix; it shipped that
   way in the commit that introduced the table. It becomes load-bearing once
   PartColor bakes vertex colours, where it has to be `kModulate`.
+* **The authored canvas does NOT frame the art, so `fit` has to measure.**
+  `AnimationData.canvas` is `required` in the schema and looks exactly like the
+  answer — it is not. It carries a **size and no origin**, and a SpriteStudio
+  origin is wherever the author put it, so the rect says nothing about where the
+  art sits relative to it. `libssruntime`'s default is Y-up with the origin at
+  the canvas *centre* (`20_design/20_architecture.md` §2), and measured against
+  that centre **every pack in this repo overflows its own canvas**: `Basic`
+  480x480 against art `x[-250.5, 232.0]`, `Shape` 320x320 against
+  `x[-248.0, 131.9]`, and `Ringo` 800x600 against `y[0.7, 528.1]` — it stands on
+  its origin, so the whole character is above a box centred on it. Reading the
+  canvas would clip all three. `SsContext.measureContentBox` bakes the frames
+  and unions the vertices instead, which is what the example screen was doing by
+  hand all along — and it reproduces those hand-measured numbers exactly
+  (`Basic` y ∈ [-109.3, 240] against the comment's "[-109, 240]"; `e030` height
+  463.0 / centre 50.7 against the table's `{463, 51}`).
+* **Measuring has to recurse into instance children, and the tell is a pack that
+  measures empty.** An Instance part contributes no geometry of its own — the
+  bake records a mount — so a walk that only unions `baker_.positions()` reports
+  a zero box for `overall/Instance.ssab`, whose art is *entirely* mounted.
+  `accumulateSubtreeBox` composes the mount affine and recurses, mirroring
+  `drawSubtree`. It is also deliberately **not** gated on `state->visible`: an
+  instance hidden on this frame is drawn on another, and the box is the union
+  over all of them.
+* **`measureContentBox` moves the playhead and leaves the last animation set
+  up**, so it goes *before* `setupAnimation` — the same ordering rule
+  `bindInstancePack` has. It is not a query. L3's `load()` already ends with
+  `setAnimation`, which is what restores the intended one.
+* **Pack-scope framing is stable and animation-scope framing is tight, and
+  neither is free.** `Ringo`'s `attack1` spans 383x527 player-local units while
+  the union over its 24 animations spans about 1030x878, because `dead` slides
+  the character most of a screen sideways — so pack scope keeps a character the
+  same size across its animations at the cost of drawing it noticeably smaller.
+  Cost is a bake per frame walked: on a **debug** Brain, `Ringo`'s whole pack at
+  120 frames took 1.3s against `Basic`'s single animation at 16ms. Hence the
+  default is animation scope, and hence `frame` exists to skip measuring
+  entirely.
+* **A cache that outlives its last user reads as a leak.** `ssResourceCache`
+  keeps a pack alive while any player holds a lease, which is the whole point —
+  and `SsRuntime.liveHandles` counts it. `ssCheckForLeaks` therefore calls
+  `ssClearCaches()` **before it takes the baseline** and again at the end; without
+  that the first cycle warms the cache and every reading afterwards is one
+  resource high, on a player that leaks nothing. Same reason the caches destroy
+  on the last release rather than keeping an LRU.
 * **The root transform holds flip/offset/Y-flip, and it is applied exactly
   once** (`canvas.translate` + `canvas.scale(s, -s)` in the harness). Folding it
   into the vertex bake costs a term per vertex and detaches part-following the
@@ -797,6 +845,7 @@ build=release` when working on it).
 | Typecheck (package + example) | `npm run typecheck` |
 | FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
+| A hybrid's C++ compiles, **without a device build** | The host checks link `SsBaker`/`SsMask`/`SsEffect`/`SsInstance` but never the `Hybrid*` files, so a typo in one of those used to wait for `expo run:ios`. `clang++ -fsyntax-only` reaches them given four include roots — `cpp`, `nitrogen/generated/shared/c++`, `native/include`, `third_party/flatbuffers/include` — plus RN Skia's `cpp/` and `cpp/skia`, and one shim: nitrogen's output includes `<NitroModules/…>` while the package keeps its headers in subdirectories, so a flat directory of symlinks named `NitroModules/` has to stand in for what the podspec's `header_dir` does on a real build. Worth the two minutes: it is the only way to see a C++ error in this layer in seconds rather than in a full pod build. |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android`. The prebuild must log `dropped x86 from reactNativeArchitectures` — without it the build dies at `configureCMakeDebug[x86]`; see Traps. |
 | Renders correctly | The **Player** screen must draw `overall/Basic` upright with its texture — the red/blue arrow cards, right way up, no untextured white — and animate. (It **opens** on `overall/Basic` rather than Ringo on purpose: `PlayerScreen.tsx` explains why.) |
@@ -812,6 +861,11 @@ build=release` when working on it).
 | Blend modes reach the framebuffer | On the **Player** screen switch *Subject* to **BlendMode**. Eight 64×64 quads over a 256×256 Mix backdrop, one per type — they must differ *from each other*. All eight looking identical is the `drawVertices` trap above, and it is the only symptom that failure has. |
 | Asset directory reaches its siblings | On the **Player** screen switch *Textures* to **reference**. Those packs have no embedded atlas, so if the sibling image were not found next to the `.ssab` the parts would be untextured white — it is the only check that exercises sibling resolution end to end, and it must pass on **both** platforms and in a **release** build, which is where the old `require()` route failed. Worth doing on **Ringo** as well as `overall`: the toggle now switches conversions of whichever pack is selected, and `deploy-examples` produces both for each. |
 | No leaked native handles | On the **Player** screen press **Leak check**: 8 load/dispose cycles, and both counts in the readout above it must come back to where they started. Toggling *Animation* or *Textures* is the same check by hand — the counts must dip and return, not climb. Exact because `dispose()` releases eagerly; a count that stays high is a leak, not a pending GC. **`1→1` is also what a frozen counter prints**, so if you are changing this path, first confirm the counts *move*: hold N undisposed players, watch them reach `1+N`, then dispose and watch them return in the same tick. |
+| Placement (`fit`) | On the **Player** screen every subject must land in the stage box the same way it did before, because the screen now passes its measured table as `frame` and lets `fit="contain"` do the arithmetic. To check the *measuring* path instead, drop the `frame` prop: a subject that then draws off-centre or at the wrong size means `measureContentBox` disagreed with the hand-measured number, and `Basic` / `e030` are the two whose measured values are recorded here. Host-side, `resolveRootTransform` is checked against the projection `SsInternalPlayer.draw` applies — all four flip combinations, `align`, `cover`, and the three fallback cases. |
+| Caches and `ssPreload` | The **Leak check** is the real test and it already covers this: it drains the caches before its baseline, so a count that does not return means either a leaked handle *or* a lease nobody gave back. Mounting the same subject twice should also make the *second* mount visibly faster, and `ssResourceCache.size` should be 1 while both are up, not 2. |
+| One canvas, one clock | `<SpriteStudioScene>` with several `<SpriteStudioSprite>`s must draw them all, in `z` order, from a single `requestAnimationFrame`. A sprite outside a scene warns and draws nothing rather than silently rendering an empty box. |
+| Asset manifest | `npx react-native-spritestudio assets` in `example/` must report 85 packs, and `--check` must then say it is up to date. A wrong key into `SsAssets` must be a **type error** — which is the whole point of the file, and is checked with a `@ts-expect-error` rather than assumed. |
+| Overrides and events | On the **Player** screen, `parts={{ '<name>': { visible: false } }}` must hide that part and removing the entry must bring it back — reverting is the half that a non-declarative implementation gets wrong. `onUserData` fires on the authored keys; `Ringo` is where there are some. |
 | Measurement | The harness is retired — `docs/phase0-spike.md` records the numbers. Re-measuring means restoring `example/src/bench/` and the `getSoA`/`getPlan`/`bake` spec surface from git history, and doing it in **release on both sides** |
 
 ## Render recipe (Normal kind)
