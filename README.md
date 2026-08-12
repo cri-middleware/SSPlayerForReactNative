@@ -267,7 +267,7 @@ drawing in Layer 1 in the first place.
 
 The Skia lower bound is real: 2.11 moved its API objects onto the
 `jsi::NativeState` pattern, and the package unwraps them the new way. Windows,
-tvOS and visionOS are out of scope — see [ROADMAP.md](ROADMAP.md#-deferred) for
+tvOS and visionOS are out of scope — see [ROADMAP.md](ROADMAP.md#platform-and-verification) for
 why.
 
 ## 🔗 Related Repositories

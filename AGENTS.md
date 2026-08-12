@@ -80,7 +80,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` — the prebuild must log `dropped x86 from reactNativeArchitectures` |
 | Asset manifest | (in `example/`) `npx react-native-spritestudio assets`, then `--check` |
 
-**`ssbake_check`'s per-kind lines all have the same contract: zeroes mean the path never ran**, and `parts > 0` with `peak 0` means enumerated-then-never-emitted. Current numbers are recorded per feature in [ROADMAP.md](ROADMAP.md).
+**`ssbake_check`'s per-kind lines all have the same contract: zeroes mean the path never ran**, and `parts > 0` with `peak 0` means enumerated-then-never-emitted. Run it over the `example/assets/ss/overall/` card for the kind you touched and compare against the previous run — the absolute counts are asset-dependent, the zeroes are not.
 
 **Rendering is verified on the example's Player screen**, whose *Subject* dropdown is one feature card each — `Basic`, `BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`, `Instance`, `UserData`, `Sound`, `Signal` — plus `Ringo` (a real character, the features composing) and `ParticleEffect` (the heaviest packs). Each card is built so a failure names itself; the *Textures* toggle switches embedded and sibling atlases, and **Leak check** runs 8 load/dispose cycles against `liveHandles`. Read `Mask` and `BlendMode` on **both** platforms — the only platform-specific defect this screen has ever caught was iOS-only.
 
