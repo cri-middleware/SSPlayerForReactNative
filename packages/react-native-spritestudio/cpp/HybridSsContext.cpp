@@ -19,25 +19,6 @@ namespace {
 /// decision about whether a pointer is safe to follow.
 std::atomic<int32_t> gLiveContexts{0};
 
-/// Wraps native memory in an ArrayBuffer **without copying and without taking
-/// ownership** — the borrow semantics of ch.9 F, made explicit.
-///
-/// The no-op deleter is the whole point: the memory belongs to the Brain (or to
-/// a vector on the context) and outlives this ArrayBuffer, which is a per-frame
-/// throwaway. Handing Nitro a real deleter here would free memory the Brain is
-/// still using the moment JS dropped its reference.
-std::shared_ptr<ArrayBuffer> Borrow(const void* data, size_t byteLength) {
-  if (data == nullptr || byteLength == 0) {
-    // `wrap` requires a non-null pointer, and a zero-length ArrayBuffer is the
-    // honest representation of "this frame has none of these".
-    return ArrayBuffer::allocate(0);
-  }
-  return ArrayBuffer::wrap(
-      static_cast<uint8_t*>(const_cast<void*>(data)), byteLength, []() {
-        // Intentionally empty — see above.
-      });
-}
-
 }  // namespace
 
 HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resource)
@@ -755,9 +736,14 @@ void HybridSsContext::collectTextures(std::vector<SsTextureInfo>& out) {
     out.emplace_back(static_cast<double>(entry.textureHash), std::string(entry.name),
                      std::string(entry.imagePath), static_cast<double>(entry.wrapMode),
                      static_cast<double>(entry.filterMode),
-                     // Borrowed: the encoded bytes stay inside the Brain's
-                     // buffer, which outlives this call.
-                     Borrow(entry.embedded, entry.embeddedLength));
+                     // Copied, not borrowed. The only consumer decodes these
+                     // across an `await` per texture, so a borrow would outlive
+                     // the resource whenever a load is superseded or the view
+                     // unmounts mid-decode. Paid once per load, never per frame,
+                     // and JS drops it after decoding.
+                     entry.embedded != nullptr && entry.embeddedLength > 0
+                         ? ArrayBuffer::copy(entry.embedded, entry.embeddedLength)
+                         : ArrayBuffer::allocate(0));
   }
 
   // The children's, so one call answers for the whole tree. They exist only
