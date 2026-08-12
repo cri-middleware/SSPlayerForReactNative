@@ -931,3 +931,7 @@ tools/.build/
 # Expo prebuild output: generated from app.json, not edited by hand.
 example/ios/
 example/android/
+
+# Internal handoff notes for SDK-side issues this repo does not fix. Deliberately
+# not published: they name unreleased branches and unpublished repositories.
+SDK_UPSTREAM_ISSUES.md
