@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 
 import type { SsPartOverrides } from '../core/parts'
-import type { SsBox, SsUserDataEvent } from '../specs/SsRuntime.nitro'
+import type {
+  SsAudioEvent,
+  SsBox,
+  SsSignalEvent,
+  SsUserDataEvent,
+} from '../specs/SsRuntime.nitro'
 import {
   SpriteStudioPlayer,
   type SsMeasureRequest,
@@ -41,10 +46,30 @@ export interface SsPlayerProps {
   parts?: SsPartOverrides
   /** Fires once per authored user-data key the playhead crosses. */
   onUserData?: (event: SsUserDataEvent) => void
+  /**
+   * Fires once per authored audio key the playhead crosses.
+   *
+   * The event says what to play and where the file is — **playing it is the
+   * app's job**, since this package brings no audio stack of its own.
+   */
+  onAudio?: (event: SsAudioEvent) => void
+  /**
+   * Fires once per active signal the playhead crosses — a named command and its
+   * parameters, for the app to dispatch. Signals switched off in the timeline
+   * are not reported.
+   */
+  onSignal?: (event: SsSignalEvent) => void
 
   onLoad?: () => void
   onError?: (error: unknown) => void
-  onComplete?: () => void
+  /** The animation reached its end. Carries which one, since a player outlives them. */
+  onComplete?: (animation: string) => void
+  /** The playhead crossed a loop boundary. */
+  onLoop?: (animation: string) => void
+  /** Playback started from the beginning — not on resume. */
+  onAnimationStart?: (animation: string) => void
+  /** A different animation was mounted. Not fired for a restart of the same one. */
+  onAnimationChange?: (animation: string) => void
 }
 
 export interface SsPlayerState {
@@ -86,8 +111,28 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   const images = useSsTextures(textures)
 
   // Through a ref so a caller passing inline arrows does not restart the load.
-  const callbacks = useRef({ onLoad, onError, onComplete, onUserData: props.onUserData })
-  callbacks.current = { onLoad, onError, onComplete, onUserData: props.onUserData }
+  const callbacks = useRef({
+    onLoad,
+    onError,
+    onComplete,
+    onUserData: props.onUserData,
+    onAudio: props.onAudio,
+    onSignal: props.onSignal,
+    onLoop: props.onLoop,
+    onAnimationStart: props.onAnimationStart,
+    onAnimationChange: props.onAnimationChange,
+  })
+  callbacks.current = {
+    onLoad,
+    onError,
+    onComplete,
+    onUserData: props.onUserData,
+    onAudio: props.onAudio,
+    onSignal: props.onSignal,
+    onLoop: props.onLoop,
+    onAnimationStart: props.onAnimationStart,
+    onAnimationChange: props.onAnimationChange,
+  }
 
   // --- load ---------------------------------------------------------------
   //
@@ -140,15 +185,49 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     else player.pause()
   }, [player, playing])
 
+  // Installed only while the corresponding prop is actually supplied, because
+  // Layer 3 gates its per-frame event reads on whether a handler is set — a
+  // permanently-installed forwarder that calls into an absent prop would defeat
+  // that gate and pay one Nitro array marshal per event frame to reach a `?.`.
+  // The deps are booleans rather than the props themselves, so an inline arrow
+  // still does not re-run this; that is what the ref above is for.
+  const wantsUserData = props.onUserData != null
+  const wantsAudio = props.onAudio != null
+  const wantsSignal = props.onSignal != null
+  const wantsLoop = props.onLoop != null
+  const wantsStart = props.onAnimationStart != null
+  const wantsChange = props.onAnimationChange != null
   useEffect(() => {
     if (player == null) return
-    player.onComplete = () => callbacks.current.onComplete?.()
-    player.onUserData = (event) => callbacks.current.onUserData?.(event)
+    player.onComplete = (animation) => callbacks.current.onComplete?.(animation)
+    if (wantsLoop) {
+      player.onLoop = (animation) => callbacks.current.onLoop?.(animation)
+    }
+    if (wantsStart) {
+      player.onAnimationStart = (a) => callbacks.current.onAnimationStart?.(a)
+    }
+    if (wantsChange) {
+      player.onAnimationChange = (a) => callbacks.current.onAnimationChange?.(a)
+    }
+    if (wantsUserData) {
+      player.onUserData = (event) => callbacks.current.onUserData?.(event)
+    }
+    if (wantsAudio) {
+      player.onAudio = (event) => callbacks.current.onAudio?.(event)
+    }
+    if (wantsSignal) {
+      player.onSignal = (event) => callbacks.current.onSignal?.(event)
+    }
     return () => {
       player.onComplete = null
       player.onUserData = null
+      player.onAudio = null
+      player.onSignal = null
+      player.onLoop = null
+      player.onAnimationStart = null
+      player.onAnimationChange = null
     }
-  }, [player])
+  }, [player, wantsUserData, wantsAudio, wantsSignal, wantsLoop, wantsStart, wantsChange])
 
   // --- overrides ----------------------------------------------------------
   //

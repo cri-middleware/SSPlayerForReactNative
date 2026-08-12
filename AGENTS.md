@@ -17,7 +17,12 @@ submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 > framebuffer **blend table** (`cpp/SsBlend.hpp`), **PartColor**
 > (`cpp/SsPartColor.hpp`), **mask + clipping** (`cpp/SsMask.hpp`), **Mesh**,
 > **Effect** (`cpp/SsEffect.hpp`), **Instance** (`cpp/SsInstance.hpp`) and
-> **Shape** — still no Nines, events, part overrides or Reanimated integration.
+> **Shape**, plus the **override layer**, **user-data, audio and signal events**
+> and the **animation lifecycle** callbacks — still no Nines and no Reanimated
+> integration. Audio is **reported,
+> not played**: `onAudio` says what to play and where the file is, and the app
+> feeds its own stack (an embedded pack's bytes are not reachable yet — the
+> event flags it).
 > **Mask has now been read on both screens and draws as authored on both**,
 > which is what turned up the one place the two platforms genuinely disagreed:
 > the coverage bits used to ride in RGB, which Skia gamut-maps into iOS's
@@ -156,7 +161,7 @@ carrying a **DrawBatch** plan. Four layers, lower = nearer the Brain:
 | `cpp/SsPartColorShader.hpp` | PartColor's SkSL runtime effect. Skia-only, included from `SsSkiaDraw.cpp` alone — the same rule as `SsBlend.hpp`. |
 | `cpp/SsInstance.{hpp,cpp}` | The Instance kind: one `ss_instance_slot` per instance part **and the child player it drives**, reached through an `SsInstanceChild` interface so the slot logic sits below the hybrid. Same C-API-client shape as `SsEffect`. |
 | `cpp/SsEffect.{hpp,cpp}` | The Effect kind's **clock**: one persistent `ss_effect_slot` per effect part, enumerated from `PartData` and stepped from `update()`. The only `cpp/` file besides the hybrids that is a C-API client and not a data reader — the *geometry* half lives in `SsBaker`, which stays C-API-free. |
-| `cpp/SsAnimeBinary.hpp` (part/event readers) | `partName`, `animationIndex` and `eventsAt` — what turns the Brain's *passed-event indices* back into the authored keys they name. |
+| `cpp/SsAnimeBinary.hpp` (part/event readers) | `partName`, `animationIndex` and `eventsAt` — what turns the Brain's *passed-event indices* back into the authored keys they name. `soundFile` then answers what an audio key points at, out of the pack's `SoundList`: **two hashes, not one**, because `SoundFile.name_hash` is unique only within its list, so a search on the file hash alone would resolve to whichever list came first. |
 | `cpp/SsMask.{hpp,cpp}` | Mask **and** clipping: the part roles, the per-frame writer set, the player-local coverage box and each target's two writer sets. Skia-free, so `ssbake_check` drives it on the host. |
 | `cpp/SsMaskShader.hpp` | The two mask SkSL halves — the coverage writer and the target's replay. Skia-only, same inclusion rule as above. |
 | `cpp/SsRNSkiaInterop.{hpp,cpp}` | Nitro `CustomType` that unwraps RN Skia's `SkCanvas`/`SkPaint` JS objects. **The only place RN Skia's internals are touched** — hence `RNSkia` in the name, see the naming rule below. |
@@ -294,6 +299,30 @@ later `download-sdk` correctly replaces a local build.
   *after* setup and *before* `play` — `play` arms the counter with whatever is in
   effect at that moment. `SpriteStudioPlayer.applySettings()` is the one place
   that ordering lives.
+* **`passedEventCount` counts FRAMES, not events, and cannot tell the kinds
+  apart.** `ss_runtime_get_passed_event_indices()` is a list of positions in the
+  animation's `events` vector, so one entry is one *frame* that carried any
+  event at all — a frame with a user-data key and no audio makes it non-zero
+  just the same. It is still the right gate (over-reporting costs one empty
+  marshal; under-reporting drops an event), but two consequences follow and the
+  second is the one that bites. Each `get*Events` call must re-check its own
+  table for null, because "some event" is not "this event". And **every new
+  event kind adds a marshal to the same gated frames**, so Layer 4 installs each
+  forwarder only while its prop is supplied (`wantsUserData` / `wantsAudio`) —
+  a permanently-installed `player.onX = (e) => callbacks.current.onX?.(e)` is
+  never null, which defeats Layer 3's "is anyone listening" check and pays a
+  Nitro array marshal to reach a `?.`. Three kinds ride this today — user data,
+  audio, signals — and a fourth would be a fourth marshal on the same frames.
+* **A signal parameter has TWO type enums and they are offset by one.**
+  `SignalCommandParam.type` is the authored `SignalCommandParamType`
+  (`Bool = 0` … `None = 5`); `value_type()` is the FlatBuffers union tag, and a
+  union always gets an implicit `NONE = 0` prepended, so the same six run
+  `Bool = 1` … `None = 6`. **Read through `value_type()`, report `type()`.**
+  Switching on `type()` to pick the member compiles, runs, and reads every
+  parameter as the kind next door — a `Text` comes back empty and the numbers
+  land in the wrong fields, which reads as an authoring mistake. Same family as
+  the two blend enumerations below, and the two texture lists above: this
+  codebase keeps producing pairs of enums that look interchangeable.
 * **World matrix is column-major 4×4** — `x' = m0·x + m4·y + m12`.
 * **Texture key = `cellmap.name_hash` == `DrawBatch.texture_hash`** — use the
   pre-baked hash; never re-implement FNV-1a. `SsRuntime.hashString` exposes the
@@ -865,7 +894,12 @@ build=release` when working on it).
 | Caches and `ssPreload` | The **Leak check** is the real test and it already covers this: it drains the caches before its baseline, so a count that does not return means either a leaked handle *or* a lease nobody gave back. Mounting the same subject twice should also make the *second* mount visibly faster, and `ssResourceCache.size` should be 1 while both are up, not 2. |
 | One canvas, one clock | `<SpriteStudioScene>` with several `<SpriteStudioSprite>`s must draw them all, in `z` order, from a single `requestAnimationFrame`. A sprite outside a scene warns and draws nothing rather than silently rendering an empty box. |
 | Asset manifest | `npx react-native-spritestudio assets` in `example/` must report 85 packs, and `--check` must then say it is up to date. A wrong key into `SsAssets` must be a **type error** — which is the whole point of the file, and is checked with a `@ts-expect-error` rather than assumed. |
-| Overrides and events | On the **Player** screen, `parts={{ '<name>': { visible: false } }}` must hide that part and removing the entry must bring it back — reverting is the half that a non-declarative implementation gets wrong. `onUserData` fires on the authored keys; `Ringo` is where there are some. |
+| Overrides and events | On the **Player** screen, `parts={{ '<name>': { visible: false } }}` must hide that part and removing the entry must bring it back — reverting is the half that a non-declarative implementation gets wrong. |
+| User data | On the **Player** screen switch *Subject* to **UserData**. Two keys, on frames 0 and 10, and **each must show all four payloads** — `int=`, `point=`, `rect=`, `text=` — because the pack authors every slot on both. **Fewer payloads than that is the failure**, and the reason the readout is built off the `has*` flags rather than off the values: an author can mean `integer: 0`, so a formatter that skipped falsy values would drop a real key and look like a pack that simply did not carry one. The cycle is 10 frames at 30fps, so these re-fire about three times a second and this subject's lines fill the readout — expected. `Ringo` also authors some, in a real animation rather than a test card. |
+| Audio keys | On the **Player** screen switch *Subject* to **Sound** — the one subject that draws **nothing** on purpose (a Null root and three `PartTypeAudio` parts, zero baked vertices), so read the *Audio keys* readout under the panel rather than the stage. Three keys must appear, at frames 0, 10 and 20, each with a `→ sound/…` path out of the pack's `SoundList`; `→ unresolved` means the two-hash lookup missed. Then flip *Textures* to **embedded**: the same three must come back, now each with `⚠ embedded — bytes not reachable yet`, which is the `embedded` flag saying the bytes are in the `.ssab` and the path names no sibling on disk. On the host, `tools/.build/ssbake_check example/assets/ss/overall/Sound.ssab anime_1 120` must report `audio: 3 frames with keys, 3 keys, 3 resolved, 0 embedded`, and the same file under `overall-embedded/` `3 resolved, 3 embedded`. **`keys` above `resolved` is the whole line**: equal numbers mean every authored key found its file, and a gap counts the ones that did not. `overall/UserData.ssab` must report zeroes — it authors user-data keys and no audio, so it is what proves the walk is not counting every event as an audio one. |
+| Animation lifecycle | On the **Player** screen, the *Event keys* readout must show `▶ <name> started` on load, `⇄ <name>` when the *Animation* dropdown changes it, `↻ <name> looped` once a cycle, and `■ <name> finished` on a non-looping one. **The name is the check**: all four carry it because one player outlives the animations mounted on it. Two rules worth testing by hand: switching to the animation *already* playing must give `▶` and **not** `⇄` (a restart is not a change), and toggling *Playing* off then on must give **neither** (that is a resume, not a start). There is deliberately **no per-frame callback** to check — see the ROADMAP's Deferred section for why. |
+| Signals | On the **Player** screen switch *Subject* to **Signal**. Two lines must appear on frame 10 — `test_cmd(...)` and `play_se(...)` — and **the parameter values are the check, not the command names**. `test_cmd` authors one parameter of every type, so `text="文字列"` is the canary: the authored `SignalCommandParamType` and the FlatBuffers union tag are **offset by one** (a union gets an implicit `NONE = 0`), so a walk that switched on `type()` instead of `value_type()` reads each parameter as the neighbouring kind and still compiles — the text comes back empty and the numbers land in the wrong fields. On the host, `tools/.build/ssbake_check example/assets/ss/overall/Signal.ssab anime_1 120` must report `signal: 2 frames with keys, 4 active, 0 inactive, 16 params, 2 text params`; **`text params 0` is that trap**. `overall/UserData.ssab` and `overall/Sound.ssab` must report zeroes. Note `inactive 0` proves nothing here: **no fixture authors a disabled signal**, so the rule that those are dropped is unexercised — see the ROADMAP. |
+| Audio actually **sounding** | Same **Sound** subject, volume up, on the *reference* conversion. The package plays nothing — `example/src/player/audio.ts` does — and the readout keeps the two apart: a line with `⚠` is the **example** declining, a line without one means it called `play()`. So **silent with no `⚠` is an audio-session problem, not an event one**, and on iOS the ringer switch is the first suspect: without `setAudioModeAsync({ playsInSilentMode: true })` every key fires and nothing is heard, which is indistinguishable from a broken path if you are only watching the readout. `SE_looped` carries `loop_num: 3` and must be heard three times — `expo-audio`'s `loop` is a boolean, so that repeat is driven off `didJustFinish` and is the one part of the glue with a state machine in it. |
 | Measurement | The harness is retired — `docs/phase0-spike.md` records the numbers. Re-measuring means restoring `example/src/bench/` and the `getSoA`/`getPlan`/`bake` spec surface from git history, and doing it in **release on both sides** |
 
 ## Render recipe (Normal kind)

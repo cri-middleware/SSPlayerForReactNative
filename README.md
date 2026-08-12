@@ -4,13 +4,30 @@ Play [SpriteStudio](https://www.webtech.co.jp/spritestudio/) 7 animations in
 React Native, on the New Architecture.
 
 > [!WARNING]
-> **Not usable yet.** `<SpriteStudioView>` plays an animation on both iOS and
-> Android, with the full framebuffer blend table — but on a simulator and an
-> emulator only; no physical device has been tried. Still no masks, effects,
-> PartColor, Mesh/Shape, events, part overrides or Reanimated integration, and
-> the npm package is not published. See [ROADMAP.md](ROADMAP.md) for what lands
-> when, and [docs/phase0-spike.md](docs/phase0-spike.md) for what has been
-> measured.
+> **Not released yet.** The npm package is not published, and nothing here has
+> run on a **physical device** — iOS simulator and Android emulator only, which
+> is the one thing still keeping Phase 1 open.
+>
+> What draws today, on both platforms: **Normal, Mesh, Shape, Instance and
+> Effect** parts, **mask and clipping**, the full framebuffer **blend table** and
+> **PartColor** — plus the **override layer** (colour / cell / visibility),
+> **user-data, audio and signal events**, the **animation lifecycle** callbacks
+> (start / change / loop / complete), `fit`/`align` placement, the
+> resource and atlas caches, `<SpriteStudioScene>` and the Expo config plugin.
+>
+> **Not yet**: **Nines and Text** parts, and the **Reanimated tick** — part
+> transforms already publish as a SharedValue, but the frame loop is still
+> `requestAnimationFrame` on the JS thread. See [ROADMAP.md](ROADMAP.md) for
+> what lands when, and [docs/phase0-spike.md](docs/phase0-spike.md) for what has
+> been measured.
+>
+> Audio is **reported, not played**: `onAudio` says what to play, how many times
+> and where the file is, and the app feeds its own audio stack — React Native
+> has no audio API of its own, and a package that picked a library would make
+> every project authoring no audio carry it. `example/src/player/audio.ts` is
+> the reference wiring, with `expo-audio` as the *example's* dependency. An
+> **embedded** pack's bytes are not reachable yet; the event flags it rather
+> than presenting as a missing file.
 
 ## What Phase 0 established
 

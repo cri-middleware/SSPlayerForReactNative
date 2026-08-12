@@ -466,9 +466,78 @@ constant across the Phase 0 sweep while nothing was actually playing.
   part *following* is `useSsPartTransform`.
 - ✅ **Events: user data.** `takeUserDataEvents` drains the Brain's passed-event
   list and resolves each index back through the `.ssab`'s `EventsPerFrame`,
-  surfacing as an `onUserData` prop. **Signals and audio are not done** — the
-  C-API and the schema both carry them (`EventSignal`, `EventAudio`), so it is
-  the same shape one table across.
+  surfacing as an `onUserData` prop.
+- ✅ **Events: animation lifecycle** — `onAnimationStart` / `onAnimationChange` /
+  `onLoop` / `onComplete`, which closes the gap against the flagship:
+  `SpriteStudioPlayer2D` emits `animation_started`, `animation_changed`,
+  `animation_finished` and `animation_looped`, and of those only finished had a
+  counterpart here (`onLoop` existed on Layer 3 and was never exposed as a
+  prop). Its fifth, `frame_updated`, is deliberately not matched — see Deferred. All four animation
+  callbacks now carry **which animation**, as the sibling Players' do — one
+  player outlives the animations mounted on it, and a scene shares one handler
+  across many, so a bare notification cannot say what it is about. That changed
+  `SsCompleteCallback` into `SsAnimationCallback`; free to do while unpublished,
+  and the kind of change that stops being free the day it is not.
+  `onAnimationStart` fires on a start and **not on a resume** — Layer 3 folds
+  both into one `play()` because that is what a `playing` prop means, but they
+  are different events and only one of them rewinds.
+- ✅ **Events: signals** — `getSignalEvents` / an `onSignal` prop, the third and
+  last `EventsPerFrame` table that is a *key* rather than a slot (`instances`
+  and `effects` are read by their own slot machinery). A signal is a named
+  command and its parameters; nothing here interprets `commandId`, which is the
+  point of it. Two things are load-bearing. **Inactive signals are dropped** — a
+  command left in the timeline and switched off is authoring state, not
+  something that happened, and every sibling Player drops them. And the
+  parameter values are read **through the FlatBuffers union tag, not through the
+  authored `type`**: the two enums are offset by one, because a union gets an
+  implicit `NONE = 0` prepended, so switching on `type()` reads a `Bool` as an
+  `Index` and still compiles. `SsSignalParam` is flat rather than a union
+  (Nitro has none) but needs no `has*` flags, since `type` is the discriminant.
+  **Fixture gap:** `overall/Signal.ssae` authors two signals and both are
+  active, so the inactive-drop rule is asserted in code and exercised by
+  nothing — one for the SDK's "close the coverage gap the fixtures leave"
+  backlog item.
+- 🚧 **Events: audio** — landed, as `getAudioEvents` / an `onAudio` prop, the
+  same walk one table across (`EventsPerFrame.audios`). **The package plays
+  nothing**: the event says what to play and how many times, and the app feeds
+  its own audio stack, which is where every sibling Player but Godot draws the
+  line and what `ssplayer-wgpu`'s `AudioEvent` says in as many words. Godot can
+  play because it owns an audio server; React Native ships **no audio API at
+  all**, so playing means a library, and a package that picked one would make
+  every project authoring no audio carry it. An *optional* peer dependency does
+  not rescue that either — RN autolinks native modules out of the app's own
+  dependency graph, so "not installed" would surface at runtime rather than at
+  install time.
+  The other half of that argument lives in `example/src/player/audio.ts`: the
+  reference wiring, with `expo-audio` as the app's dependency and not the
+  package's. Swapping it for `react-native-audio-api` (a Web Audio port, and the
+  better fit for many overlapping SE) changes that one file. Three things it has
+  to solve are worth knowing before writing your own: an `asset`-scheme sibling
+  has **no path an audio library can open** — inside the `.app` on iOS, an APK
+  entry on Android — so its bytes go through `readAsset` into a cache file;
+  `loop_num` is a **count** where `expo-audio`'s `loop` is a boolean, so the
+  repeat is driven off `didJustFinish`; and iOS is **silent under the ringer
+  switch** unless `setAudioModeAsync({ playsInSilentMode: true })` ran, which
+  presents exactly as a broken event path.
+  Each key is resolved against the pack's `SoundList` in C++, because that table
+  lives in the `.ssab` and the `.ssab` deliberately never enters the JS heap —
+  so the event carries `filePath` (relative to the `.ssab`, exactly like a
+  cellmap's `image_path`, so `resolveAgainst` opens it) and `totalMs` alongside
+  the two hashes a host would key its own audio by. The **two-hash** lookup is
+  the part worth stating: `SoundFile.name_hash` is unique only within its
+  `SoundList`, so a search that took the file hash alone would resolve to
+  whichever list came first.
+  `passedEventCount` gates this the way it gates user data, and now says less
+  than it looks: it counts *frames* carrying any event, so it cannot tell the
+  two kinds apart and over-reports each. Layer 4 therefore installs each
+  forwarder only while its prop is supplied — a permanently-installed one would
+  defeat the gate and pay a Nitro array marshal per event frame to reach a `?.`.
+  **What is left:** an **embedded** pack (`--embedded`) carries the audio bytes
+  in `embedded_assets` and there is no sibling on disk, so `filePath` names
+  nothing openable. The event's `embedded` flag keeps that legible instead of
+  presenting as a missing file, but reading those bytes out is unwired — the
+  shape it wants is the texture one, a pack-level `getSounds()` read once at
+  load, not an `ArrayBuffer` per event that the next `update()` invalidates.
 - ✅ **Placement**: `fit`/`align`/`frame`, backed by `measureContentBox`. The
   authored canvas turned out not to frame the art — see the traps.
 - ✅ **Resource and atlas caches** + `ssPreload`, so N players of one pack cost
@@ -566,6 +635,33 @@ C++/WinRT stack. No route.
 ### 🕒 Bundled converter
 Not planned. React Native has no editor to host an importer, so `.sspj` →
 `.ssab` stays a host-side `ssconverter-cli` step (design doc ch.9 G).
+
+### 🕒 A per-frame callback (`frame_updated`)
+Not provided. The flagship emits one every tick, but it is a C++ signal inside an
+engine there and would be a JS-thread callback here — on the one path this
+design is built around avoiding, for every player on screen, every tick. The
+per-frame *value* case already has a better answer in `useSsPartTransform`,
+which publishes through a Reanimated shared value without waking React, and the
+*reaching a frame* case is what the authored user-data and signal keys are for.
+Revisit on a concrete case that neither covers.
+
+### 🕒 `ss_runtime_set_frame_rate`
+On request only — it overrides the authored fps of the animation being played,
+which nothing here needs. Two things to know before binding it: it belongs in
+`applySettings()`, because `setup_animation` resets `fps` and `fps_rate` the same
+way it resets the loop count; and `ss_runtime_get_fps` reports the **effective**
+fps, not the authored one, which `stepEffects` currently reads as if it were
+authored.
+
+### ⛔ `ss_runtime_reset`
+Not needed by this design. It empties a context — drops the bound resource,
+clears the part overrides, and returns render mode / coordinate system / origin
+to their defaults — and a load here builds a **new** `SsInternalPlayer`, whose
+context is created fresh and disposed with it, so there is no carried-over state
+for it to clear. It becomes necessary only if a context is ever reused across
+packs (`bind_resource` *replaces* the SSAB), which would be traded against the
+exact `liveHandles` accounting the leak check stands on. To rewind, `play()` or
+`setFrameNo` — not this.
 
 ---
 

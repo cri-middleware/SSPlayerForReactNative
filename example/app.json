@@ -25,9 +25,12 @@
       [
         "react-native-spritestudio",
         {
-          "assets": ["./assets/ss"]
+          "assets": [
+            "./assets/ss"
+          ]
         }
-      ]
+      ],
+      "expo-audio"
     ]
   }
 }

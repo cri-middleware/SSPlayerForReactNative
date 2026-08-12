@@ -21,9 +21,11 @@ import {
 } from '../core/types'
 import { SsRuntimeModule } from '../runtime'
 import type {
+  SsAudioEvent,
   SsBox,
   SsPartTransform,
   SsResource,
+  SsSignalEvent,
   SsUserDataEvent,
 } from '../specs/SsRuntime.nitro'
 import {
@@ -84,8 +86,16 @@ export interface SpriteStudioPlayerOptions {
   textures?: SsTextureRegistry
 }
 
-/** Fired once when the configured loops complete. */
-export type SsCompleteCallback = () => void
+/**
+ * A lifecycle notification, carrying **which animation** it is about.
+ *
+ * The name is not decoration: one player outlives the animations mounted on it,
+ * so a handler that fires after a `setAnimation` cannot otherwise tell what
+ * finished — and a scene of sprites shares one handler across many. The sibling
+ * Players pass it for the same reason (`SpriteStudioPlayer2D` emits every one of
+ * its four animation signals with `anim_name`).
+ */
+export type SsAnimationCallback = (animation: string) => void
 
 /**
  * What to measure the content box over, and how far.
@@ -181,9 +191,25 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private clock: ReturnType<typeof requestAnimationFrame> | null = null
 
   /** Fires on the rising edge of the Brain's `isFinished`, so once per run. */
-  onComplete: SsCompleteCallback | null = null
+  onComplete: SsAnimationCallback | null = null
   /** Fires on any frame the playhead crossed a loop boundary. */
-  onLoop: SsCompleteCallback | null = null
+  onLoop: SsAnimationCallback | null = null
+  /**
+   * Fires when playback **starts from the beginning** — not on resume.
+   *
+   * Layer 3 folds start and resume into one `play()` verb because that is what a
+   * `playing` prop means, but they are different events: one rewinds and re-arms
+   * the loop counter, the other carries on. This is the first of the two, which
+   * is the one worth reacting to.
+   */
+  onAnimationStart: SsAnimationCallback | null = null
+  /**
+   * Fires when a **different** animation is mounted, with the new name.
+   *
+   * Not on a re-`setAnimation` to the same name, which is a restart and reports
+   * itself through `onAnimationStart`.
+   */
+  onAnimationChange: SsAnimationCallback | null = null
   /**
    * Fires once per user-data key the playhead crossed, in `advance`.
    *
@@ -191,6 +217,21 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * list every collection, so a tick nobody watched costs nothing.
    */
   onUserData: ((event: SsUserDataEvent) => void) | null = null
+  /**
+   * Fires once per audio key the playhead crossed, in `advance`.
+   *
+   * Gated exactly like `onUserData`, and for the same reason. **Nothing plays
+   * it**: the event says what to play and where the file is, and an app that
+   * leaves this null gets a silent animation rather than an error.
+   */
+  onAudio: ((event: SsAudioEvent) => void) | null = null
+  /**
+   * Fires once per active signal the playhead crossed, in `advance`.
+   *
+   * Gated like the other two. Nothing here interprets `commandId` — dispatching
+   * it is the whole point, and is the app's.
+   */
+  onSignal: ((event: SsSignalEvent) => void) | null = null
 
   private readonly listeners = new Set<() => void>()
 
@@ -382,6 +423,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   setAnimation(name: string): boolean {
+    // Captured before the assignment, so "did it actually change" survives it.
+    // Re-setting the same name is a restart, and reports itself as one through
+    // `onAnimationStart` rather than as a change to something it already was.
+    const previous = this.animation
     this.animation = name
     const internal = this.internalPlayer
     if (internal == null) return false
@@ -394,6 +439,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     }
 
     if (!internal.setupAnimation(name)) return false
+    // Before `applySettings`, which is what starts playback: a listener should
+    // see "now playing X" and then "X started", not the other way round. The
+    // sibling Players order it the same way.
+    if (previous !== name) this.onAnimationChange?.(name)
     // setup resets playback, so the settings have to be replayed onto it — the
     // same reason they are replayed after a load.
     this.wasFinished = false
@@ -418,9 +467,22 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // one that never started leaves `isPausing` true with `isPlaying` false,
       // and resuming that would clear the pause flag without starting anything.
       if (internal.isPausing && internal.isPlaying) internal.resume()
-      else internal.play()
+      else this.startPlayback(internal)
     }
     this.notify()
+  }
+
+  /**
+   * `internal.play()` and the notification that goes with it, in one place.
+   *
+   * Two call sites reach it — an explicit `play()` and `applySettings` after a
+   * setup — and both are starts. Resume deliberately does not come through
+   * here: it is the other half of the verb, and firing "started" for it would
+   * make the two indistinguishable to a listener.
+   */
+  private startPlayback(internal: SsInternalPlayer): void {
+    internal.play()
+    this.onAnimationStart?.(this.animation ?? '')
   }
 
   pause(): void {
@@ -475,7 +537,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     internal.setLoop(this.settings.loops)
     internal.setSpeed(this.settings.speed)
     internal.setPlaybackDirection(this.settings.direction, this.settings.style)
-    if (this.settings.playing) internal.play()
+    if (this.settings.playing) this.startPlayback(internal)
     else internal.pause()
     // After `setup_animation`, which resets the override layer along with
     // everything else — and after the part indices are therefore valid again,
@@ -639,19 +701,38 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
     internal.advance(dtMilliseconds)
 
-    if (internal.isLooped) this.onLoop?.()
+    // Read once and shared by both notifications below: `currentAnimation` is
+    // what each is about, and re-reading it would say the same thing twice.
+    const animation = this.animation ?? ''
+
+    if (internal.isLooped) this.onLoop?.(animation)
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are
     // simply overwritten rather than queued. Without the gates this would be a
     // vector allocation and a Nitro array marshal per player per frame, sixty
     // times a second, almost always to report nothing.
-    if (this.onUserData != null && internal.passedEventCount > 0) {
-      for (const event of internal.getUserDataEvents()) this.onUserData(event)
+    //
+    // `passedEventCount` counts frames carrying *any* event, so it is read once
+    // and shared: it cannot tell the two kinds apart, and asking it twice would
+    // cross JSI twice to get the same number.
+    if (
+      (this.onUserData != null || this.onAudio != null || this.onSignal != null) &&
+      internal.passedEventCount > 0
+    ) {
+      if (this.onUserData != null) {
+        for (const event of internal.getUserDataEvents()) this.onUserData(event)
+      }
+      if (this.onAudio != null) {
+        for (const event of internal.getAudioEvents()) this.onAudio(event)
+      }
+      if (this.onSignal != null) {
+        for (const event of internal.getSignalEvents()) this.onSignal(event)
+      }
     }
 
     const finished = internal.isFinished
-    if (finished && !this.wasFinished) this.onComplete?.()
+    if (finished && !this.wasFinished) this.onComplete?.(animation)
     this.wasFinished = finished
   }
 

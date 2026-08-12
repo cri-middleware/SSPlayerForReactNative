@@ -115,6 +115,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   SsPartTransform getPartTransform(double partIndex) override;
   double getPassedEventCount() override;
   std::vector<SsUserDataEvent> getUserDataEvents() override;
+  std::vector<SsAudioEvent> getAudioEvents() override;
+  std::vector<SsSignalEvent> getSignalEvents() override;
 
   bool setPartVisibility(double partIndex, double force, bool cascade) override;
   bool clearPartVisibility(double partIndex) override;

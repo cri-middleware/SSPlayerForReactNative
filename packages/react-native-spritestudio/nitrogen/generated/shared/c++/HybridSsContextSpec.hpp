@@ -21,6 +21,10 @@ namespace margelo::nitro::ssplayer { struct SsBox; }
 namespace margelo::nitro::ssplayer { struct SsPartTransform; }
 // Forward declaration of `SsUserDataEvent` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsUserDataEvent; }
+// Forward declaration of `SsAudioEvent` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsAudioEvent; }
+// Forward declaration of `SsSignalEvent` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsSignalEvent; }
 // Forward declaration of `SsTextureInfo` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureInfo; }
 // Forward declaration of `SsTextureBinding` to properly resolve imports.
@@ -33,6 +37,8 @@ namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 #include <vector>
 #include "SsPartTransform.hpp"
 #include "SsUserDataEvent.hpp"
+#include "SsAudioEvent.hpp"
+#include "SsSignalEvent.hpp"
 #include "SsTextureInfo.hpp"
 #include "SsRNSkiaInterop.hpp"
 #include "SsTextureBinding.hpp"
@@ -101,6 +107,8 @@ namespace margelo::nitro::ssplayer {
       virtual SsBox measureContentBox(const std::vector<std::string>& animations, double maxFrames) = 0;
       virtual SsPartTransform getPartTransform(double partIndex) = 0;
       virtual std::vector<SsUserDataEvent> getUserDataEvents() = 0;
+      virtual std::vector<SsAudioEvent> getAudioEvents() = 0;
+      virtual std::vector<SsSignalEvent> getSignalEvents() = 0;
       virtual bool setPartVisibility(double partIndex, double force, bool cascade) = 0;
       virtual bool clearPartVisibility(double partIndex) = 0;
       virtual bool setPartColor(double partIndex, double blendOp, double rgba, double priority) = 0;

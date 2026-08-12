@@ -12,10 +12,16 @@ import {
   SpriteStudioView,
   ssCheckForLeaks,
   ssLiveHandles,
+  SsSignalParamType,
   type SpriteStudioViewRef,
+  type SsAudioEvent,
+  type SsSignalEvent,
+  type SsSignalParam,
+  type SsUserDataEvent,
 } from 'react-native-spritestudio'
 
 import { SsAssets } from '../ss-assets'
+import { playAudioEvent, releaseAudioPlayers } from './audio'
 
 /**
  * How a pack's art sits relative to its origin, in **player-local units**.
@@ -166,6 +172,31 @@ const SUBJECTS = {
   // variable, one pick away in the dropdown.
   PartsColor: { pack: 'overall', files: { PartsColor: CENTRED } },
   Mask: { pack: 'overall', files: { Mask: CENTRED } },
+  // **The one subject that is not a picture.** `Sound.ssab` holds a Null root
+  // and three `PartTypeAudio` parts, so it bakes zero vertices and the stage
+  // stays empty by design — everywhere else on this screen a blank canvas is
+  // the failure. What it exercises is the audio-key path, and the readout under
+  // the panel is where it shows: three keys at frames 0, 10 and 20, each naming
+  // a file in the pack's `SoundList`. An empty readout means they never
+  // arrived; a key with no `→ path` means the two-hash `SoundList` lookup did
+  // not resolve it. **Nothing plays** — the package ships no audio stack, so
+  // this reports what an app would feed to its own.
+  // User data: the *other* kind of authored key — a bag of values rather than a
+  // command. Two are authored, on frames 0 and 10, and **both fill all four
+  // payloads** (integer, point, rect, text), which is what makes this the card
+  // for the `has*` flags: a payload can legitimately be `0`, so absence and zero
+  // have to be distinguishable and this pack fills every slot to prove the
+  // reading of each. Its cycle is 10 frames at 30fps, so the keys re-fire about
+  // three times a second and the readout is mostly this subject's — expected.
+  UserData: { pack: 'overall', files: { UserData: CENTRED } },
+  Sound: { pack: 'overall', files: { Sound: CENTRED } },
+  // Signals: a named command and its parameters, for the app to dispatch. Two
+  // are authored on frame 10 — `test_cmd` with one parameter of **every** type
+  // and `play_se` with three — so the readout is where a wrongly-read union
+  // shows: the parameter values are what break, not the command name. Both are
+  // `active`; **no fixture here authors an inactive signal**, so the rule that
+  // those are dropped is asserted in code and exercised by nothing.
+  Signal: { pack: 'overall', files: { Signal: CENTRED } },
   Mesh: { pack: 'overall', files: { Mesh: CENTRED } },
   // Two polygons, and the kind with no texture at all: a Shape's colour is
   // entirely its baked vertex colours, so a textured or white-flat shape here
@@ -254,6 +285,32 @@ function packDir(pack: PackName, mode: Mode): string | null {
 
 const SUBJECT_NAMES = Object.keys(SUBJECTS) as SubjectName[]
 
+/**
+ * `id=value` for one signal parameter.
+ *
+ * Switches on the reported `type` rather than guessing from which field is
+ * non-zero, because a parameter's value can legitimately *be* zero — the same
+ * distinction `SsUserDataEvent`'s `has*` flags exist for, settled here by the
+ * discriminant instead. `none` is a parameter the author left unset and is
+ * shown as such, not as an empty string.
+ */
+function formatSignalParam(param: SsSignalParam): string {
+  switch (param.type) {
+    case SsSignalParamType.bool:
+      return `${param.id}=${param.boolValue}`
+    case SsSignalParamType.index:
+      return `${param.id}=#${param.intValue}`
+    case SsSignalParamType.integer:
+      return `${param.id}=${param.intValue}`
+    case SsSignalParamType.floating:
+      return `${param.id}=${param.floatValue}`
+    case SsSignalParamType.text:
+      return `${param.id}="${param.textValue}"`
+    default:
+      return `${param.id}=∅`
+  }
+}
+
 type SubjectName = keyof typeof SUBJECTS
 
 /**
@@ -291,6 +348,10 @@ export function PlayerScreen() {
   const [error, setError] = useState<string | null>(null)
   const [leak, setLeak] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
+  // Newest first and capped, because a looping animation re-crosses its keys
+  // every cycle and an unbounded list would be a leak of its own on the one
+  // screen that exists to prove there are none.
+  const [audio, setAudio] = useState<string[]>([])
 
   // Which `.ssab` inside the subject, and which animation inside that.
   //
@@ -368,6 +429,70 @@ export function PlayerScreen() {
   const onLoad = () => {
     setError(null)
     setLoadSeq((n) => n + 1)
+    // A fresh pack has fresh keys; keeping the previous subject's would make the
+    // readout say a sound fired that this animation never authored. The players
+    // go with them, so a BGM does not outlive the animation that started it.
+    setAudio([])
+    releaseAudioPlayers()
+  }
+
+  /**
+   * One line per authored audio key the playhead crosses — **and the sound**.
+   *
+   * The two halves are deliberately visible separately. The line is what the
+   * Player reported (`→ path` is the pack's `SoundList` answering for the key;
+   * a key with none did not resolve); anything after `⚠` is `./audio.ts`
+   * declining to play it, which is app-side and not the Player's doing. Silence
+   * with no `⚠` means the audio session, not the event path — see
+   * `ensureAudioMode` there, and the iOS silent switch first of all.
+   */
+  const pushEvent = (line: string) =>
+    setAudio((lines) => [line].concat(lines.slice(0, 5)))
+
+  const onAudio = (event: SsAudioEvent) => {
+    const where = event.filePath.length > 0 ? ` → ${event.filePath}` : ' → unresolved'
+    const loops = event.loopNum === 1 ? '' : ` ×${event.loopNum}`
+    const refused = playAudioEvent(source, event)
+    const why = refused == null ? '' : `  ⚠ ${refused}`
+    pushEvent(`f${event.frameNo} ${event.partName}: ${event.soundName}${loops}${where}${why}`)
+  }
+
+  /**
+   * One line per user-data key, listing **only the payloads it actually carries**.
+   *
+   * Driven off the `has*` flags rather than off the values, which is the whole
+   * reason those flags exist: an author can mean `integer: 0`, so a formatter
+   * that skipped falsy values would silently drop a real key. A line showing
+   * fewer payloads than the pack authors is the failure to look for.
+   *
+   * Newlines are collapsed because the authored text has one in it and this is a
+   * single-line readout.
+   */
+  const onUserData = (event: SsUserDataEvent) => {
+    const payloads: string[] = []
+    if (event.hasInteger) payloads.push(`int=${event.integer}`)
+    if (event.hasPoint) payloads.push(`point=(${event.pointX}, ${event.pointY})`)
+    if (event.hasRect) {
+      const r = event.rect
+      payloads.push(`rect=(${r.x}, ${r.y} ${r.width}×${r.height})`)
+    }
+    if (event.hasText) payloads.push(`text="${event.text.replace(/\s+/g, ' ').trim()}"`)
+    pushEvent(
+      `f${event.frameNo} ${event.partName}: ${payloads.length > 0 ? payloads.join(', ') : 'no payload'}`
+    )
+  }
+
+  /**
+   * One line per active signal — **and its parameter values**, which is the half
+   * worth looking at.
+   *
+   * The command name arrives whatever happens; the values are what a wrongly
+   * read union gets wrong, because the authored `type` and the FlatBuffers union
+   * tag are offset by one. `text="文字列"` on `test_cmd` is the canary.
+   */
+  const onSignal = (event: SsSignalEvent) => {
+    const params = event.params.map(formatSignalParam).join(', ')
+    pushEvent(`f${event.frameNo} ${event.partName}: ${event.commandId}(${params})`)
   }
   useEffect(() => {
     const loadedPlayer = ref.current?.player
@@ -469,6 +594,13 @@ export function PlayerScreen() {
             fit="contain"
             frame={box}
             onLoad={onLoad}
+            onUserData={onUserData}
+            onAudio={onAudio}
+            onSignal={onSignal}
+            onAnimationStart={(a) => pushEvent(`▶ ${a} started`)}
+            onAnimationChange={(a) => pushEvent(`⇄ ${a}`)}
+            onLoop={(a) => pushEvent(`↻ ${a} looped`)}
+            onComplete={(a) => pushEvent(`■ ${a} finished`)}
             onError={(e) => setError(String(e))}
           />
         )}
@@ -550,6 +682,21 @@ export function PlayerScreen() {
             </Choice>
           ))}
         </View>
+
+        {/* Audio and signals share one list: both are authored keys the playhead
+            crossed, and the line format says which. Shown only where there are
+            any — an always-present empty box would read as "no keys arrived" on
+            the subjects that author none, which is most of them. */}
+        {audio.length > 0 && (
+          <>
+            <Text style={styles.label}>Event keys</Text>
+            {audio.map((line, i) => (
+              <Text key={`${line}-${i}`} style={styles.ok}>
+                {line}
+              </Text>
+            ))}
+          </>
+        )}
 
         <Text style={styles.label}>
           {`Native handles — resources ${live.resources}, contexts ${live.contexts}`}

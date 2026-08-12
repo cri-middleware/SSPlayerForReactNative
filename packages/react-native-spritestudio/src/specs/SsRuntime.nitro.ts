@@ -172,6 +172,117 @@ export interface SsUserDataEvent {
 }
 
 /**
+ * One authored audio key the playhead crossed.
+ *
+ * **This package never produces sound.** It says what to play, how many times,
+ * and where the file is; feeding an audio stack is the app's job, the same
+ * division the sibling Players draw (`ssplayer-wgpu`'s `AudioEvent` says so in
+ * as many words). There is no audio dependency here to make that decision for
+ * you, and an authored key is not a command — a caller that ignores these
+ * simply has a silent animation.
+ *
+ * `soundListNameHash` / `soundNameHash` address the pack's `SoundList` and the
+ * `SoundFile` within it. They are carried as well as the resolved fields
+ * because they are what a host keys its *own* audio by when it does not want
+ * the pack's file at all.
+ */
+export interface SsAudioEvent {
+  partIndex: number
+  /** The authored part name, so a caller need not keep an index table. */
+  partName: string
+  /** The frame the key sits on, not the frame it was noticed on. */
+  frameNo: number
+
+  /** The alias as authored — a name inside the sound list, not a file name. */
+  soundName: string
+  soundListNameHash: number
+  soundNameHash: number
+  /**
+   * How many times to play it. SpriteStudio has no infinite audio loop, so this
+   * is a count and not a flag; `1` is the ordinary authored value.
+   */
+  loopNum: number
+
+  /**
+   * Path to the sound file **relative to the `.ssab`**, exactly like a
+   * cellmap's `image_path` — so `resolveAgainst(baseUri, filePath)` opens it,
+   * the same seam textures go through. Empty when the pack has no `SoundList`
+   * entry for `soundNameHash`, which is authored garbage rather than a state to
+   * handle.
+   */
+  filePath: string
+  /** The authored duration in **milliseconds**, or 0 when unresolved. */
+  totalMs: number
+  /**
+   * Whether the pack carries this file's bytes in `embedded_assets` — i.e. it
+   * was converted with `--embedded`, and `filePath` names a sibling that **is
+   * not on disk**. Reading those bytes out is not wired yet, so an embedded
+   * pack's audio is currently reportable but not playable; the flag is what
+   * keeps that legible instead of presenting as a missing file.
+   */
+  embedded: boolean
+}
+
+/** `SignalCommandParam.type` wire values. */
+export const SsSignalParamType = {
+  bool: 0,
+  /** A choice from an authored list, carried as its index. */
+  index: 1,
+  integer: 2,
+  floating: 3,
+  text: 4,
+  /** The parameter exists and was left unset. */
+  none: 5,
+} as const
+
+/**
+ * One `id` → value pair on a signal.
+ *
+ * Flat rather than a union, because a Nitro struct has no union to be. Unlike
+ * `SsUserDataEvent`, though, this needs no `has*` flags: a parameter carries
+ * exactly one value and `type` says which field holds it, so the others are
+ * simply unread rather than ambiguous. `index` and `integer` share `intValue`
+ * for the same reason — they are one wire type (`IntValueEntry`) authored two
+ * ways, and `type` is what tells them apart.
+ */
+export interface SsSignalParam {
+  /** The authored parameter name. */
+  id: string
+  /** `SsSignalParamType`. */
+  type: number
+  boolValue: boolean
+  /** Holds both `index` and `integer`. */
+  intValue: number
+  floatValue: number
+  textValue: string
+}
+
+/**
+ * One authored signal the playhead crossed: **a named command and its
+ * parameters**, for the app to dispatch however it likes.
+ *
+ * Where user data is a bag of values and audio names a file, a signal is the
+ * one that means *do something* — SpriteStudio's way of letting an animator
+ * call into the game. Nothing here interprets `commandId`; that is the whole
+ * point of it.
+ *
+ * **Signals switched off are not reported.** `PartAttributeSignal.active` is
+ * authoring state — a command left in the timeline but disabled — not something
+ * that happened, and every sibling Player drops them for the same reason.
+ */
+export interface SsSignalEvent {
+  partIndex: number
+  /** The authored part name, so a caller need not keep an index table. */
+  partName: string
+  /** The frame the key sits on, not the frame it was noticed on. */
+  frameNo: number
+
+  /** The authored command name. Uninterpreted. */
+  commandId: string
+  params: SsSignalParam[]
+}
+
+/**
  * How many native handles are alive right now — the leak check, made observable.
  *
  * Phase 1's exit criteria ask for "no leaked native handles", which was an
@@ -376,10 +487,16 @@ export interface SsContext
   /**
    * How many events the last `update()` crossed — user data, signals and all.
    *
-   * A **cheap gate** in front of `getUserDataEvents`, which is otherwise one
-   * vector allocation and one Nitro array marshal per player per frame to say
-   * "none", on a path that runs 60 times a second for every player on screen.
-   * Almost every frame answers 0.
+   * A **cheap gate** in front of `getUserDataEvents` / `getAudioEvents`, each of
+   * which is otherwise one vector allocation and one Nitro array marshal per
+   * player per frame to say "none", on a path that runs 60 times a second for
+   * every player on screen. Almost every frame answers 0.
+   *
+   * It counts *frames* crossed that carry any event at all, so it gates both
+   * calls and over-reports each: a frame with a user-data key and no audio still
+   * makes this non-zero. That is the right direction to be wrong in — the cost
+   * of an extra empty read is one marshal, and the cost of a missed one is a
+   * dropped event.
    */
   readonly passedEventCount: number
 
@@ -396,6 +513,31 @@ export interface SsContext
    * trade-off that setting exists to make.
    */
   getUserDataEvents(): SsUserDataEvent[]
+
+  /**
+   * The audio keys the last `update()` crossed.
+   *
+   * Same contract as `getUserDataEvents` in every respect — a read rather than a
+   * drain, gated on `passedEventCount`, and reporting every frame a long
+   * `update()` crossed unless `setSkipFrames(true)` let it skip. It is a
+   * separate call rather than a `kind` field on one list because the two
+   * payloads have nothing in common, and a union would make every consumer
+   * narrow before it could read anything.
+   *
+   * Each event is resolved against the pack's `SoundList` here, in C++, because
+   * that table lives in the `.ssab` and the `.ssab` deliberately never enters
+   * the JS heap.
+   */
+  getAudioEvents(): SsAudioEvent[]
+
+  /**
+   * The signals the last `update()` crossed, inactive ones dropped.
+   *
+   * Same contract as the two above, and the third and last table
+   * `EventsPerFrame` carries that is a *key* rather than a slot — `instances`
+   * and `effects` are read by their own slot machinery, not here.
+   */
+  getSignalEvents(): SsSignalEvent[]
 
   // --- the override layer -------------------------------------------------
   //
