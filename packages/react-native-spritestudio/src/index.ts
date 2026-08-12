@@ -59,7 +59,7 @@ export {
   MAX_STEP_MS,
   type SpriteStudioPlayerApi,
   type SpriteStudioPlayerOptions,
-  type SsCompleteCallback,
+  type SsAnimationCallback,
   type SsMeasureRequest,
 } from './player/SpriteStudioPlayer'
 export {
@@ -147,11 +147,18 @@ export {
 
 // --- Layer 1 ---------------------------------------------------------------
 export { SsRuntimeModule } from './runtime'
-export { SsTexWrapMode, SsTexFilterMode } from './specs/SsRuntime.nitro'
+export {
+  SsTexWrapMode,
+  SsTexFilterMode,
+  SsSignalParamType,
+} from './specs/SsRuntime.nitro'
 export type {
   SsRuntime,
+  SsAudioEvent,
   SsBox,
   SsPartTransform,
+  SsSignalEvent,
+  SsSignalParam,
   SsUserDataEvent,
   SsContext,
   SsLiveHandles,

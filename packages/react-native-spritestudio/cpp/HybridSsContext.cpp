@@ -532,6 +532,145 @@ std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
   return out;
 }
 
+std::vector<SsAudioEvent> HybridSsContext::getAudioEvents() {
+  std::vector<SsAudioEvent> out;
+  if (ctx_ == nullptr || animationIndex_ < 0) return out;
+
+  const int32_t count = ss_runtime_get_passed_event_count(ctx_);
+  if (count <= 0) return out;
+
+  const sscore::SsAnimeBinaryView view = ssab();
+  if (!view.valid()) return out;
+
+  for (int32_t i = 0; i < count; ++i) {
+    const ss::format::EventsPerFrame* frame =
+        view.eventsAt(animationIndex_, ss_runtime_get_passed_event_index(ctx_, i));
+    if (frame == nullptr) continue;
+    // A frame carries whichever event tables were authored on it, so the count
+    // that gated this call says "some event", not "an audio event" — every
+    // frame here can legitimately have no `audios` at all.
+    const auto* audios = frame->audios();
+    if (audios == nullptr) continue;
+
+    for (uint32_t a = 0; a < audios->size(); ++a) {
+      const ss::format::EventAudio* entry = audios->Get(a);
+      const ss::format::PartAttributeAudio* value = entry->value();
+      if (value == nullptr) continue;
+
+      // Resolved here rather than handed up as two hashes, because the table
+      // that answers it is in the `.ssab` and the `.ssab` never reaches JS.
+      // A miss leaves the resolved fields empty and keeps the key itself, so a
+      // host that names its own audio is unaffected by the pack's list being
+      // incomplete.
+      const sscore::SsSoundEntry sound =
+          view.soundFile(value->sound_list_name_hash(), value->sound_name_hash());
+      const auto* alias = value->sound_name();
+
+      out.push_back(SsAudioEvent(
+          static_cast<double>(entry->part_index()),
+          std::string(view.partName(entry->part_index())),
+          static_cast<double>(frame->frame_index()),
+          alias != nullptr ? alias->str() : std::string(),
+          static_cast<double>(value->sound_list_name_hash()),
+          static_cast<double>(value->sound_name_hash()),
+          static_cast<double>(value->loop_num()),
+          std::string(sound.filePath), static_cast<double>(sound.totalMs),
+          sound.embedded));
+    }
+  }
+  return out;
+}
+
+std::vector<SsSignalEvent> HybridSsContext::getSignalEvents() {
+  std::vector<SsSignalEvent> out;
+  if (ctx_ == nullptr || animationIndex_ < 0) return out;
+
+  const int32_t count = ss_runtime_get_passed_event_count(ctx_);
+  if (count <= 0) return out;
+
+  const sscore::SsAnimeBinaryView view = ssab();
+  if (!view.valid()) return out;
+
+  for (int32_t i = 0; i < count; ++i) {
+    const ss::format::EventsPerFrame* frame =
+        view.eventsAt(animationIndex_, ss_runtime_get_passed_event_index(ctx_, i));
+    if (frame == nullptr) continue;
+    const auto* signals = frame->signals();
+    if (signals == nullptr) continue;
+
+    for (uint32_t s = 0; s < signals->size(); ++s) {
+      const ss::format::EventSignal* entry = signals->Get(s);
+      const ss::format::PartAttributeSignal* value = entry->value();
+      if (value == nullptr) continue;
+      // A disabled signal is a command left in the timeline, not one that
+      // fired. Every sibling Player drops these, and reporting them would make
+      // "the animator switched it off" indistinguishable from "it ran".
+      if (!value->active()) continue;
+
+      std::vector<SsSignalParam> params;
+      const auto* authored = value->params();
+      if (authored != nullptr) {
+        params.reserve(authored->size());
+        for (uint32_t p = 0; p < authored->size(); ++p) {
+          const ss::format::SignalCommandParam* param = authored->Get(p);
+          const auto* id = param->param_id();
+
+          bool boolValue = false;
+          int32_t intValue = 0;
+          float floatValue = 0.0f;
+          std::string textValue;
+
+          // **Read by the union tag, report the authored type**, because the two
+          // enums are not the same numbering: FlatBuffers prepends an implicit
+          // `NONE = 0` to a union, so `SignalCommandParamValue` runs one ahead
+          // of `SignalCommandParamType` all the way along. The tag is the only
+          // thing that says which member is actually stored, and `type()` is
+          // what an author picked — switching on the wrong one reads a `Bool`
+          // as an `Index` and still compiles.
+          switch (param->value_type()) {
+            case ss::format::SignalCommandParamValue_Bool:
+              if (const auto* e = param->value_as_Bool()) boolValue = e->value();
+              break;
+            case ss::format::SignalCommandParamValue_Index:
+              if (const auto* e = param->value_as_Index()) intValue = e->value();
+              break;
+            case ss::format::SignalCommandParamValue_Integer:
+              if (const auto* e = param->value_as_Integer()) intValue = e->value();
+              break;
+            case ss::format::SignalCommandParamValue_Floating:
+              if (const auto* e = param->value_as_Floating()) floatValue = e->value();
+              break;
+            case ss::format::SignalCommandParamValue_Text:
+              if (const auto* e = param->value_as_Text()) {
+                const auto* text = e->value();
+                if (text != nullptr) textValue = text->str();
+              }
+              break;
+            // `None` is an authored "left unset", and the union's own `NONE` is
+            // a member that was never written. Neither carries a value, and the
+            // reported `type` already tells them apart.
+            default:
+              break;
+          }
+
+          params.push_back(SsSignalParam(id != nullptr ? id->str() : std::string(),
+                                         static_cast<double>(param->type()), boolValue,
+                                         static_cast<double>(intValue),
+                                         static_cast<double>(floatValue), textValue));
+        }
+      }
+
+      const auto* command = value->command_id();
+      out.push_back(SsSignalEvent(static_cast<double>(entry->part_index()),
+                                  std::string(view.partName(entry->part_index())),
+                                  static_cast<double>(frame->frame_index()),
+                                  command != nullptr ? command->str() : std::string(),
+                                  std::move(params)));
+    }
+  }
+  return out;
+}
+
 // --- the override layer ------------------------------------------------------
 //
 // Straight through to the Brain's own override layer. Nothing is mirrored here:

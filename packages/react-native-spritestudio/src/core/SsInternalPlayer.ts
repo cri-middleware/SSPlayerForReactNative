@@ -2,10 +2,12 @@ import type { SkCanvas } from '@shopify/react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
 import type {
+  SsAudioEvent,
   SsBox,
   SsContext,
   SsPartTransform,
   SsResource,
+  SsSignalEvent,
   SsTextureInfo,
   SsUserDataEvent,
 } from '../specs/SsRuntime.nitro'
@@ -266,6 +268,16 @@ export class SsInternalPlayer {
   /** The user-data keys the last `advance` crossed. A read, not a drain. */
   getUserDataEvents(): SsUserDataEvent[] {
     return this.require().getUserDataEvents()
+  }
+
+  /** The audio keys the last `advance` crossed. A read, not a drain. */
+  getAudioEvents(): SsAudioEvent[] {
+    return this.require().getAudioEvents()
+  }
+
+  /** The signals the last `advance` crossed, inactive ones dropped. */
+  getSignalEvents(): SsSignalEvent[] {
+    return this.require().getSignalEvents()
   }
 
   // --- the override layer -------------------------------------------------

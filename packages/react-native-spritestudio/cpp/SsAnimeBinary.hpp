@@ -55,6 +55,28 @@ struct SsTextureEntry {
   ss::format::TexFilterMode filterMode = ss::format::TexFilterMode_Linear;
 };
 
+/// One `SoundFile` out of a pack's `SoundList`, resolved against
+/// `embedded_assets` — what an authored audio key points at.
+///
+/// The views point into the `.ssab` buffer like everything else here, so they
+/// are only valid while the resource is.
+struct SsSoundEntry {
+  /// False when the pack has no such list, or no such file inside it. Every
+  /// other field is then untouched — an authored key naming a sound the pack
+  /// does not carry is garbage, not a state with a sensible default.
+  bool found = false;
+  /// The alias, i.e. the name the key addresses it by — not the file name.
+  std::string_view name;
+  /// Path to the audio file, relative to the `.ssab`, exactly like a cellmap's
+  /// `image_path`.
+  std::string_view filePath;
+  /// Authored duration in milliseconds.
+  uint32_t totalMs = 0;
+  /// Whether the pack carries the bytes (`--embedded`), in which case
+  /// `filePath` names a sibling that is not on disk.
+  bool embedded = false;
+};
+
 /// Non-owning view over a `.ssab`. Valid only while the buffer is.
 class SsAnimeBinaryView {
  public:
@@ -259,6 +281,52 @@ class SsAnimeBinaryView {
       return nullptr;
     }
     return events->Get(static_cast<uint32_t>(eventIndex));
+  }
+
+  /// The `SoundFile` an authored audio key addresses, or a `found == false`
+  /// entry.
+  ///
+  /// **Two hashes and not one**, because `SoundFile.name_hash` is unique only
+  /// *within* its `SoundList` — the list has to be found first, and a lookup
+  /// that searched every list for the file hash would resolve to whichever
+  /// list happened to come first. `PartAttributeAudio` carries both for
+  /// exactly this reason.
+  ///
+  /// Linear on both levels, for the same reason `findEmbedded` is: a pack holds
+  /// a handful of lists of a handful of files, and this runs only on a frame
+  /// that actually crossed an audio key — not per frame, and not per part.
+  SsSoundEntry soundFile(uint32_t soundListNameHash, uint32_t soundNameHash) const noexcept {
+    SsSoundEntry out;
+    const auto* lists = root_ != nullptr ? root_->sound_lists() : nullptr;
+    if (lists == nullptr) return out;
+
+    for (uint32_t l = 0; l < lists->size(); ++l) {
+      const auto* list = lists->Get(l);
+      if (list->name_hash() != soundListNameHash) continue;
+
+      const auto* files = list->table_data();
+      if (files == nullptr) return out;
+      for (uint32_t f = 0; f < files->size(); ++f) {
+        const auto* file = files->Get(f);
+        if (file->name_hash() != soundNameHash) continue;
+
+        out.found = true;
+        out.name = toView(file->name());
+        out.filePath = toView(file->file_path());
+        out.totalMs = file->time_total();
+        // Embedded assets are keyed by the hash of the *file path*, which the
+        // `SoundFile` carries ready-made — the same rule the cellmap path
+        // follows with `image_path_hash`, and for the same reason: the alias
+        // and the file name are different strings.
+        size_t length = 0;
+        out.embedded = findEmbedded(file->file_path_hash(), &length) != nullptr && length > 0;
+        return out;
+      }
+      // The list resolved and the file is not in it. No other list can hold it,
+      // since the key named this one.
+      return out;
+    }
+    return out;
   }
 
   /// The mask flags of part `index`, or an all-false set when out of range.

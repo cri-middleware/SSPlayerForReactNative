@@ -188,6 +188,118 @@ struct EffectTotals {
   size_t quadFrames = 0;
 };
 
+/// Whether an authored audio key survives the walk from the Brain's passed-event
+/// list to a file a host could actually open.
+///
+/// Same "zeroes mean the path never ran" contract as the mask and effect lines,
+/// with one addition worth the extra counter: `keys` and `resolved` are kept
+/// apart on purpose. `keys` says the events arrived; `resolved` says the pack's
+/// `SoundList` answered for them. A key that arrives and does not resolve names
+/// a sound no `SoundFile` carries — authored garbage, or the two-hash lookup
+/// searching the wrong list — and from `keys` alone it is indistinguishable from
+/// a working pack.
+struct AudioTotals {
+  size_t framesWithKeys = 0;
+  size_t keys = 0;
+  size_t resolved = 0;
+  size_t embedded = 0;
+};
+
+/// Whether signals arrive, and whether the inactive ones are dropped.
+///
+/// `inactive` is counted rather than merely skipped because the drop is a
+/// *decision* — a command left in the timeline and switched off is authoring
+/// state, not something that happened — and a counter is the only way to tell
+/// "the pack has none" from "the test never looked". **Today it is always 0**:
+/// `overall/Signal.ssae` authors two signals and both are active, so the drop
+/// itself is unexercised by any fixture here. That is the SDK ROADMAP's
+/// "fixtures that do not author everything" gap, not a gap in this program.
+struct SignalTotals {
+  size_t framesWithKeys = 0;
+  size_t active = 0;
+  size_t inactive = 0;
+  size_t params = 0;
+  size_t textParams = 0;
+};
+
+/// Walks signals the way `HybridSsContext::getSignalEvents` does, including the
+/// union read — the part with a trap in it.
+void CountSignals(void* ctx, const sscore::SsAnimeBinaryView& view, int32_t animationIndex,
+                  SignalTotals& totals) {
+  if (animationIndex < 0) return;
+  const int32_t count = ss_runtime_get_passed_event_count(ctx);
+  if (count <= 0) return;
+
+  const size_t before = totals.active + totals.inactive;
+  for (int32_t i = 0; i < count; ++i) {
+    const ss::format::EventsPerFrame* frame =
+        view.eventsAt(animationIndex, ss_runtime_get_passed_event_index(ctx, i));
+    if (frame == nullptr) continue;
+    const auto* signals = frame->signals();
+    if (signals == nullptr) continue;
+
+    for (uint32_t s = 0; s < signals->size(); ++s) {
+      const ss::format::PartAttributeSignal* value = signals->Get(s)->value();
+      if (value == nullptr) continue;
+      if (!value->active()) {
+        ++totals.inactive;
+        continue;
+      }
+      ++totals.active;
+
+      const auto* authored = value->params();
+      if (authored == nullptr) continue;
+      totals.params += authored->size();
+      for (uint32_t p = 0; p < authored->size(); ++p) {
+        // Read through the union tag, not through `type()` — the two enums are
+        // offset by one, because FlatBuffers prepends `NONE = 0` to a union.
+        // A `Text` param whose string comes back null would be the tell that
+        // this walked the wrong member.
+        const auto* param = authored->Get(p);
+        if (param->value_type() != ss::format::SignalCommandParamValue_Text) continue;
+        const auto* entry = param->value_as_Text();
+        if (entry != nullptr && entry->value() != nullptr) ++totals.textParams;
+      }
+    }
+  }
+  if (totals.active + totals.inactive != before) ++totals.framesWithKeys;
+}
+
+/// Resolves this tick's audio keys exactly the way `HybridSsContext::getAudioEvents`
+/// does, so the lookup runs under ASan here rather than only on a device.
+///
+/// `HybridSsContext` is not linked by this program (nothing here may touch
+/// Nitro), so the walk is duplicated rather than shared — which is also what
+/// makes it a check: if the two ever disagree, the numbers move.
+void CountAudio(void* ctx, const sscore::SsAnimeBinaryView& view, int32_t animationIndex,
+                AudioTotals& totals) {
+  if (animationIndex < 0) return;
+  const int32_t count = ss_runtime_get_passed_event_count(ctx);
+  if (count <= 0) return;
+
+  const size_t before = totals.keys;
+  for (int32_t i = 0; i < count; ++i) {
+    const ss::format::EventsPerFrame* frame =
+        view.eventsAt(animationIndex, ss_runtime_get_passed_event_index(ctx, i));
+    if (frame == nullptr) continue;
+    const auto* audios = frame->audios();
+    if (audios == nullptr) continue;
+
+    for (uint32_t a = 0; a < audios->size(); ++a) {
+      const ss::format::PartAttributeAudio* value = audios->Get(a)->value();
+      if (value == nullptr) continue;
+      ++totals.keys;
+
+      const sscore::SsSoundEntry sound =
+          view.soundFile(value->sound_list_name_hash(), value->sound_name_hash());
+      if (!sound.found) continue;
+      ++totals.resolved;
+      if (sound.embedded) ++totals.embedded;
+    }
+  }
+  if (totals.keys != before) ++totals.framesWithKeys;
+}
+
 /// Counts the effect geometry in a baked frame, and checks the batches it made.
 ///
 /// An Effect batch is the one kind that produces several descriptors, so its
@@ -351,6 +463,12 @@ int main(int argc, char** argv) {
   ShapeTotals shapeTotals;
   ShaderTotals shaderTotals;
   shapeTotals.parts = view.shapePartCount();
+  AudioTotals audioTotals;
+  SignalTotals signalTotals;
+  // The Brain reports passed events as indices into *this* animation's `events`
+  // table, so the name has to become an index before any of them can be read —
+  // the same resolution `HybridSsContext` does at `setupAnimation`.
+  const int32_t animationIndex = view.animationIndex(animation);
   const int32_t fps = ss_runtime_get_fps(ctx);
   size_t maxVertices = 0;
   size_t maxBatches = 0;
@@ -366,6 +484,12 @@ int main(int argc, char** argv) {
     // `HybridSsContext::update` keeps.
     effects.step(ctx, frameNo, deltaMs / 1000.0f, fps > 0 ? static_cast<float>(fps) : 60.0f,
                  ss_runtime_is_looped(ctx));
+
+    // Before the FrameData fetch below, which `continue`s past a frame with no
+    // buffer — an audio key is authored on a frame, not on geometry, so a pack
+    // that draws nothing can still be the one carrying every key.
+    CountAudio(ctx, view, animationIndex, audioTotals);
+    CountSignals(ctx, view, animationIndex, signalTotals);
 
     unsigned char* fdPtr = nullptr;
     size_t fdLen = 0;
@@ -462,6 +586,20 @@ int main(int argc, char** argv) {
               instanceTotals.mountFrames);
   std::printf("    shape: %zu parts, %zu frames with geometry, peak %zu vertices\n",
               shapeTotals.parts, shapeTotals.framesWithGeometry, shapeTotals.peakVertices);
+  // `keys` above `resolved` is the whole point of the line: equal numbers mean
+  // every authored key found its `SoundFile`, and a gap names how many did not.
+  // `embedded` is how many of those resolved to bytes inside the `.ssab` rather
+  // than to a sibling on disk — the `--embedded` conversion, where `filePath`
+  // is still reported but nothing is there to open.
+  std::printf("    audio: %zu frames with keys, %zu keys, %zu resolved, %zu embedded\n",
+              audioTotals.framesWithKeys, audioTotals.keys, audioTotals.resolved,
+              audioTotals.embedded);
+  // `inactive` is expected to be 0 on every fixture here — see SignalTotals.
+  // `text params` is the union-read canary: the value enums are offset by one,
+  // so a walk that switched on `type()` would come back with 0 of them.
+  std::printf("    signal: %zu frames with keys, %zu active, %zu inactive, %zu params, %zu text params\n",
+              signalTotals.framesWithKeys, signalTotals.active, signalTotals.inactive,
+              signalTotals.params, signalTotals.textParams);
   std::printf("    shader: peak %zu parts, %zu frames with a shader, %zu part-frames\n",
               shaderTotals.parts, shaderTotals.framesWithShader, shaderTotals.recognised);
   for (int i = 0; i < sscore::kSsShaderCount; ++i) {
