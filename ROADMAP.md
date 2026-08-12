@@ -443,12 +443,37 @@ constant across the Phase 0 sweep while nothing was actually playing.
   a whole-subtree *group tint* and this port does not do at all; §2-6 mask
   composition into a child, which waits on masking being finished anyway; and a
   depth cap of 8 standing in for real cycle detection.
-- ☐ The 13 `ss-*` integration shaders, GLSL → **SkSL** (the maths is identical;
-  impellerc's restrictions do not apply, so the port relaxes rather than tightens)
-- ☐ Audio behind an `IAudioManager` seam — **L2 must not know the playback
-  mechanism**
-- ☐ Events: end / user data / signal
-- ☐ Override Layer API (colour / cell / visibility), flip / offset, part following
+- 🚧 **The 13 `ss-*` integration shaders** — landed, GLSL → **SkSL** (impellerc's
+  restrictions do not apply, so the port relaxes rather than tightens).
+  `cpp/SsPartShader.hpp` is the data half — the id ↔ pre-baked-hash table and the
+  `PartAttributeShader` read, Skia-free like `SsPartColor.hpp`;
+  `cpp/SsPartShaderSkSL.hpp` is the 13 bodies as runtime effects, Skia-only.
+  An `SHDR` is a per-part **attribute**, not a draw kind: the Brain does not
+  split batches by it, so a shader part is peeled out of an ordinary Normal batch
+  exactly as a tinted one is.
+  Two references, and the split is the one this repo's rule already states.
+  **Flutter** for the architecture, because it faces the same constraint — no
+  custom per-vertex varyings, so the per-part values become uniforms. **Godot**
+  for the arithmetic, because its bodies cite the SS6 original per constant with
+  file and line; its bodies do not port verbatim, since they read `TEXTURE` /
+  `UV` / `partcolor_*` Godot varyings.
+  Three things that fail plausibly. The hashes are **pre-baked**, exactly as the
+  texture key is, so an unknown `id_hash` is a custom material or `Default` and
+  degrades to the plain path rather than erroring. **Twelve of the thirteen fold
+  the PartColor composite as their own output tail**, so a part carrying both
+  must not also run `MakePartColorShader` — the tint would apply twice; `ss-blur`
+  is the exception. And `PartAttributeShader` carries **eight** params where only
+  `param0..3` are read (nothing reads past `param2`; `param3` rounds the uniform
+  out to one `vec4`).
+  **Shader × mask composes**, which this entry's own non-goals list had doubted
+  and told the next person to try rather than keep: the replay wraps whichever
+  shader the part turned out to have and changes neither, so nothing had to be
+  hard-coded to drop one for the other. That is one departure from the sibling
+  ports, which do drop it.
+  Host-checked: `overall/Shader.ssab default` reports 28 shader parts over 120
+  frames, 3291 part-frames, and **all 13 ids present** — a missing id is a
+  hash-table miss. **What is left:** seen on neither a simulator nor a device,
+  and the same pixel-test gap the blends, PartColor, Mesh and Effect have.
 - 🚧 **Reanimated integration** (design doc ch.3 D). Part transforms now go out
   as a SharedValue (`useSsPartTransform`), which is the consumer-facing half and
   the one that does not change when the tick moves. **What is left is the tick
@@ -669,13 +694,21 @@ exact `liveHandles` accounting the leak check stands on. To rewind, `play()` or
 
 | | |
 |---|---|
+The package's `peerDependencies` are the enforcing copy — this table restates
+them, so the two move together.
+
+| | |
+|---|---|
 | SpriteStudio-SDK | `scripts/SDK_VERSION.txt` (currently `v7.0.0-beta.1`) |
-| React Native | 0.79+ (New Architecture only) |
-| React | 19+ |
-| @shopify/react-native-skia | **2.11+**, and the lower bound is real: 2.11 moved the API objects off `jsi::HostObject` onto the `jsi::NativeState` pattern, and `cpp/SsRNSkiaInterop.cpp` unwraps them the new way |
-| react-native-reanimated | 4+ (required — RN Skia 2.10+ demands it) |
+| React Native | **`^0.86.2`**, New Architecture only |
+| React | `^19.2.8` |
+| @shopify/react-native-skia | **`^2.11.0`**, and the lower bound is real: 2.11 moved the API objects off `jsi::HostObject` onto the `jsi::NativeState` pattern, and `cpp/SsRNSkiaInterop.cpp` unwraps them the new way |
+| react-native-nitro-modules | `^0.36.5` — the generated `nitrogen/` output is committed against this |
+| react-native-reanimated | `^4.5.3` (required — RN Skia 2.10+ demands it) |
 | iOS | 14+ |
-| Android | API 24+ (React Native 0.79+ ships prefabs built for 24) |
+| Android | API 24+ (React Native ships its prefabs built for 24) |
 
 The `.ssab` format and the C-API are both tied to the SDK version, so the pin
-and the README's compatibility table have to move together.
+and the README's compatibility table have to move together. The root
+`overrides` block pins the same five onto the versions `expo install` chose;
+bump the three copies together.
