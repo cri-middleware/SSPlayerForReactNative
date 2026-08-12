@@ -561,8 +561,11 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
 #else
 
+// Must match the declaration parameter-for-parameter, including the instance
+// renderer — an arity mismatch here is a link error in exactly the build this
+// branch exists to keep linking.
 size_t DrawBakedFrame(void*, const SsPaintBinding*, size_t, const sscore::SsBaker&,
-                      const SsMaskInput&) {
+                      const SsMaskInput&, SsInstanceRenderer*) {
   return 0;
 }
 
