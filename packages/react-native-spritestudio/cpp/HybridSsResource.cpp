@@ -65,6 +65,17 @@ int32_t HybridSsResource::liveCount() noexcept {
 
 void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
                              const std::string& origin) {
+  // Verified before the Brain sees the bytes, not after. libssruntime parses
+  // with `root_as_..._unchecked` and its header states that invalid input is
+  // undefined behaviour, so this is the boundary — and a `source` can be an
+  // http(s) URL, which makes these bytes untrusted. The view is needed below
+  // anyway, so the walk costs nothing extra.
+  const sscore::SsAnimeBinaryView view(bytes, byteLength);
+  if (!view.valid()) {
+    throw std::runtime_error("SsResource: '" + origin +
+                             "' is not a valid .ssab (failed verification)");
+  }
+
   // `_copy` rather than `_borrow`: the Brain then owns the only copy that has
   // to survive this call, so neither the local buffer above nor a JS-owned
   // ArrayBuffer has to be kept alive alongside it. The copy happens once per
@@ -81,12 +92,9 @@ void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
   // copy and the C-API will not give one back. Both are tiny and both are
   // needed before any context exists — the pack walk that loads siblings runs
   // in JS, before `createContext`.
-  const sscore::SsAnimeBinaryView view(bytes, byteLength);
-  if (view.valid()) {
-    packNameHash_ = view.packNameHash();
-    for (const sscore::SsExternalPack& pack : view.externalInstancePacks()) {
-      externalPackNames_.push_back(pack.name);
-    }
+  packNameHash_ = view.packNameHash();
+  for (const sscore::SsExternalPack& pack : view.externalInstancePacks()) {
+    externalPackNames_.push_back(pack.name);
   }
 
   // Counted here rather than on entry to the constructor: everything above can
