@@ -2,7 +2,7 @@
   "name": "ssplayer-for-react-native",
   "version": "0.0.0",
   "private": true,
-  "description": "SpriteStudio 7 player for React Native \u2014 workspace root",
+  "description": "SpriteStudio 7 player for React Native — workspace root",
   "license": "BSD-3-Clause",
   "workspaces": [
     "packages/*",
@@ -10,7 +10,7 @@
   ],
   "//scripts": [
     "Every entry point is a .js shim that picks the .sh or .ps1 implementation",
-    "for the host OS (scripts/run-platform-script.js) \u2014 naming a .sh here would",
+    "for the host OS (scripts/run-platform-script.js) — naming a .sh here would",
     "shut Windows contributors out. Same shape as SSPlayerForWeb.",
     "check-framedata is macOS/Linux-only on purpose: it is a developer guard",
     "that needs flatc and a host cargo build, not part of any build path.",
@@ -25,6 +25,7 @@
     "download-sdk": "node scripts/download-sdk.js",
     "build-runtime": "node scripts/build-runtime.js",
     "deploy-examples": "node scripts/deploy-examples.js",
+    "release": "node scripts/release.js",
     "generate-nitro-code": "node scripts/generate-nitro-code.js",
     "check-framedata": "bash tools/check-framedata.sh",
     "check-mask": "bash tools/check-mask.sh",
@@ -43,7 +44,7 @@
     "install` picked for example/. Two copies of a native module is not a",
     "duplicated dependency, it is two autolinked pods/prefabs fighting over one",
     "JSI registration. These pins collapse each one onto the version Expo's",
-    "compatibility table chose \u2014 bump them together when the example's Expo SDK",
+    "compatibility table chose — bump them together when the example's Expo SDK",
     "moves."
   ],
   "overrides": {
