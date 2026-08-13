@@ -202,9 +202,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// `{minX, minY, maxX, maxY}` and is left untouched when nothing drew.
   void accumulateSubtreeBox(float box[4], const float m[6]);
 
-  /// A view over the bound `.ssab`, read in place out of the Brain's copy.
-  /// Cheap (two pointers), so the load-time metadata queries just build one each
-  /// rather than caching a parse nothing else needs.
+  /// `ssab_`, or an empty view once the context is gone.
   sscore::SsAnimeBinaryView ssab() const;
 
   /// The one place the Brain context is given back, and the borrowed pointers
@@ -233,6 +231,15 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// Keeps the `.ssab` alive for as long as this context can touch it.
   std::shared_ptr<HybridSsResource> resource_;
   void* ctx_ = nullptr;
+
+  /// A verified view over the bound `.ssab`, built once in the constructor.
+  ///
+  /// Kept rather than rebuilt per query, because building one runs the
+  /// FlatBuffers verifier over the whole pack — 470 us on Ringo — and the
+  /// queries are not all load-time: `resolvePack` asks per instance part, and
+  /// the three event getters ask on every frame carrying an event. It borrows
+  /// through `resource_`, so `release()` clears it.
+  sscore::SsAnimeBinaryView ssab_;
 
   double generation_ = 0;
   float frameNo_ = 0.0f;

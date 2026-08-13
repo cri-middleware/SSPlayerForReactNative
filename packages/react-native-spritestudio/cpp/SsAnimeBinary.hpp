@@ -82,11 +82,20 @@ class SsAnimeBinaryView {
  public:
   SsAnimeBinaryView() = default;
 
+  /// The only way to a non-empty view, and it verifies — so a view that reads
+  /// `valid()` is a verified one, everywhere, with no second path to audit.
+  ///
+  /// This is the gate `HybridSsResource::adopt()` puts in front of the Brain,
+  /// which parses unchecked and calls invalid input undefined behaviour.
   SsAnimeBinaryView(const uint8_t* buf, size_t len) noexcept {
     if (buf == nullptr || len < 8) return;
     // Verify before reading: a `.ssab` can be truncated by a bad download or a
-    // half-written cache, and every accessor below trusts its offsets. This runs
-    // once per load, not per frame.
+    // half-written cache, and every accessor below trusts its offsets.
+    //
+    // The cost is a table walk, not a byte walk — 470 us for Ringo's 28k tables
+    // against 1 us for a 1.5 MB pack that is mostly embedded bytes. That is a
+    // load-time price, so build one of these per load and keep it; the frame
+    // path must never construct one.
     ::flatbuffers::Verifier verifier(buf, len);
     if (!ss::format::VerifySsAnimeBinaryBuffer(verifier)) return;
     root_ = ss::format::GetSsAnimeBinary(buf);
