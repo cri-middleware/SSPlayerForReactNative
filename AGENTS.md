@@ -82,7 +82,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
 | Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` — the prebuild must log `dropped x86 from reactNativeArchitectures` |
-| Asset manifest | (in `example/`) `npx react-native-spritestudio assets`, then `--check` |
+| Asset manifest | (in `example/`) `npx react-native-spritestudio assets --out src/ss-assets.ts`, then the same with `--check` |
 
 **`ssbake_check`'s per-kind lines all have the same contract: zeroes mean the path never ran**, and `parts > 0` with `peak 0` means enumerated-then-never-emitted. Run it over the `example/assets/ss/overall/` card for the kind you touched and compare against the previous run — the absolute counts are asset-dependent, the zeroes are not.
 
