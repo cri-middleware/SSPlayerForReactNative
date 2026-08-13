@@ -199,6 +199,19 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
           colors_.push_back(
               WhiteWithAlpha((hasPartColor ? corners[c]->a : partAlpha) * alphaScale));
         }
+        // Both shader paths draw with **no vertex colours** — each carries alpha
+        // itself as `a = texel.a * col.a` — so everything the loop above just
+        // put in the vertex colours has to be in the corner alphas instead, or
+        // it is silently dropped: `PartState.alpha` when the part has no
+        // PartColor of its own, and the instance chain's `alphaScale` either
+        // way. Done after the loop, because the loop reads these same corners.
+        if (info.needsShader || info.needsPartColorShader) {
+          SsPartColorCorner* mutable_corners[4] = {&info.partColor.lt, &info.partColor.rt,
+                                                   &info.partColor.lb, &info.partColor.rb};
+          for (SsPartColorCorner* corner : mutable_corners) {
+            corner->a = (hasPartColor ? corner->a : partAlpha) * alphaScale;
+          }
+        }
         for (int i = 0; i < 6; ++i) {
           indices_.push_back(static_cast<uint16_t>(base + kQuadIndices[i]));
         }

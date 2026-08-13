@@ -33,8 +33,7 @@ atlas caches, `<SpriteStudioScene>` and the Expo config plugin.
 **Not yet:** **Nines and Text** parts; **masked Mesh and masked Effect**, which
 both draw *unmasked* today; a **mask reaching into an Instance child**; the
 **Instance part's own PartColor**, which the older players apply as a
-whole-subtree tint; twelve of the thirteen **`ss-*` integration shaders** — only
-`ss-sepia` is ported, and the rest fall back to the plain textured path — and the
+whole-subtree tint; and the
 **Reanimated tick**, where part transforms already publish as a shared value but
 the frame loop is still `requestAnimationFrame` on the JS thread.
 [ROADMAP.md](ROADMAP.md) has the detail on each.

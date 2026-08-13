@@ -29,6 +29,7 @@
     "check-framedata": "bash tools/check-framedata.sh",
     "check-mask": "bash tools/check-mask.sh",
     "check-hidden": "bash tools/check-hidden.sh",
+    "check-shader": "bash tools/check-shader.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "generate-fbs-code": "node scripts/generate-fbs-code.js",
     "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets"
