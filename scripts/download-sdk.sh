@@ -47,9 +47,8 @@ if [ ! -f "$VERSION_FILE" ]; then
 fi
 TARGET_VERSION=$(tr -d ' \r\n' < "$VERSION_FILE")
 
-# A build-runtime.sh install leaves no VERSION at all, so the check below finds
-# nothing to compare and a local Brain build is replaced here rather than
-# silently kept while claiming to be the release.
+# A local build leaves no VERSION, so the check below finds nothing and
+# reinstalls rather than keeping it.
 if [ -z "$FORCE" ] && [ -f "$CURRENT_VERSION_FILE" ]; then
     CURRENT_VERSION=$(tr -d ' \r\n' < "$CURRENT_VERSION_FILE")
     if [ "$CURRENT_VERSION" = "$TARGET_VERSION" ]; then
@@ -111,8 +110,7 @@ unzip -q -o "$ZIP_FILE" -d "$TARGET_DIR"
 # The archive's own VERSION holds the SDK commit hash; overwrite it with the tag
 # so the skip check above compares like with like.
 echo "$TARGET_VERSION" > "$CURRENT_VERSION_FILE"
-# A release asset is a release build by construction; `prepack` reads this
-# because VERSION cannot tell the two apart. build-runtime writes it too.
+# A release asset is a release build by construction; prepack reads this.
 echo "release" > "${TARGET_DIR}/BUILD_MODE"
 
 echo "Done."

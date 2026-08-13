@@ -45,8 +45,7 @@ foreach ($arg in $ArgsList) {
 
 $targetVersion = (Get-Content $versionFile).Trim()
 
-# A build-runtime install leaves no VERSION at all, so the check below finds
-# nothing to compare — so a local Brain build is replaced here rather than
+# A local build leaves no VERSION, so the check below finds nothing to compare — so a local Brain build is replaced here rather than
 # silently kept while claiming to be the release.
 if (-not $force -and (Test-Path $currentVersionFile)) {
     $currentVersion = (Get-Content $currentVersionFile).Trim()
@@ -108,8 +107,7 @@ Expand-Archive -Path $zipFile -DestinationPath $targetDir -Force
 # The archive's own VERSION holds the SDK commit hash; overwrite it with the tag
 # so the skip check above compares like with like.
 Set-Content -Path $currentVersionFile -Value $targetVersion
-# A release asset is a release build by construction; `prepack` reads this
-# because VERSION cannot tell the two apart. build-runtime writes it too.
+# A release asset is a release build by construction; prepack reads this.
 Set-Content -Path (Join-Path $targetDir "BUILD_MODE") -Value "release"
 
 Write-Host "Done."

@@ -145,9 +145,7 @@ Write-Host "  include/ssruntime.h"
 Copy-Item (Join-Path $sdkDir "LICENSE.md") $targetDir -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $sdkDir "target/licenses/THIRD-PARTY-LICENSES.ssruntime.md") $targetDir -Force -ErrorAction SilentlyContinue
 
-# Both files describe the pinned release, which a local build is not — see the
-# .sh for the whole of it. Removed rather than invented, so download-sdk
-# reinstalls, prepack refuses, and the version reports "unknown".
+# See the .sh: the pinned release's files, which a local build is not.
 Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $targetDir "VERSION")
 Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $targetDir "BUILD_MODE")
 Write-Host "  VERSION / BUILD_MODE removed (a local build is not the pinned release)"

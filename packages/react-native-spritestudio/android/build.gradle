@@ -18,9 +18,8 @@ apply plugin: "com.android.library"
 // react-native-nitro-modules.
 apply plugin: "org.jetbrains.kotlin.android"
 
-// Written next to the binaries by whichever of scripts/download-sdk.sh (the
-// release tag) installed them. A local build-runtime leaves no VERSION at all,
-// which is what "unknown" below means: a Brain from somebody's working tree.
+// Written next to the binaries by scripts/download-sdk.sh; "unknown" means the
+// Brain came from a local build instead.
 def sdkVersionFile = file("../native/VERSION")
 def sdkVersion = sdkVersionFile.exists() ? sdkVersionFile.text.trim() : "unknown"
 

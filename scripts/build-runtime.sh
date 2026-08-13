@@ -14,7 +14,7 @@
 #   native/libs/ios/libssruntime.xcframework   (device arm64 + simulator fat)
 #   native/libs/android/<abi>/libssruntime.a   (arm64-v8a, armeabi-v7a, x86_64)
 #   native/include/ssruntime.h                 (cbindgen output, the C-API)
-#   (and *removes* native/VERSION and native/BUILD_MODE — see place_version)
+#   (and removes the pinned release's VERSION / BUILD_MODE, if present)
 #   native/LICENSE.md, native/THIRD-PARTY-LICENSES.ssruntime.md
 #
 # STATIC slices on purpose (design doc ch.7): the iOS podspec vendors the
@@ -113,23 +113,8 @@ place_licenses() {
     fi
 }
 
-# Stamp the version next to the binaries it describes — the same file
-# Neither file is written here, and both are removed if they are lying around.
-#
-# They describe *the pinned release*: `download-sdk.sh` writes the tag it
-# installed and `release` for the mode, because a release asset is one by
-# construction. A local build is neither. Writing a stamp for it meant inventing
-# one — this used to be "<tag>+submodule-<sha>" — and every consumer of the file
-# then had to know that spelling: `download-sdk.sh` so its skip check would not
-# leave a local build in place while calling it the release, `prepack` so it
-# would not publish one. No sibling Player writes a version from its
-# build-runtime at all, and this is why.
-#
-# Removing them says the same thing with nothing to interpret. `download-sdk.sh`
-# reinstalls because there is no version to match, `prepack` refuses because
-# there is no mode to read, and the podspec and build.gradle already fall back
-# to "unknown" — which is what `SsRuntime.version` should say about a Brain that
-# came from a working tree.
+# Both files describe the pinned release, and a local build is not it. Removed
+# rather than stamped: download-sdk then reinstalls, and prepack refuses.
 place_version() {
     rm -f "${TARGET_DIR}/VERSION" "${TARGET_DIR}/BUILD_MODE"
     echo "  VERSION / BUILD_MODE removed (a local build is not the pinned release)"

@@ -2,10 +2,8 @@ require "json"
 
 package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 
-# Written next to the binaries by scripts/download-sdk.sh, so the version can
-# never disagree with the libssruntime actually sitting in native/. A local
-# build-runtime leaves none, which is what "unknown" means here: a Brain from
-# somebody's working tree rather than the pinned release.
+# Written next to the binaries by scripts/download-sdk.sh, so it cannot disagree
+# with the libssruntime actually in native/. "unknown" means a local build.
 version_file = File.join(__dir__, "native", "VERSION")
 sdk_version = File.exist?(version_file) ? File.read(version_file).strip : "unknown"
 
