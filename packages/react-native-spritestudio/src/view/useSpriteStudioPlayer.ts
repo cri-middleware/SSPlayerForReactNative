@@ -141,6 +141,16 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // expensive way to draw the same frame.
   const sourceUri = sourceUriOf(source)
   const measureScope = fit === 'none' || frame != null ? null : frameScope
+
+  // What the player has been *asked* to play, which is not always what the
+  // `animation` prop says: a change arriving mid-load reaches a player with no
+  // resource yet. Written before `load()` because that is the call which applies
+  // it, so the effect below sees the two agree and does not restart it.
+  const applied = useRef<string | undefined>(undefined)
+  // Bumped when a load lands, so that effect gets a second chance at a prop it
+  // could not apply while the load was in flight.
+  const [loadTick, setLoadTick] = useState(0)
+
   useEffect(() => {
     const next = new SpriteStudioPlayer()
     setPlayer(next)
@@ -148,9 +158,37 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       measureScope == null
         ? undefined
         : { scope: measureScope, maxFrames: measureFrames }
+
+    // Before `load()`, all of it, because `load()` reaches the end of its own
+    // promise chain synchronously — it sets the animation up and starts
+    // playback there. The effects below cannot get here first: they are keyed on
+    // the `player` *state*, which is still null on this commit, so they do not
+    // run until React has committed the `setPlayer` above. A microtask beats a
+    // commit, so anything installed there arrives after the events it wanted.
+    //
+    // Only the two lifecycle forwarders, not the whole set: `onLoop` and
+    // `onComplete` cannot fire before the first `advance`, and the three event
+    // forwarders are deliberately installed only while their prop is present —
+    // Layer 3 gates its per-frame reads on them.
+    next.onAnimationStart = (a) => callbacks.current.onAnimationStart?.(a)
+    next.onAnimationChange = (a) => callbacks.current.onAnimationChange?.(a)
+    // The transport for the same reason. These are Layer 3's own record, which
+    // `applySettings()` replays onto the animation once it is set up, so setting
+    // them on a player with no resource is not a race — it is how it is meant to
+    // be primed. Without it `playing={false}` still gets one `play()`, because
+    // the default is true and the prop only arrives on the next commit.
+    next.setSpeed(speed)
+    next.setLoop(loop)
+    if (playing) next.play()
+    else next.pause()
+
+    applied.current = animation
     next
       .load(sourceUri, { animation, measure })
-      .then(() => callbacks.current.onLoad?.())
+      .then(() => {
+        setLoadTick((tick) => tick + 1)
+        callbacks.current.onLoad?.()
+      })
       .catch((error: unknown) => callbacks.current.onError?.(error))
     return () => {
       // Explicit teardown, never GC: every buffer Layer 1 handed out is a borrow
@@ -160,7 +198,27 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       next.dispose()
       setPlayer(null)
     }
-  }, [sourceUri, animation, measureScope, measureFrames])
+    // `animation` is deliberately **not** a dependency: switching animations
+    // must not tear the player down. Doing so dropped the cache leases, so the
+    // `.ssab` was re-read and its atlases re-decoded for a change `setAnimation`
+    // does in one call — every pick from the example's 24-animation dropdown was
+    // a reload from the APK. The effect below owns it instead; the value read
+    // here is the one that render had, which is what `load()` should start on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceUri, measureScope, measureFrames])
+
+  // --- animation ------------------------------------------------------------
+  //
+  // `setAnimation` re-measures an animation-scoped box, re-applies the transport
+  // and replays the overrides, so this is the whole of the switch. It returns
+  // false while there is no resource yet — a prop that changed mid-load — and
+  // `applied` is left alone so `loadTick` brings it back here when the load
+  // lands.
+  useEffect(() => {
+    if (player == null || animation == null) return
+    if (applied.current === animation) return
+    if (player.setAnimation(animation)) applied.current = animation
+  }, [player, animation, loadTick])
 
   // --- textures -----------------------------------------------------------
   useEffect(() => {
@@ -171,19 +229,30 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   }, [player, images])
 
   // --- transport ----------------------------------------------------------
+  //
+  // Keyed on the **prop only**, not on `player`: every player is primed with
+  // these at construction, so re-running on a new one is redundant — and worse
+  // than redundant for `playing`. `play()` on a transport that is already
+  // running is a *restart* (`ss_runtime_play` rewinds) and reports itself as
+  // one, so after a cached load — which resolves in a microtask, before React
+  // commits the render that publishes the player — a `player`-keyed effect
+  // rewound the animation and fired a second `onAnimationStart`.
   useEffect(() => {
     player?.setSpeed(speed)
-  }, [player, speed])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speed])
 
   useEffect(() => {
     player?.setLoop(loop)
-  }, [player, loop])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loop])
 
   useEffect(() => {
     if (player == null) return
     if (playing) player.play()
     else player.pause()
-  }, [player, playing])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing])
 
   // Installed only while the corresponding prop is actually supplied, because
   // Layer 3 gates its per-frame event reads on whether a handler is set — a
