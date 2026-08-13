@@ -22,11 +22,11 @@ std::atomic<int32_t> gLiveContexts{0};
 }  // namespace
 
 HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resource)
-    : HybridSsContext(resource, 0, {}) {}
+    : HybridSsContext(resource, {}) {}
 
-HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resource, int depth,
+HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resource,
                                  std::vector<SsInstancePackEntry> packs)
-    : HybridObject(TAG), resource_(resource), depth_(depth), instancePacks_(std::move(packs)) {
+    : HybridObject(TAG), resource_(resource), instancePacks_(std::move(packs)) {
   if (resource_ == nullptr || resource_->handle() == nullptr) {
     throw std::runtime_error("SsContext: resource is null or already disposed");
   }
@@ -94,10 +94,6 @@ bool HybridSsContext::bindInstancePack(const std::shared_ptr<HybridSsResourceSpe
 void HybridSsContext::buildInstanceChildren() {
   if (instancesBuilt_ || ctx_ == nullptr) return;
   instancesBuilt_ = true;
-  // Not an error, and not silently wrong either: a pack that mounts itself
-  // resolves to its own resource forever, so the tree is cut here rather than
-  // at whatever depth the stack happens to give out.
-  if (depth_ >= kMaxInstanceDepth) return;
 
   const sscore::SsAnimeBinaryView view = ssab();
   if (!view.valid()) return;
@@ -111,7 +107,7 @@ void HybridSsContext::buildInstanceChildren() {
 
     HybridSsContext* child = nullptr;
     try {
-      child = new HybridSsContext(resource, depth_ + 1, instancePacks_);
+      child = new HybridSsContext(resource, instancePacks_);
     } catch (const std::exception&) {
       // The Brain refused a context for this resource. One dead mount is better
       // than a load that throws and takes the whole animation with it.
