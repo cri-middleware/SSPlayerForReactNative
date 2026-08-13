@@ -45,14 +45,16 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // Read once: these are PartData, so they are fixed for the life of the
   // resource. Re-reading them per frame would be the mistake the mask spec opens
   // by warning against — the animated `mask` / `hide` come from FrameData.
-  // One view for both, not one each: building it runs a full `flatbuffers::
-  // Verifier` over the pack, which is worth paying once at load and not twice.
-  const sscore::SsAnimeBinaryView view = ssab();
-  maskFlags_ = view.maskFlags();
+  // The one view this context ever builds — see `ssab_`. Verified here, on the
+  // Brain's copy of a pack `adopt()` already gated, because a view that skipped
+  // the verifier would be a second path for every reader below to trust.
+  ssab_ = sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(ctx_),
+                                    ss_runtime_get_ssab_len(ctx_));
+  maskFlags_ = ssab_.maskFlags();
   // Same reasoning as the flags, one kind further: the effect bindings are
   // PartData too. The slots borrow `resource_`, which is why `release()`
   // destroys them before it lets go of it.
-  effects_.bind(resource_->handle(), view);
+  effects_.bind(resource_->handle(), ssab_);
   // Last, after everything that can throw — a constructor that throws runs no
   // destructor, so an earlier increment would never be balanced.
   gLiveContexts.fetch_add(1, std::memory_order_relaxed);
@@ -143,8 +145,10 @@ void HybridSsContext::release() noexcept {
   ctx_ = nullptr;
 
   // Every one of these is a borrow reached *through* the context — the Brain's
-  // FrameData and its SoA arrays — so they are dangling the instant it is gone.
-  // Cleared rather than left, because the guards below test the pointer.
+  // FrameData and its SoA arrays, and the `.ssab` view — so they are dangling
+  // the instant it is gone. Cleared rather than left, because the guards below
+  // test the pointer.
+  ssab_ = {};
   frame_ = nullptr;
   soa_ = {};
   partCount_ = 0;
@@ -703,12 +707,10 @@ bool HybridSsContext::clearPartOverrides() {
 }
 
 sscore::SsAnimeBinaryView HybridSsContext::ssab() const {
-  if (ctx_ == nullptr) return {};
-  // Read straight out of the Brain's own copy. Nothing is copied here and
-  // nothing is retained: the view is a pair of pointers into a buffer the bound
-  // resource owns, built fresh for each of these load-time queries.
-  return sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(ctx_),
-                                   ss_runtime_get_ssab_len(ctx_));
+  // Guarded on the context rather than on the view: `release()` clears both, and
+  // testing the one that owns the buffer keeps a stale view from ever being
+  // handed out if a future path forgets the other.
+  return ctx_ == nullptr ? sscore::SsAnimeBinaryView{} : ssab_;
 }
 
 std::vector<SsTextureInfo> HybridSsContext::getTextures() {
