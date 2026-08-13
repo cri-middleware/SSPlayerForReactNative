@@ -257,6 +257,191 @@ void CheckSepia() {
   }
 }
 
+// --- 3b. the other twelve ----------------------------------------------------
+//
+// One neutral case each — the parameters at which the built-in is defined to do
+// nothing, which catches a shader that is not running at all — and one
+// characteristic case whose answer can be computed by hand. Where the maths is
+// not hand-computable (the two hashes), the assertion is a property instead: a
+// full-strength noise replaces the input, so two different inputs must land on
+// the same pixel.
+
+/// An atlas with an opaque left half and a transparent right half, for the two
+/// built-ins that read their neighbours.
+sk_sp<SkShader> SplitAtlas() {
+  SkBitmap bm;
+  bm.allocN32Pixels(kSize, kSize, false);
+  bm.eraseARGB(0, 0, 0, 0);
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize / 2; ++x) *bm.getAddr32(x, y) = 0xFFFFFFFF;
+  }
+  bm.setImmutable();
+  return bm.asImage()->makeShader(SkTileMode::kClamp, SkTileMode::kClamp,
+                                  SkSamplingOptions(SkFilterMode::kNearest));
+}
+
+/// Like `RenderCentre`, but reads a chosen texel and takes the atlas ready-made.
+bool RenderAt(const sscore::SsPartShader& ps, const sscore::SsPartColor& pc,
+              sk_sp<SkShader> atlas, int px, int py, Rgba* out) {
+  const float uv[8] = {0, 0, kSize, 0, 0, kSize, kSize, kSize};
+  sk_sp<SkShader> shader = ssplayer::MakePartShaderShader(ps, pc, uv, std::move(atlas));
+  if (shader == nullptr) return false;
+
+  sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
+  SkCanvas* canvas = surface->getCanvas();
+  canvas->clear(SK_ColorTRANSPARENT);
+  SkPaint paint;
+  paint.setShader(std::move(shader));
+  paint.setAntiAlias(false);
+  canvas->drawVertices(Quad(kSize, kSize), SkBlendMode::kModulate, paint);
+
+  SkBitmap bm;
+  bm.allocN32Pixels(kSize, kSize);
+  surface->readPixels(bm, 0, 0);
+  const SkColor c = bm.getColor(px, py);
+  out->r = SkColorGetR(c) / 255.0f;
+  out->g = SkColorGetG(c) / 255.0f;
+  out->b = SkColorGetB(c) / 255.0f;
+  out->a = SkColorGetA(c) / 255.0f;
+  return true;
+}
+
+sscore::SsPartShader With(sscore::SsShaderId id, float p0, float p1 = 0.0f, float p2 = 0.0f) {
+  sscore::SsPartShader ps;
+  ps.id = id;
+  ps.params[0] = p0;
+  ps.params[1] = p1;
+  ps.params[2] = p2;
+  return ps;
+}
+
+void CheckTheRest() {
+  const sscore::SsPartColor kNoTint;
+  const Rgba red{1.0f, 0.0f, 0.0f, 1.0f};
+  const Rgba grey{0.5f, 0.5f, 0.5f, 1.0f};
+  Rgba out;
+
+  const auto centre = [&](const sscore::SsPartShader& ps, Rgba in, Rgba* o) {
+    if (RenderCentre(ps, kNoTint, in, o)) return true;
+    Fail("%s: MakePartShaderShader returned null", IdName(ps.id));
+    return false;
+  };
+
+  // ss-hsb: a zero shift is a passthrough; saturation -1 collapses to the
+  // value, which for pure red is white.
+  if (centre(With(sscore::SsShaderId::Hsb, 0, 0, 0), red, &out))
+    ExpectRgb("ss-hsb  neutral", out, red.r, red.g, red.b);
+  if (centre(With(sscore::SsShaderId::Hsb, 0, -1.0f, 0), red, &out))
+    ExpectRgb("ss-hsb  saturation -1 on red", out, 1.0f, 1.0f, 1.0f);
+  if (centre(With(sscore::SsShaderId::Hsb, 0, 0, -1.0f), red, &out))
+    ExpectRgb("ss-hsb  brightness -1 on red", out, 0.0f, 0.0f, 0.0f);
+
+  // ss-step: threshold 0.5 on a channel max of 1 posterises to a flat 1, which
+  // `fColor` then mixes back toward the texel's own colour.
+  if (centre(With(sscore::SsShaderId::Step, 0.5f, 0.0f, 0.0f), red, &out))
+    ExpectRgb("ss-step mono", out, 1.0f, 1.0f, 1.0f);
+  if (centre(With(sscore::SsShaderId::Step, 0.5f, 0.0f, 1.0f), red, &out))
+    ExpectRgb("ss-step coloured", out, red.r, red.g, red.b);
+
+  // ss-pix: a block of 97 texels is wider than this 8x8 atlas, so every
+  // fragment snaps to texel 0 — the left half's colour, read on the right.
+  if (RenderAt(With(sscore::SsShaderId::Pix, 1.0f), kNoTint, SplitAtlas(), kSize - 2, 2, &out))
+    ExpectRgb("ss-pix  block 97 snaps the right half to texel 0", out, 1.0f, 1.0f, 1.0f);
+  else
+    Fail("ss-pix: null shader");
+
+  // ss-noise: zero intensity is a passthrough; at full intensity the input is
+  // replaced entirely, so two different inputs must agree.
+  if (centre(With(sscore::SsShaderId::Noise, 0.0f, 0.0f, 0.0f), red, &out))
+    ExpectRgb("ss-noise neutral", out, red.r, red.g, red.b);
+  Rgba noiseFromRed, noiseFromGrey;
+  if (centre(With(sscore::SsShaderId::Noise, 1.0f, 0.0f, 0.0f), red, &noiseFromRed) &&
+      centre(With(sscore::SsShaderId::Noise, 1.0f, 0.0f, 0.0f), grey, &noiseFromGrey)) {
+    if (!Near(noiseFromRed.r, noiseFromGrey.r) || !Near(noiseFromRed.g, noiseFromGrey.g) ||
+        !Near(noiseFromRed.b, noiseFromGrey.b)) {
+      Fail("ss-noise at full power still depends on the input: red gave %.3f, grey gave %.3f",
+           noiseFromRed.r, noiseFromGrey.r);
+    }
+  }
+
+  // ss-bmask: a cutoff above the texel's channel max removes it, one below
+  // keeps it.
+  if (centre(With(sscore::SsShaderId::Bmask, 0.9f), grey, &out) && !Near(out.a, 0.0f))
+    Fail("ss-bmask cutoff 0.9 on max 0.5: alpha %.3f, want 0", out.a);
+  if (centre(With(sscore::SsShaderId::Bmask, 0.2f), grey, &out) && !Near(out.a, 1.0f))
+    Fail("ss-bmask cutoff 0.2 on max 0.5: alpha %.3f, want 1", out.a);
+
+  // ss-outline: inside a solid opaque atlas every neighbour is opaque, so
+  // nothing is an edge. Against the split atlas, the texel beside the
+  // transparent half is.
+  if (centre(With(sscore::SsShaderId::Outline, 0.5f), red, &out) && !Near(out.a, 0.0f))
+    Fail("ss-outline on a solid atlas: alpha %.3f, want 0 — no fragment is an edge", out.a);
+  if (RenderAt(With(sscore::SsShaderId::Outline, 0.5f), kNoTint, SplitAtlas(), kSize / 2 - 1, 4,
+               &out)) {
+    if (!Near(out.a, 1.0f)) Fail("ss-outline at the alpha edge: alpha %.3f, want 1", out.a);
+    ExpectRgb("ss-outline edge colour", out, 1.0f, 1.0f, 1.0f);
+  }
+
+  // ss-blur: the one built-in that multiplies by the part colour instead of
+  // running the composite, so a flat atlas comes back unchanged and a tinted
+  // part scales it.
+  if (centre(With(sscore::SsShaderId::Blur, 0.0f), red, &out))
+    ExpectRgb("ss-blur neutral", out, red.r, red.g, red.b);
+  sscore::SsPartColor half;
+  half.lt.r = half.rt.r = half.lb.r = half.rb.r = 0.5f;
+  half.lt.g = half.rt.g = half.lb.g = half.rb.g = 0.5f;
+  half.lt.b = half.rt.b = half.lb.b = half.rb.b = 0.5f;
+  if (RenderCentre(With(sscore::SsShaderId::Blur, 0.0f), half, red, &out))
+    ExpectRgb("ss-blur multiplies by the part colour", out, 0.5f, 0.0f, 0.0f);
+
+  // ss-wave / ss-move / ss-scatter: each has parameters at which it samples
+  // exactly where it started, which is the case that fails loudly if the
+  // displacement is computed in the wrong space.
+  if (centre(With(sscore::SsShaderId::Wave, 1.0f, 0.0f, 0.0f), red, &out))
+    ExpectRgb("ss-wave zero amplitude", out, red.r, red.g, red.b);
+  if (centre(With(sscore::SsShaderId::Move, 0.0f, 0.5f, 0.5f), red, &out))
+    ExpectRgb("ss-move zero distance", out, red.r, red.g, red.b);
+  if (centre(With(sscore::SsShaderId::Scatter, 0.0f, 1.0f, 0.0f), red, &out))
+    ExpectRgb("ss-scatter zero power", out, red.r, red.g, red.b);
+
+  // A displacement that lands on the transparent half must actually read it:
+  // 4 texels right of centre, on an atlas whose right half is empty.
+  if (RenderAt(With(sscore::SsShaderId::Move, 0.0f, 0.0f, 0.0f), kNoTint, SplitAtlas(), 1, 4,
+               &out) &&
+      !Near(out.a, 1.0f)) {
+    Fail("ss-move at rest on the opaque half: alpha %.3f, want 1", out.a);
+  }
+
+  // ss-circle: the cell here is the whole 8x8 quad, so the disc's radius is 4
+  // and a corner texel is outside it.
+  if (RenderAt(With(sscore::SsShaderId::Circle, 0.0f, 1.0f), kNoTint, SolidAtlas(1, 0, 0, 1), 0, 0,
+               &out) &&
+      !Near(out.a, 0.0f)) {
+    Fail("ss-circle at the corner: alpha %.3f, want 0 — it is outside the disc", out.a);
+  }
+  if (RenderAt(With(sscore::SsShaderId::Circle, 0.0f, 1.0f), kNoTint, SolidAtlas(1, 0, 0, 1),
+               kSize / 2, kSize / 2, &out) &&
+      !Near(out.a, 1.0f)) {
+    Fail("ss-circle at the centre: alpha %.3f, want 1", out.a);
+  }
+
+  // ss-spot: the falloff is brightest at the centre and reaches zero at the
+  // rim, and `fColor` 0 makes the lit colour white rather than the texture's.
+  Rgba spotCentre, spotCorner;
+  if (RenderAt(With(sscore::SsShaderId::Spot, 1.0f, 1.0f, 0.0f), kNoTint, SolidAtlas(1, 0, 0, 1),
+               kSize / 2, kSize / 2, &spotCentre) &&
+      RenderAt(With(sscore::SsShaderId::Spot, 1.0f, 1.0f, 0.0f), kNoTint, SolidAtlas(1, 0, 0, 1), 0,
+               0, &spotCorner)) {
+    if (!(spotCentre.a > spotCorner.a)) {
+      Fail("ss-spot: centre alpha %.3f is not brighter than the corner's %.3f", spotCentre.a,
+           spotCorner.a);
+    }
+    if (spotCentre.a > 0.0f) ExpectRgb("ss-spot lit colour at fColor 0", spotCentre, 1, 1, 1);
+  }
+
+  std::printf("    twelve ports checked against their neutral and characteristic cases\n");
+}
+
 // --- 4. alpha survives, and a body-less id really is null --------------------
 
 void CheckAlphaAndFallback() {
@@ -308,6 +493,9 @@ int main() {
 
   std::printf("==> ss-sepia against SS6's formula\n");
   CheckSepia();
+
+  std::printf("==> the other twelve\n");
+  CheckTheRest();
 
   std::printf("==> alpha and the unported fallback\n");
   CheckAlphaAndFallback();
