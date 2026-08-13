@@ -46,8 +46,10 @@ is the reference wiring, with `expo-audio` as the *example's* dependency.
 
 ## 📚 Documentation
 
-A hosted documentation site is planned ([ROADMAP.md](ROADMAP.md#distribution)). Until
-then this README is the user-facing guide, and the files below cover the rest.
+- [**Documentation site**](https://cri-middleware.github.io/SSPlayerForReactNative/) — setup, usage, the generated API reference. 🚧 Live after the first release.
+- [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place.
+
+This README stays the short version; the files below cover the rest.
 
 - [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
 - [**AGENTS.md**](AGENTS.md) — the working guide: architecture, invariants, **hard constraints**, verification. Start here before changing anything.
