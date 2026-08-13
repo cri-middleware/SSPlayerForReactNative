@@ -23,6 +23,12 @@ export interface SsLeakCheckResult {
   after: SsLiveHandles
   /** True if either count grew — see `ssCheckForLeaks` for why growth is exact. */
   leaked: boolean
+  /** Registry entries one player held after its first load of `source`. */
+  texturesAfterFirstLoad: number
+  /** And after loading it `cycles` times over, which should be the same number. */
+  texturesAfterReloads: number
+  /** True if the registry grew across the reloads — see the reload pass below. */
+  registryLeaked: boolean
 }
 
 /**
@@ -75,6 +81,28 @@ export async function ssCheckForLeaks(
     }
   }
 
+  // The other way a reload leaks, and the one `liveHandles` cannot see: **one**
+  // player loaded over and over. `load()` documents that it replaces what was
+  // there, and the texture registry is where that used to stop being true — the
+  // paints from every previous pack stayed, so the table handed to `drawInto`
+  // grew by one binding per load and a cellmap name shared by two packs kept
+  // drawing with the older one's atlas.
+  //
+  // The same source each time, so the count is its own expectation: whatever the
+  // first load registered is what the eighth should have too.
+  const reloader = new SpriteStudioPlayer()
+  let texturesAfterFirstLoad = 0
+  let texturesAfterReloads = 0
+  try {
+    for (let i = 0; i < cycles; i += 1) {
+      await reloader.load(source, { animation: options?.animation })
+      if (i === 0) texturesAfterFirstLoad = reloader.textures.size
+    }
+    texturesAfterReloads = reloader.textures.size
+  } finally {
+    reloader.dispose()
+  }
+
   // The last cycle's dispose gave its leases back, so nothing should be held —
   // but a `preload` from elsewhere in the app would be, and it would read as a
   // leak. Cleared again rather than trusted.
@@ -86,5 +114,8 @@ export async function ssCheckForLeaks(
     after,
     leaked:
       after.resources > before.resources || after.contexts > before.contexts,
+    texturesAfterFirstLoad,
+    texturesAfterReloads,
+    registryLeaked: texturesAfterReloads > texturesAfterFirstLoad,
   }
 }

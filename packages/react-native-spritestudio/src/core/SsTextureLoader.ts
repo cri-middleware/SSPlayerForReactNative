@@ -34,6 +34,15 @@ export interface SsTextureLoadReport {
    * it is gone. `SpriteStudioPlayer` holds these and releases them on dispose.
    */
   imageKeys: string[]
+  /**
+   * Texture hashes this pass actually put in the registry — not the ones it was
+   * asked about, and not the ones a caller had already registered, since those
+   * are left alone.
+   *
+   * For the same reason as `imageKeys`, one level up: an owner replacing what it
+   * loaded needs to know which entries were its own.
+   */
+  registered: number[]
 }
 
 /**
@@ -79,6 +88,7 @@ export class SsTextureLoader {
   ): Promise<SsTextureLoadReport> {
     const unresolved: string[] = []
     const imageKeys: string[] = []
+    const registered: number[] = []
 
     // Sequential rather than concurrent: the skip-if-registered check is only
     // sound if the calls are ordered, and two cellmaps naming one atlas would
@@ -109,6 +119,7 @@ export class SsTextureLoader {
 
       if (image != null) {
         imageKeys.push(key)
+        registered.push(texture.textureHash)
         registry.registerByHash(texture.textureHash, image, samplingOf(texture))
         continue
       }
@@ -119,7 +130,7 @@ export class SsTextureLoader {
       )
     }
 
-    return { unresolved, imageKeys }
+    return { unresolved, imageKeys, registered }
   }
 
   private static async decode(

@@ -559,10 +559,17 @@ export function PlayerScreen() {
       // resource with contexts back at baseline is a `.ssab` released out of
       // order. The mounted player above is included in both readings, so the
       // baseline is whatever it happens to be, not zero.
+      //
+      // The registry line is the same question one level up, and the one the
+      // handle counts cannot answer: those cycles are eight *players*, while
+      // this is eight loads into one, which is what `load()`'s "replaces
+      // whatever was loaded before" claims to survive.
       const line =
-        `${result.leaked ? 'LEAKED' : 'clean'} after ${result.cycles} cycles — ` +
+        `${result.leaked || result.registryLeaked ? 'LEAKED' : 'clean'} after ` +
+        `${result.cycles} cycles — ` +
         `resources ${result.before.resources}→${result.after.resources}, ` +
-        `contexts ${result.before.contexts}→${result.after.contexts}`
+        `contexts ${result.before.contexts}→${result.after.contexts}, ` +
+        `paints ${result.texturesAfterFirstLoad}→${result.texturesAfterReloads}`
       setLeak(line)
       // Also to the log, because on a real device reading a line off the screen
       // is the awkward part of running this — `npx react-native log-ios` /
