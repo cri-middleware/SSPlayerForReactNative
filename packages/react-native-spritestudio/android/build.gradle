@@ -82,7 +82,7 @@ android {
 
   packagingOptions {
     // libssruntime is linked statically into libSsPlayer.so — nothing of the
-    // Brain ships as its own .so (design doc ch.7).
+    // Brain ships as its own .so — see AGENTS.md's toolchain scripts.
     excludes += ["**/libc++_shared.so", "**/libfbjni.so", "**/libjsi.so"]
   }
 }

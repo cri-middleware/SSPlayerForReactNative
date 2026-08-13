@@ -26,7 +26,7 @@ end
 skia_direct = !skia_dir.nil?
 unless skia_direct
   Pod::UI.warn "[react-native-spritestudio] @shopify/react-native-skia not found — " \
-               "building without drawInto() (bake() still works)."
+               "building without drawInto(), which is the only way to draw."
 end
 
 xcframework = File.join(__dir__, "native", "libs", "ios", "libssruntime.xcframework")
@@ -34,7 +34,7 @@ unless File.directory?(xcframework)
   raise <<~MSG
     [react-native-spritestudio] libssruntime.xcframework is missing.
 
-    The Brain is never committed (design doc ch.7). Install it before
+    The Brain is never committed. Install it before
     `pod install` with either:
 
         scripts/download-sdk.sh                          # pinned release, no Rust needed
@@ -52,12 +52,15 @@ Pod::Spec.new do |s|
   s.license      = { :type => package["license"], :file => "LICENSE.md" }
   s.authors      = "CRI Middleware"
 
-  s.platforms    = { :ios => "14.0" }
+  # 15.1 because that is react-native 0.86's own floor
+  # (scripts/cocoapods/helpers.rb), and nothing that cannot run RN can consume
+  # this pod. It read 14.0 while the README said 14+ and neither was reachable.
+  s.platforms    = { :ios => "15.1" }
   s.source       = { :git => "https://github.com/cri-middleware/SSPlayerForReactNative.git", :tag => "#{s.version}" }
 
   s.source_files = ["cpp/**/*.{h,hpp,c,cpp}"]
 
-  # Static libssruntime, matching the Unity and Godot Players (design doc ch.7).
+  # Static libssruntime, matching the Unity and Godot Players.
   # A static archive means no embedded framework to sign and nothing extra to
   # ship in the app bundle beyond the code actually referenced.
   s.vendored_frameworks = "native/libs/ios/libssruntime.xcframework"

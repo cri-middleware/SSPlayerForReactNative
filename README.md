@@ -50,7 +50,7 @@ A hosted documentation site is planned ([ROADMAP.md](ROADMAP.md) Phase 3). Until
 then this README is the user-facing guide, and the files below cover the rest.
 
 - [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
-- [**AGENTS.md**](AGENTS.md) — the working guide: architecture, invariants, **Traps**, verification. Start here before changing anything.
+- [**AGENTS.md**](AGENTS.md) — the working guide: architecture, invariants, **hard constraints**, verification. Start here before changing anything.
 - [**ROADMAP.md**](ROADMAP.md) — phases, exit criteria, deliberate non-goals
 - [**docs/phase0-spike.md**](docs/phase0-spike.md) — the measurement that shaped the architecture, its method and its pitfalls
 
@@ -75,7 +75,7 @@ You only need to read as far as your goal requires:
 > try it locally.
 
 ```bash
-npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated
+npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
 **Expo Go does not work.** The package contains native code, so a prebuild (CNG)
@@ -181,16 +181,18 @@ npx expo prebuild --platform ios
 npx expo run:ios            # or: npx expo prebuild --platform android && npx expo run:android
 ```
 
-The example is one screen with four dropdowns, and each answers a different
-question: **Subject** picks a feature card (`BlendMode`, `PartsColor`, `Mask`,
-`Mesh`, `Effect`, `Instance`, `Sound`, `Signal`, `UserData`) or a real character
-(`Ringo`) or the SDK's 40-pack particle showcase (`ParticleEffect`);
-**Animation** is read out of the loaded `.ssab`; and **Textures** switches
-between a pack whose atlas is embedded in the `.ssab` and one that keeps it as a
-sibling file, so both texture routes are visible in one place. Below the stage,
+The example is one screen. **Subject** picks a feature card (`Basic`,
+`BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`,
+`Instance`, `UserData`, `Sound`, `Signal`), a real character (`Ringo`, and
+`RingoInstances` for the same cast mounted as instance parts) or the SDK's
+40-pack particle showcase (`ParticleEffect`); **Pack file** appears when the
+subject has more than one `.ssab`; **Animation** is read out of the loaded pack;
+and the **Textures** toggle switches between a pack whose atlas is embedded in
+the `.ssab` and one that keeps it as a sibling file, so both texture routes are
+visible in one place. Below the stage,
 the readouts show the timeline keys firing and the live native handle counts.
 
-## ⚙️ 2. Full Build Environment (For SDK / Player Developers)
+## ⚙ 2. Full Build Environment (For SDK / Player Developers)
 
 To work on the player or on the Rust core (the "Brain") itself.
 
@@ -252,8 +254,8 @@ npm run deploy-examples -- --embedded
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 
 [AGENTS.md](AGENTS.md) carries the rest: the four-layer architecture, the
-**Traps** section — the hard-won ones, like `update()`'s delta being
-milliseconds and `ss_runtime_pause` being a toggle — and the per-feature
+**hard constraints** — the ones learned the hard way, like `update()`'s delta
+being milliseconds and `ss_runtime_pause` being a toggle — and the per-feature
 verification table that says which example subject proves what.
 [docs/phase0-spike.md](docs/phase0-spike.md) is the measurement that put the
 drawing in Layer 1 in the first place.
@@ -264,8 +266,8 @@ drawing in Layer 1 in the first place.
 |---|---|
 | React Native | `^0.86.2` — **New Architecture only** |
 | React | `^19.2.8` |
-| Peer deps | `@shopify/react-native-skia` `^2.11.0`, `react-native-nitro-modules` `^0.36.5`, `react-native-reanimated` `^4.5.3` |
-| iOS | 14+ |
+| Peer deps | `@shopify/react-native-skia` `^2.11.0`, `react-native-nitro-modules` `^0.36.5`, `react-native-reanimated` `^4.5.3` — and `react-native-worklets` `^0.11.3`, which Reanimated 4 requires as a peer of its own rather than depending on |
+| iOS | 15.1+ |
 | Android | API 24+ |
 | SpriteStudio-SDK | pinned in [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) |
 

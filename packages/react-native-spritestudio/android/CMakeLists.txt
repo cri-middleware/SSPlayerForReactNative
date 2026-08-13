@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(PACKAGE_ROOT "${CMAKE_SOURCE_DIR}/..")
 set(NATIVE_DIR "${PACKAGE_ROOT}/native")
 
-# The Brain is never committed (design doc ch.7) — fail here with the fix rather
+# The Brain is never committed (see AGENTS.md) — fail here with the fix rather
 # than with an unresolved-symbol wall at link time.
 set(SSRUNTIME_LIB "${NATIVE_DIR}/libs/android/${ANDROID_ABI}/libssruntime.a")
 if(NOT EXISTS "${SSRUNTIME_LIB}")

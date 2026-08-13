@@ -14,9 +14,9 @@
 // compilable on any target, including one where the Skia headers are not on the
 // include path, and confines the RN Skia coupling to a single translation unit.
 //
-// Why this exists: Phase 0 measured that neither candidate boundary from the
-// design doc helps, because `Skia.MakeVertices` takes arrays of JSI *host
-// objects* and unmarshals them one vertex at a time (docs/phase0-spike.md).
+// Why this exists: the Phase 0 spike measured that neither candidate boundary
+// helps, because `Skia.MakeVertices` takes arrays of JSI *host objects* and
+// unmarshals them one vertex at a time (docs/phase0-spike.md).
 // Handing C++ the canvas is the only way to keep vertices out of JS entirely.
 
 #include <NitroModules/JSIConverter.hpp>

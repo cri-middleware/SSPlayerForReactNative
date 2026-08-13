@@ -39,8 +39,8 @@ import {
 /**
  * The transport surface, with no drawing backend in it.
  *
- * Stated as an interface on purpose: Phase 3 serves react-native-web from the
- * existing `@spritestudio/ssplayer-webgl` rather than a port, and only this API
+ * Stated as an interface on purpose: react-native-web is to be served from the
+ * existing `@spritestudio/ssplayer-webgl` rather than by a port, and only this API
  * and the Layer 4 prop types are shared between the two. Anything Skia-shaped
  * belongs on the class below, not here.
  */
@@ -843,8 +843,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
-   * Releases every native handle. Explicit, never left to GC (design doc
-   * ch.9 F). Idempotent.
+   * Releases every native handle. Explicit, never left to GC — AGENTS.md's
+   * borrow rule. Idempotent.
    */
   dispose(): void {
     if (this.disposed) return

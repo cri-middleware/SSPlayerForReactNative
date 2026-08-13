@@ -152,9 +152,8 @@ const PARTICLE_FRAMES = {
  *
  * `ParticleEffect` is the breadth to `Effect`'s depth — the SDK's 40-pack
  * effect showcase, and by some distance the heaviest thing this example draws
- * (1376 baked vertices for `e002` against Ringo's 653). Design doc ch.8 puts the
- * vertex ceiling on effects rather than on characters, and this is what that
- * claim looks like.
+ * (1376 baked vertices for `e002` against Ringo's 653) — which is why the
+ * vertex ceiling belongs on effects rather than on characters.
  */
 interface Subject {
   /** Which pack family; the *Textures* toggle picks the conversion within it. */
@@ -330,7 +329,7 @@ function formatSignalParam(param: SsSignalParam): string {
 type SubjectName = keyof typeof SUBJECTS
 
 /**
- * Phase 1's target: the SDK's own reference animation, through the real API.
+ * The reference case: the SDK's own sample animation, through the real API.
  *
  * It **opens** on `overall/Basic` rather than Ringo, still on purpose: Basic is
  * the SDK's plain Normal-parts case, so what it draws is a statement about the

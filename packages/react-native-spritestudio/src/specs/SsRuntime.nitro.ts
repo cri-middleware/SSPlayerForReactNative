@@ -14,14 +14,14 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
  * one draw call per player per frame.
  *
  * Lifetime rule: **every ArrayBuffer handed out here is a borrow of native
- * memory that stays valid only until the next `update()`** (design doc ch.9 F).
+ * memory that stays valid only until the next `update()`** — AGENTS.md's borrow rule.
  * Nothing may retain one across frames. `SsContext.generation` is the
  * enforcement handle — read it when you take a buffer, and compare it again
  * before you read through one.
  *
  * Disposal is not declared here: every Nitro `HybridObject` already carries a
  * `dispose()` (nitrogen rejects redeclaring it), and that is the explicit
- * teardown ch.9 F asks for — L3 calls it on unmount rather than waiting for GC.
+ * teardown the borrow rule asks for — L3 calls it on unmount rather than waiting for GC.
  * Note that inheriting the method is only half of it: Nitro's
  * `HybridObject::dispose()` is a **no-op unless the C++ class overrides it**, so
  * both implementations here do, and `SsRuntime.liveHandles` is what proves it.
@@ -285,8 +285,8 @@ export interface SsSignalEvent {
 /**
  * How many native handles are alive right now — the leak check, made observable.
  *
- * Phase 1's exit criteria ask for "no leaked native handles", which was an
- * assertion with nothing behind it until this existed: a handle that outlives
+ * "No leaked native handles" was an assertion with nothing behind it until this
+ * existed: a handle that outlives
  * its player has no symptom on the JS side at all. It shows up as memory the
  * Brain never gives back, which on a simulator is invisible and on a device is
  * a crash several minutes later.
@@ -669,7 +669,7 @@ export interface SsRuntime
   /**
    * Reads the file natively and hands the bytes straight to the Brain.
    *
-   * The `.ssab` never enters the JS heap (design doc ch.5 A). `path` must
+   * The `.ssab` never enters the JS heap. `path` must
    * already be a filesystem path — resolving one is L3's job.
    */
   createResourceFromPath(path: string): SsResource

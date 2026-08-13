@@ -27,7 +27,7 @@ namespace {
   throw jsi::JSError(
       runtime,
       "react-native-spritestudio was built without direct Skia drawing "
-      "(SSPLAYER_ENABLE_SKIA_DIRECT=0). Use bake() instead of drawInto().");
+      "(SSPLAYER_ENABLE_SKIA_DIRECT=0), and there is no other way to draw.");
 }
 
 }  // namespace
