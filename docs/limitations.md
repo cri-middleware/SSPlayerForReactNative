@@ -25,7 +25,11 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
   places its coverage sample by inverting one affine quad's UV; a mesh needs that
   texcoord channel for its atlas, and an effect is a cloud of quads rather than
   one.
-- **A mask reaching into an Instance child.**
+- **A child's own mask writers while a caller's mask reaches into it.** The
+  caller's coverage is handed down and the child references it; its own writers
+  then write nothing for that frame. The SDK calls the two "a separate track",
+  and this port runs one. A sub-animation that masks itself is unaffected as long
+  as no mask reaches it from outside.
 - **The Instance part's own PartColor** — the older players apply it as a
   whole-subtree tint; this port does not do it at all.
 - **The Reanimated tick** — part transforms already publish as a shared value,

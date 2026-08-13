@@ -921,6 +921,12 @@ packages/*/native/
 # Cached SDK release zip (scripts/download-sdk.*).
 scripts/.sdk-cache/
 
+# Third-party sample art for the example. `deploy-examples.*` converts whatever
+# is here and reports what is not, so this is optional input rather than a
+# missing dependency — the licence to redistribute it is not ours to give.
+# README.md says where to get it.
+example/SpriteStudio_Source/
+
 # Generated example assets — scripts/deploy-examples.* rebuilds them from the
 # submodule, so committing them would be a second copy to keep in sync.
 example/assets/ss/

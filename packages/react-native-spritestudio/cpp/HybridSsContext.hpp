@@ -148,7 +148,8 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   // --- `SsInstanceRenderer`: draw the child mounted on one of my parts ------
 
-  size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale) override;
+  size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale,
+                      const ::ssplayer::SsMaskInput& mask) override;
 
  private:
   /// The child constructor. `packs` is the resolved external set, passed down
@@ -166,8 +167,15 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// Shared by `drawInto` (root, `alphaScale` 1) and `drawInstance` (child,
   /// carrying the mount point's opacity), so the two cannot drift — a child is
   /// not a special case of drawing, it is the same draw one transform down.
+  ///
+  /// `inherited` is the caller's mask, already composed at the mount point
+  /// (§2-6). When it carries a plan this subtree resolves against **that**
+  /// coverage instead of building its own, so a mask drawn one level up reaches
+  /// down here; its `flags` are filled in below from this player's own parts,
+  /// because part indices do not cross an instance boundary.
   size_t drawSubtree(void* canvas, const ::ssplayer::SsPaintBinding* textures,
-                     size_t textureCount, float alphaScale);
+                     size_t textureCount, float alphaScale,
+                     const ::ssplayer::SsMaskInput& inherited = {});
 
   /// Spawns one child per instance part, once.
   ///

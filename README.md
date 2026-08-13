@@ -186,13 +186,41 @@ npx expo run:ios            # or: npx expo prebuild --platform android && npx ex
 The example is one screen. **Subject** picks a feature card (`Basic`,
 `BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`,
 `Instance`, `UserData`, `Sound`, `Signal`), a real character (`Ringo`, and
-`RingoInstances` for the same cast mounted as instance parts) or the SDK's
+`RingoInstances` for the same cast mounted as instance parts), or the SDK's
 40-pack particle showcase (`ParticleEffect`); **Pack file** appears when the
 subject has more than one `.ssab`; **Animation** is read out of the loaded pack;
 and the **Textures** toggle switches between a pack whose atlas is embedded in
 the `.ssab` and one that keeps it as a sibling file, so both texture routes are
 visible in one place. Below the stage,
 the readouts show the timeline keys firing and the live native handle counts.
+
+Every subject comes from what `deploy-examples` actually produced — the list is
+read out of the generated manifest, so a pack that was not converted takes its
+subject off the screen rather than leaving a card that loads nothing.
+
+### An optional subject: `MaskInstance`
+
+One subject is not in the list above because its source is **not in this
+repository**: `MaskInstance`, three scenes that mask the stage and mount their
+characters as instance parts. It is the only asset anywhere that exercises a
+mask crossing into an instance child — the SDK's own samples keep masks and
+instance parts in separate files — so it is what `npm run check-mask`'s fourth
+check runs against, and that check reports itself as skipped without it.
+
+It is third-party sample art and the licence to redistribute it is not ours to
+give. To add it, download **OPTPiX SpriteStudio Basic Samples** from
+[the SpriteStudio site](https://www.webtech.co.jp/spritestudio/) and copy its
+`Mask` project in:
+
+```
+example/SpriteStudio_Source/Mask/        <- Mask.sspj and everything beside it
+```
+
+Then `npm run deploy-examples` picks it up — it refreshes the manifest itself, so
+the subject appears on the next reload. That manifest is committed in its
+**without-optional-packs** state, so adding one leaves `example/src/ss-assets.ts`
+modified on purpose: do not commit it, and `assets --check` will call it stale
+for the same reason.
 
 ## ⚙ 2. Full Build Environment (For SDK / Player Developers)
 

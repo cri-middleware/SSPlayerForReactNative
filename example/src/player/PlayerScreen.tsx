@@ -159,13 +159,28 @@ interface Subject {
   /** Which pack family; the *Textures* toggle picks the conversion within it. */
   pack: PackName
   /**
-   * Every `.ssab` this subject can show, each with its own measured frame.
+   * The `.ssab` this subject shows, each with its own measured frame.
    *
    * Usually one. `ParticleEffect` has 40, which is why the picker for this is a
    * dropdown and not a row — and why the frame lives per file rather than per
    * subject, since those 40 do not share a scale.
+   *
+   * **A list of frames, not a list of files.** What the dropdown offers comes
+   * from the generated manifest — see `filesOf` — so a pack that was never
+   * deployed takes its subject off the screen instead of leaving a card that
+   * loads nothing.
    */
   files: Readonly<Record<string, Frame>>
+  /**
+   * Offer **every** `.ssab` in the pack directory, not only the measured ones.
+   *
+   * For a subject that *is* a pack rather than one card cut out of one. The
+   * measured files still open first and keep their frames; the rest follow,
+   * framed by `CENTRED`. This is what lets a locally supplied project — one
+   * this repository does not ship the source for — appear in full without a
+   * hand-written list here to go stale against it.
+   */
+  ownsPack?: true
   /**
    * Which animation to open on. **Omit it** unless the pack's first is the
    * wrong one to show — the player already defaults to the first, so naming it
@@ -235,6 +250,42 @@ const SUBJECTS = {
   // one player, so this is the mounts' own span (x ∈ [-192, 96], y ∈ [-320,
   // 256]) widened by the child's box (±32), with margin.
   Instance: { pack: 'overall', files: { Instance: { height: 700, centerY: -32 } } },
+  // **A mask that has to reach into an instance child** — the one composition
+  // nothing in the SDK's own samples exercises, because those keep masks and
+  // instance parts in separate files. All three scenes here mask the scene and
+  // mount the characters as instances, so what the card asks is whether the
+  // mask crosses that boundary (`40_components/40_mask.md` §2-6).
+  //
+  // **What a failure looks like here is a character drawn unclipped** — walking
+  // through the gate rather than behind it, or lit outside the light. The three
+  // scenes differ in how many mounts share one coverage (1, 2 and 3), so a
+  // composition that only works for a single child names itself too.
+  //
+  // Frames measured over 120 frames, per file: the two gate scenes share a span
+  // (x ∈ [-590, 590], y ∈ [-16, 528]) and `True_light` is taller (y up to 873).
+  // Framed on the width, which is the wider axis in all three.
+  MaskInstance: {
+    pack: 'MaskInstance',
+    // The one subject that is a whole pack: its source is not in this
+    // repository, so a list written here would describe whatever the author had
+    // on disk the day they wrote it. The three character packs the scenes mount
+    // come along for the ride, which is the useful half of the accident — a
+    // sub-animation on its own, next to the scene that masks it.
+    ownsPack: true,
+    initialAnimation: 'Walk_gate',
+    files: {
+      Walk_Gate: { height: 1280, centerY: 256 },
+      Into_Gate: { height: 1280, centerY: 256 },
+      True_Light: { height: 1280, centerY: 336 },
+      // The three packs the scenes mount, framed as characters rather than as
+      // scenes: measured over every animation each one carries, x ∈ [-280, 333]
+      // and y ∈ [-84, 497] for the two humans (wider on x, so framed on that)
+      // and a fifth of that for the butterfly.
+      Instance_Maid: { height: 700, centerY: 206 },
+      Instance_Princess: { height: 700, centerY: 206 },
+      Instance_ButterFly: { height: 260, centerY: -11 },
+    },
+  },
   Ringo: {
     pack: 'Ringo',
     // Measured across dance/wait1/run/jump: x ∈ [-178, 217], y ∈ [-4, 612].
@@ -285,6 +336,10 @@ const PACKS = {
   // toggle is disabled for this one and says so, rather than being present and
   // pointing at a directory that is not there.
   ParticleEffect: { reference: 'ss/ParticleEffect' },
+  // Reference only as well, for a different reason: this one is here to answer
+  // a question about *masking*, and the texture route it would exercise a
+  // second time is the one `overall` and `Ringo` already cover both ways.
+  MaskInstance: { reference: 'ss/MaskInstance' },
 } as const satisfies Record<string, { reference: string; embedded?: string }>
 
 type PackName = keyof typeof PACKS
@@ -298,7 +353,32 @@ function packDir(pack: PackName, mode: Mode): string | null {
   return mode === 'embedded' ? (dirs.embedded ?? null) : dirs.reference
 }
 
-const SUBJECT_NAMES = Object.keys(SUBJECTS) as SubjectName[]
+/**
+ * Which `.ssab` a subject can actually show, read out of the generated manifest.
+ *
+ * The manifest is the only enumeration this app has: packs ship as native app
+ * assets, and nothing here can list a directory at runtime. Going through it
+ * rather than through `subject.files` means a pack that `deploy-examples` did
+ * not produce — the SDK submodule missing, or a locally supplied project this
+ * repository does not ship the source for — simply is not offered, instead of
+ * being offered and then failing to load with a blank stage to explain it.
+ *
+ * Measured files keep their declared order, because the first is the one the
+ * subject opens on and `initialAnimation` names an animation inside it.
+ */
+function filesOf(subject: Subject): string[] {
+  const prefix = `${packDir(subject.pack, 'reference')?.replace(/^ss\//, '') ?? ''}/`
+  const present = Object.keys(SsAssets)
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => key.slice(prefix.length))
+  const measured = Object.keys(subject.files).filter((name) => present.includes(name))
+  if (subject.ownsPack !== true) return measured
+  return [...measured, ...present.filter((name) => !(name in subject.files)).sort()]
+}
+
+const SUBJECT_NAMES = (Object.keys(SUBJECTS) as SubjectName[]).filter(
+  (name) => filesOf(SUBJECTS[name]).length > 0
+)
 
 /**
  * `id=value` for one signal parameter.
@@ -390,7 +470,7 @@ export function PlayerScreen() {
   } | null>(null)
 
   const subject: Subject = SUBJECTS[subjectName]
-  const fileNames = Object.keys(subject.files)
+  const fileNames = filesOf(subject)
   const file =
     pickedFile?.subject === subjectName && pickedFile.name in subject.files
       ? pickedFile.name
@@ -423,7 +503,18 @@ export function PlayerScreen() {
   //
   // Keyed on the **file**, not the subject: `ParticleEffect` switches `.ssab`
   // without switching subject, and `e001`'s animation does not exist in `e002`.
-  const animation = picked?.file === file ? picked.name : subject.initialAnimation
+  //
+  // `initialAnimation` belongs to the subject's **first** file for the same
+  // reason. It names an animation, and an animation only exists inside one
+  // `.ssab` — `MaskInstance` opens on `Walk_gate`, which `True_Light.ssab` has
+  // never heard of. Switching file therefore starts that file at its own first
+  // animation rather than carrying a name across a pack boundary.
+  const animation =
+    picked?.file === file
+      ? picked.name
+      : file === fileNames[0]
+        ? subject.initialAnimation
+        : undefined
   const here = loaded?.file === file ? loaded : null
   const animationNames = here?.names ?? []
   // What the dropdown shows: the explicit pick, else whatever the player chose.
