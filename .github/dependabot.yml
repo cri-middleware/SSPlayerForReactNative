@@ -1,5 +1,21 @@
 version: 2
 updates:
+  # The npm tree. One entry at the root and no more: this is a single-lockfile
+  # workspace, so a per-directory entry would have Dependabot fighting itself
+  # over `package-lock.json`.
+  #
+  # The peer dependencies are pinned in the root `overrides` onto whatever
+  # `expo install` chose, so a bump here that moves one of them is a bump that
+  # has to be read rather than merged — two copies of a native module is two
+  # autolinked pods fighting over one JSI registration.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ['*']
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -7,3 +23,8 @@ updates:
     groups:
       actions:
         patterns: ['*']
+
+# No `gitsubmodule` entry, deliberately. SpriteStudio-SDK is private, so
+# Dependabot cannot read it; and `third_party/flatbuffers` must move only with
+# the flatc that generated `cpp/format/*.h`, which those headers static_assert
+# on — an automatic bump there breaks the build in a way the PR cannot explain.
