@@ -15,6 +15,7 @@
 #   native/libs/android/<abi>/libssruntime.a   (arm64-v8a, armeabi-v7a, x86_64)
 #   native/include/ssruntime.h                 (cbindgen output, the C-API)
 #   native/VERSION                             ("<tag>+submodule-<sha>")
+#   native/BUILD_MODE                          ("debug" or "release")
 #   native/LICENSE.md, native/THIRD-PARTY-LICENSES.ssruntime.md
 #
 # STATIC slices on purpose (design doc ch.7): the iOS podspec vendors the
@@ -131,6 +132,14 @@ place_version() {
     mkdir -p "$TARGET_DIR"
     printf '%s+submodule-%s\n' "$tag" "$sha" > "${TARGET_DIR}/VERSION"
     echo "  VERSION (${tag}+submodule-${sha})"
+    # Separate from VERSION because download-sdk compares that file against
+    # SDK_VERSION.txt to decide whether it can skip, and a mode suffix would
+    # be one more thing that comparison has to know about. What it is for:
+    # VERSION cannot tell a debug Brain from a release one, and a debug build
+    # swamps every other cost — so `prepack` refuses to publish one, and can
+    # only do that if something writes down which this is.
+    printf '%s\n' "${BUILD_MODE}" > "${TARGET_DIR}/BUILD_MODE"
+    echo "  BUILD_MODE (${BUILD_MODE})"
 }
 
 build_ios() {
