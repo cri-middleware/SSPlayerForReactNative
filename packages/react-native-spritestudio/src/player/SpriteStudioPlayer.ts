@@ -722,7 +722,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
-    if (internal.isLooped) this.emit('onLoop', this.onLoop, animation)
+    if (internal.isLooped) this.onLoop?.(animation)
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are
@@ -738,55 +738,19 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       internal.passedEventCount > 0
     ) {
       if (this.onUserData != null) {
-        for (const event of internal.getUserDataEvents()) {
-          this.emit('onUserData', this.onUserData, event)
-        }
+        for (const event of internal.getUserDataEvents()) this.onUserData(event)
       }
       if (this.onAudio != null) {
-        for (const event of internal.getAudioEvents()) {
-          this.emit('onAudio', this.onAudio, event)
-        }
+        for (const event of internal.getAudioEvents()) this.onAudio(event)
       }
       if (this.onSignal != null) {
-        for (const event of internal.getSignalEvents()) {
-          this.emit('onSignal', this.onSignal, event)
-        }
+        for (const event of internal.getSignalEvents()) this.onSignal(event)
       }
     }
 
     const finished = internal.isFinished
-    if (finished && !this.wasFinished) this.emit('onComplete', this.onComplete, animation)
+    if (finished && !this.wasFinished) this.onComplete?.(animation)
     this.wasFinished = finished
-  }
-
-  /**
-   * Calls one of the caller's handlers, keeping an exception in it out of the
-   * clock.
-   *
-   * `advance()` is where the authored keys are delivered, and it is called from
-   * inside the frame loop — so before this, one throw from an app's
-   * `onUserData` did not stop that event, it stopped the **animation**. The
-   * loops catch, and their catch cancels the `requestAnimationFrame`; nothing
-   * re-arms it, because the effect that owns the loop depends on values that
-   * did not change. The player froze until a remount or a resize, and in a
-   * `<SpriteStudioScene>` the whole scene froze with it — one sprite's handler
-   * taking every other sprite down. `example/src/player/audio.ts` writing its
-   * cache is a realistic way in.
-   *
-   * So a handler that throws loses its own call and nothing else. It is
-   * reported rather than swallowed: a silently dropped callback is the other
-   * way to lose an afternoon.
-   */
-  private emit<T>(what: string, handler: ((value: T) => void) | null, value: T): void {
-    if (handler == null) return
-    try {
-      handler(value)
-    } catch (error) {
-      console.error(
-        `[ssplayer] ${what} threw; the animation keeps running and this event is lost.`,
-        error
-      )
-    }
   }
 
   /** Draws the current frame. Returns the number of vertices drawn. */
