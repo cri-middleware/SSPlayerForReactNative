@@ -6,7 +6,8 @@
   "license": "BSD-3-Clause",
   "workspaces": [
     "packages/*",
-    "example"
+    "example",
+    "docs"
   ],
   "//scripts": [
     "Every entry point is a .js shim that picks the .sh or .ps1 implementation",
@@ -33,7 +34,9 @@
     "check-shader": "bash tools/check-shader.sh",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "generate-fbs-code": "node scripts/generate-fbs-code.js",
-    "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets"
+    "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets",
+    "docs": "npm run build --workspace docs",
+    "docs:dev": "npm run dev --workspace docs"
   },
   "engines": {
     "node": ">=20"

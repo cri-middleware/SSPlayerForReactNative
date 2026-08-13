@@ -17,8 +17,8 @@ export type SsPartColorBlendValue =
  * How long an override outlives the animation that is playing under it.
  *
  * The default here is `permanent`, which is not the C-API's default but is what
- * a *declarative* prop means: `parts={{ hat: { visible: false } }}` says the hat
- * is hidden for as long as that prop says so, and an override the next keyframe
+ * a *declarative* prop means: a `parts` map carrying `hat: { visible: false }`
+ * says the hat is hidden for as long as that prop says so, and one the next keyframe
  * silently undoes would make the prop describe one frame.
  */
 export const SsOverridePriority = {

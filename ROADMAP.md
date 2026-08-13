@@ -34,7 +34,7 @@ Legend: ☐ **Ready** (Player-only, can start now) · ⛔ **Blocked on the SDK**
 - ☐ **npm publishing** — decide `react-native-builder-bob` vs plain `tsc`. The package still points `main` at raw TypeScript, which Metro reads but npm consumers should not get. The packing half is settled: `files` carries the Brain's static libraries (~57 MB unpacked, 16 MB on the wire), the vendored flatbuffers headers and the licences, and `prepack` refuses a tarball missing any of them — or built against a debug Brain, which `native/VERSION` cannot tell you about.
 - ☐ **Bare React Native support** — an app with no Expo config plugin gets neither the asset copy nor the ABI narrowing, so both build steps need documenting by hand and checking. `CMakeLists.txt` already tells "does not ship this slice" apart from "not installed" and names the `-P` escape.
 - ☐ **React Native Directory listing** — iOS/Android badges up, New Architecture flag up, "Expo Go does not work" stated in both the Directory and the README.
-- ☐ **Documentation site.**
+- ☐ **Documentation site — published.** The VitePress site is built and deployed by `.github/workflows/pages.yml`; what is left is the Japanese locale (`docs/ja/`, which the sibling players all carry) and the English translation of `phase0-spike.md`, which is the one page still entirely in Japanese.
 - ☐ **Example app beyond one screen** — the benchmark harness is gone and what is left is a single player; a real showcase is still owed.
 
 ## Surroundings
