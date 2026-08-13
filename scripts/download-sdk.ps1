@@ -108,5 +108,8 @@ Expand-Archive -Path $zipFile -DestinationPath $targetDir -Force
 # The archive's own VERSION holds the SDK commit hash; overwrite it with the tag
 # so the skip check above compares like with like.
 Set-Content -Path $currentVersionFile -Value $targetVersion
+# A release asset is a release build by construction; `prepack` reads this
+# because VERSION cannot tell the two apart. build-runtime writes it too.
+Set-Content -Path (Join-Path $targetDir "BUILD_MODE") -Value "release"
 
 Write-Host "Done."

@@ -10,19 +10,25 @@
     "bin",
     "cpp",
     "nitrogen",
-    "android",
-    "ios",
     "plugin",
+    "android/CMakeLists.txt",
+    "android/build.gradle",
+    "android/src",
+    "third_party/flatbuffers/include",
+    "native/libs",
+    "native/include",
+    "native/VERSION",
+    "native/BUILD_MODE",
+    "native/LICENSE.md",
+    "native/THIRD-PARTY-LICENSES.ssruntime.md",
     "app.plugin.js",
     "*.podspec",
-    "nitro.json",
-    "native/VERSION",
-    "README.md",
-    "LICENSE.md"
+    "nitro.json"
   ],
   "scripts": {
     "nitrogen": "nitrogen",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "node scripts/prepack.mjs"
   },
   "peerDependencies": {
     "@shopify/react-native-skia": "^2.11.0",

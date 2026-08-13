@@ -111,5 +111,8 @@ unzip -q -o "$ZIP_FILE" -d "$TARGET_DIR"
 # The archive's own VERSION holds the SDK commit hash; overwrite it with the tag
 # so the skip check above compares like with like.
 echo "$TARGET_VERSION" > "$CURRENT_VERSION_FILE"
+# A release asset is a release build by construction; `prepack` reads this
+# because VERSION cannot tell the two apart. build-runtime writes it too.
+echo "release" > "${TARGET_DIR}/BUILD_MODE"
 
 echo "Done."

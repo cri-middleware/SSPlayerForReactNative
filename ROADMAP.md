@@ -27,7 +27,7 @@ Legend: ☐ **Ready** (Player-only, can start now) · ⛔ **Blocked on the SDK**
 
 ## Distribution
 
-- ☐ **npm publishing** — decide `react-native-builder-bob` vs plain `tsc`. The package currently points `main` at raw TypeScript, which Metro reads but npm consumers should not get. Also unresolved: the published tarball's `files` lists only `native/VERSION`, so it ships without the Brain, and without the flatbuffers headers `cpp/format/ssab.h` includes.
+- ☐ **npm publishing** — decide `react-native-builder-bob` vs plain `tsc`. The package still points `main` at raw TypeScript, which Metro reads but npm consumers should not get. The packing half is settled: `files` carries the Brain's static libraries (~57 MB unpacked, 16 MB on the wire), the vendored flatbuffers headers and the licences, and `prepack` refuses a tarball missing any of them — or built against a debug Brain, which `native/VERSION` cannot tell you about.
 - ☐ **Bare React Native support** — an app with no Expo config plugin gets neither the asset copy nor the ABI narrowing, so both build steps need documenting by hand and checking. `CMakeLists.txt` already tells "does not ship this slice" apart from "not installed" and names the `-P` escape.
 - ☐ **React Native Directory listing** — iOS/Android badges up, New Architecture flag up, "Expo Go does not work" stated in both the Directory and the README.
 - ☐ **Documentation site.**

@@ -156,5 +156,8 @@ finally { Pop-Location }
 if (-not $sha) { $sha = "unknown" }
 Set-Content -Path (Join-Path $targetDir "VERSION") -Value "$tag+submodule-$sha"
 Write-Host "  VERSION ($tag+submodule-$sha)"
+# See the .sh for why this is its own file rather than a suffix on VERSION.
+Set-Content -Path (Join-Path $targetDir "BUILD_MODE") -Value $buildMode
+Write-Host "  BUILD_MODE ($buildMode)"
 
 Write-Host "Done."
