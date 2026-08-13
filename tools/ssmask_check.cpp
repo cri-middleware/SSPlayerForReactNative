@@ -7,7 +7,7 @@
 // still reported seven healthy writers. That is the failure this program exists
 // to make loud.
 //
-// Three checks, in order of how early they would catch a regression:
+// Four checks, in order of how early they would catch a regression:
 //
 //   1. **The SkSL compiles.** Runtime effects are ES2-restricted, so an ordinary
 //      -looking edit (a bitwise operator, a non-constant loop bound) fails at
@@ -20,6 +20,12 @@
 //      a real `.ssab`, rendered twice — with the mask input and without — and
 //      the two framebuffers must differ. This is the one that catches "the
 //      coverage silently became null" again.
+//   4. **A mask reaches into an instance child.** The same draw, over a scene
+//      whose mask has to cross an instance boundary (§2-6, §3-2-2). One mount at
+//      a time, against the pack's real atlases, with the caller's coverage
+//      withheld / its transform zeroed / its polarity flipped as controls.
+//      **Skipped when its pack is not deployed** — it needs sample art this
+//      repository does not ship.
 //
 // macOS only: it links the `libskia.a` that RN Skia ships for the host, which
 // has no Linux slice. Build and run: tools/check-mask.sh
@@ -38,13 +44,16 @@
 #include "include/core/SkPicture.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkShader.h"
+#include "include/core/SkData.h"
 #include "include/core/SkString.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkVertices.h"
 #include "include/effects/SkRuntimeEffect.h"
+#include "include/encode/SkPngEncoder.h"
 
 #include "../packages/react-native-spritestudio/cpp/SsAnimeBinary.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsBaker.hpp"
+#include "../packages/react-native-spritestudio/cpp/SsInstance.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsMask.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsMaskShader.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsSkiaDraw.hpp"
@@ -90,6 +99,13 @@ void Fail(const char* fmt, ...) {
   ++g_failures;
 }
 
+bool Exists(const char* path) {
+  std::FILE* f = std::fopen(path, "rb");
+  if (f == nullptr) return false;
+  std::fclose(f);
+  return true;
+}
+
 std::vector<uint8_t> ReadFile(const char* path) {
   std::FILE* f = std::fopen(path, "rb");
   if (f == nullptr) {
@@ -114,6 +130,21 @@ sk_sp<SkShader> WhiteAtlas() {
   SkBitmap bm;
   bm.allocN32Pixels(16, 16, true);
   bm.eraseARGB(255, 255, 255, 255);
+  bm.setImmutable();
+  return bm.asImage()->makeShader(SkTileMode::kRepeat, SkTileMode::kRepeat,
+                                  SkSamplingOptions(SkFilterMode::kNearest));
+}
+
+/// The same, in a colour nothing else in the frame draws.
+///
+/// Check 4 asks whether a *mounted child* lost pixels, and a child painted the
+/// same white as the scene behind it loses none that a framebuffer diff can see
+/// — masking it away just reveals more white. The first version of that check
+/// passed vacuously for exactly this reason.
+sk_sp<SkShader> GreenAtlas() {
+  SkBitmap bm;
+  bm.allocN32Pixels(16, 16, true);
+  bm.eraseARGB(255, 0, 255, 0);
   bm.setImmutable();
   return bm.asImage()->makeShader(SkTileMode::kRepeat, SkTileMode::kRepeat,
                                   SkSamplingOptions(SkFilterMode::kNearest));
@@ -344,60 +375,100 @@ void CheckPlaneIsolation(const char* label, sk_sp<SkColorSpace> dstCs) {
   }
 }
 
+// --- a loaded, baked pack --------------------------------------------------
+
+/// One `.ssab` played to a frame and baked, with everything the draw path wants.
+///
+/// Hoisted out of check 3 because check 4 needs **two** of them at once: a mask
+/// that crosses an instance boundary has a caller and a callee, and they are
+/// separate packs with separate runtimes.
+struct Baked {
+  void* resource = nullptr;
+  void* ctx = nullptr;
+  std::vector<sscore::SsMaskPartFlags> flags;
+  sscore::SsBaker baker;
+
+  ~Baked() {
+    if (ctx != nullptr) ss_runtime_destroy(ctx);
+    if (resource != nullptr) ss_resource_destroy(resource);
+  }
+
+  /// `animation` may be null, which takes the pack's first — the same default
+  /// the player uses when a subject names none.
+  bool load(const char* ssabPath, const char* animation, int atFrame) {
+    const std::vector<uint8_t> ssab = ReadFile(ssabPath);
+    resource = ss_resource_create_copy(ssab.data(), ssab.size());
+    ctx = ss_runtime_create();
+    if (resource == nullptr || ctx == nullptr || !ss_runtime_bind_resource(ctx, resource)) {
+      Fail("could not bind %s", ssabPath);
+      return false;
+    }
+    ss_runtime_set_render_mode(ctx, 0);
+
+    const sscore::SsAnimeBinaryView view(ss_runtime_get_ssab_buf(ctx),
+                                         static_cast<size_t>(ss_runtime_get_ssab_len(ctx)));
+    std::string first;
+    if (animation == nullptr) {
+      if (view.animationCount() == 0) {
+        Fail("%s has no animations", ssabPath);
+        return false;
+      }
+      const std::string_view name = view.animationName(0);
+      first.assign(name.data(), name.size());
+      animation = first.c_str();
+    }
+    if (!ss_runtime_setup_animation(ctx, animation)) {
+      Fail("setup_animation('%s') on %s failed", animation, ssabPath);
+      return false;
+    }
+    ss_runtime_play(ctx);
+    flags = view.maskFlags();
+
+    float frameNo = 0.0f;
+    for (int i = 0; i < atFrame; ++i) frameNo = ss_runtime_update(ctx, 1000.0f / 60.0f);
+
+    unsigned char* fdPtr = nullptr;
+    size_t fdLen = 0;
+    ss_runtime_get_frame_data(ctx, frameNo, &fdPtr, &fdLen);
+    if (fdPtr == nullptr) {
+      Fail("%s has no frame data at frame %d", ssabPath, atFrame);
+      return false;
+    }
+    fd = ss::runtime::GetFrameData(fdPtr);
+
+    sscore::SsSoAPointers soa;
+    size_t len = 0;
+    ss_runtime_get_world_matrices(ctx, &soa.worldMatrices, &len);
+    soa.partCount = len / 16;
+    ss_runtime_get_local_vertices(ctx, &soa.localVertices, &len);
+    ss_runtime_get_local_uvs(ctx, &soa.localUvs, &len);
+    ss_runtime_get_cell_meta(ctx, &soa.cellMeta, &len);
+    ss_runtime_get_mesh_vertices_x(ctx, &soa.meshVerticesX, &soa.meshVertexCount);
+    ss_runtime_get_mesh_vertices_y(ctx, &soa.meshVerticesY, &len);
+    ss_runtime_get_mesh_vertex_offsets(ctx, &soa.meshVertexOffsets, &soa.meshVertexOffsetCount);
+    ss_runtime_get_mesh_uvs(ctx, &soa.meshUvs, &soa.meshUvCount);
+    ss_runtime_get_mesh_indices(ctx, &soa.meshIndices, &soa.meshIndexCount);
+    ss_runtime_get_mesh_index_offsets(ctx, &soa.meshIndexOffsets, &soa.meshIndexOffsetCount);
+
+    baker.bake(fd, soa);
+    return true;
+  }
+
+  const ss::runtime::FrameData* fd = nullptr;
+};
+
 // --- 3. the whole path still masks -----------------------------------------
 
 /// Renders `.ssab` twice, with and without the mask input, and requires the two
 /// framebuffers to differ.
 void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
-  const std::vector<uint8_t> ssab = ReadFile(ssabPath);
-  void* resource = ss_resource_create_copy(ssab.data(), ssab.size());
-  void* ctx = ss_runtime_create();
-  if (resource == nullptr || ctx == nullptr || !ss_runtime_bind_resource(ctx, resource)) {
-    Fail("could not bind %s", ssabPath);
-    return;
-  }
-  ss_runtime_set_render_mode(ctx, 0);
-  if (!ss_runtime_setup_animation(ctx, animation)) {
-    Fail("setup_animation('%s') failed", animation);
-    return;
-  }
-  ss_runtime_play(ctx);
-
-  const sscore::SsAnimeBinaryView view(ss_runtime_get_ssab_buf(ctx),
-                                       static_cast<size_t>(ss_runtime_get_ssab_len(ctx)));
-  const std::vector<sscore::SsMaskPartFlags> flags = view.maskFlags();
-
-  float frameNo = 0.0f;
-  for (int i = 0; i < atFrame; ++i) frameNo = ss_runtime_update(ctx, 1000.0f / 60.0f);
-
-  unsigned char* fdPtr = nullptr;
-  size_t fdLen = 0;
-  ss_runtime_get_frame_data(ctx, frameNo, &fdPtr, &fdLen);
-  if (fdPtr == nullptr) {
-    Fail("no frame data at frame %d", atFrame);
-    return;
-  }
-  const ss::runtime::FrameData* fd = ss::runtime::GetFrameData(fdPtr);
-
-  sscore::SsSoAPointers soa;
-  size_t len = 0;
-  ss_runtime_get_world_matrices(ctx, &soa.worldMatrices, &len);
-  soa.partCount = len / 16;
-  ss_runtime_get_local_vertices(ctx, &soa.localVertices, &len);
-  ss_runtime_get_local_uvs(ctx, &soa.localUvs, &len);
-  ss_runtime_get_cell_meta(ctx, &soa.cellMeta, &len);
-  ss_runtime_get_mesh_vertices_x(ctx, &soa.meshVerticesX, &soa.meshVertexCount);
-  ss_runtime_get_mesh_vertices_y(ctx, &soa.meshVerticesY, &len);
-  ss_runtime_get_mesh_vertex_offsets(ctx, &soa.meshVertexOffsets, &soa.meshVertexOffsetCount);
-  ss_runtime_get_mesh_uvs(ctx, &soa.meshUvs, &soa.meshUvCount);
-  ss_runtime_get_mesh_indices(ctx, &soa.meshIndices, &soa.meshIndexCount);
-  ss_runtime_get_mesh_index_offsets(ctx, &soa.meshIndexOffsets, &soa.meshIndexOffsetCount);
-
-  sscore::SsBaker baker;
-  baker.bake(fd, soa);
+  Baked pack;
+  if (!pack.load(ssabPath, animation, atFrame)) return;
+  const std::vector<sscore::SsMaskPartFlags>& flags = pack.flags;
+  const sscore::SsBaker& baker = pack.baker;
 
   sscore::SsMaskPlan plan;
-  if (!plan.build(fd, baker, flags.data(), flags.size())) {
+  if (!plan.build(pack.fd, baker, flags.data(), flags.size())) {
     Fail("%s / %s has no mask writers at frame %d — this check needs a pack that "
          "actually masks, or it proves nothing",
          ssabPath, animation, atFrame);
@@ -453,9 +524,378 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
          "framebuffer",
          plan.writers().size());
   }
+}
 
-  ss_runtime_destroy(ctx);
-  ss_resource_destroy(resource);
+// --- 4. the mask crosses into an instance child -----------------------------
+
+/// The pack's real atlases, keyed by `DrawBatch.texture_hash`.
+///
+/// Check 3 gets away with one opaque white shader because it only asks whether
+/// *anything* masked. Check 4 cannot: §2-5's cutout reads the writer's texel
+/// alpha, so a flat atlas makes every writer cover its whole quad. Here that
+/// turns three arch shapes into three overlapping rectangles, and with the
+/// invert OP their parity comes out as vertical stripes that no authored mask
+/// has — the child then lands in a stripe that happens to be even, and the
+/// check concludes the mask never reached it. The real PNGs are the difference
+/// between testing this asset and testing a rectangle.
+struct Atlases {
+  std::vector<SkPaint> paints;
+  std::vector<::ssplayer::SsPaintBinding> bindings;
+
+  bool load(const sscore::SsAnimeBinaryView& view, const char* dir) {
+    const uint32_t count = view.textureCount();
+    paints.reserve(count);
+    for (uint32_t i = 0; i < count; ++i) {
+      const sscore::SsTextureEntry tex = view.textureAt(i);
+      sk_sp<SkData> encoded;
+      if (tex.embedded != nullptr && tex.embeddedLength > 0) {
+        encoded = SkData::MakeWithCopy(tex.embedded, tex.embeddedLength);
+      } else if (!tex.imagePath.empty()) {
+        char path[512];
+        std::snprintf(path, sizeof(path), "%s/%.*s", dir, static_cast<int>(tex.imagePath.size()),
+                      tex.imagePath.data());
+        encoded = SkData::MakeFromFileName(path);
+        if (encoded == nullptr) {
+          Fail("cannot read %s, which %.*s names", path, static_cast<int>(tex.name.size()),
+               tex.name.data());
+          return false;
+        }
+      }
+      sk_sp<SkImage> image = SkImages::DeferredFromEncodedData(std::move(encoded));
+      if (image == nullptr) {
+        Fail("%.*s did not decode", static_cast<int>(tex.name.size()), tex.name.data());
+        return false;
+      }
+      SkPaint paint;
+      // Nearest and clamp, so a texel's alpha reaches §2-5's threshold as it was
+      // authored rather than blended with its neighbour.
+      paint.setShader(image->makeShader(SkTileMode::kClamp, SkTileMode::kClamp,
+                                        SkSamplingOptions(SkFilterMode::kNearest)));
+      paints.push_back(std::move(paint));
+    }
+    // Filled after the vector has stopped growing: `PaintFor` keeps the pointer.
+    for (uint32_t i = 0; i < count; ++i) {
+      bindings.push_back({view.textureAt(i).textureHash, &paints[i]});
+    }
+    return count > 0;
+  }
+};
+
+/// Stands in for `HybridSsContext`'s two halves: it records what the mount
+/// composed for each instance part, then draws the child exactly as layer 2 does
+/// — the caller's plan and coverage, this player's own flags.
+///
+/// **That mirroring is not itself pinned here.** The composition arithmetic
+/// (§2-6's AND and OR, §3-2-2's `M_child`) lives in `SsSkiaDraw.cpp` and is what
+/// the assertions below read; the seven lines that carry it into the child's
+/// `DrawBakedFrame` live in `HybridSsContext.cpp`, which this program cannot
+/// link. The example's `MaskInstance` card is what covers those.
+struct MountRecorder : ::ssplayer::SsInstanceRenderer {
+  const Baked* child = nullptr;
+  const ::ssplayer::SsPaintBinding* bindings = nullptr;
+  size_t bindingCount = 0;
+
+  /// Which mount to draw, or -1 for all of them.
+  ///
+  /// One at a time, always. `Walk_Gate` mounts two characters at the **same**
+  /// transform and `True_Light` three, so a frame drawn with all of them shows
+  /// an unmasked copy sitting exactly on top of the masked one — every pixel a
+  /// mask removed is painted straight back by the mount next to it, and the
+  /// comparison reads "the mask did nothing".
+  int32_t onlyPart = -1;
+
+  /// False reproduces the behaviour before the inheritance landed: the child
+  /// draws, and nothing about the caller's mask reaches it.
+  bool forward = true;
+  /// Overrides, each isolating one field the draw path is supposed to honour.
+  bool forceInside = false;
+  bool dropSlotXf = false;
+  /// Drops the handed-over coverage, leaving the child to rasterise the
+  /// caller's plan against its own geometry — which is what this file did before
+  /// §3-2-2's step 1 was implemented.
+  bool dropCoverage = false;
+
+  struct Seen {
+    uint32_t partIndex;
+    bool gotPlan;
+    bool gotCoverage;
+    int32_t callerRank;
+    bool visibleInside;
+    float slotXf[6];
+    size_t drawn;
+  };
+  std::vector<Seen> seen;
+
+  size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale,
+                      const ::ssplayer::SsMaskInput& mask) override {
+    Seen record{partIndex,      mask.plan != nullptr, mask.coverage != nullptr,
+                mask.callerRank, mask.visibleInside,  {}, 0};
+    for (int i = 0; i < 6; ++i) record.slotXf[i] = mask.slotXf[i];
+    if (onlyPart >= 0 && static_cast<uint32_t>(onlyPart) != partIndex) {
+      seen.push_back(record);
+      return 0;
+    }
+
+    ::ssplayer::SsMaskInput input;
+    input.flags = child->flags.data();
+    input.flagCount = child->flags.size();
+    if (forward && mask.plan != nullptr) {
+      input.plan = mask.plan;
+      input.coverage = dropCoverage ? nullptr : mask.coverage;
+      input.inherited = true;
+      input.callerRank = mask.callerRank;
+      input.visibleInside = forceInside || mask.visibleInside;
+      for (int i = 0; i < 6; ++i) {
+        input.slotXf[i] = dropSlotXf ? (i == 0 || i == 3 ? 1.0f : 0.0f) : mask.slotXf[i];
+      }
+    }
+    record.drawn = ::ssplayer::DrawBakedFrame(canvas, bindings, bindingCount, child->baker, input);
+    seen.push_back(record);
+    return record.drawn;
+  }
+};
+
+/// §2-6 / §3-2-2 over the one asset that exercises them.
+///
+/// `Walk_Gate` mounts the same character pack twice and marks **one** of the two
+/// as a mask target, so the AND has a positive and a negative case inside a
+/// single frame — which is why this check names that file rather than building a
+/// synthetic pair.
+void CheckInstanceInheritance(const char* dir, const char* parentFile, const char* animation,
+                              const char* childFile, int atFrame) {
+  char parentPathBuf[512];
+  char childPathBuf[512];
+  std::snprintf(parentPathBuf, sizeof(parentPathBuf), "%s/%s", dir, parentFile);
+  std::snprintf(childPathBuf, sizeof(childPathBuf), "%s/%s", dir, childFile);
+  const char* parentPath = parentPathBuf;
+  const char* childPath = childPathBuf;
+
+  // Skipped, not failed. This check needs `example/SpriteStudio_Source/Mask/`,
+  // which is third-party sample art this repository does not ship — so an
+  // absence here is the normal state of a fresh clone, and the other three
+  // checks still say everything they said before. It is loud about it because a
+  // silent skip is how a check stops being run at all.
+  if (!Exists(parentPath)) {
+    std::printf("    SKIPPED: %s is not deployed.\n", parentPath);
+    std::printf("    This one needs the OPTPiX `Mask` sample in\n");
+    std::printf("    example/SpriteStudio_Source/Mask/ — see README.md — and then\n");
+    std::printf("    `npm run deploy-examples`. Nothing else here depends on it.\n");
+    return;
+  }
+  Baked parent;
+  if (!parent.load(parentPath, animation, atFrame)) return;
+
+  // The animation **the parent names**, not the pack's first — `Instance_Maid`
+  // opens on `Stand` and the scene mounts `Walk`. Both poses happen to sit in
+  // the same place, so this is not what the comparisons below turn on; it is
+  // here so the check is drawing the scene the asset describes rather than one
+  // assembled out of whatever came first.
+  const sscore::SsAnimeBinaryView parentView(
+      ss_runtime_get_ssab_buf(parent.ctx),
+      static_cast<size_t>(ss_runtime_get_ssab_len(parent.ctx)));
+  std::string childAnimation;
+  for (const sscore::SsInstancePart& part : parentView.instanceParts()) {
+    if (part.partIndex < parent.flags.size() && parent.flags[part.partIndex].isTarget()) {
+      childAnimation = part.animeName;
+      break;
+    }
+  }
+  if (childAnimation.empty()) {
+    Fail("%s / %s mounts nothing on a mask target", parentPath, animation);
+    return;
+  }
+
+  Baked child;
+  if (!child.load(childPath, childAnimation.c_str(), atFrame)) return;
+
+  sscore::SsMaskPlan plan;
+  if (!plan.build(parent.fd, parent.baker, parent.flags.data(), parent.flags.size())) {
+    Fail("%s / %s plans no mask at frame %d — this check needs one that does",
+         parentPath, animation, atFrame);
+    return;
+  }
+  if (parent.baker.instances().empty()) {
+    Fail("%s / %s mounts nothing at frame %d", parentPath, animation, atFrame);
+    return;
+  }
+
+  // The caller draws through its real atlases, because its writers' coverage is
+  // what the child is tested against. The child draws through a flat colour it
+  // alone uses: these comparisons count *its* pixels, and a sprite sharing the
+  // scene's palette cannot be counted.
+  Atlases atlases;
+  if (!atlases.load(parentView, dir)) return;
+  SkPaint childPaint;
+  childPaint.setShader(GreenAtlas());
+  const ::ssplayer::SsPaintBinding childBinding{0u, &childPaint};
+
+  constexpr int kSize = 512;
+  const auto render = [&](MountRecorder& renderer, SkBitmap* out) {
+    renderer.child = &child;
+    renderer.bindings = &childBinding;
+    renderer.bindingCount = 1;
+    sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
+    SkCanvas* canvas = surface->getCanvas();
+    canvas->clear(SK_ColorBLACK);
+    canvas->translate(kSize / 2.0f, kSize / 2.0f);
+    // Scaled down as well as flipped: these scenes are ~1180 player-local units
+    // wide, and at 1:1 the mounts would land outside a 512 box entirely — which
+    // would make every comparison below trivially "no pixels differ".
+    canvas->scale(0.4f, -0.4f);
+
+    ::ssplayer::SsMaskInput input;
+    input.plan = &plan;
+    input.flags = parent.flags.data();
+    input.flagCount = parent.flags.size();
+    ::ssplayer::DrawBakedFrame(canvas, atlases.bindings.data(), atlases.bindings.size(),
+                               parent.baker, input, &renderer);
+    out->allocN32Pixels(kSize, kSize);
+    surface->readPixels(*out, 0, 0);
+  };
+
+  /// Pixels the *child* put on screen, which is the only population these
+  /// comparisons are about — the parent draws identically in all four renders.
+  const auto count = [&](const SkBitmap& bm) {
+    size_t mine = 0;
+    for (int y = 0; y < kSize; ++y) {
+      for (int x = 0; x < kSize; ++x) {
+        const SkColor c2 = bm.getColor(x, y);
+        if (SkColorGetG(c2) > SkColorGetR(c2) && SkColorGetG(c2) > SkColorGetB(c2)) ++mine;
+      }
+    }
+    return mine;
+  };
+  const auto differ = [&](const SkBitmap& a, const SkBitmap& b) {
+    size_t n = 0;
+    for (int y = 0; y < kSize; ++y) {
+      for (int x = 0; x < kSize; ++x) {
+        if (a.getColor(x, y) != b.getColor(x, y)) ++n;
+      }
+    }
+    return n;
+  };
+
+  // The parent draws identically in every render below, and only one mount ever
+  // draws at a time, so every differing pixel belongs to the mount under test.
+  const sscore::SsAnimeBinaryView& view = parentView;
+  size_t crossed = 0;
+  size_t targets = 0;
+  for (const sscore::SsInstanceDraw& mount : parent.baker.instances()) {
+    const std::string_view name = view.partName(mount.partIndex);
+    const bool isTarget =
+        mount.partIndex < parent.flags.size() && parent.flags[mount.partIndex].isTarget();
+    if (isTarget) ++targets;
+
+    MountRecorder inherit;
+    MountRecorder isolated;
+    MountRecorder identityXf;
+    MountRecorder inside;
+    MountRecorder rebuilt;
+    isolated.forward = false;
+    identityXf.dropSlotXf = true;
+    inside.forceInside = true;
+    rebuilt.dropCoverage = true;
+    for (MountRecorder* r : {&inherit, &isolated, &identityXf, &inside, &rebuilt}) {
+      r->onlyPart = static_cast<int32_t>(mount.partIndex);
+    }
+
+    SkBitmap a, b, c, d, e;
+    render(inherit, &a);
+    render(isolated, &b);
+    render(identityXf, &c);
+    render(inside, &d);
+    render(rebuilt, &e);
+
+    const MountRecorder::Seen* seen = nullptr;
+    for (const MountRecorder::Seen& s2 : inherit.seen) {
+      if (s2.partIndex == mount.partIndex) seen = &s2;
+    }
+    if (seen == nullptr) {
+      Fail("%.*s never reached the renderer", static_cast<int>(name.size()), name.data());
+      continue;
+    }
+
+    std::printf("    %.*s: rank %d target=%d plan=%d coverage=%d drawn=%zu, px %zu -> %zu\n",
+                static_cast<int>(name.size()), name.data(), mount.drawRank, isTarget ? 1 : 0,
+                seen->gotPlan ? 1 : 0, seen->gotCoverage ? 1 : 0, seen->drawn, count(b), count(a));
+
+    // §2-6's AND, read off real data rather than a constructed case: these
+    // scenes mark some mounts as mask targets and some not, in the same frame.
+    if (seen->gotPlan != isTarget) {
+      Fail("%.*s is%s a mask target but was handed %s — §2-6's AND",
+           static_cast<int>(name.size()), name.data(), isTarget ? "" : " not",
+           seen->gotPlan ? "a plan" : "none");
+    }
+    if (!isTarget) {
+      // Nothing was handed down, so nothing can change. This is the half that
+      // separates "composition works" from "everything under an instance part
+      // gets masked".
+      if (differ(a, b) != 0) {
+        Fail("%.*s is not a mask target, yet forwarding changed %zu px",
+             static_cast<int>(name.size()), name.data(), differ(a, b));
+      }
+      continue;
+    }
+    if (seen->drawn == 0 || count(b) == 0) {
+      Fail("%.*s put nothing on screen — its comparisons would pass vacuously",
+           static_cast<int>(name.size()), name.data());
+      continue;
+    }
+    if (!seen->gotCoverage) {
+      Fail("%.*s was handed a plan with no coverage. It would rasterise the "
+           "caller's writers against its own geometry and mask nothing",
+           static_cast<int>(name.size()), name.data());
+    }
+    // Scope does not compose: the sub-animation sits where the instance part
+    // sits, so what goes down is the mount's own rank.
+    if (seen->callerRank != mount.drawRank) {
+      Fail("%.*s got rank %d, but its own draw rank is %d", static_cast<int>(name.size()),
+           name.data(), seen->callerRank, mount.drawRank);
+    }
+    for (int i = 0; i < 6; ++i) {
+      if (seen->slotXf[i] != mount.m[i]) {
+        Fail("%.*s's slotXf[%d] is %f, but the mount matrix says %f",
+             static_cast<int>(name.size()), name.data(), i, seen->slotXf[i], mount.m[i]);
+        break;
+      }
+    }
+    // A target out of the writers' scope (§2-1) is handed the plan and correctly
+    // masked by none of it, so only the *presence* of one crossing is required.
+    if (count(a) < count(b)) {
+      ++crossed;
+      if (differ(a, c) == 0) {
+        Fail("%.*s: zeroing `slotXf` changed nothing, so its vertices are not "
+             "being carried into the caller's coverage space (§3-2-2's M_child)",
+             static_cast<int>(name.size()), name.data());
+      }
+      if (differ(a, d) == 0) {
+        Fail("%.*s: forcing `visible_inside` changed nothing, so §2-6's OR is "
+             "not reaching the replay",
+             static_cast<int>(name.size()), name.data());
+      }
+      // §3-2-2 step 1, stated as a difference rather than as a rule: a child
+      // left to rasterise the caller's plan against its own geometry does not
+      // arrive at the same answer. It does not merely mask *less* — the writers
+      // in that plan are the caller's parts, so the shapes it draws are whatever
+      // sits at those indices here. Both directions are wrong, which is why this
+      // asks for "different" and not "empty".
+      if (differ(a, e) == 0) {
+        Fail("%.*s: rebuilding the coverage on the child gave the same frame as "
+             "receiving the caller's. One of the two is not doing what it says",
+             static_cast<int>(name.size()), name.data());
+      }
+    }
+  }
+
+  if (targets == 0 || targets == parent.baker.instances().size()) {
+    Fail("%s / %s has %zu of %zu mounts as mask targets — this check needs both "
+         "cases in one frame to tell composition from a blanket rule",
+         parentPath, animation, targets, parent.baker.instances().size());
+  }
+  if (crossed == 0) {
+    Fail("no mount lost a pixel to the caller's mask. Either the coverage stops "
+         "at the instance boundary, or this frame has every child clear of it");
+  }
 }
 
 }  // namespace
@@ -495,6 +935,15 @@ int main(int argc, char** argv) {
 
   std::printf("==> the whole draw path still masks\n");
   CheckEndToEnd(ssab, animation, frame);
+
+  std::printf("==> the mask reaches into an instance child\n");
+  // Frame 150, and **not** `frame`: that one belongs to check 3 and to another
+  // pack. `Walk_gate` walks its characters across the scene over ~300 frames, so
+  // most of them have the mounts clear of the gate entirely — a true statement
+  // about the asset and a useless one about masking. 150 is inside the crossing,
+  // where the mask takes roughly two thirds of the child.
+  CheckInstanceInheritance("example/assets/ss/MaskInstance", "Walk_Gate.ssab", "Walk_gate",
+                           "Instance_Maid.ssab", 150);
 
   if (g_failures > 0) {
     std::fprintf(stderr, "\nFAILED: %d problems\n", g_failures);

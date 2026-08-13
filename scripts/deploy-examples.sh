@@ -47,6 +47,26 @@ PROJECTS=(
     "ParticleEffect|ParticleEffect.sspj"
 )
 
+# Projects supplied **locally** rather than by the SDK, as
+# "<dir under example/SpriteStudio_Source>|<.sspj filename>|<output dir name>".
+#
+# `example/SpriteStudio_Source/` is not in this repository — it is third-party
+# sample art, and the licence to redistribute it is not ours to give. Everything
+# here is therefore **optional**: a project whose directory is absent is
+# reported and skipped, and the example, the asset manifest and `check-mask`
+# all work without it. See README.md for where to get them.
+#
+# Only one so far, and the reason it is not in the SDK's tests is worth stating:
+# the SDK's samples keep masks and instance parts in separate files —
+# `allPartsV7/mask` has 289 writer-frames and no instances, `allPartsV7/instanse`
+# has an instance and no mask — so **nothing upstream exercises a mask that has
+# to reach into an instance child**, which is what `40_components/40_mask.md`
+# §2-6 specifies. This is the official OPTPiX basic sample for exactly that.
+LOCAL_DEPLOYED=()
+LOCAL_PROJECTS=(
+    "Mask|Mask.sspj|MaskInstance"
+)
+
 # "<SDK tests subdir>|<.sspj filename>|<output dir name>", always converted with
 # textures baked in, whatever `--embedded` says for the rest.
 #
@@ -101,19 +121,22 @@ if ! command -v cargo >/dev/null 2>&1; then
     exit 1
 fi
 
+# `deploy_project <source root> <subdir> <.sspj> [out name] [--embedded]`.
+# The root is a parameter because the projects now come from two places; the
+# converter does not care which.
 deploy_project() {
-    local sdk_sub="$1" sspj="$2"
-    local out_name="${3:-${sspj%.sspj}}"
-    local embedded="${4-$EMBEDDED}"
-    local src="${SDK_DIR}/tests/${sdk_sub}/${sspj}"
+    local src_root="$1" sub="$2" sspj="$3"
+    local out_name="${4:-${sspj%.sspj}}"
+    local embedded="${5-$EMBEDDED}"
+    local src="${src_root}/${sub}/${sspj}"
     local out="${OUT_ROOT}/${out_name}"
 
     if [ ! -f "$src" ]; then
-        echo "${APP}: ${sdk_sub}/${sspj} not found in the SDK submodule" >&2
+        echo "${APP}: ${sub}/${sspj} not found under ${src_root}" >&2
         exit 1
     fi
 
-    echo "Converting tests/${sdk_sub}/${sspj}${embedded:+ (embedded)} ..."
+    echo "Converting ${sub}/${sspj}${embedded:+ (embedded)} ..."
     rm -rf "$out"
     mkdir -p "$out"
     # The non-embedded converter also copies the referenced textures into the
@@ -122,14 +145,45 @@ deploy_project() {
     echo "   -> example/assets/ss/${out_name}/"
 }
 
+SDK_TESTS="${SDK_DIR}/tests"
+LOCAL_SRC="${ROOTDIR}/example/SpriteStudio_Source"
+
 for entry in "${PROJECTS[@]}"; do
     IFS='|' read -r sdk_sub sspj <<< "$entry"
-    deploy_project "$sdk_sub" "$sspj"
+    deploy_project "$SDK_TESTS" "$sdk_sub" "$sspj"
+done
+
+for entry in "${LOCAL_PROJECTS[@]}"; do
+    IFS='|' read -r sub sspj out_name <<< "$entry"
+    if [ ! -d "${LOCAL_SRC}/${sub}" ]; then
+        echo "== ${out_name}: skipped, ${LOCAL_SRC}/${sub} is not here"
+        echo "   That project is third-party sample art this repository does not"
+        echo "   ship. Everything else is unaffected; see README.md to add it."
+        continue
+    fi
+    deploy_project "$LOCAL_SRC" "$sub" "$sspj" "$out_name"
+    LOCAL_DEPLOYED+=("$out_name")
 done
 
 for entry in "${EMBEDDED_PROJECTS[@]}"; do
     IFS='|' read -r sdk_sub sspj out_name <<< "$entry"
-    deploy_project "$sdk_sub" "$sspj" "$out_name" "--embedded"
+    deploy_project "$SDK_TESTS" "$sdk_sub" "$sspj" "$out_name" "--embedded"
 done
+
+# The manifest last, because it is a description of the tree above and the app
+# reads its whole subject list out of it. Regenerating here rather than leaving
+# it to a second command is what keeps "I converted a pack and it did not appear"
+# from being a state you can reach at all — including the reverse, a pack the
+# manifest still names after the project supplying it went away.
+#
+# It is committed in its **without-optional-packs** state, so deploying one of
+# those leaves `example/src/ss-assets.ts` modified on purpose. Do not commit it.
+echo "Refreshing example/src/ss-assets.ts ..."
+( cd "${ROOTDIR}/example" && node ../packages/react-native-spritestudio/bin/spritestudio.js \
+    assets --out src/ss-assets.ts )
+if [ ${#LOCAL_DEPLOYED[@]} -gt 0 ]; then
+    echo "   ${LOCAL_DEPLOYED[*]} came from example/SpriteStudio_Source/, so this file"
+    echo "   now differs from the committed one. That is expected — do not commit it."
+fi
 
 echo "Done."
