@@ -13,7 +13,7 @@
 # choice as the Unity and Godot Players; the dynamic build exists for Ren'Py.
 #
 # Usage: scripts/download-sdk.sh [--force]
-#   --force  re-install even when native/VERSION already matches
+#   --force  re-install even when the pinned version is already installed
 set -e
 
 BASEDIR=$(dirname "$0")
@@ -34,7 +34,7 @@ for item in "$@"; do
         --force|-force|force) FORCE=1 ;;
         -h|--help|help)
             echo "Usage: ${APP} [--force]"
-            echo "  --force  re-install even when native/VERSION already matches"
+            echo "  --force  re-install even when the pinned version is already installed"
             exit 0
             ;;
         *) echo "${APP}: unknown argument '${item}'" >&2; exit 2 ;;

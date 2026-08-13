@@ -67,9 +67,8 @@ echo "    submodules initialised"
 # that nobody outside can reproduce. It leaves no version behind for exactly
 # that reason, which is also what stops this step from being skipped.
 #
-# It also settles the build mode without asking. A release asset is a release
-# build by construction, which is what `download-sdk` records in
-# native/BUILD_MODE and what `prepack` insists on.
+# It also settles the build mode: a release asset is a release build, which is
+# what prepack insists on.
 #
 # This is the step that fails while the SDK has no release tag. That is the
 # correct failure: there is nothing to publish against yet.

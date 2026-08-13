@@ -13,7 +13,7 @@ param (
 # there.
 #
 # Usage: scripts/download-sdk.ps1 [--force]
-#   --force  re-install even when native/VERSION already matches
+#   --force  re-install even when the pinned version is already installed
 
 $ErrorActionPreference = "Stop"
 
@@ -36,7 +36,7 @@ foreach ($arg in $ArgsList) {
         '^(--force|-force|force)$' { $force = $true }
         '^(-h|--help|help)$' {
             Write-Host "Usage: $app [--force]"
-            Write-Host "  --force  re-install even when native/VERSION already matches"
+            Write-Host "  --force  re-install even when the pinned version is already installed"
             exit 0
         }
         default { Write-Error "$app`: unknown argument '$arg'"; exit 2 }

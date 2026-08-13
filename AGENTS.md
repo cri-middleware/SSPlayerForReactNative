@@ -53,19 +53,19 @@ Phase 3 plans **react-native-web** by selecting the existing `@spritestudio/sspl
 *   **Never re-implement FNV-1a** — every key the Brain hands over is pre-baked, and `SsRuntime.hashString` exposes its own. What `DrawBatch.texture_hash` resolves against is the SDK's to state (`30_core/30_render_loop.md` §2).
 *   **Slots step from the part list, never from `draw_order`.** The Brain drops a `Hide`-ed Instance or Effect part from the draw plan entirely (SDK design, `40_components/40_mask.md`), so a walk that decided what to step by what it was about to draw would stop a hidden part's clock — and an independently-played child would then resume late by exactly the time it spent hidden. `SsInstanceSlots::step` and `stepEffects` both iterate the pack's parts, from `update()` where the delta is. `npm run check-hidden` pins it; SSPlayerForWgpu (`tests/slots.rs`) and SSPlayerForRenPy (`tools/verify_hidden.py`) pin the same rule.
 *   **Geometry per kind is the SDK's contract** (`30_core/30_render_loop.md`, `40_components/`) — follow it rather than a copy here. The one gap it leaves is **Effect**: its plan is in the effect's own simulation space with normalised UVs, so the part's world matrix places it and the UVs scale back up by `size_original`. Getting either wrong still draws.
-*   **Measure in release on both sides, and check the animation is playing.** A debug `libssruntime` swamps every other cost, and `setup_animation` leaves the transport stopped — a harness that forgets `play()` measures one static frame. `native/VERSION` does not record the build mode — `native/BUILD_MODE`, written by whichever installer ran, is what does, and what `prepack` refuses to publish a debug build on.
+*   **Measure in release on both sides, and check the animation is playing.** A debug `libssruntime` swamps every other cost, and `setup_animation` leaves the transport stopped — a harness that forgets `play()` measures one static frame. The version does not record the build mode; `download-sdk` writes it separately, and `prepack` refuses to publish a debug Brain.
 
 ## Toolchain scripts (`scripts/`, `.js` shim → `.sh`+`.ps1`; SDK via `$SSSDK`)
 
 | Script | Does | When |
 |---|---|---|
 | `download-sdk` | Install the pinned SDK release into `native/`. **No Rust needed.** | Normal setup |
-| `build-runtime` | Build the Brain from the submodule into the same layout. Removes `native/VERSION` and `native/BUILD_MODE`, which describe the pinned release and not this. Windows: Android slice only. | Changing the Brain |
+| `build-runtime` | Build the Brain from the submodule into the same layout. Leaves no version behind — that describes the pinned release, which this is not. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust). | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. Needs `flatc`. | After a schema change |
 
-The pinned tag lives in `scripts/SDK_VERSION.txt`; `download-sdk` skips when `native/VERSION` matches it. `build-runtime` writes no version at all — it is not installing that release — so a later `download-sdk` has nothing to match and reinstalls, `prepack` refuses to publish what a working tree built, and `SsRuntime.version` reports `unknown` rather than a tag the binaries are not.
+The pinned tag lives in `scripts/SDK_VERSION.txt`, and `download-sdk` skips when what is installed already matches it. A `build-runtime` install writes no version, so it is always replaced, never published, and reports itself as `unknown`.
 
 ## Verification
 

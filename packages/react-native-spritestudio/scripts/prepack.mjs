@@ -37,10 +37,10 @@ if (!has('native', 'libs')) {
   }
 }
 
-// --- 2. release, which `native/VERSION` does not record ----------------------
+// --- 2. a release build ------------------------------------------------------
 //
-// A debug Brain swamps every other cost and VERSION cannot tell them apart, so
-// `download-sdk` writes the mode down. A local build leaves none and fails here.
+// A debug Brain swamps every other cost and the version cannot tell them apart,
+// so `download-sdk` writes the mode down. A local build leaves none.
 const modeFile = join(pkgDir, 'native', 'BUILD_MODE')
 if (!existsSync(modeFile)) {
   fail('native/BUILD_MODE is missing', 'the Brain in native/ was built locally, or predates this check — install the pinned release with `npm run download-sdk`')
