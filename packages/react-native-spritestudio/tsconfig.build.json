@@ -1,0 +1,16 @@
+{
+  // What `bob build`'s typescript target compiles. The base config is
+  // `noEmit` because its job is `npm run typecheck`; this one emits, and
+  // nothing else differs — so the declarations that ship are produced by the
+  // same settings the code is checked under.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": true,
+    "outDir": "lib/typescript",
+    "rootDir": "src"
+  },
+  "include": ["src"]
+}

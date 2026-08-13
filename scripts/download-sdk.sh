@@ -13,7 +13,7 @@
 # choice as the Unity and Godot Players; the dynamic build exists for Ren'Py.
 #
 # Usage: scripts/download-sdk.sh [--force]
-#   --force  re-install even when native/VERSION already matches
+#   --force  re-install even when the pinned version is already installed
 set -e
 
 BASEDIR=$(dirname "$0")
@@ -34,7 +34,7 @@ for item in "$@"; do
         --force|-force|force) FORCE=1 ;;
         -h|--help|help)
             echo "Usage: ${APP} [--force]"
-            echo "  --force  re-install even when native/VERSION already matches"
+            echo "  --force  re-install even when the pinned version is already installed"
             exit 0
             ;;
         *) echo "${APP}: unknown argument '${item}'" >&2; exit 2 ;;
@@ -47,9 +47,8 @@ if [ ! -f "$VERSION_FILE" ]; then
 fi
 TARGET_VERSION=$(tr -d ' \r\n' < "$VERSION_FILE")
 
-# A build-runtime.sh install stamps "<tag>+submodule-<sha>", which never compares
-# equal to the bare tag — so a local Brain build is replaced here rather than
-# silently kept while claiming to be the release.
+# A local build leaves no VERSION, so the check below finds nothing and
+# reinstalls rather than keeping it.
 if [ -z "$FORCE" ] && [ -f "$CURRENT_VERSION_FILE" ]; then
     CURRENT_VERSION=$(tr -d ' \r\n' < "$CURRENT_VERSION_FILE")
     if [ "$CURRENT_VERSION" = "$TARGET_VERSION" ]; then
@@ -111,8 +110,7 @@ unzip -q -o "$ZIP_FILE" -d "$TARGET_DIR"
 # The archive's own VERSION holds the SDK commit hash; overwrite it with the tag
 # so the skip check above compares like with like.
 echo "$TARGET_VERSION" > "$CURRENT_VERSION_FILE"
-# A release asset is a release build by construction; `prepack` reads this
-# because VERSION cannot tell the two apart. build-runtime writes it too.
+# A release asset is a release build by construction; prepack reads this.
 echo "release" > "${TARGET_DIR}/BUILD_MODE"
 
 echo "Done."
