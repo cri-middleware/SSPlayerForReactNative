@@ -19,20 +19,25 @@ A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/sprite
 - **Built so the animation does not cost you a frame.** Everything expensive — the timeline, the geometry and the Skia draw calls — happens in a Rust core and C++ under [Nitro Modules](https://nitro.margelo.com/) (JSI). JavaScript's job per frame is **one call per player**, which is what lets a busy scene stay at 60 fps ([the measurement](docs/phase0-spike.md)).
 - **Composes with the React Native tree.** `<SpriteStudioView>` is an ordinary view — position, size, clip and animate it like any other. Many animations at once? `<SpriteStudioScene>` draws a whole cast through **one canvas and one clock** instead of N of each.
 - **The animation can talk back to your app.** Keys the artist placed on the timeline arrive as callbacks — user data, audio cues and signals — so a footstep sound or a hit-frame comes from the animation itself, not from a timer you maintain alongside it. Per-part overrides let you recolour, hide or swap a part at runtime, declaratively.
-- **What the artist authored is what you get.** All twelve blend modes, part colours, masks and clipping, mesh deformation, particle effects and nested animations are handled by the same Rust core every official SpriteStudio player uses — so the same `.ssab` runs identically here, on the Web, in Unity, Godot and Flutter.
+- **What the artist authored is what you get.** All twelve blend modes, part colours, masks and clipping, mesh deformation, particle effects and nested animations are handled by the same Rust core every official SpriteStudio player uses — the timeline and the geometry are not reimplemented here, so the same `.ssab` is the input everywhere. A few compositions are still catching up with the older players; **Status** below lists them.
 
 ## 🚧 Status
 
 **Draws today, on both platforms:** **Normal, Mesh, Shape, Instance and Effect**
-parts, **mask and clipping**, the full framebuffer **blend table** and
+parts, **mask and clipping** (on Normal and Shape targets — see below), the full framebuffer **blend table** and
 **PartColor** — plus the **override layer** (colour / cell / visibility),
 **user-data, audio and signal events**, the **animation lifecycle** callbacks
 (start / change / loop / complete), `fit`/`align` placement, the resource and
 atlas caches, `<SpriteStudioScene>` and the Expo config plugin.
 
-**Not yet:** **Nines and Text** parts, and the **Reanimated tick** — part
-transforms already publish as a shared value, but the frame loop is still
-`requestAnimationFrame` on the JS thread.
+**Not yet:** **Nines and Text** parts; **masked Mesh and masked Effect**, which
+both draw *unmasked* today; a **mask reaching into an Instance child**; the
+**Instance part's own PartColor**, which the older players apply as a
+whole-subtree tint; twelve of the thirteen **`ss-*` integration shaders** — only
+`ss-sepia` is ported, and the rest fall back to the plain textured path — and the
+**Reanimated tick**, where part transforms already publish as a shared value but
+the frame loop is still `requestAnimationFrame` on the JS thread.
+[ROADMAP.md](ROADMAP.md) has the detail on each.
 
 **Audio is reported, not played.** `onAudio` says what to play, how many times
 and where the file is; the app feeds its own audio stack. React Native has no

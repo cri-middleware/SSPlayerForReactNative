@@ -1,6 +1,8 @@
 #pragma once
 
-/// The 13 built-in integration shaders (`ss-*`) as SkSL runtime effects.
+/// The built-in integration shaders (`ss-*`) as SkSL runtime effects — **one of
+/// the thirteen so far**. `SsShaderBodies()` is null for the other twelve, which
+/// then take the plain textured path; see ROADMAP.md.
 ///
 /// **Included only from `SsSkiaDraw.cpp`** — same rule as `SsBlend.hpp` and
 /// `SsPartColorShader.hpp`, and for the same reason.
