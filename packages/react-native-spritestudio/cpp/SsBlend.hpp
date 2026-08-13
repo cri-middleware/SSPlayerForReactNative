@@ -189,25 +189,39 @@ inline BlendPlan BlendPlanFor(int32_t blendType) {
 /// makes this "did the part cover this pixel" rather than "how opaque was it".
 /// Unlike Flutter's `ColorFilter.matrix`, Skia's translation column is normalised
 /// 0..1, not 0..255 — the coefficients are unitless either way.
+/// Built once, as `PartColorEffect()` builds its program once and for the same
+/// reasons: the matrix is a constant, so a filter per call was one Skia
+/// allocation per pass per part per frame — and Sub and Invert are three-pass
+/// plans, two of whose passes come through here, on the path whose whole point
+/// is not allocating. The raw pointer is leaked deliberately: it lives for the
+/// process, and a function-local static `sk_sp` would destruct at exit, after
+/// Skia may already be gone.
 inline sk_sp<SkColorFilter> CoverageFilter() {
-  static const float kMatrix[20] = {
-      0, 0, 0, 0,   1,  //
-      0, 0, 0, 0,   1,  //
-      0, 0, 0, 0,   1,  //
-      0, 0, 0, 255, 0,  //
-  };
-  return SkColorFilters::Matrix(kMatrix);
+  static SkColorFilter* filter = [] {
+    static const float kMatrix[20] = {
+        0, 0, 0, 0,   1,  //
+        0, 0, 0, 0,   1,  //
+        0, 0, 0, 0,   1,  //
+        0, 0, 0, 255, 0,  //
+    };
+    return SkColorFilters::Matrix(kMatrix).release();
+  }();
+  return sk_ref_sp(filter);
 }
 
-/// `rgba = opaque black` — see `BlendPassSource::kBlack`.
+/// `rgba = opaque black` — see `BlendPassSource::kBlack`. Cached like the one
+/// above.
 inline sk_sp<SkColorFilter> BlackFilter() {
-  static const float kMatrix[20] = {
-      0, 0, 0, 0, 0,  //
-      0, 0, 0, 0, 0,  //
-      0, 0, 0, 0, 0,  //
-      0, 0, 0, 0, 1,  //
-  };
-  return SkColorFilters::Matrix(kMatrix);
+  static SkColorFilter* filter = [] {
+    static const float kMatrix[20] = {
+        0, 0, 0, 0, 0,  //
+        0, 0, 0, 0, 0,  //
+        0, 0, 0, 0, 0,  //
+        0, 0, 0, 0, 1,  //
+    };
+    return SkColorFilters::Matrix(kMatrix).release();
+  }();
+  return sk_ref_sp(filter);
 }
 
 }  // namespace ssplayer

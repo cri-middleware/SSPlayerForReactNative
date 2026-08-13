@@ -320,10 +320,17 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // `save`/`restore` rather than a layer: the child draws into the same
       // canvas at the mount point, and its alpha has already been folded into
       // its own bake, so there is nothing a layer would be needed to composite.
-      canvas->save();
+      //
+      // Through the guard rather than by hand: `drawInstance` recurses into a
+      // whole subtree and allocates several vectors and a picture recorder on
+      // the way, so a `bad_alloc` from any of it would otherwise skip the
+      // `restore()` and leave the save level standing. Layer 2 unwinds one
+      // level, so everything drawn into that picture afterwards would be under
+      // a transform nobody asked for — a failure that looks like a geometry bug
+      // and is not.
+      SkAutoCanvasRestore restore(canvas, true);
       canvas->concat(m);
       drawn += instances->drawInstance(canvas, mount.partIndex, mount.alpha);
-      canvas->restore();
     }
   };
 

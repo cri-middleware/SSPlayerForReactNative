@@ -151,17 +151,15 @@ class HybridSsContext final : public HybridSsContextSpec,
   size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale) override;
 
  private:
-  /// The child constructor. `depth` guards against a pack that mounts itself —
-  /// `resolvePack` hands back the own resource for a same-pack reference, so a
-  /// self-referencing animation would otherwise recurse until the stack ran out
-  /// at load time. `packs` is the resolved external set, passed down unchanged.
-  HybridSsContext(const std::shared_ptr<HybridSsResource>& resource, int depth,
+  /// The child constructor. `packs` is the resolved external set, passed down
+  /// unchanged.
+  ///
+  /// **Nothing bounds the recursion**, deliberately — see the non-goal in
+  /// ROADMAP.md. An instance part that mounts its own animation has no finite
+  /// expansion, and this port follows the data rather than deciding on the
+  /// author's behalf where it should have stopped.
+  HybridSsContext(const std::shared_ptr<HybridSsResource>& resource,
                   std::vector<SsInstancePackEntry> packs);
-
-  /// How deep a chain of instance parts may go before children stop being
-  /// spawned. Authored content nests two or three levels; this is a stack guard,
-  /// not a feature limit.
-  static constexpr int kMaxInstanceDepth = 8;
 
   /// Bakes and draws this player's whole subtree into `canvas`.
   ///
@@ -282,8 +280,6 @@ class HybridSsContext final : public HybridSsContextSpec,
   sscore::SsInstanceSlots instances_;
   /// Built once, at the first `setupAnimation`.
   bool instancesBuilt_ = false;
-  /// 0 for a root player; one more than its parent for a child.
-  int depth_ = 0;
   /// The external packs this subtree may mount, resolved by JS and handed down.
   std::vector<SsInstancePackEntry> instancePacks_;
 
