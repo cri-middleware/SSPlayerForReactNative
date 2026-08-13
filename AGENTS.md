@@ -36,7 +36,7 @@ Phase 3 plans **react-native-web** by selecting the existing `@spritestudio/sspl
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
 | `plugin/` + `bin/` | Expo config plugin (ships pack directories as native assets, narrows `reactNativeArchitectures`) and `npx react-native-spritestudio assets` (the typed asset manifest). |
 | `example/` | Expo app, one Player screen — the rendering verification surface. |
-| `tools/` + `scripts/` | Host checks (`ssbake_check`, `ssmask_check`, `sshidden_check`) and the toolchain, `.js` shim → `.sh`/`.ps1`. |
+| `tools/` + `scripts/` | Host checks (`ssbake_check`, `ssmask_check`, `sshidden_check`, `ssshader_check`) and the toolchain, `.js` shim → `.sh`/`.ps1`. |
 
 ## Hard constraints
 
@@ -77,6 +77,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Mask drawing, through the real shaders | `npm run check-mask` (macOS) |
 | Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
+| `ss-*` shaders compile, and their arithmetic | `npm run check-shader` (macOS) |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
@@ -84,6 +85,8 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Asset manifest | (in `example/`) `npx react-native-spritestudio assets`, then `--check` |
 
 **`ssbake_check`'s per-kind lines all have the same contract: zeroes mean the path never ran**, and `parts > 0` with `peak 0` means enumerated-then-never-emitted. Run it over the `example/assets/ss/overall/` card for the kind you touched and compare against the previous run — the absolute counts are asset-dependent, the zeroes are not.
+
+**An `ss-*` shader that is broken looks exactly like one that was never ported** — `SsShaderEffect` logs a compile failure once and then falls back to the plain textured draw, which is also what a null body does, so the example's Shader card cannot tell them apart and reads as *which ones are done*. `npm run check-shader` is what can: it compiles each body through the real `SsShaderEffect` and pins the arithmetic against the SS6 source the body cites. **Port a body and its row in `ssshader_check.cpp` together**, or the next reader has no way to know the port was right.
 
 **Rendering is verified on the example's Player screen**, whose *Subject* dropdown is one feature card each — `Basic`, `BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`, `Instance`, `UserData`, `Sound`, `Signal` — plus `Ringo` (a real character, the features composing) and `ParticleEffect` (the heaviest packs). Each card is built so a failure names itself; the *Textures* toggle switches embedded and sibling atlases, and **Leak check** runs 8 load/dispose cycles against `liveHandles`. Read `Mask` and `BlendMode` on **both** platforms — the only platform-specific defect this screen has ever caught was iOS-only.
 
