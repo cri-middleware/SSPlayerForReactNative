@@ -282,3 +282,8 @@ The same `.ssab` runs on every one of these:
 
 This project is licensed under the BSD-3-Clause License — see
 [LICENSE.md](LICENSE.md).
+
+It also compiles FlatBuffers and `libssruntime` into the app you publish, which
+carries obligations onto *your* binary — see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for what to include in your
+acknowledgements.
