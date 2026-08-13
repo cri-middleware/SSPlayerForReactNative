@@ -43,6 +43,18 @@ interface Frame {
 const CENTRED: Frame = { height: 480, centerY: 0 }
 
 /**
+ * `Shader`, which is the one card whose point is seeing **every** part at once:
+ * 28 of them, several per built-in, sweeping each effect's parameters through
+ * their range.
+ *
+ * Measured x ∈ [-384, 384], y ∈ [-320, 320] — wider than the authored 480
+ * canvas on both axes, so `CENTRED` cropped the grid and left the card
+ * unreadable without scrolling. The box `fit` receives is a square of this
+ * side, so it is framed on the **wider** axis with a little margin.
+ */
+const SHADER_GRID: Frame = { height: 800, centerY: 0 }
+
+/**
  * The 40 drawable `.ssab` of the SDK's `ParticleEffect` project, each with its
  * own measured frame.
  *
@@ -204,11 +216,15 @@ const SUBJECTS = {
   // them. Measured x ∈ [-248, 132], y ∈ [-144, 144]; the authored 480 frames it.
   Shape: { pack: 'overall', files: { Shape: CENTRED } },
   // The `SHDR` attribute: SpriteStudio's built-in integration shaders (`ss-*`),
-  // one part per effect. A part whose effect has no SkSL body yet degrades to
-  // the plain textured draw rather than vanishing, so **this card reads as
-  // "which ones are done", not as pass/fail** — an un-effected sprite is the
-  // expected look for an unported one. Only `ss-sepia` is ported today.
-  Shader: { pack: 'overall', files: { Shader: CENTRED } },
+  // **all thirteen ported**, several parts each so every effect is seen across
+  // its parameter range — including the sign flips, which are separate branches
+  // in most of them (`ss-sepia` warms one part and greyscales its twin).
+  //
+  // A shader that fails to compile degrades to the plain textured draw rather
+  // than vanishing, so a sprite with no effect on it is now a *failure* rather
+  // than the expected look — but the two are the same picture, which is why
+  // `npm run check-shader` exists and this card cannot be the only evidence.
+  Shader: { pack: 'overall', files: { Shader: SHADER_GRID } },
   // Measured y ∈ [-184, 237], so the authored 480 canvas frames it.
   Effect: { pack: 'overall', files: { Effect: CENTRED } },
   // 20 instance parts, every one of them mounting the **external** pack
