@@ -112,6 +112,20 @@ export class SsTextureRegistry {
     return this.cachedBindings
   }
 
+  /**
+   * Drops one paint, if it is registered. Returns whether it was.
+   *
+   * For an owner replacing what it put in rather than emptying the registry: a
+   * player reloading a different pack has to take its own entries out, and a
+   * registry it shares with the caller may hold entries that are not its to
+   * drop.
+   */
+  unregister(textureHash: number): boolean {
+    if (!this.paints.delete(textureHash)) return false
+    this.cachedBindings = null
+    return true
+  }
+
   /** Drops every paint. The images stay alive — see the class comment. */
   dispose(): void {
     this.paints.clear()

@@ -341,10 +341,25 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     if (token !== this.loadToken || this.disposed) {
       // The leases this pass took belong to a load that is no longer wanted.
       for (const key of report.imageKeys) ssImageCache.release(key)
+      // So do its registry entries: the loader registers as it decodes, which is
+      // before this check, so a superseded pass has already put its paints in.
+      // `releaseNative` cannot take them back — it ran before this pass recorded
+      // anything — so they would otherwise stay for the life of the player.
+      //
+      // Skipping what the *current* load registered matters when the two packs
+      // share a cellmap name: the hash is the same, and dropping it would take
+      // the live pack's atlas with it.
+      if (this.ownsTextures) {
+        const live = new Set(this.registeredTextures)
+        for (const hash of report.registered) {
+          if (!live.has(hash)) this.textures.unregister(hash)
+        }
+      }
       return
     }
     this.lastTextureReport = report
     this.imageKeys = report.imageKeys
+    this.registeredTextures = report.registered
 
     // A missing texture is otherwise **silent**: `drawInto` skips a batch it has
     // no paint for, so the symptom is a part that is simply not there, and a
@@ -378,6 +393,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private textureReport: SsTextureLoadReport | null = null
   /** Atlas cache leases taken by the last load, given back on teardown. */
   private imageKeys: string[] = []
+  /** Registry entries the last load added, taken back out on teardown. */
+  private registeredTextures: number[] = []
 
   /**
    * Atlas cache keys the last load leased — what `ssPreload` retains so its
@@ -705,7 +722,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
-    if (internal.isLooped) this.onLoop?.(animation)
+    if (internal.isLooped) this.emit('onLoop', this.onLoop, animation)
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are
@@ -721,19 +738,55 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       internal.passedEventCount > 0
     ) {
       if (this.onUserData != null) {
-        for (const event of internal.getUserDataEvents()) this.onUserData(event)
+        for (const event of internal.getUserDataEvents()) {
+          this.emit('onUserData', this.onUserData, event)
+        }
       }
       if (this.onAudio != null) {
-        for (const event of internal.getAudioEvents()) this.onAudio(event)
+        for (const event of internal.getAudioEvents()) {
+          this.emit('onAudio', this.onAudio, event)
+        }
       }
       if (this.onSignal != null) {
-        for (const event of internal.getSignalEvents()) this.onSignal(event)
+        for (const event of internal.getSignalEvents()) {
+          this.emit('onSignal', this.onSignal, event)
+        }
       }
     }
 
     const finished = internal.isFinished
-    if (finished && !this.wasFinished) this.onComplete?.(animation)
+    if (finished && !this.wasFinished) this.emit('onComplete', this.onComplete, animation)
     this.wasFinished = finished
+  }
+
+  /**
+   * Calls one of the caller's handlers, keeping an exception in it out of the
+   * clock.
+   *
+   * `advance()` is where the authored keys are delivered, and it is called from
+   * inside the frame loop — so before this, one throw from an app's
+   * `onUserData` did not stop that event, it stopped the **animation**. The
+   * loops catch, and their catch cancels the `requestAnimationFrame`; nothing
+   * re-arms it, because the effect that owns the loop depends on values that
+   * did not change. The player froze until a remount or a resize, and in a
+   * `<SpriteStudioScene>` the whole scene froze with it — one sprite's handler
+   * taking every other sprite down. `example/src/player/audio.ts` writing its
+   * cache is a realistic way in.
+   *
+   * So a handler that throws loses its own call and nothing else. It is
+   * reported rather than swallowed: a silently dropped callback is the other
+   * way to lose an afternoon.
+   */
+  private emit<T>(what: string, handler: ((value: T) => void) | null, value: T): void {
+    if (handler == null) return
+    try {
+      handler(value)
+    } catch (error) {
+      console.error(
+        `[ssplayer] ${what} threw; the animation keeps running and this event is lost.`,
+        error
+      )
+    }
   }
 
   /** Draws the current frame. Returns the number of vertices drawn. */
@@ -805,6 +858,24 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.instancePacks = []
     for (const key of this.imageKeys) ssImageCache.release(key)
     this.imageKeys = []
+    // The paints the last load put in the registry, taken back out with it.
+    //
+    // `load()` documents that it replaces what was loaded before, and leaving
+    // these behind made that untrue in a way that draws: `texture_hash` is the
+    // FNV-1a of a *cellmap name*, so a second pack naming a cellmap the same
+    // thing as the first — `common`, on this repo's own example packs — kept
+    // drawing with the first pack's atlas. Silently, and only for the cellmaps
+    // whose names happened to collide. Without a collision it merely grew, one
+    // binding per load, all of them handed to `drawInto` every frame.
+    //
+    // Only the ones this load registered: a caller-supplied texture is left
+    // alone on the way in (`SsTextureLoader`), so it must be left alone on the
+    // way out. And only when the registry is ours — a shared one may be feeding
+    // other players, whose entries are not this player's to drop.
+    if (this.ownsTextures) {
+      for (const hash of this.registeredTextures) this.textures.unregister(hash)
+    }
+    this.registeredTextures = []
   }
 
   /**
