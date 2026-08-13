@@ -25,16 +25,26 @@ import { useSsTextures, type SsTextureSources } from './useSsTextures'
  * everything else about them is identical.
  */
 export interface SsPlayerProps {
+  /** The `.ssab` to play: a bundled asset, a file path or an `http(s)` URL. */
   source: SsSource
+  /** Atlases supplied by the caller. A pack's own are loaded either way. */
   textures?: SsTextureSources
+  /** Which animation in the pack. Omitted, the pack's first one plays. */
   animation?: string
+  /** Default `true`. `false` leaves it on its first frame. */
   playing?: boolean
+  /** Multiplier on the authored frame rate. Default `1`. */
   speed?: number
+  /** How many times to play. Default `0`, which is forever. */
   loop?: number
 
+  /** How the content box is scaled to the view. Default `'contain'`. */
   fit?: SsFit
+  /** The content box, in player-local units — supply it to skip measuring. */
   frame?: SsBox
+  /** Whether an unsupplied box covers this animation or the whole pack. */
   frameScope?: SsFrameScope
+  /** Caps the measuring walk. Default `0`, which is one authored cycle. */
   measureFrames?: number
 
   /**
