@@ -36,7 +36,7 @@ Phase 3 plans **react-native-web** by selecting the existing `@spritestudio/sspl
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
 | `plugin/` + `bin/` | Expo config plugin (ships pack directories as native assets, narrows `reactNativeArchitectures`) and `npx react-native-spritestudio assets` (the typed asset manifest). |
 | `example/` | Expo app, one Player screen — the rendering verification surface. |
-| `tools/` + `scripts/` | Host checks (`ssbake_check`, `ssmask_check`) and the toolchain, `.js` shim → `.sh`/`.ps1`. |
+| `tools/` + `scripts/` | Host checks (`ssbake_check`, `ssmask_check`, `sshidden_check`) and the toolchain, `.js` shim → `.sh`/`.ps1`. |
 
 ## Hard constraints
 
@@ -51,6 +51,7 @@ Phase 3 plans **react-native-web** by selecting the existing `@spritestudio/sspl
 *   **RN Skia coupling is confined to `SsRNSkiaInterop`.** `RNSkia` in a name means the fragile dependency, `Skia` means the stable one, and the two never share a file — so `grep -rl 'RNSkia::' cpp/` lists exactly what a Skia bump can break. The floor is **2.11**, where the API objects moved onto `jsi::NativeState`.
 *   **Peer dependencies must stay single-copy.** Two copies of a native module is not a duplicated dependency, it is two autolinked pods fighting over one JSI registration; the root `overrides` block pins each onto the version `expo install` chose. Bump them together with the Expo SDK.
 *   **Never re-implement FNV-1a** — every key the Brain hands over is pre-baked, and `SsRuntime.hashString` exposes its own. What `DrawBatch.texture_hash` resolves against is the SDK's to state (`30_core/30_render_loop.md` §2).
+*   **Slots step from the part list, never from `draw_order`.** The Brain drops a `Hide`-ed Instance or Effect part from the draw plan entirely (SDK design, `40_components/40_mask.md`), so a walk that decided what to step by what it was about to draw would stop a hidden part's clock — and an independently-played child would then resume late by exactly the time it spent hidden. `SsInstanceSlots::step` and `stepEffects` both iterate the pack's parts, from `update()` where the delta is. `npm run check-hidden` pins it; SSPlayerForWgpu (`tests/slots.rs`) and SSPlayerForRenPy (`tools/verify_hidden.py`) pin the same rule.
 *   **Geometry per kind is the SDK's contract** (`30_core/30_render_loop.md`, `40_components/`) — follow it rather than a copy here. The one gap it leaves is **Effect**: its plan is in the effect's own simulation space with normalised UVs, so the part's world matrix places it and the UVs scale back up by `size_original`. Getting either wrong still draws.
 *   **Measure in release on both sides, and check the animation is playing.** A debug `libssruntime` swamps every other cost, and `setup_animation` leaves the transport stopped — a harness that forgets `play()` measures one static frame. `native/VERSION` does not record the Brain's build mode.
 
@@ -75,6 +76,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Typecheck (package + example) | `npm run typecheck` |
 | FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Mask drawing, through the real shaders | `npm run check-mask` (macOS) |
+| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
