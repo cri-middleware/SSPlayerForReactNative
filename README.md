@@ -14,12 +14,12 @@ A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/sprite
 
 ## ✨ Why SpriteStudio Player?
 
-- **Bring your sprites — and whole scenes — to life, with zero animation code.** Breathing and blinking, swaying hair and clothes, flashy slash and magic effects. Instead of hand-wiring a Reanimated timeline or hand-slicing a spritesheet, the motion is authored visually in a dedicated editor and the player just plays it — bone rigs, mesh deform, masks and particles included. And it is not limited to a single mascot: compose entire animated **UIs, HUDs and full scenes** in the editor and render them as one.
-- **Raster sprite animation, drawn natively — not vector, not video.** It rigs and deforms **raster sprite art**, so hand-painted characters and game sprites animate exactly as authored — a different fit from vector animation tools like Lottie, and far lighter than shipping a `.gif` or `.mp4`. It scales freely at runtime, loops seamlessly, and reacts to your app instead of merely playing back.
+- **Bring your sprites — and whole scenes — to life, with zero animation code.** Breathing and blinking, swaying hair and clothes, flashy slash and magic effects. Instead of hand-wiring an `Animated` or Reanimated timeline per part, or slicing a spritesheet and flipping through it with `<Image>`, the motion is authored visually in a dedicated editor and the player just plays it — bone rigs, mesh deform, masks and particles included. And it is not limited to a single mascot: compose entire animated **UIs, HUDs and full scenes** in the editor and render them as one.
+- **Raster sprite animation, drawn natively — not vector, not video.** It rigs and deforms **raster sprite art**, so hand-painted characters and game sprites animate exactly as authored — a different fit from vector tools like Lottie, and far lighter than shipping a `.gif` or an `.mp4`. It scales freely at runtime, loops seamlessly, and reacts to your app instead of merely playing back. The timeline and the geometry come from the same Rust core every official SpriteStudio player uses rather than a reimplementation, so what your artist exports is what every platform is given — though what *this* port draws from it is still catching up in places, which **Status** below lists.
+- **Smooth motion, not locked to a frame rate.** The playhead is a float and the frame is built at the moment it is drawn, so motion follows your display's refresh rate and the speed you set — not the authored fps flipbook, and not a video baked at 30.
 - **Built so the animation does not cost you a frame.** Everything expensive — the timeline, the geometry and the Skia draw calls — happens in a Rust core and C++ under [Nitro Modules](https://nitro.margelo.com/) (JSI). JavaScript's job per frame is **one call per player**, which is what lets a busy scene stay at 60 fps ([the measurement](docs/phase0-spike.md)).
 - **Composes with the React Native tree.** `<SpriteStudioView>` is an ordinary view — position, size, clip and animate it like any other. Many animations at once? `<SpriteStudioScene>` draws a whole cast through **one canvas and one clock** instead of N of each.
 - **The animation can talk back to your app.** Keys the artist placed on the timeline arrive as callbacks — user data, audio cues and signals — so a footstep sound or a hit-frame comes from the animation itself, not from a timer you maintain alongside it. Per-part overrides let you recolour, hide or swap a part at runtime, declaratively.
-- **What the artist authored is what you get.** All twelve blend modes, part colours, masks and clipping, mesh deformation, particle effects and nested animations are handled by the same Rust core every official SpriteStudio player uses — the timeline and the geometry are not reimplemented here, so the same `.ssab` is the input everywhere. A few compositions are still catching up with the older players; **Status** below lists them.
 
 ## 🚧 Status
 
@@ -46,7 +46,7 @@ is the reference wiring, with `expo-audio` as the *example's* dependency.
 
 ## 📚 Documentation
 
-A hosted documentation site is planned ([ROADMAP.md](ROADMAP.md) Phase 3). Until
+A hosted documentation site is planned ([ROADMAP.md](ROADMAP.md#distribution)). Until
 then this README is the user-facing guide, and the files below cover the rest.
 
 - [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
@@ -242,7 +242,7 @@ npm run deploy-examples -- --embedded
 > **Build the Brain in release before measuring anything.** A `build=debug`
 > `libssruntime` swamps every other cost and flattens the differences a
 > benchmark exists to find — it already produced one wrong conclusion during
-> Phase 0.
+> the spike.
 
 ### Checks
 

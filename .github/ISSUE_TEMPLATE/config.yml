@@ -1,11 +1,9 @@
 # Issues are for bugs and feature requests. Everything else has a better home —
 # see SUPPORT.md, which these links mirror.
 #
-# Two links the sibling players carry are deliberately absent until the repos
-# they point at are reachable: a security policy (this repo has no SECURITY.md
-# yet — vulnerability reports go to the Help Center below, which is private),
-# and the shared SpriteStudio core's issue tracker (SpriteStudio-SDK is not
-# public, so the link would 404 for exactly the people who need it).
+# One link the sibling players carry is deliberately absent: the shared
+# SpriteStudio core's issue tracker. SpriteStudio-SDK is not public, so it would
+# 404 for exactly the people who would follow it.
 blank_issues_enabled: false
 contact_links:
   - name: ❓ Question about how to use the player / 使い方の質問
@@ -17,5 +15,5 @@ contact_links:
     about: Use the Help Center for sensitive reports, proprietary .sspj files, or contractual support. Never attach proprietary data to a public issue.
 
   - name: 🛡️ Security vulnerability / 脆弱性の報告
-    url: https://www.webtech.co.jp/help/en/spritestudio7/inquiries/ssplayer_tool/
-    about: Do not open a public issue. Report it privately through the Help Center form.
+    url: https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/SECURITY.md
+    about: Do not open a public issue. See the security policy for how to report privately.
