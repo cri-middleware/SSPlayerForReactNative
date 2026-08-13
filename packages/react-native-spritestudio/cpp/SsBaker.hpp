@@ -12,7 +12,7 @@
 // *draw* path does with the result, which is to write coverage instead of
 // colour. Instance contributes no geometry of its own — it records a mount and
 // the child's bake supplies the rest. Nines and the SHDR shaders are still
-// Phase 2 work (design doc ch.8).
+// Later work, once the kinds beyond Normal landed.
 
 #include <cstddef>
 #include <cstdint>
@@ -115,7 +115,7 @@ struct SsInstanceDraw {
 
 /// The Brain's SoA buffers for the current frame, as lent by the
 /// `ss_runtime_get_*` getters. Every pointer is a borrow that dies at the next
-/// `ss_runtime_update` (design doc ch.9 F).
+/// `ss_runtime_update` — AGENTS.md's borrow rule.
 struct SsSoAPointers {
   const float* worldMatrices = nullptr;  ///< 16 floats per part, column-major 4x4
   const float* localVertices = nullptr;  ///< 10 floats per part: lt, rt, lb, rb, center

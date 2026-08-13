@@ -23,13 +23,13 @@ import {
  * Layer 2 — the internal player: native-handle lifecycle, the root transform,
  * and one draw call per frame.
  *
- * Phase 0 left this layer thin on purpose. Once the batch walk, the geometry
+ * The Phase 0 spike left this layer thin on purpose. Once the batch walk, the geometry
  * bake and the Skia calls all moved into C++ (`docs/phase0-spike.md`), what is
  * left up here is lifetime and placement, not rendering — `draw()` is a canvas
  * transform and a single `drawInto`, whatever the vertex count.
  *
  * **Imports nothing from `react` or `react-native`**, which is what keeps a
- * headless test, a non-React renderer and the Phase 3 react-native-web route
+ * headless test, a non-React renderer and the react-native-web route
  * possible. Skia is fair game: it is the drawing backend, not the UI framework.
  *
  * ## Ownership
@@ -108,7 +108,7 @@ export class SsInternalPlayer {
   /**
    * Draws the current frame.
    *
-   * The transform is composed here and nowhere else (design doc ch.3 C). The
+   * The transform is composed here and nowhere else. The
    * base Y scale is **negative** because SpriteStudio authors Y-up and Skia's
    * canvas is Y-down; `flipY` toggles that sign rather than adding a second
    * flip, so a flipped player still lands the same way up.
@@ -141,7 +141,7 @@ export class SsInternalPlayer {
   /**
    * Releases the native context.
    *
-   * Explicit rather than left to GC (design doc ch.9 F): every ArrayBuffer L1
+   * Explicit rather than left to GC (AGENTS.md's borrow rule): every ArrayBuffer L1
    * ever handed out is a borrow of memory this context owns. Idempotent.
    */
   dispose(): void {

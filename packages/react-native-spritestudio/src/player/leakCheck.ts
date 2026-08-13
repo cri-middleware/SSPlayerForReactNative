@@ -35,7 +35,7 @@ export interface SsLeakCheckResult {
  * Loads and disposes `source` `cycles` times and reports whether the native
  * handle counts came back to where they started.
  *
- * This is Phase 1's "no leaked native handles" exit criterion, made runnable.
+ * This is the "no leaked native handles" criterion, made runnable.
  * It drives the same L3 path `<SpriteStudioView>` drives on mount and unmount —
  * `load()` then `dispose()` — so what it proves is the real teardown, not a
  * synthetic one.

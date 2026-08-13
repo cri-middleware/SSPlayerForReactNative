@@ -8,7 +8,7 @@
  *
  * **This file, and everything else under `core/`, must not import `react` or
  * `react-native`** — that is what keeps a headless test, a future non-React
- * renderer and the Phase 3 react-native-web route possible.
+ * renderer and the react-native-web route possible.
  */
 
 /** Which way the playhead walks the animation. */
@@ -33,11 +33,11 @@ export type SsPlaybackStyle =
  * Where the animation's world origin lands on the canvas, and how it is scaled
  * and mirrored.
  *
- * Applied **exactly once**, as a canvas transform above the geometry (design
- * doc ch.3 C). Folding it into the vertex bake would cost a term per vertex and
+ * Applied **exactly once**, as a canvas transform above the geometry. Folding
+ * it into the vertex bake would cost a term per vertex and
  * would detach part-following the moment a player flips; keeping it at the root
- * also leaves everything below in player-local space, which is where the Phase 2
- * mask coverage pass and the SkSL shaders need it.
+ * also leaves everything below in player-local space, which is where the mask
+ * coverage pass and the SkSL shaders need it.
  */
 export interface SsRootTransform {
   /** Canvas-space position of the animation's origin, in pixels. */

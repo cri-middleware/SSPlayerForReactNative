@@ -34,7 +34,7 @@ unless File.directory?(xcframework)
   raise <<~MSG
     [react-native-spritestudio] libssruntime.xcframework is missing.
 
-    The Brain is never committed (design doc ch.7). Install it before
+    The Brain is never committed. Install it before
     `pod install` with either:
 
         scripts/download-sdk.sh                          # pinned release, no Rust needed
@@ -60,7 +60,7 @@ Pod::Spec.new do |s|
 
   s.source_files = ["cpp/**/*.{h,hpp,c,cpp}"]
 
-  # Static libssruntime, matching the Unity and Godot Players (design doc ch.7).
+  # Static libssruntime, matching the Unity and Godot Players.
   # A static archive means no embedded framework to sign and nothing extra to
   # ship in the app bundle beyond the code actually referenced.
   s.vendored_frameworks = "native/libs/ios/libssruntime.xcframework"

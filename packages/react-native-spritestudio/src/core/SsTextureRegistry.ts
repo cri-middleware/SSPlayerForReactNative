@@ -24,7 +24,7 @@ export interface SsTextureOptions {
 }
 
 /**
- * `cellmap.name_hash` → the `SkPaint` its batches draw with (design doc ch.7).
+ * `cellmap.name_hash` → the `SkPaint` its batches draw with.
  *
  * The hash is what `DrawBatch.texture_hash` carries, so this is the whole of
  * texture resolution — mirrors the sibling ports' hash-keyed texture map (Godot
@@ -34,9 +34,9 @@ export interface SsTextureOptions {
  * silently never resolves.
  *
  * A paint rather than an image, because a paint is what `drawInto` needs and
- * building one per frame would allocate on the hot path. In Phase 2 the paint
- * grows a blend mode and colour state and the per-batch selection stays the
- * same shape.
+ * building one per frame would allocate on the hot path. The blend mode and the
+ * colour state ride on that same paint, and the per-batch selection did not have
+ * to change shape to carry them.
  *
  * ## Ownership
  *

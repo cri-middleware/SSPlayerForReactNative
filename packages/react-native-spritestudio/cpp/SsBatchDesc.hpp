@@ -15,7 +15,7 @@ namespace sscore {
 ///
 /// `startRank` / `count` are the batch's slice of `draw_order`. `SsSkiaDraw`
 /// does not need them (it draws the baked ranges), but they are the batch's
-/// identity in the Brain's terms and Phase 2's mask and blend passes will want
+/// identity in the Brain's terms and the mask and blend passes want
 /// them, so they are kept rather than dropped.
 struct SsBatchDesc {
   int32_t kind;          // DrawBatchKind

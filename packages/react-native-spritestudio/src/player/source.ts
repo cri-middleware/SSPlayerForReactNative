@@ -70,7 +70,7 @@ export function resolveSourceUri(source: SsSource): string {
  * Loads a `.ssab` into a Layer 1 resource, **taking a cache lease on it**.
  *
  * Two of the three routes keep the bytes out of the JS heap entirely (design
- * doc ch.5 A) — C++ opens the file or the APK entry. Only a remote URL has to
+ * C++ opens the file or the APK entry. Only a remote URL has to
  * be fetched, and only a dev server or a CDN is one.
  *
  * The lease is the caller's to give back with `releaseResource(uri)`, and that
