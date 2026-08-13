@@ -47,8 +47,8 @@ if [ ! -f "$VERSION_FILE" ]; then
 fi
 TARGET_VERSION=$(tr -d ' \r\n' < "$VERSION_FILE")
 
-# A build-runtime.sh install stamps "<tag>+submodule-<sha>", which never compares
-# equal to the bare tag — so a local Brain build is replaced here rather than
+# A build-runtime.sh install leaves no VERSION at all, so the check below finds
+# nothing to compare and a local Brain build is replaced here rather than
 # silently kept while claiming to be the release.
 if [ -z "$FORCE" ] && [ -f "$CURRENT_VERSION_FILE" ]; then
     CURRENT_VERSION=$(tr -d ' \r\n' < "$CURRENT_VERSION_FILE")

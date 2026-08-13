@@ -14,8 +14,7 @@
 #   native/libs/ios/libssruntime.xcframework   (device arm64 + simulator fat)
 #   native/libs/android/<abi>/libssruntime.a   (arm64-v8a, armeabi-v7a, x86_64)
 #   native/include/ssruntime.h                 (cbindgen output, the C-API)
-#   native/VERSION                             ("<tag>+submodule-<sha>")
-#   native/BUILD_MODE                          ("debug" or "release")
+#   (and *removes* native/VERSION and native/BUILD_MODE — see place_version)
 #   native/LICENSE.md, native/THIRD-PARTY-LICENSES.ssruntime.md
 #
 # STATIC slices on purpose (design doc ch.7): the iOS podspec vendors the
@@ -115,31 +114,25 @@ place_licenses() {
 }
 
 # Stamp the version next to the binaries it describes — the same file
-# download-sdk.sh writes, and the one the podspec and Android CMake read.
+# Neither file is written here, and both are removed if they are lying around.
 #
-# The stamp is "<pinned tag>+submodule-<sha>", never the bare tag: it is honest
-# about what these binaries are, and download-sdk.sh's skip check compares
-# against the bare tag, so a later download-sdk.sh replaces a local build
-# instead of leaving it in place while calling it the release.
+# They describe *the pinned release*: `download-sdk.sh` writes the tag it
+# installed and `release` for the mode, because a release asset is one by
+# construction. A local build is neither. Writing a stamp for it meant inventing
+# one — this used to be "<tag>+submodule-<sha>" — and every consumer of the file
+# then had to know that spelling: `download-sdk.sh` so its skip check would not
+# leave a local build in place while calling it the release, `prepack` so it
+# would not publish one. No sibling Player writes a version from its
+# build-runtime at all, and this is why.
+#
+# Removing them says the same thing with nothing to interpret. `download-sdk.sh`
+# reinstalls because there is no version to match, `prepack` refuses because
+# there is no mode to read, and the podspec and build.gradle already fall back
+# to "unknown" — which is what `SsRuntime.version` should say about a Brain that
+# came from a working tree.
 place_version() {
-    if [ ! -f "$VERSION_FILE" ]; then
-        echo "${APP}: missing ${VERSION_FILE}" >&2
-        exit 1
-    fi
-    local tag sha
-    tag=$(tr -d ' \r\n' < "$VERSION_FILE")
-    sha=$(cd "$SDK_DIR" && git rev-parse --short HEAD 2>/dev/null || echo unknown)
-    mkdir -p "$TARGET_DIR"
-    printf '%s+submodule-%s\n' "$tag" "$sha" > "${TARGET_DIR}/VERSION"
-    echo "  VERSION (${tag}+submodule-${sha})"
-    # Separate from VERSION because download-sdk compares that file against
-    # SDK_VERSION.txt to decide whether it can skip, and a mode suffix would
-    # be one more thing that comparison has to know about. What it is for:
-    # VERSION cannot tell a debug Brain from a release one, and a debug build
-    # swamps every other cost — so `prepack` refuses to publish one, and can
-    # only do that if something writes down which this is.
-    printf '%s\n' "${BUILD_MODE}" > "${TARGET_DIR}/BUILD_MODE"
-    echo "  BUILD_MODE (${BUILD_MODE})"
+    rm -f "${TARGET_DIR}/VERSION" "${TARGET_DIR}/BUILD_MODE"
+    echo "  VERSION / BUILD_MODE removed (a local build is not the pinned release)"
 }
 
 build_ios() {

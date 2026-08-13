@@ -19,8 +19,8 @@ apply plugin: "com.android.library"
 apply plugin: "org.jetbrains.kotlin.android"
 
 // Written next to the binaries by whichever of scripts/download-sdk.sh (the
-// release tag) or scripts/build-runtime.sh ("<tag>+submodule-<sha>") installed
-// them.
+// release tag) installed them. A local build-runtime leaves no VERSION at all,
+// which is what "unknown" below means: a Brain from somebody's working tree.
 def sdkVersionFile = file("../native/VERSION")
 def sdkVersion = sdkVersionFile.exists() ? sdkVersionFile.text.trim() : "unknown"
 

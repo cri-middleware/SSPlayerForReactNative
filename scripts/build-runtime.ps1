@@ -145,19 +145,11 @@ Write-Host "  include/ssruntime.h"
 Copy-Item (Join-Path $sdkDir "LICENSE.md") $targetDir -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $sdkDir "target/licenses/THIRD-PARTY-LICENSES.ssruntime.md") $targetDir -Force -ErrorAction SilentlyContinue
 
-# Stamp "<pinned tag>+submodule-<sha>", never the bare tag: it is honest about
-# what these binaries are, and download-sdk.ps1's skip check compares against
-# the bare tag, so a later download replaces a local build rather than leaving
-# it in place while calling it the release.
-$tag = (Get-Content $versionFile).Trim()
-Push-Location $sdkDir
-try { $sha = (git rev-parse --short HEAD 2>$null) } catch { $sha = "unknown" }
-finally { Pop-Location }
-if (-not $sha) { $sha = "unknown" }
-Set-Content -Path (Join-Path $targetDir "VERSION") -Value "$tag+submodule-$sha"
-Write-Host "  VERSION ($tag+submodule-$sha)"
-# See the .sh for why this is its own file rather than a suffix on VERSION.
-Set-Content -Path (Join-Path $targetDir "BUILD_MODE") -Value $buildMode
-Write-Host "  BUILD_MODE ($buildMode)"
+# Both files describe the pinned release, which a local build is not — see the
+# .sh for the whole of it. Removed rather than invented, so download-sdk
+# reinstalls, prepack refuses, and the version reports "unknown".
+Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $targetDir "VERSION")
+Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $targetDir "BUILD_MODE")
+Write-Host "  VERSION / BUILD_MODE removed (a local build is not the pinned release)"
 
 Write-Host "Done."

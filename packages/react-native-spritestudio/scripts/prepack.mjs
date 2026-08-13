@@ -39,12 +39,13 @@ if (!has('native', 'libs')) {
 
 // --- 2. release, which `native/VERSION` does not record ----------------------
 //
-// A debug Brain swamps every other cost and nothing downstream can tell: the
-// stamp is the same either way. Both installers now write the mode down, which
-// is the only reason this is checkable at all.
+// A debug Brain swamps every other cost and nothing downstream can tell it from
+// a release one. `download-sdk` writes the mode because a release asset is a
+// release build by construction; `build-runtime` writes nothing and removes
+// what is there, so a locally built Brain fails here rather than shipping.
 const modeFile = join(pkgDir, 'native', 'BUILD_MODE')
 if (!existsSync(modeFile)) {
-  fail('native/BUILD_MODE is missing', 're-run build-runtime or download-sdk — an older install did not record the mode')
+  fail('native/BUILD_MODE is missing', 'the Brain in native/ was built locally, or predates this check — install the pinned release with `npm run download-sdk`')
 } else {
   const mode = readFileSync(modeFile, 'utf8').trim()
   if (mode !== 'release') {
@@ -97,7 +98,9 @@ for (const entry of pkg.files ?? []) {
   // Globs are npm's to expand; only the plain paths are measurable here.
   if (entry.includes('*')) continue
   const p = join(pkgDir, entry)
-  if (!existsSync(p)) missing.push(entry)
+  // `native/` has its own checks above, which say something more useful than
+  // "this path is missing" about a Brain that was never installed.
+  if (!existsSync(p)) { if (!entry.startsWith('native/')) missing.push(entry) }
   else bytes += sizeOf(p)
 }
 const mb = bytes / 1024 / 1024

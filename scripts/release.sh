@@ -62,10 +62,10 @@ echo "    submodules initialised"
 # --- 2. the Brain -----------------------------------------------------------
 #
 # The pinned **release**, not a local build. `build-runtime` builds whatever the
-# submodule happens to be checked out at and stamps `<tag>+submodule-<sha>` to
-# say so — which is honest for development and wrong to publish: the gitlink
-# tracks an internal branch, so that tarball would carry a Brain nobody outside
-# can reproduce, from a commit that moves.
+# submodule happens to be checked out at, and the gitlink tracks an internal
+# branch — so publishing one would ship a Brain from a commit that moves and
+# that nobody outside can reproduce. It leaves no version behind for exactly
+# that reason, which is also what stops this step from being skipped.
 #
 # It also settles the build mode without asking. A release asset is a release
 # build by construction, which is what `download-sdk` records in

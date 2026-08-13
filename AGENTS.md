@@ -60,12 +60,12 @@ Phase 3 plans **react-native-web** by selecting the existing `@spritestudio/sspl
 | Script | Does | When |
 |---|---|---|
 | `download-sdk` | Install the pinned SDK release into `native/`. **No Rust needed.** | Normal setup |
-| `build-runtime` | Build the Brain from the submodule into the same layout, stamped `<tag>+submodule-<sha>`. Windows: Android slice only. | Changing the Brain |
+| `build-runtime` | Build the Brain from the submodule into the same layout. Removes `native/VERSION` and `native/BUILD_MODE`, which describe the pinned release and not this. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust). | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. Needs `flatc`. | After a schema change |
 
-The pinned tag lives in `scripts/SDK_VERSION.txt`; `download-sdk` skips when `native/VERSION` matches it, and a `build-runtime` stamp never matches, so a later `download-sdk` correctly replaces a local build.
+The pinned tag lives in `scripts/SDK_VERSION.txt`; `download-sdk` skips when `native/VERSION` matches it. `build-runtime` writes no version at all — it is not installing that release — so a later `download-sdk` has nothing to match and reinstalls, `prepack` refuses to publish what a working tree built, and `SsRuntime.version` reports `unknown` rather than a tag the binaries are not.
 
 ## Verification
 

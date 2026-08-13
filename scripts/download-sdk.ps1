@@ -45,8 +45,8 @@ foreach ($arg in $ArgsList) {
 
 $targetVersion = (Get-Content $versionFile).Trim()
 
-# A build-runtime install stamps "<tag>+submodule-<sha>", which never compares
-# equal to the bare tag — so a local Brain build is replaced here rather than
+# A build-runtime install leaves no VERSION at all, so the check below finds
+# nothing to compare — so a local Brain build is replaced here rather than
 # silently kept while claiming to be the release.
 if (-not $force -and (Test-Path $currentVersionFile)) {
     $currentVersion = (Get-Content $currentVersionFile).Trim()
