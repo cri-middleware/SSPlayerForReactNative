@@ -63,6 +63,8 @@
   "module": "lib/module/index.js",
   "react-native": "src/index.ts",
   "source": "src/index.ts",
+  "//browser": "Not web support — the stub barrel, so an app that ships web as well as native can still build its web bundle (src/index.web.ts). Points at source for the same reason `react-native` does; it moves to lib/ with `main` when the npm-publishing item in ROADMAP.md lands.",
+  "browser": "src/index.web.ts",
   "react-native-builder-bob": {
     "source": "src",
     "output": "lib",
