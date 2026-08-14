@@ -2,8 +2,8 @@ import type { SkCanvas } from '@shopify/react-native-skia'
 
 import { ssImageCache } from '../core/caches'
 import type { SsFrameScope } from '../core/fit'
+import { ssPackColor } from '../core/packColor'
 import {
-  ssPackColor,
   SsOverridePriority,
   SsPartColorBlend,
   type SsPartOverrides,

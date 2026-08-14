@@ -19,6 +19,9 @@
     "libskia RN Skia ships, which has no Linux slice.",
     "check-hidden needs neither flatc nor Skia — only a host cargo build — so it",
     "is the cheapest of the three to run.",
+    "check-web-barrel is plain node rather than a .sh/.ps1 pair, and needs no",
+    "Brain at all: nothing in it is platform-specific, so a shim would only shut",
+    "Windows contributors out of the one check they could otherwise run.",
     "generate-fbs-code takes an optional output dir so check-framedata can",
     "regenerate into a scratch dir and diff, rather than reimplementing it."
   ],
@@ -32,6 +35,7 @@
     "check-mask": "bash tools/check-mask.sh",
     "check-hidden": "bash tools/check-hidden.sh",
     "check-shader": "bash tools/check-shader.sh",
+    "check-web-barrel": "node tools/check-web-barrel.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "generate-fbs-code": "node scripts/generate-fbs-code.js",
     "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets",

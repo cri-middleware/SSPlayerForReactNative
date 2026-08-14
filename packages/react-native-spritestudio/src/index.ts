@@ -117,8 +117,8 @@ export {
   type SsUriScheme,
 } from './core/assets'
 /** The override layer's vocabulary: what a `parts` prop may say. */
+export { ssPackColor } from './core/packColor'
 export {
-  ssPackColor,
   SsOverridePriority,
   SsPartColorBlend,
   type SsCellRef,

@@ -31,7 +31,7 @@ Legend: ☐ **Ready** (Player-only, can start now) · ⛔ **Blocked on the SDK**
 
 ## Distribution
 
-- ☐ **npm publishing** — decide `react-native-builder-bob` vs plain `tsc`. The package still points `main` at raw TypeScript, which Metro reads but npm consumers should not get. The packing half is settled: `files` carries the Brain's static libraries (~57 MB unpacked, 16 MB on the wire), the vendored flatbuffers headers and the licences, and `prepack` refuses a tarball missing any of them — or built against a debug Brain, which `native/VERSION` cannot tell you about.
+- ☐ **npm publishing** — decide `react-native-builder-bob` vs plain `tsc`. The package still points `main` at raw TypeScript, which Metro reads but npm consumers should not get; `browser` (the web stub barrel) points at source for the same reason and moves with it. The packing half is settled: `files` carries the Brain's static libraries (~57 MB unpacked, 16 MB on the wire), the vendored flatbuffers headers and the licences, and `prepack` refuses a tarball missing any of them — or built against a debug Brain, which `native/VERSION` cannot tell you about.
 - ☐ **Bare React Native support** — an app with no Expo config plugin gets neither the asset copy nor the ABI narrowing, so both build steps need documenting by hand and checking. `CMakeLists.txt` already tells "does not ship this slice" apart from "not installed" and names the `-P` escape.
 - ☐ **React Native Directory listing** — iOS/Android badges up, New Architecture flag up, "Expo Go does not work" stated in both the Directory and the README.
 - ☐ **Documentation site — published.** The VitePress site is built and deployed by `.github/workflows/pages.yml`; what is left is the Japanese locale (`docs/ja/`, which the sibling players all carry) and the English translation of `phase0-spike.md`, which is the one page still entirely in Japanese.
@@ -39,7 +39,7 @@ Legend: ☐ **Ready** (Player-only, can start now) · ⛔ **Blocked on the SDK**
 
 ## Surroundings
 
-- ☐ **react-native-web** via the existing `@spritestudio/ssplayer-webgl`, selected through `package.json` `exports`. **Only the L3 API and L4 prop types are shared** — the implementation is the existing Web one, not a port. Keeping L2 React-free and L3 an interface is what leaves this door open.
+- 🕒 **react-native-web** via the existing `@spritestudio/ssplayer-webgl` — the implementation would be the existing Web one, not a port, with **only the L3 API and L4 prop types shared**. Deferred on demand rather than on difficulty: SSPlayerForWeb already answers "SpriteStudio on the web" completely, so what this route adds is sharing the *component tree* between the native and web halves of one app — a narrower ask, whose cost is not the initial write but keeping two renderers in agreement forever. One disagreement is already there: **web clips masked Mesh and this port does not** (`SSWebGLRenderer`'s `isContentKind` includes Mesh — the masked-Mesh item above closes it from this side). Blocked in fact as well, since `@spritestudio/ssplayer-webgl` is not published to npm. Keeping L2 React-free and L3 an interface is what leaves the door open; revisit on a concrete request. What the package ships meanwhile is the stub barrel (`src/index.web.ts`), which is not this — it makes a mixed web/native app's web bundle *build*, and nothing on it draws.
 - ☐ **Runtime texture replacement**, `getPartNames()` and friends.
 
 ## Backlog (small / optional)
