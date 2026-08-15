@@ -5,11 +5,20 @@ description: Converting .sspj to .ssab, and why a pack is a directory rather tha
 
 # Preparing assets (`.sspj` → `.ssab`)
 
-Conversion happens on your machine with the SDK's `ssconverter-cli`, or the
-desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI). **No
-converter is bundled** — React Native has no editor to host an importer in, so
-there is no live edit-to-runtime loop here the way there is in the Ren'Py and
-Flutter players.
+SpriteStudio 7 saves a `.sspj` project; what this package plays is a `.ssab`.
+Converting between them is a step **you** run, on your own machine, with the
+command-line [`ssconverter-cli`](https://github.com/cri-middleware/SpriteStudio-SDK) or the desktop
+[SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI).
+
+**Nothing converts at runtime and there is no watch mode.** Treat it the way you
+would any other asset build step: convert, then build the app.
+
+::: tip The conversion itself is documented once, for every player
+[Converting with a standalone tool](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/)
+is the path this package takes, and covers picking a tool and wiring it into a
+build or CI pipeline. [Converting assets](https://cri-middleware.github.io/SpriteStudio-Docs/overview/conversion/) is the
+overview — including why some engines convert on import and this one does not.
+:::
 
 ## A pack is a directory, not a file
 
