@@ -68,7 +68,7 @@ package up either way. [Installation](docs/setup/install.md) has the detail.
 
 Animations are authored in SpriteStudio 7 and converted on your machine with the
 SDK's `ssconverter-cli` (or the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)).
-No converter is bundled — React Native has no editor to host an importer in.
+No converter is bundled and nothing converts at runtime — this is a step you run before the assets ship. [Converting with a standalone tool](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/) covers picking a tool and putting it in a build pipeline.
 
 **A pack is a directory, not a file.** A `.ssab` names its textures, the
 external packs its Instance parts reach and — through a `.ssqb` — the packs it
