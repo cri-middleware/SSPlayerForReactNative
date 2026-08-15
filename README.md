@@ -4,15 +4,13 @@
 
 **Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
 
-▶️ **[Run the example app](#verifying-it-works)** — the SDK's sample animations playing through the real API on iOS and Android.
-
 A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio 7 is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
 
 > [!WARNING]
 > **Not released yet.** The npm package is not published, and nothing here has
 > run on a **physical device** — iOS simulator and Android emulator only. See
-> [Status](#-status) for what draws today and [ROADMAP.md](ROADMAP.md) for what
-> lands when.
+> [docs/limitations.md](docs/limitations.md) for what draws today and
+> [ROADMAP.md](ROADMAP.md) for what lands when.
 
 ## ✨ Why SpriteStudio Player?
 
@@ -21,45 +19,12 @@ A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/sprite
 - **Smooth motion, not locked to a frame rate.** The playhead is a float and the frame is built at the moment it is drawn, so motion follows your display's refresh rate and the speed you set — not the authored fps flipbook, and not a video baked at 30.
 - **Built so the animation does not cost you a frame.** Everything expensive — the timeline, the geometry and the Skia draw calls — happens in a Rust core and C++ under [Nitro Modules](https://nitro.margelo.com/) (JSI). JavaScript's job per frame is **one call per player**, which is what lets a busy scene stay at 60 fps.
 - **Composes with the React Native tree.** `<SpriteStudioView>` is an ordinary view — position, size, clip and animate it like any other. Many animations at once? `<SpriteStudioScene>` draws a whole cast through **one canvas and one clock** instead of N of each.
-- **The animation can talk back to your app.** Keys the artist placed on the timeline arrive as callbacks — user data, audio cues and signals — so a footstep sound or a hit-frame comes from the animation itself, not from a timer you maintain alongside it. Per-part overrides let you recolour, hide or swap a part at runtime, declaratively.
-
-## 🚧 Status
-
-**Draws today, on both platforms:** **Normal, Mesh, Shape, Instance and Effect**
-parts, **mask and clipping** (on Normal and Shape targets — see below, and
-including a mask that crosses into an Instance child), the full framebuffer
-**blend table**, **PartColor** and the thirteen **`ss-*` integration shaders** —
-plus the **override layer** (colour / cell / visibility),
-**user-data, audio and signal events**, the **animation lifecycle** callbacks
-(start / change / loop / complete), `fit`/`align` placement, the resource and
-atlas caches, `<SpriteStudioScene>`, the Expo config plugin and the typed asset
-manifest.
-
-**Not yet:** **Nines and Text** parts; **masked Mesh and masked Effect**, which
-both draw *unmasked* today; **a child's own mask writers while a caller's mask
-reaches into it** — the caller's coverage is handed down and the child's own
-writers then write nothing for that frame; the
-**Instance part's own PartColor**, which both reference ports apply as a
-whole-subtree tint; and the
-**Reanimated tick**, where part transforms already publish as a shared value but
-the frame loop is still `requestAnimationFrame` on the JS thread.
-[ROADMAP.md](ROADMAP.md) has the detail on each.
-
-**Audio is reported, not played.** `onAudio` says what to play, how many times
-and where the file is; the app feeds its own audio stack. React Native has no
-audio API of its own, and a package that picked a library would make every
-project authoring no audio carry it. [`example/src/player/audio.ts`](example/src/player/audio.ts)
-is the reference wiring, with `expo-audio` as the *example's* dependency.
+- **The animation can talk back to your app.** Keys the artist placed on the timeline arrive as callbacks — user data, audio cues and signals — so a footstep sound or a hit-frame comes from the animation itself, not from a timer you maintain alongside it. **Audio is reported, not played** — the event says what to play and where the file is, and your app feeds its own audio stack ([`example/src/player/audio.ts`](example/src/player/audio.ts) is the reference wiring). Per-part overrides let you recolour, hide or swap a part at runtime, declaratively.
 
 ## 📚 Documentation
 
 - [**Documentation site**](https://cri-middleware.github.io/SSPlayerForReactNative/) — setup, usage, the generated API reference. 🚧 Live after the first release.
 - [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place.
-
-This README stays the short version; the files below cover the rest.
-
-- [**AGENTS.md**](AGENTS.md) — the working guide: architecture, invariants, **hard constraints**, verification. Start here before changing anything.
-- [**ROADMAP.md**](ROADMAP.md) — phases, exit criteria, deliberate non-goals
 
 ### Where to read, by goal
 
@@ -68,35 +33,36 @@ in an app, and people **changing** it. There is no configurable middle — the
 drawing lives in C++ behind a single call per frame, so altering *what* gets
 drawn means working on the package itself rather than passing it options.
 
-You only need to read as far as your goal requires:
+**Using the player in an app?** [Quick Start](#-quick-start) below, then the
+documentation site. That covers both the first animation and everything after it
+— events, part overrides, custom textures — which are the same audience one step
+in, not a different one.
 
-| You want to… | Where to read |
-|---|---|
-| Get an animation playing in your app | [Quick Start](#-1-quick-start) |
-| React to the timeline, override parts, place a whole scene | Above + [Going further](#going-further) |
-| Change the player, or the Rust core under it | Above + [Full Build Environment](#-2-full-build-environment-for-sdk--player-developers) + [AGENTS.md](AGENTS.md) |
-
-The first two rows are the same audience at different depths — both are ordinary
-consumers of the published package, and neither needs anything from the third.
+**Working on the player, or on the Rust core under it?**
+[Working from a checkout](docs/development/from-source.md) gets the repository
+running, [`example/README.md`](example/README.md) explains the verification app,
+and [AGENTS.md](AGENTS.md) is the working guide to read before changing
+anything. [ROADMAP.md](ROADMAP.md) is what lands when.
 
 ---
 
-## 🚀 1. Quick Start
+## 🚀 Quick Start
 
-### Setup
+### Install
 
 > 🚧 The package is **not published to npm yet** — this path opens up after the
-> first release. Until then, use [Verifying It Works](#verifying-it-works) to
-> try it locally.
+> first release. Until then, run it from a checkout:
+> [Working from a checkout](docs/development/from-source.md).
 
 ```bash
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go does not work.** The package contains native code, so a prebuild (CNG)
-is required — `npx expo prebuild` then `npx expo run:ios` / `run:android`. A
-bare React Native app works too; autolinking picks the package up on both
-platforms.
+**Expo Go cannot run this package**, so your app needs a **development build** —
+its own binary, with this package compiled into it. In a managed app that is
+`npx expo prebuild` then `npx expo run:ios` / `run:android`; in a bare app you
+already have the native projects, so rebuild them instead. Autolinking picks the
+package up either way. [Installation](docs/setup/install.md) has the detail.
 
 ### Preparing assets (`.sspj` → `.ssab`)
 
@@ -172,137 +138,9 @@ error** rather than a blank canvas.
 | Pay the load cost before the mount | `ssPreload` / `ssUnload` |
 | Drive the transport imperatively | the ref's `player` — Layer 3's `SpriteStudioPlayer` |
 
-The `.ssab` decides which of these are available; every part type and every key
-listed under [Status](#-status) is handled without extra wiring.
-
-### Verifying It Works
-
-Run the example app to see the player working end to end. **No Rust toolchain
-required** — `download-sdk` fetches the prebuilt native core from the pinned SDK
-release. Every entry point is a `.js` shim that dispatches to `.sh` or `.ps1`
-for the host OS, so these work on macOS, Linux and Windows alike.
-
-```bash
-git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
-cd SSPlayerForReactNative
-git submodule update --init --recursive
-
-npm install
-npm run download-sdk        # the native core, from the pinned SDK release
-npm run deploy-examples     # .sspj -> .ssab for the example app
-
-cd example
-npx expo prebuild --platform ios
-npx expo run:ios            # or: npx expo prebuild --platform android && npx expo run:android
-```
-
-The example is one screen. **Subject** picks a feature card (`Basic`,
-`BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`,
-`Instance`, `UserData`, `Sound`, `Signal`), a real character (`Ringo`, and
-`RingoInstances` for the same cast mounted as instance parts), or the SDK's
-40-pack particle showcase (`ParticleEffect`); **Pack file** appears when the
-subject has more than one `.ssab`; **Animation** is read out of the loaded pack;
-and the **Textures** toggle switches between an **Embedded** pack and a
-**Reference** one, so both texture routes are visible in one place. Below the
-stage,
-the readouts show the timeline keys firing and the live native handle counts.
-
-Every subject comes from what `deploy-examples` actually produced — the list is
-read out of the generated manifest, so a pack that was not converted takes its
-subject off the screen rather than leaving a card that loads nothing.
-
-### An optional subject: `MaskInstance`
-
-One subject is not in the list above because its source is **not in this
-repository**: `MaskInstance`, three scenes that mask the stage and mount their
-characters as instance parts. It is the only asset anywhere that exercises a
-mask crossing into an instance child — the SDK's own samples keep masks and
-instance parts in separate files — so it is what `npm run check-mask`'s fourth
-check runs against, and that check reports itself as skipped without it.
-
-It is third-party sample art and the licence to redistribute it is not ours to
-give. To add it, download **OPTPiX SpriteStudio Basic Samples** from
-[the SpriteStudio site](https://www.webtech.co.jp/spritestudio/) and copy its
-`Mask` project in:
-
-```
-example/SpriteStudio_Source/Mask/        <- Mask.sspj and everything beside it
-```
-
-Then `npm run deploy-examples` picks it up — it refreshes the manifest itself, so
-the subject appears on the next reload. That manifest is committed in its
-**without-optional-packs** state, so adding one leaves `example/src/ss-assets.ts`
-modified on purpose: do not commit it, and `assets --check` will call it stale
-for the same reason.
-
-## ⚙ 2. Full Build Environment (For SDK / Player Developers)
-
-To work on the player or on the Rust core (the "Brain") itself.
-
-### Repository layout
-
-```
-SSPlayerForReactNative/
-├── SpriteStudio-SDK/                   <- [submodule] the Rust core ("the Brain")
-├── scripts/                            <- .js shim -> .sh / .ps1 per host OS
-│   ├── SDK_VERSION.txt                 <- pinned SDK release tag
-│   ├── download-sdk.*                  <- install the pinned release (NO Rust needed)
-│   ├── build-runtime.*                 <- build the Brain from the submodule instead
-│   ├── deploy-examples.*               <- convert the SDK's test projects to .ssab
-│   ├── generate-nitro-code.*           <- run nitrogen over the Layer 1 spec
-│   └── generate-fbs-code.*             <- run flatc over the .fbs schemas
-├── packages/react-native-spritestudio/ <- the npm package
-│   ├── src/specs/SsRuntime.nitro.ts    <- Layer 1 spec (nitrogen input)
-│   ├── src/core/ src/player/ src/view/ <- Layers 2, 3 and 4
-│   ├── cpp/                            <- Nitro implementation, the baker, the Skia draw path
-│   ├── plugin/                         <- Expo config plugin: ships pack directories
-│   ├── bin/                            <- npx react-native-spritestudio assets
-│   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
-│   └── native/                         <- [gitignored] libssruntime + headers
-├── example/                            <- Expo app: the player screen
-├── tools/                              <- host-side checks (FrameData, baker, mask, hidden, shader)
-└── docs/                               <- the VitePress site
-```
-
-### Building the Brain
-
-`download-sdk` needs **no Rust toolchain**. Use `build-runtime` only when you
-are changing the Brain itself — it builds from the submodule into the same
-layout, stamped `<tag>+submodule-<sha>` so the two never get confused. On
-Windows it covers the Android slice only (the iOS xcframework needs Xcode);
-`download-sdk` is the complete answer there.
-
-Scripts take `key=value` arguments and honour `$SSSDK` to point at an SDK
-checkout other than the submodule, matching the sibling Players:
-
-```bash
-npm run build-runtime -- platform=ios build=release
-npm run download-sdk -- --force
-npm run deploy-examples -- --embedded
-```
-
-> [!IMPORTANT]
-> **Build the Brain in release before measuring anything.** A `build=debug`
-> `libssruntime` swamps every other cost and flattens the differences a
-> benchmark exists to find — it already produced one wrong conclusion during
-> the spike.
-
-### Checks
-
-| Check | Command |
-|---|---|
-| Typecheck (package + example) | `npm run typecheck` |
-| FlatBuffers accessors current + read path sound (needs `flatc`) | `npm run check-framedata` |
-| Mask drawing, and a mask crossing into an instance child (macOS) | `npm run check-mask` |
-| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
-| The `ss-*` shaders compile, and their arithmetic (macOS) | `npm run check-shader` |
-| The web stub barrel imports clean, matches `index.ts` and throws (any OS, no Brain) | `npm run check-web-barrel` |
-| Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
-
-[AGENTS.md](AGENTS.md) carries the rest: the four-layer architecture, the
-**hard constraints** — the ones learned the hard way, like `update()`'s delta
-being milliseconds and `ss_runtime_pause` being a toggle — and the per-feature
-verification table that says which example subject proves what.
+The `.ssab` decides which of these are available, and every part type and key
+this port supports is handled without extra wiring —
+[docs/limitations.md](docs/limitations.md) is the list.
 
 ## 📋 Requirements
 

@@ -25,6 +25,34 @@ The submodule is `SpriteStudio-SDK/` — the Rust core, referred to throughout t
 repository as **the Brain**. npm workspaces, deliberately not pnpm: an isolated
 node_modules layout breaks Metro, CMake and podspec path resolution.
 
+## What you just cloned
+
+```
+SSPlayerForReactNative/
+├── SpriteStudio-SDK/                   <- [submodule] the Rust core ("the Brain")
+├── scripts/                            <- .js shim -> .sh / .ps1 per host OS
+│   ├── SDK_VERSION.txt                 <- pinned SDK release tag
+│   ├── download-sdk.*                  <- install the pinned release (NO Rust needed)
+│   ├── build-runtime.*                 <- build the Brain from the submodule instead
+│   ├── deploy-examples.*               <- convert the SDK's test projects to .ssab
+│   ├── generate-nitro-code.*           <- run nitrogen over the Layer 1 spec
+│   └── generate-fbs-code.*             <- run flatc over the .fbs schemas
+├── packages/react-native-spritestudio/ <- the npm package
+│   ├── src/specs/SsRuntime.nitro.ts    <- Layer 1 spec (nitrogen input)
+│   ├── src/core/ src/player/ src/view/ <- Layers 2, 3 and 4
+│   ├── cpp/                            <- Nitro implementation, the baker, the Skia draw path
+│   ├── plugin/                         <- Expo config plugin: ships pack directories
+│   ├── bin/                            <- npx react-native-spritestudio assets
+│   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
+│   └── native/                         <- [gitignored] libssruntime + headers
+├── example/                            <- Expo app: the player screen
+├── tools/                              <- host-side checks (FrameData, baker, mask, hidden, shader)
+└── docs/                               <- this site
+```
+
+`AGENTS.md` has the same ground as a table, with each path's role and the
+invariants that go with it.
+
 ## Get the Brain
 
 `native/` is gitignored, so a fresh checkout has no native core at all.
