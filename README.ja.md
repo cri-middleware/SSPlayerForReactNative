@@ -9,7 +9,7 @@
 **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio 7 はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
 
 > [!WARNING]
-> **未リリースです。** npm パッケージは未公開で、**実機での動作確認もまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは[ステータス](#-ステータス)を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
+> **未リリースです。** npm パッケージは未公開で、**実機での動作確認もまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは [docs/limitations.md](docs/limitations.md) を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
 
 ## ✨ なぜ SpriteStudio Player か
 
@@ -18,25 +18,12 @@
 - **フレームレートに縛られない滑らかな動き。** 再生ヘッドは浮動小数で、フレームは描画される瞬間に組み立てられます。したがって動きは、作成時の fps によるパラパラ漫画でも 30 fps で焼かれた動画でもなく、ディスプレイのリフレッシュレートと指定した速度に追従します。
 - **アニメーションが 1 フレームのコストにならないように作られています。** 重い処理 — タイムライン、ジオメトリ、Skia の描画呼び出し — はすべて [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアと C++ で行われます。JavaScript の 1 フレームあたりの仕事は**プレイヤー 1 つにつき 1 回の呼び出し**で、これが賑やかなシーンでも 60 fps を保てる理由です。
 - **React Native のツリーに馴染みます。** `<SpriteStudioView>` はごく普通のビューです — 他のビューと同じように配置し、サイズを決め、クリップし、アニメーションさせられます。多数のアニメーションを同時に？ `<SpriteStudioScene>` は N 個ずつではなく、**キャンバス 1 枚とクロック 1 つ**でキャスト全体を描画します。
-- **アニメーションからアプリへ話しかけられます。** アーティストがタイムラインに置いたキーはコールバックとして届きます — ユーザーデータ、オーディオキュー、シグナル。足音や当たりフレームは、横で維持しているタイマーではなくアニメーション自身から発生します。パーツ単位のオーバーライドにより、実行時にパーツを宣言的に色変え・非表示・差し替えできます。
-
-## 🚧 ステータス
-
-**両プラットフォームで現在描けるもの：** **Normal / Mesh / Shape / Instance / Effect** の各パーツ、**マスクとクリッピング**（Normal と Shape のターゲットに対して。下記参照、および Instance の子へまたがるマスクを含む）、フレームバッファの**ブレンドテーブル**全種、**PartColor**、13 個の **`ss-*` 統合シェーダー** — さらに**オーバーライドレイヤー**（色 / セル / 表示）、**ユーザーデータ・オーディオ・シグナルのイベント**、**アニメーションライフサイクル**のコールバック（開始 / 変更 / ループ / 完了）、`fit`/`align` による配置、リソースとアトラスのキャッシュ、`<SpriteStudioScene>`、Expo config plugin、型付きアセットマニフェスト。
-
-**未対応：** **Nines と Text** パーツ。**マスクされた Mesh と Effect**（現在はどちらも*マスクなし*で描画されます）。**呼び出し元のマスクが届いている間の、子自身のマスク writer** — 呼び出し元のカバレッジが引き渡され、そのフレームでは子自身の writer は何も書きません。**Instance パーツ自身の PartColor**（参照実装の 2 つはこれをサブツリー全体の色味として適用しますが、この移植版は未実装です）。そして **Reanimated ティック** — パーツのトランスフォームは既に shared value として公開されていますが、フレームループはまだ JS スレッド上の `requestAnimationFrame` です。それぞれの詳細は [ROADMAP.md](ROADMAP.md) にあります。
-
-**オーディオは通知されるだけで、再生はされません。** `onAudio` は何を・何回・どのファイルを再生すべきかを伝えます。実際の再生はアプリ自身のオーディオスタックの仕事です。React Native には標準のオーディオ API がなく、パッケージ側でライブラリを 1 つ選んでしまうと、音を一切使わないプロジェクトにまでそれを背負わせることになります。[`example/src/player/audio.ts`](example/src/player/audio.ts) が参照実装で、`expo-audio` は*サンプルアプリの*依存として使っています。
+- **アニメーションからアプリへ話しかけられます。** アーティストがタイムラインに置いたキーはコールバックとして届きます — ユーザーデータ、オーディオキュー、シグナル。足音や当たりフレームは、横で維持しているタイマーではなくアニメーション自身から発生します。**オーディオは通知されるだけで再生はされません** — イベントは何をどこのファイルで再生すべきかを伝え、実際の再生はアプリ自身のオーディオスタックの仕事です（参照実装は [`example/src/player/audio.ts`](example/src/player/audio.ts)）。パーツ単位のオーバーライドにより、実行時にパーツを宣言的に色変え・非表示・差し替えできます。
 
 ## 📚 ドキュメント
 
 - [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/) — セットアップ、使い方、生成された API リファレンス。🚧 初回リリース後に公開されます。
 - [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/) — SDK と各公式プレイヤーの総合案内。
-
-この README は短い版です。残りは以下のファイルが扱います。
-
-- [**AGENTS.md**](AGENTS.md) — 作業ガイド：アーキテクチャ、不変条件、**ハード制約**、検証方法。何かを変更する前にまずここを読んでください。
-- [**ROADMAP.md**](ROADMAP.md) — フェーズ、達成条件、意図的な非目標
 
 ### 目的別・どこまで読めばよいか
 
@@ -68,7 +55,7 @@
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go では動きません。** ネイティブコードを含むため prebuild（CNG）が必要です — `npx expo prebuild` の後に `npx expo run:ios` / `run:android`。素の React Native アプリでも動作し、autolinking が両プラットフォームでパッケージを拾います。
+**Expo Go はこのパッケージを実行できません。** あなたのアプリには **development build** — このパッケージをコンパイルして組み込んだ自前のバイナリ — が必要です。managed なら `npx expo prebuild` の後に `npx expo run:ios` / `run:android`、bare なら既にネイティブプロジェクトがあるのでリビルドします。どちらでも autolinking がパッケージを拾います。詳細は [インストール](docs/setup/install.md) にあります。
 
 ### アセットの準備（`.sspj` → `.ssab`）
 
@@ -125,7 +112,11 @@ export function Character() {
 | ロードのコストをマウント前に払う | `ssPreload` / `ssUnload` |
 | トランスポートを命令的に操作する | ref の `player` — レイヤー 3 の `SpriteStudioPlayer` |
 
-どれが使えるかは `.ssab` が決めます。[ステータス](#-ステータス)に挙げたパーツ種別とキーは、追加の配線なしですべて扱われます。
+どれが使えるかは `.ssab` が決めます。この移植版が対応するパーツ種別とキーは追加の配線なしですべて扱われます — 一覧は [docs/limitations.md](docs/limitations.md) にあります。
+
+## ⚙ 2. フルビルド環境
+
+SDK / プレイヤー開発者向け — プレイヤー自体、または Rust コア（「Brain」）に手を入れる場合です。
 
 ### 動作確認
 
@@ -160,10 +151,6 @@ example/SpriteStudio_Source/Mask/        <- Mask.sspj とその隣にあるす�
 ```
 
 あとは `npm run deploy-examples` が拾います — マニフェストも自身で更新するので、次のリロードでサブジェクトが現れます。そのマニフェストは**オプションのパックを含まない**状態でコミットされているため、追加すると `example/src/ss-assets.ts` が意図的に変更された状態になります。コミットしないでください。`assets --check` が「古い」と判定するのも同じ理由です。
-
-## ⚙ 2. フルビルド環境
-
-SDK / プレイヤー開発者向け — プレイヤー自体、または Rust コア（「Brain」）に手を入れる場合です。
 
 ### リポジトリ構成
 
