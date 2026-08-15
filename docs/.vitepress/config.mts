@@ -32,6 +32,7 @@ export default withMermaid({
   lang: 'en',
   base: '/SSPlayerForReactNative/',
 
+
   head: [['meta', { property: 'og:site_name', content: 'SSPlayerForReactNative' }]],
 
   transformPageData(pageData) {
@@ -112,7 +113,6 @@ export default withMermaid({
             text: 'Development',
             items: [
               { text: 'Working from a checkout', link: '/development/from-source' },
-              { text: 'The measurement behind the design', link: '/phase0-spike' },
               { text: 'Working on this repository', link: `${GITHUB}/blob/main/AGENTS.md` },
             ],
           },

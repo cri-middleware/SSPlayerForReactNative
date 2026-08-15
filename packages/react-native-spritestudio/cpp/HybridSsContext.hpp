@@ -42,7 +42,7 @@ struct SsInstancePackEntry {
 /// standing between a retained ArrayBuffer and a read of recycled memory. It is
 /// stamped into every struct handed out; JS compares before it reads.
 ///
-/// Since Phase 0 the geometry no longer leaves C++ at all — `drawInto` bakes and
+/// The geometry no longer leaves C++ at all — `drawInto` bakes and
 /// draws in one call — so the only buffer still crossing is an embedded atlas on
 /// its way to Skia. The rule stays, because the next thing to cross will be
 /// subject to it too.

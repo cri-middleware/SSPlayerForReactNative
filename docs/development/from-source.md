@@ -58,8 +58,7 @@ npm run download-sdk -- --force
 
 ::: warning Build release before measuring anything
 A `build=debug` Brain swamps every other cost and flattens the differences a
-benchmark exists to find. It already produced one wrong conclusion during the
-[Phase 0 spike](/phase0-spike).
+benchmark exists to find. It has produced a wrong conclusion here before.
 
 The two installs are also told apart on purpose: `download-sdk` writes
 `native/VERSION` and `native/BUILD_MODE`, `build-runtime` writes neither and

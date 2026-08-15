@@ -404,8 +404,8 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
 
     // Looping and playing, because `setup_animation` leaves the transport
     // stopped and a walk that forgets this measures frame 0 N times — the trap
-    // AGENTS.md has warned about since Phase 0, and which `ssbake_check` itself
-    // shipped with for a whole phase.
+    // AGENTS.md warns about, and which `ssbake_check` itself shipped with for a
+    // whole phase.
     ss_runtime_set_loop(ctx_, -1);
     ss_runtime_play(ctx_);
 

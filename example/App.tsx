@@ -6,12 +6,9 @@ import { PlayerScreen } from './src/player/PlayerScreen'
  * One screen: `overall/Basic` animating through the real `<SpriteStudioView>`
  * API. This is what you open to check that a change still renders.
  *
- * There used to be a second one — the Phase 0 measurement harness, which drove
- * Layer 1 directly through three competing variants to decide where the L1/L2
- * boundary belongs. It has been retired now that the question is settled and
- * both platforms have been measured in release; the numbers and the conditions
- * that produced them are in `docs/phase0-spike.md`, and the harness itself is in
- * git history if it ever needs re-running.
+ * There used to be a second one — a measurement harness that drove Layer 1
+ * directly to decide where the L1/L2 boundary belongs. It was retired once the
+ * question was settled; it is in git history if it ever needs re-running.
  */
 
 /**

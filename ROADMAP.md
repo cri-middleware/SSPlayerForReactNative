@@ -2,7 +2,7 @@
 
 The **React Native Player** roadmap. It tracks React-Native-specific work for capabilities the Rust runtime exposes (`SpriteStudio-SDK/ROADMAP.md`). This file is **forward-looking only** — already-shipped features (the draw kinds Normal / Mesh / Shape / Instance / Effect, the framebuffer blend table, PartColor, mask and clipping, the thirteen `ss-*` integration shaders, the override layer, user-data / audio / signal events, the animation lifecycle, `fit`/`align` placement, the resource and atlas caches, `<SpriteStudioScene>`, the Expo config plugin and the typed asset manifest) are not repeated here.
 
-[AGENTS.md](AGENTS.md) is the working guide, [README.md](README.md) carries the requirements, and [`docs/phase0-spike.md`](docs/phase0-spike.md) is the measurement that put the drawing in Layer 1 — one call per player per frame, because `Skia.MakeVertices` caps anything that routes vertices through JS.
+[AGENTS.md](AGENTS.md) is the working guide and [README.md](README.md) carries the requirements.
 
 Legend: ☐ **Ready** (Player-only, can start now) · 🚧 **In progress** · ⛔ **Blocked on the SDK** · 🕒 **Deferred**.
 
@@ -35,7 +35,7 @@ Legend: ☐ **Ready** (Player-only, can start now) · 🚧 **In progress** · �
 - ☐ **npm publishing** — decide `react-native-builder-bob` vs plain `tsc`. The package still points `main` at raw TypeScript, which Metro reads but npm consumers should not get; `browser` (the web stub barrel) points at source for the same reason and moves with it. The packing half is settled: `files` carries the Brain's static libraries (~57 MB unpacked, 16 MB on the wire), the vendored flatbuffers headers and the licences, and `prepack` refuses a tarball missing any of them — or built against a debug Brain, which `native/VERSION` cannot tell you about.
 - ☐ **Bare React Native support** — an app with no Expo config plugin gets neither the asset copy nor the ABI narrowing, so both build steps need documenting by hand and checking. `CMakeLists.txt` already tells "does not ship this slice" apart from "not installed" and names the `-P` escape.
 - ☐ **React Native Directory listing** — iOS/Android badges up, New Architecture flag up, "Expo Go does not work" stated in both the Directory and the README.
-- ☐ **Documentation site — published.** The VitePress site is built and deployed by `.github/workflows/pages.yml`; what is left is the Japanese locale (`docs/ja/`, which the sibling players all carry) and the English translation of `phase0-spike.md`, which is the one page still entirely in Japanese.
+- ☐ **Documentation site — published.** The VitePress site is built and deployed by `.github/workflows/pages.yml`; what is left is the Japanese locale (`docs/ja/`, which the sibling players all carry). Before starting it, read the slugify note in `docs/.vitepress/config.mts`: VitePress builds heading ids through NFKD, so a hand-written Japanese anchor silently misses the heading it points at, and the dead-link check does not look at anchors.
 - ☐ **Example app beyond one screen** — the benchmark harness is gone and what is left is a single player; a real showcase is still owed.
 
 ## Surroundings
