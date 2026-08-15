@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "SSPlayer Bench",
-    "slug": "ssplayer-bench",
+    "name": "SSPlayer Example",
+    "slug": "ssplayer-example",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -9,10 +9,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "jp.co.cri-mw.spritestudio.ssplayer.bench"
+      "bundleIdentifier": "jp.co.cri-mw.spritestudio.ssplayer.example"
     },
     "android": {
-      "package": "jp.co.crimw.spritestudio.ssplayer.bench",
+      "package": "jp.co.crimw.spritestudio.ssplayer.example",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
