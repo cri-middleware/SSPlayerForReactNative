@@ -11,15 +11,15 @@ players, and making the load happen before the mount rather than during it.
 
 ## Where a pack's atlases come from
 
-The loader resolves each `image_path` the `.ssab` names **relative to the
-`.ssab` itself**, and takes the embedded atlas instead when the pack was
-converted with `--embedded`. Embedded wins per texture, so a pack may mix the
-two.
+A pack is one of two kinds — **Reference** or **Embedded**, the SDK's names. For
+a Reference pack the loader resolves each `image_path` **relative to the `.ssab`
+itself**; for an Embedded one it reads the atlas out of the file. Embedded wins
+per texture, so a pack that mixes the two is fine.
 
-| | Ships as | Trade |
+| Kind | Ships as | Trade |
 |---|---|---|
-| sibling | `.ssab` + `.png` next to it | one file per texture, shared between packs naming the same cellmap |
-| embedded | one `.ssab` | self-contained; the encoded bytes stay resident for the life of the resource |
+| **Reference** | the `.ssab` plus its `.png` files beside it | one file per texture, shared between packs naming the same cellmap |
+| **Embedded** | one self-contained `.ssab` | nothing to lose in transit; the encoded bytes stay resident for the life of the resource |
 
 ## Replacing a texture
 

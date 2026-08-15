@@ -40,7 +40,7 @@ slice, so use an `x86_64` or `arm64-v8a` emulator image.
 | **Subject** | Picks a feature card. Each is built so a failure names itself. |
 | **Pack file** | Appears when the subject has more than one `.ssab`. |
 | **Animation** | Read out of the loaded pack. |
-| **Textures** | Switches between a pack with its atlas **embedded** in the `.ssab` and one keeping it as a **sibling** file — both texture routes, in one place. |
+| **Textures** | Switches between an **Embedded** pack and a **Reference** one — both texture routes, in one place. |
 | **Leak check** | 8 load/dispose cycles against `liveHandles`, then 8 loads into **one** player against the texture registry — the reload path the handle counts cannot see. |
 
 Below the stage, the readouts show the timeline keys firing and the live native

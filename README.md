@@ -145,9 +145,9 @@ export function Character() {
 }
 ```
 
-That is the whole integration. The textures come with it — the loader resolves
-each `image_path` next to the `.ssab`, and takes the embedded atlas instead when
-the pack was converted with `--embedded`. Playback starts on load and loops
+That is the whole integration. The textures come with it — for a **Reference**
+pack the loader resolves each `image_path` next to the `.ssab`, and for an
+**Embedded** one (`--embedded`) it reads the atlas out of the file. Playback starts on load and loops
 forever by default (`playing`, `speed` and `loop` are props; `loop={1}` plays
 once).
 
@@ -202,9 +202,9 @@ The example is one screen. **Subject** picks a feature card (`Basic`,
 `RingoInstances` for the same cast mounted as instance parts), or the SDK's
 40-pack particle showcase (`ParticleEffect`); **Pack file** appears when the
 subject has more than one `.ssab`; **Animation** is read out of the loaded pack;
-and the **Textures** toggle switches between a pack whose atlas is embedded in
-the `.ssab` and one that keeps it as a sibling file, so both texture routes are
-visible in one place. Below the stage,
+and the **Textures** toggle switches between an **Embedded** pack and a
+**Reference** one, so both texture routes are visible in one place. Below the
+stage,
 the readouts show the timeline keys firing and the live native handle counts.
 
 Every subject comes from what `deploy-examples` actually produced — the list is

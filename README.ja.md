@@ -107,7 +107,7 @@ export function Character() {
 }
 ```
 
-統合はこれで全部です。テクスチャは付いてきます — ローダーは各 `image_path` を `.ssab` の隣で解決し、パックが `--embedded` で変換されている場合は埋め込みアトラスの方を使います。再生はロード時に始まり、既定では無限にループします（`playing`・`speed`・`loop` は prop で、`loop={1}` なら 1 回だけ再生します）。
+統合はこれで全部です。テクスチャは付いてきます — Reference パックならローダーが各 `image_path` を `.ssab` の隣で解決し、`--embedded` で変換された Embedded パックならファイル内から読み出します。再生はロード時に始まり、既定では無限にループします（`playing`・`speed`・`loop` は prop で、`loop={1}` なら 1 回だけ再生します）。
 
 `source` にはファイルシステムのパスや `file://` URI（ダウンロード、展開済みバンドル）、`http(s)` URL（開発サーバー、CDN）も指定できます。兄弟ファイルの解決はいずれの形式でも同じです。`require()` したモジュールは source としては**使えません** — 背後にディレクトリを持たない唯一の形式だからです。
 
@@ -145,7 +145,7 @@ npx expo prebuild --platform ios
 npx expo run:ios            # または: npx expo prebuild --platform android && npx expo run:android
 ```
 
-サンプルは 1 画面です。**Subject** で機能カード（`Basic`、`BlendMode`、`PartsColor`、`Mask`、`Mesh`、`Shape`、`Shader`、`Effect`、`Instance`、`UserData`、`Sound`、`Signal`）、実在のキャラクター（`Ringo`、および同じキャストをインスタンスパーツとしてマウントした `RingoInstances`）、SDK の 40 パックからなるパーティクルショーケース（`ParticleEffect`）を選びます。**Pack file** はサブジェクトが複数の `.ssab` を持つときに現れ、**Animation** は読み込んだパックから取得されます。**Textures** トグルは、アトラスが `.ssab` に埋め込まれたパックと兄弟ファイルとして保持するパックを切り替えるので、両方のテクスチャ経路を 1 か所で確認できます。ステージの下の表示は、発火したタイムラインキーと、ネイティブハンドルの現在数を示します。
+サンプルは 1 画面です。**Subject** で機能カード（`Basic`、`BlendMode`、`PartsColor`、`Mask`、`Mesh`、`Shape`、`Shader`、`Effect`、`Instance`、`UserData`、`Sound`、`Signal`）、実在のキャラクター（`Ringo`、および同じキャストをインスタンスパーツとしてマウントした `RingoInstances`）、SDK の 40 パックからなるパーティクルショーケース（`ParticleEffect`）を選びます。**Pack file** はサブジェクトが複数の `.ssab` を持つときに現れ、**Animation** は読み込んだパックから取得されます。**Textures** トグルは **Embedded** パックと **Reference** パックを切り替えるので、両方のテクスチャ経路を 1 か所で確認できます。ステージの下の表示は、発火したタイムラインキーと、ネイティブハンドルの現在数を示します。
 
 各サブジェクトは `deploy-examples` が実際に生成したものから来ています — 一覧は生成されたマニフェストから読まれるので、変換されなかったパックは、何も読み込まないカードを残すのではなく画面から消えます。
 
