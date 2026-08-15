@@ -13,6 +13,8 @@ React Native **Body** for the SpriteStudio-SDK **Brain**. An npm workspace whose
 *   **Generated code is committed and never hand-edited** — `nitrogen/` and `cpp/format/`. Change the spec or the `.fbs` and re-run the generator.
 *   After editing TypeScript, typecheck; after touching `framedata.fbs` or the FrameData read path, run `npm run check-framedata`. See [Verification](#verification).
 *   Fix stale docs in the same turn you notice them (architecture/roadmap drift easily).
+*   **Each fact has one home, and the others link to it.** Anything a *consumer* needs goes in `docs/` — `README.md` is a landing page that points there, and `docs/limitations.md` is the single list of what does and does not draw. Anything a *contributor* needs goes here, in `ROADMAP.md`, or in `docs/development/`. Writing a second copy of a list is how the first one goes stale: the feature list lived in three places and the README's copy spent months calling a shipped feature missing.
+*   **Write for the reader, in the family's words.** State who a page is for before what it does, and give the reason from their side (`your app needs a development build`, not `this package contains native code`). Before coining a term, grep `SpriteStudio-SDK/libs/*/docs` and `../SSPlayerFor*` — a pack is **Reference** or **Embedded**, not "sibling" or "embedded atlas".
 *   **SDK Alignment:** when modifying playback or rendering logic, refer to [`SpriteStudio-SDK/AGENTS.md`](./SpriteStudio-SDK/AGENTS.md) for the Rust runtime's constraints and to `SpriteStudio-SDK/libs/ssruntime/docs/` for the contracts this Player implements — the `DrawBatch` plan, `FrameData`, the part kinds, masks and playback control.
 
 ## Architecture in one paragraph
@@ -36,8 +38,9 @@ Phase 3 plans **react-native-web** by selecting the existing `@spritestudio/sspl
 | `cpp/format/` + `nitrogen/` | flatc and Nitro codegen output. **Generated, committed, never hand-edited.** |
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
 | `plugin/` + `bin/` | Expo config plugin (ships pack directories as native assets, narrows `reactNativeArchitectures`) and `npx react-native-spritestudio assets` (the typed asset manifest). |
-| `example/` | Expo app, one Player screen — the rendering verification surface. |
+| `example/` | Expo app, one Player screen — the rendering verification surface. Its own `README.md` covers the subjects and the optional sample. |
 | `tools/` + `scripts/` | Host checks (`ssbake_check`, `ssmask_check`, `sshidden_check`, `ssshader_check`) and the toolchain, `.js` shim → `.sh`/`.ps1`. |
+| `docs/` | The VitePress site — **the user-facing documentation**, and where anything a consumer needs belongs. `.vitepress/config.mts`'s header comment carries the shelf conventions and the two deliberate divergences from the sibling players. `docs/api/` is TypeDoc output and gitignored. |
 
 ## Hard constraints
 
@@ -83,6 +86,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
 | `ss-*` shaders compile, and their arithmetic | `npm run check-shader` (macOS) |
 | The web stub barrel still imports clean, matches `index.ts` and throws | `npm run check-web-barrel` (any OS, no Brain needed) |
+| The docs site builds, and no page link is dead | `npm run docs` (any OS, no Brain needed). **It does not check `#anchors`** — a link to a heading that does not exist still builds green, so verify those by hand. |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
@@ -93,7 +97,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 
 **An `ss-*` shader that is broken looks exactly like one that was never ported** — `SsShaderEffect` logs a compile failure once and then falls back to the plain textured draw, which is also what a null body does, so the example's Shader card cannot tell them apart and reads as *which ones are done*. `npm run check-shader` is what can: it compiles each body through the real `SsShaderEffect` and pins the arithmetic against the SS6 source the body cites. **Port a body and its row in `ssshader_check.cpp` together**, or the next reader has no way to know the port was right.
 
-**Rendering is verified on the example's Player screen**, whose *Subject* dropdown is one feature card each — `Basic`, `BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`, `Instance`, `UserData`, `Sound`, `Signal` — plus `Ringo` (a real character, the features composing), `RingoInstances` (that cast mounted as instance parts), `MaskInstance` (a mask crossing into an instance child, §2-6/§3-2-2 — **optional**, its source is third-party sample art this repo does not ship; see README.md) and `ParticleEffect` (the heaviest packs). Each card is built so a failure names itself; the *Textures* toggle switches embedded and sibling atlases, and **Leak check** runs 8 load/dispose cycles against `liveHandles`, then 8 loads into **one** player against the texture registry — the reload path handle counts cannot see. Read `Mask` and `BlendMode` on **both** platforms — the only platform-specific defect this screen has ever caught was iOS-only.
+**Rendering is verified on the example's Player screen**, whose *Subject* dropdown is one feature card each — `Basic`, `BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`, `Instance`, `UserData`, `Sound`, `Signal` — plus `Ringo` (a real character, the features composing), `RingoInstances` (that cast mounted as instance parts), `MaskInstance` (a mask crossing into an instance child, §2-6/§3-2-2 — **optional**, its source is third-party sample art this repo does not ship; see [`example/README.md`](./example/README.md)) and `ParticleEffect` (the heaviest packs). Each card is built so a failure names itself; the *Textures* toggle switches between a **Reference** pack and an **Embedded** one (the SDK's names for the two, and the words to use), and **Leak check** runs 8 load/dispose cycles against `liveHandles`, then 8 loads into **one** player against the texture registry — the reload path handle counts cannot see. Read `Mask` and `BlendMode` on **both** platforms — the only platform-specific defect this screen has ever caught was iOS-only.
 
 ## Workspace conventions
 
