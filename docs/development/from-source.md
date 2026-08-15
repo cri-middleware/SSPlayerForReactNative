@@ -104,11 +104,3 @@ sample, are covered in
 | `ss-*` shaders compile, and their arithmetic (macOS) | `npm run check-shader` |
 | Web stub barrel imports clean and throws (any OS, no Brain) | `npm run check-web-barrel` |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
-
-## Then read AGENTS.md
-
-[AGENTS.md](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/AGENTS.md)
-is the working guide and the thing to read before changing anything: the
-four-layer architecture, the **hard constraints** learned the hard way — the
-borrow rule, `update()`'s delta being milliseconds, `ss_runtime_pause` being a
-toggle — and which example subject verifies which feature.
