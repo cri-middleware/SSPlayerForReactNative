@@ -6,11 +6,21 @@ const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 // social card must advertise where the page really lives.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
-// Close to SSPlayerForWeb's shelves, with one deliberate divergence: what that
-// site calls "Customize" is "Going further" here, and its pages stay under
-// /usage/. Nothing on that shelf customizes *the package* — this port exposes no
-// custom shaders and no extension points, so the sibling's name would promise a
-// surface that does not exist. It is the same audience as Usage, one step in.
+// Close to SSPlayerForWeb's shelves, with two deliberate divergences.
+//
+// What that site calls "Customize" is "Going further" here, and its pages stay
+// under /usage/. Nothing on that shelf customizes *the package* — this port
+// exposes no custom shaders and no extension points, so the sibling's name would
+// promise a surface that does not exist. It is the same audience as Usage, one
+// step in.
+//
+// And ROADMAP is not in the nav, where the sibling puts it. Three of the four
+// nav entries stay on the site and that one bounced to raw markdown on GitHub;
+// more to the point, it is a contributor's document — vertex ceilings, packaging
+// decisions, a thread-safety note — sitting at the same level as Usage. The
+// reader's version of "what is missing" is /limitations. Individual pages still
+// link ROADMAP where a specific caveat is tracked there, which is sourcing
+// rather than navigation.
 //
 // English only for now; the Japanese locale goes under /ja/ and is a ROADMAP
 // item, with the TypeDoc reference staying shared at /api/ because it is
@@ -71,7 +81,6 @@ export default withMermaid({
           { text: 'Setup', link: '/setup/install' },
           { text: 'Usage', link: '/usage/basic' },
           { text: 'API', link: '/api-guide' },
-          { text: 'ROADMAP', link: `${GITHUB}/blob/main/ROADMAP.md` },
         ],
         sidebar: [
           {
