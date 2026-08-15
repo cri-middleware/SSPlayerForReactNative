@@ -4,8 +4,6 @@
 
 **Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
 
-▶️ **[Run the example app](example/README.md)** — the SDK's sample animations playing through the real API on iOS and Android.
-
 A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio 7 is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
 
 > [!WARNING]
