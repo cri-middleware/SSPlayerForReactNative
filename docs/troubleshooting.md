@@ -102,7 +102,7 @@ react-native-spritestudio: no part called 'hatt' in 'walk' — its override is i
 ```
 
 If the name is right and the override still reverts a moment later, it is
-`priority` — see [Part overrides](/usage/parts#how-long-an-override-lasts).
+`priority` — see [Part overrides](/customize/parts#how-long-an-override-lasts).
 
 ## The animation froze mid-play
 
@@ -161,4 +161,4 @@ bundle. For SpriteStudio on the web, use
 ## No sound
 
 `onAudio` reports what to play; it never plays it. See
-[Audio is reported, not played](/usage/events#audio-is-reported-not-played).
+[Audio is reported, not played](/customize/events#audio-is-reported-not-played).

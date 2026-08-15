@@ -69,4 +69,4 @@ at runtime, serve it over a channel you control.
 
 ## Audio
 
-Reported, not played — see [Events](/usage/events#audio-is-reported-not-played).
+Reported, not played — see [Events](/customize/events#audio-is-reported-not-played).

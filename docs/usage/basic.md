@@ -99,4 +99,4 @@ not a blank rectangle:
 
 `onLoad` fires when the pack is ready and `onError` when it is not. The way to
 make that window short enough not to matter is
-[`ssPreload`](/usage/textures#preloading).
+[`ssPreload`](/customize/textures#preloading).

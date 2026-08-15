@@ -77,5 +77,5 @@ for it to draw into.
 ::: tip One throw stops the whole scene
 Events are delivered inside the scene's single `advance()` pass, so an exception
 from one sprite's handler stops the clock for **every** sprite in the scene —
-see [Troubleshooting](/usage/troubleshooting#the-animation-froze-mid-play).
+see [Troubleshooting](/troubleshooting#the-animation-froze-mid-play).
 :::
