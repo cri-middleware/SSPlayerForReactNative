@@ -1,3 +1,5 @@
+[**English**](./README.md) | [**日本語**](./README.ja.md)
+
 # SpriteStudio Player for React Native
 
 **Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
@@ -17,22 +19,27 @@ A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/sprite
 - **Bring your sprites — and whole scenes — to life, with zero animation code.** Breathing and blinking, swaying hair and clothes, flashy slash and magic effects. Instead of hand-wiring an `Animated` or Reanimated timeline per part, or slicing a spritesheet and flipping through it with `<Image>`, the motion is authored visually in a dedicated editor and the player just plays it — bone rigs, mesh deform, masks and particles included. And it is not limited to a single mascot: compose entire animated **UIs, HUDs and full scenes** in the editor and render them as one.
 - **Raster sprite animation, drawn natively — not vector, not video.** It rigs and deforms **raster sprite art**, so hand-painted characters and game sprites animate exactly as authored — a different fit from vector tools like Lottie, and far lighter than shipping a `.gif` or an `.mp4`. It scales freely at runtime, loops seamlessly, and reacts to your app instead of merely playing back. The timeline and the geometry come from the same Rust core every official SpriteStudio player uses rather than a reimplementation, so what your artist exports is what every platform is given — though what *this* port draws from it is still catching up in places, which **Status** below lists.
 - **Smooth motion, not locked to a frame rate.** The playhead is a float and the frame is built at the moment it is drawn, so motion follows your display's refresh rate and the speed you set — not the authored fps flipbook, and not a video baked at 30.
-- **Built so the animation does not cost you a frame.** Everything expensive — the timeline, the geometry and the Skia draw calls — happens in a Rust core and C++ under [Nitro Modules](https://nitro.margelo.com/) (JSI). JavaScript's job per frame is **one call per player**, which is what lets a busy scene stay at 60 fps ([the measurement](docs/phase0-spike.md)).
+- **Built so the animation does not cost you a frame.** Everything expensive — the timeline, the geometry and the Skia draw calls — happens in a Rust core and C++ under [Nitro Modules](https://nitro.margelo.com/) (JSI). JavaScript's job per frame is **one call per player**, which is what lets a busy scene stay at 60 fps.
 - **Composes with the React Native tree.** `<SpriteStudioView>` is an ordinary view — position, size, clip and animate it like any other. Many animations at once? `<SpriteStudioScene>` draws a whole cast through **one canvas and one clock** instead of N of each.
 - **The animation can talk back to your app.** Keys the artist placed on the timeline arrive as callbacks — user data, audio cues and signals — so a footstep sound or a hit-frame comes from the animation itself, not from a timer you maintain alongside it. Per-part overrides let you recolour, hide or swap a part at runtime, declaratively.
 
 ## 🚧 Status
 
 **Draws today, on both platforms:** **Normal, Mesh, Shape, Instance and Effect**
-parts, **mask and clipping** (on Normal and Shape targets — see below), the full framebuffer **blend table** and
-**PartColor** — plus the **override layer** (colour / cell / visibility),
+parts, **mask and clipping** (on Normal and Shape targets — see below, and
+including a mask that crosses into an Instance child), the full framebuffer
+**blend table**, **PartColor** and the thirteen **`ss-*` integration shaders** —
+plus the **override layer** (colour / cell / visibility),
 **user-data, audio and signal events**, the **animation lifecycle** callbacks
 (start / change / loop / complete), `fit`/`align` placement, the resource and
-atlas caches, `<SpriteStudioScene>` and the Expo config plugin.
+atlas caches, `<SpriteStudioScene>`, the Expo config plugin and the typed asset
+manifest.
 
 **Not yet:** **Nines and Text** parts; **masked Mesh and masked Effect**, which
-both draw *unmasked* today; a **mask reaching into an Instance child**; the
-**Instance part's own PartColor**, which the older players apply as a
+both draw *unmasked* today; **a child's own mask writers while a caller's mask
+reaches into it** — the caller's coverage is handed down and the child's own
+writers then write nothing for that frame; the
+**Instance part's own PartColor**, which both reference ports apply as a
 whole-subtree tint; and the
 **Reanimated tick**, where part transforms already publish as a shared value but
 the frame loop is still `requestAnimationFrame` on the JS thread.
@@ -51,20 +58,26 @@ is the reference wiring, with `expo-audio` as the *example's* dependency.
 
 This README stays the short version; the files below cover the rest.
 
-- [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
 - [**AGENTS.md**](AGENTS.md) — the working guide: architecture, invariants, **hard constraints**, verification. Start here before changing anything.
 - [**ROADMAP.md**](ROADMAP.md) — phases, exit criteria, deliberate non-goals
-- [**docs/phase0-spike.md**](docs/phase0-spike.md) — the measurement that shaped the architecture, its method and its pitfalls
 
 ### Where to read, by goal
 
+Two audiences, and the line between them is sharp: people **using** the player
+in an app, and people **changing** it. There is no configurable middle — the
+drawing lives in C++ behind a single call per frame, so altering *what* gets
+drawn means working on the package itself rather than passing it options.
+
 You only need to read as far as your goal requires:
 
-| You are… | Your goal | Where to read |
-|---|---|---|
-| **A general user** | Get an animation playing in your app | [Quick Start](#-1-quick-start) |
-| **A customization user** | React to the timeline, override parts, place a whole scene | Above + [Going further](#going-further) |
-| **An SDK / Player developer** | Extend or contribute to the player or the core | Above + [Full Build Environment](#-2-full-build-environment-for-sdk--player-developers) + [AGENTS.md](AGENTS.md) |
+| You want to… | Where to read |
+|---|---|
+| Get an animation playing in your app | [Quick Start](#-1-quick-start) |
+| React to the timeline, override parts, place a whole scene | Above + [Going further](#going-further) |
+| Change the player, or the Rust core under it | Above + [Full Build Environment](#-2-full-build-environment-for-sdk--player-developers) + [AGENTS.md](AGENTS.md) |
+
+The first two rows are the same audience at different depths — both are ordinary
+consumers of the published package, and neither needs anything from the third.
 
 ---
 
@@ -132,9 +145,9 @@ export function Character() {
 }
 ```
 
-That is the whole integration. The textures come with it — the loader resolves
-each `image_path` next to the `.ssab`, and takes the embedded atlas instead when
-the pack was converted with `--embedded`. Playback starts on load and loops
+That is the whole integration. The textures come with it — for a **Reference**
+pack the loader resolves each `image_path` next to the `.ssab`, and for an
+**Embedded** one (`--embedded`) it reads the atlas out of the file. Playback starts on load and loops
 forever by default (`playing`, `speed` and `loop` are props; `loop={1}` plays
 once).
 
@@ -189,9 +202,9 @@ The example is one screen. **Subject** picks a feature card (`Basic`,
 `RingoInstances` for the same cast mounted as instance parts), or the SDK's
 40-pack particle showcase (`ParticleEffect`); **Pack file** appears when the
 subject has more than one `.ssab`; **Animation** is read out of the loaded pack;
-and the **Textures** toggle switches between a pack whose atlas is embedded in
-the `.ssab` and one that keeps it as a sibling file, so both texture routes are
-visible in one place. Below the stage,
+and the **Textures** toggle switches between an **Embedded** pack and a
+**Reference** one, so both texture routes are visible in one place. Below the
+stage,
 the readouts show the timeline keys firing and the live native handle counts.
 
 Every subject comes from what `deploy-examples` actually produced — the list is
@@ -247,8 +260,8 @@ SSPlayerForReactNative/
 │   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
 │   └── native/                         <- [gitignored] libssruntime + headers
 ├── example/                            <- Expo app: the player screen
-├── tools/                              <- host-side checks (FrameData, baker, mask)
-└── docs/phase0-spike.md                <- the measurement
+├── tools/                              <- host-side checks (FrameData, baker, mask, hidden, shader)
+└── docs/                               <- the VitePress site
 ```
 
 ### Building the Brain
@@ -280,15 +293,16 @@ npm run deploy-examples -- --embedded
 |---|---|
 | Typecheck (package + example) | `npm run typecheck` |
 | FlatBuffers accessors current + read path sound (needs `flatc`) | `npm run check-framedata` |
-| Mask drawing, through the real shaders (macOS) | `npm run check-mask` |
+| Mask drawing, and a mask crossing into an instance child (macOS) | `npm run check-mask` |
+| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
+| The `ss-*` shaders compile, and their arithmetic (macOS) | `npm run check-shader` |
+| The web stub barrel imports clean, matches `index.ts` and throws (any OS, no Brain) | `npm run check-web-barrel` |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 
 [AGENTS.md](AGENTS.md) carries the rest: the four-layer architecture, the
 **hard constraints** — the ones learned the hard way, like `update()`'s delta
 being milliseconds and `ss_runtime_pause` being a toggle — and the per-feature
 verification table that says which example subject proves what.
-[docs/phase0-spike.md](docs/phase0-spike.md) is the measurement that put the
-drawing in Layer 1 in the first place.
 
 ## 📋 Requirements
 

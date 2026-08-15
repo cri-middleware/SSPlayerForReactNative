@@ -7,8 +7,8 @@ namespace sscore {
 /// One draw batch: the Brain's `DrawBatch` fields plus the geometry ranges
 /// `SsBaker` fills in as it bakes.
 ///
-/// The flat `int32` layout is a leftover from the Phase 0 spike, when JS walked
-/// this array through an `Int32Array` view. Nothing in JS reads it now — the
+/// The flat `int32` layout is a leftover from when JS walked this array through
+/// an `Int32Array` view. Nothing in JS reads it now — the
 /// batch walk is entirely in `SsSkiaDraw` — so the packing is no longer
 /// load-bearing and the fields could take their natural types whenever that
 /// becomes worth doing.

@@ -23,10 +23,10 @@ import {
  * Layer 2 — the internal player: native-handle lifecycle, the root transform,
  * and one draw call per frame.
  *
- * The Phase 0 spike left this layer thin on purpose. Once the batch walk, the geometry
- * bake and the Skia calls all moved into C++ (`docs/phase0-spike.md`), what is
- * left up here is lifetime and placement, not rendering — `draw()` is a canvas
- * transform and a single `drawInto`, whatever the vertex count.
+ * This layer is thin on purpose. With the batch walk, the geometry bake and the
+ * Skia calls all in C++, what is left up here is lifetime and placement, not
+ * rendering — `draw()` is a canvas transform and a single `drawInto`, whatever
+ * the vertex count.
  *
  * **Imports nothing from `react` or `react-native`**, which is what keeps a
  * headless test, a non-React renderer and the react-native-web route

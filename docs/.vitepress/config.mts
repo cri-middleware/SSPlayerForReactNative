@@ -6,13 +6,38 @@ const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 // social card must advertise where the page really lives.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
-// Same shape as SSPlayerForWeb's: English at the root, Japanese under /ja/, and
-// the TypeDoc-generated reference shared by both at /api/ because it is language
-// neutral.
+// Close to SSPlayerForWeb's shelves, with two deliberate divergences.
+//
+// What that site calls "Customize" is "Going further" here, and its pages stay
+// under /usage/. Nothing on that shelf customizes *the package* — this port
+// exposes no custom shaders and no extension points, so the sibling's name would
+// promise a surface that does not exist. It is the same audience as Usage, one
+// step in.
+//
+// And ROADMAP is not in the nav, where the sibling puts it. Three of the four
+// nav entries stay on the site and that one bounced to raw markdown on GitHub;
+// more to the point, it is a contributor's document — vertex ceilings, packaging
+// decisions, a thread-safety note — sitting at the same level as Usage. The
+// reader's version of "what is missing" is /limitations. Individual pages still
+// link ROADMAP where a specific caveat is tracked there, which is sourcing
+// rather than navigation.
+//
+// English only for now; the Japanese locale goes under /ja/ and is a ROADMAP
+// item, with the TypeDoc reference staying shared at /api/ because it is
+// language neutral.
+//
+// Two things to know before adding /ja/. VitePress slugifies a heading through
+// NFKD, which *decomposes* voiced kana — the id for `プリロード` is フ+U+309A…,
+// not the precomposed string you typed, so a hand-written `#プリロード` link
+// silently does not match. Give every linked Japanese heading an explicit ASCII
+// id (`## プリロード {#preloading}`), ideally the same one its English page
+// uses. And VitePress's dead-link check does not look at anchors at all, so
+// nothing catches this at build time.
 //
 // The sidebar is a difficulty gradient rather than a table of contents. Reading
-// top to bottom, the effort rises: install and copy a snippet, then the things a
-// real app needs, then the reference, then what this port cannot do.
+// top to bottom, the effort rises: install and copy a snippet, get one animation
+// playing, then the things a real app needs, then the reference to look names up
+// in, then what to do when it breaks and what this port cannot do at all.
 export default withMermaid({
   title: 'SSPlayerForReactNative',
   description: 'SpriteStudio 7 player for React Native (Nitro Modules + React Native Skia)',
@@ -20,6 +45,7 @@ export default withMermaid({
   cleanUrls: true,
   lang: 'en',
   base: '/SSPlayerForReactNative/',
+
 
   head: [['meta', { property: 'og:site_name', content: 'SSPlayerForReactNative' }]],
 
@@ -55,7 +81,6 @@ export default withMermaid({
           { text: 'Setup', link: '/setup/install' },
           { text: 'Usage', link: '/usage/basic' },
           { text: 'API', link: '/api-guide' },
-          { text: 'ROADMAP', link: `${GITHUB}/blob/main/ROADMAP.md` },
         ],
         sidebar: [
           {
@@ -70,26 +95,38 @@ export default withMermaid({
             text: 'Usage',
             items: [
               { text: 'Basic playback', link: '/usage/basic' },
+              { text: 'Transport', link: '/usage/transport' },
               { text: 'Many animations: a scene', link: '/usage/scene' },
+            ],
+          },
+          {
+            text: 'Going further',
+            items: [
               { text: 'Events & user data', link: '/usage/events' },
               { text: 'Part overrides & following', link: '/usage/parts' },
+              { text: 'Textures & resources', link: '/usage/textures' },
+              { text: 'Reanimated', link: '/usage/reanimated' },
             ],
           },
           {
             text: 'API Reference',
             items: [
               { text: 'Where to start', link: '/api-guide' },
+              { text: 'Components at a glance', link: '/components' },
               { text: 'Generated reference', link: '/api/' },
             ],
           },
           {
-            text: 'Limitations & Scope',
-            items: [{ text: 'Limitations & Scope', link: '/limitations' }],
+            text: 'Troubleshooting & Limits',
+            items: [
+              { text: 'Troubleshooting', link: '/troubleshooting' },
+              { text: 'Limitations & Scope', link: '/limitations' },
+            ],
           },
           {
             text: 'Development',
             items: [
-              { text: 'The measurement behind the design', link: '/phase0-spike' },
+              { text: 'Working from a checkout', link: '/development/from-source' },
               { text: 'Working on this repository', link: `${GITHUB}/blob/main/AGENTS.md` },
             ],
           },

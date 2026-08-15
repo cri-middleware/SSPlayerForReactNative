@@ -44,12 +44,16 @@ Changing a pack means a native build. There is no way around it: the file is an
 app asset, not a bundle entry.
 :::
 
-## Embedded or sibling atlases
+## Reference and Embedded packs
 
-`ssconverter-cli --embedded` puts the atlas inside the `.ssab`. Both routes work
-and the loader picks per texture, with embedded winning:
+The converter emits one of two kinds, and these are the SDK's names for them.
+`ssconverter-cli --embedded` produces an Embedded pack; without the flag you get
+a Reference one.
 
-| | Ships as | Trade |
+| Kind | Ships as | Trade |
 |---|---|---|
-| sibling | `.ssab` + `.png` next to it | one file per texture, shared between packs naming the same cellmap |
-| embedded | one `.ssab` | self-contained; the encoded bytes stay resident for the life of the resource |
+| **Reference** | the `.ssab` plus its `.png` files beside it | one file per texture, shared between packs naming the same cellmap |
+| **Embedded** | one self-contained `.ssab` | nothing to lose in transit; the encoded bytes stay resident for the life of the resource |
+
+Both work here. The loader picks per texture, with Embedded winning, so a pack
+that mixes the two is fine.

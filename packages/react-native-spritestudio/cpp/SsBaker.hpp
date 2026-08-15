@@ -1,6 +1,6 @@
 #pragma once
 
-// Variant (b) of the Phase 0 spike: the per-vertex geometry bake, in C++.
+// The per-vertex geometry bake, in C++.
 //
 // Deliberately free of Nitro and of JSI so `tools/ssbake_check.cpp` can link it
 // on the host and drive it under ASan, where an out-of-bounds walk shows up as a

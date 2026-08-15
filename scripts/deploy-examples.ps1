@@ -37,7 +37,7 @@ $outRoot = Join-Path $rootDir "example/assets/ss"
 #                     whether the render path itself works before any
 #                     character's authoring choices are in the picture.
 #   Ringo           - the character case.
-#   ParticleEffect  - the worst case the Phase 0 measurement is about; design
+#   ParticleEffect  - the worst case for vertex count; design
 #                     doc ch.8 is explicit that the vertex ceiling is set by
 #                     effects, not by characters.
 $projects = @(

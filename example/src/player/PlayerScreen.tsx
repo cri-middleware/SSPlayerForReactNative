@@ -421,8 +421,8 @@ type SubjectName = keyof typeof SUBJECTS
  * character simply was not drawn. It is the check that the features work
  * *together* on real authoring, as opposed to one at a time on a test card.
  *
- * Everything the Phase 0 harness did by hand — the context pool, the picture
- * recording, the frame loop, the root transform — is inside
+ * Everything the retired measurement harness did by hand — the context pool,
+ * the picture recording, the frame loop, the root transform — is inside
  * `<SpriteStudioView>` here. What is left is props.
  *
  */

@@ -29,7 +29,7 @@
 #              else the newest under $ANDROID_HOME/ndk)
 #
 # Measure in release. A debug libssruntime swamps every other cost and flattens
-# the differences a benchmark exists to find (docs/phase0-spike.md).
+# the differences a benchmark exists to find.
 #
 # Prerequisites:
 #   ios     : Xcode, rustup targets aarch64-apple-ios{,-sim} x86_64-apple-ios

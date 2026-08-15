@@ -572,7 +572,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * matrix — an unknown name, or a frame before the first `advance`.
    *
    * Player-local: `rootTransform` still has to be applied to reach the screen,
-   * and `ssProjectPart` is what does that.
+   * and `useSsPartTransform` is what does that.
    */
   getPartTransform(part: string | number): SsPartTransform | null {
     const internal = this.internalPlayer

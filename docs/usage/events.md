@@ -12,11 +12,17 @@ beside it.
 ```tsx
 <SpriteStudioView
   source={SsAssets['overall/UserData']}
-  onUserData={(e) => console.log(e.partName, e.frameIndex, e.integer)}
+  onUserData={(e) => console.log(e.partName, e.frameNo, e.integer)}
   onAudio={(e) => playAudioEvent(e)}
-  onSignal={(e) => console.log(e.commandName, e.params)}
+  onSignal={(e) => console.log(e.commandId, e.params)}
 />
 ```
+
+All three carry `partIndex`, `partName` and `frameNo` — **the frame the key sits
+on, not the frame it was noticed on**. A user-data key's payload is four
+optional slots, each with its own `has…` flag: `integer`, `pointX`/`pointY`,
+`rect` and `text`. Read the flag first; the value beside a false one is
+whatever zero looks like, not an authored zero.
 
 Each is **a read, not a drain**: the runtime rebuilds its list on every
 collection, so calling twice in a tick returns the same events and never calling

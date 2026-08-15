@@ -3,15 +3,8 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
 /**
  * Layer 1 — the JSI seam onto `libssruntime` (the Brain).
  *
- * Phase 0 measured where this boundary belongs rather than assuming it, and the
- * answer moved it down: **Layer 1 owns the drawing**, not just the geometry.
- * The two splits it was measured against — the Brain's SoA buffers lent to JS
- * for a bake in Hermes, and vertices baked in C++ but handed up for
- * `Skia.MakeVertices` — are gone along with the harness that ran them. Both are
- * capped by `MakeVertices` unmarshalling JSI host objects one vertex at a time,
- * so they stayed within 3% of each other at every load and neither came close
- * to `drawInto` (`docs/phase0-spike.md`). What is left is the shipping shape:
- * one draw call per player per frame.
+ * **Layer 1 owns the drawing**, not just the geometry: one draw call per player
+ * per frame, with nothing per-vertex crossing into JS.
  *
  * Lifetime rule: **every ArrayBuffer handed out here is a borrow of native
  * memory that stays valid only until the next `update()`** — AGENTS.md's borrow rule.
@@ -623,9 +616,8 @@ export interface SsContext
    * Bake **and draw** the current frame, entirely in C++.
    *
    * Nothing per-vertex crosses into JS — no `SkPoint` host objects to allocate
-   * and no `MakeVertices` array to unmarshal, which the Phase 0 numbers
-   * (`docs/phase0-spike.md`) identify as the actual cost. JS is left with one
-   * call per player per frame.
+   * and no `MakeVertices` array to unmarshal. JS is left with one call per
+   * player per frame.
    *
    * `textures` resolves each batch's `texture_hash` to the paint it draws with,
    * so a pack with several cellmaps still costs one call and — unlike drawing
