@@ -1,9 +1,14 @@
 ---
 title: Installation
-description: Whether this package fits your app, the two ways to get it, and the build every one of them needs.
+description: Whether this package fits your app, how to install it, and the build it needs.
 ---
 
 # Installation
+
+For adding the player to **your own app** — whether you go on to use nothing but
+`<SpriteStudioView>`, or reach for events, part overrides and custom textures.
+The install is the same either way. To work on the player or the Rust core
+instead, see [Working from a checkout](/development/from-source).
 
 **Every consumer of this package compiles native code.** There is no
 JavaScript-only artifact to drop into a project — no CDN bundle, no prebuilt
@@ -25,17 +30,7 @@ Not supported: **Expo Go** (see step 3), **web** (use
 Windows / tvOS / visionOS. Full detail in
 [Limitations & Scope](/limitations).
 
-## 2. Get the package
-
-There are two routes, and which one is open to you depends on whether the
-package has been published.
-
-### From npm
-
-::: danger Not published yet
-`react-native-spritestudio` is **not on npm**, so this route does not work yet.
-Use the checkout route below until the first release.
-:::
+## 2. Install
 
 ```bash
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
@@ -47,33 +42,15 @@ Reanimated itself requires. `expo install` is used in place of `npm install`
 because it picks versions matching your Expo SDK.
 
 The published tarball **carries the native core with it**, so there is nothing
-further to fetch.
+further to fetch and no Rust toolchain to install.
 
-### From a checkout of this repository
-
-The route that works today. The native core is **not in git**, so a checkout has
-one extra step the npm tarball does not:
-
-```bash
-git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
-cd SSPlayerForReactNative
-git submodule update --init --recursive
-
-npm install
-npm run download-sdk        # fetches the native core — no Rust toolchain needed
-npm run deploy-examples     # converts the sample .sspj files to .ssab
-```
-
-From here the supported thing to run is the repository's own app —
-see [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example).
-Pointing an app *outside* this repository at the workspace package is not
-documented or verified yet.
-
-::: warning A git URL is not a shortcut
+::: warning A git URL is not a substitute
 `npm install github:cri-middleware/…` **cannot work**. Neither the native core
 nor the built `lib/` is tracked in git, so the install produces a package whose
 `main` points at a file that is not there and whose native side has nothing to
-link. Clone it as above instead.
+link. To work from the source tree, see
+[Working from a checkout](/development/from-source) — that is a different job
+from this page, and it needs the repository, not a dependency.
 :::
 
 ## 3. Build your app
