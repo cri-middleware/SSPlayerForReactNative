@@ -2,9 +2,7 @@
 
 React Native **Body** for the SpriteStudio-SDK **Brain**. An npm workspace whose package drives the Rust `libssruntime` over **Nitro Modules (JSI)** and draws through **React Native Skia**. The Brain lives in the `SpriteStudio-SDK/` submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md). `CLAUDE.md` is a symlink to this file.
 
-**Status, scope and what lands when live in [ROADMAP.md](ROADMAP.md)** — this file is the working guide and carries no progress narrative.
-
-**The reasoning behind an invariant lives in the code, at the site it binds.** This file is the index: it says what the rule is and where the argument for it is. The exception is a short list of rules that no file could hold — facts about the build system, about Nitro, about what happens when something is *absent* — and those are written out in full under [Hard constraints](#hard-constraints).
+**Status and what lands when live in [ROADMAP.md](ROADMAP.md)**; this file is the working guide. **The reasoning behind an invariant lives in the code, at the site it binds** — this file is the index, saying what the rule is and where its argument is. The exception is the short list under [Hard constraints](#hard-constraints) that no file could hold: facts about the build system, about Nitro, about what happens when something is *absent*.
 
 ## Operating rules
 
@@ -16,23 +14,20 @@ React Native **Body** for the SpriteStudio-SDK **Brain**. An npm workspace whose
 *   After editing TypeScript, typecheck; after touching `framedata.fbs` or the FrameData read path, run `npm run check-framedata`. See [Verification](#verification).
 *   Fix stale docs in the same turn you notice them (architecture/roadmap drift easily).
 *   **Each fact has one home, and the others link to it.** Anything a *consumer* needs goes in `docs/` — `README.md` is a landing page that points there, and `docs/limitations.md` is the single list of what does and does not draw. Anything a *contributor* needs goes here, in `ROADMAP.md`, or in `docs/development/`. Writing a second copy of a list is how the first one goes stale: the feature list lived in three places and the README's copy spent months calling a shipped feature missing.
-*   **Write for the reader, in the family's words.** State who a page is for before what it does, and give the reason from their side (`your app needs a development build`, not `this package contains native code`). Before coining a term, grep `SpriteStudio-SDK/libs/*/docs` and `../SSPlayerFor*` — a pack is **Reference** or **Embedded**, not "sibling" or "embedded atlas".
+*   **Write for the reader, in the family's words.** State who a page is for before what it does, and give the reason from their side (`your app needs a development build`, not `this package contains native code`). Before coining a term, grep the SDK submodule (`SpriteStudio-SDK/libs/*/docs`) and check the other players at [github.com/cri-middleware](https://github.com/cri-middleware) — a pack is **Reference** or **Embedded**, not "sibling" or "embedded atlas".
 *   **SDK Alignment:** when modifying playback or rendering logic, refer to [`SpriteStudio-SDK/AGENTS.md`](./SpriteStudio-SDK/AGENTS.md) for the Rust runtime's constraints and to `SpriteStudio-SDK/libs/ssruntime/docs/` for the contracts this Player implements — the `DrawBatch` plan, `FrameData`, the part kinds, masks and playback control.
 
 ## Architecture
 
 The Brain loads a `.ssab`, advances time, and emits per-frame **SoA buffers** plus a FlatBuffers **`FrameData`** carrying a **DrawBatch** plan. The Body is a four-layer downward dependency — **L1** Nitro bindings and the C++ that walks the plan, bakes geometry and draws into `SkCanvas`; **L2** `SsInternalPlayer`, native lifetime; **L3** `SpriteStudioPlayer`, transport, events and clock; **L4** the components. Each layer's own header comment says what it is for; `src/index.ts` lists the four in order.
 
-Deliberately not repeated here: what each file does. Directory names and file headers carry it, and a second copy would drift.
-
-| Path | What you would not guess |
+| Path | What you would not guess from the tree |
 |---|---|
 | `src/core/` | **L2, the react-free boundary.** `fit.ts` is the only copy of the placement arithmetic. |
 | `src/index.web.ts`, `src/web/` | The web stub barrel, reached through `package.json` `browser`. **Not web support** — see below. |
 | `cpp/SsRNSkiaInterop.{hpp,cpp}` | **The only place RN Skia's internals are touched.** Everything else uses Skia's public API. |
 | `cpp/format/`, `nitrogen/`, `docs/api/` | Generated. **Committed except `docs/api/`, never hand-edited.** |
 | `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
-| `example/` | The rendering verification surface. Its own `README.md` covers the subjects. |
 | `docs/` | The VitePress site — **user-facing documentation, and where anything a consumer needs belongs.** `.vitepress/config.mts`'s header carries the shelf conventions and the divergences from the sibling players. |
 
 ## Hard constraints
@@ -66,13 +61,11 @@ Deliberately not repeated here: what each file does. Directory names and file he
 
 | Script | Does | When |
 |---|---|---|
-| `download-sdk` | Install the pinned SDK release into `native/`. **No Rust needed.** | Normal setup |
-| `build-runtime` | Build the Brain from the submodule into the same layout. Leaves no version behind — that describes the pinned release, which this is not. Windows: Android slice only. | Changing the Brain |
+| `download-sdk` | Install the release pinned in `scripts/SDK_VERSION.txt` into `native/`. **No Rust needed**, and skips when what is installed already matches. | Normal setup |
+| `build-runtime` | Build the Brain from the submodule into the same layout. Writes no version — that describes the pinned release, which this is not — so it is always replaced, never published, and reports `unknown`. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts` to match. Sources come from the SDK's `tests/` and, optionally, `example/SpriteStudio_Source/` — third-party art this repo does not ship, reported and skipped when absent. | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. Needs `flatc`. | After a schema change |
-
-The pinned tag lives in `scripts/SDK_VERSION.txt`, and `download-sdk` skips when what is installed already matches it. A `build-runtime` install writes no version, so it is always replaced, never published, and reports itself as `unknown`.
 
 ## Verification
 
@@ -89,15 +82,12 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | The docs site builds, and no page link is dead | `npm run docs` (any OS, no Brain needed). **It does not check `#anchors`** — a link to a heading that does not exist still builds green, so verify those by hand. |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
-| iOS build | (in `example/`) `npx expo prebuild --platform ios && npx expo run:ios` |
-| Android build | (in `example/`) `npx expo prebuild --platform android && npx expo run:android` — the prebuild must log `dropped x86 from reactNativeArchitectures` |
+| Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures`. |
 | Asset manifest | `deploy-examples` refreshes it; (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts` to verify. **`--check` calls it stale if you deployed the optional `MaskInstance` sample** — the manifest describes a deployed tree and the committed one is the without-it state. That modification is on purpose; do not commit it. |
 
-**`ssbake_check`'s per-kind lines all have the same contract: zeroes mean the path never ran**, and `parts > 0` with `peak 0` means enumerated-then-never-emitted. Run it over the `example/assets/ss/overall/` card for the kind you touched and compare against the previous run — the absolute counts are asset-dependent, the zeroes are not.
+**Rendering is verified on the example's Player screen** — one feature card per capability, a *Textures* toggle between a **Reference** and an **Embedded** pack, and a **Leak check**. What each subject proves, and the optional `MaskInstance` sample, are in [`example/README.md`](./example/README.md). Read `Mask` and `BlendMode` on **both** platforms: the only platform-specific defect this screen has ever caught was iOS-only.
 
-**An `ss-*` shader that is broken looks exactly like one that was never ported** — `SsShaderEffect` logs a compile failure once and then falls back to the plain textured draw, which is also what a null body does, so the example's Shader card cannot tell them apart and reads as *which ones are done*. `npm run check-shader` is what can: it compiles each body through the real `SsShaderEffect` and pins the arithmetic against the SS6 source the body cites. **Port a body and its row in `ssshader_check.cpp` together**, or the next reader has no way to know the port was right.
-
-**Rendering is verified on the example's Player screen**, whose *Subject* dropdown is one feature card each — `Basic`, `BlendMode`, `PartsColor`, `Mask`, `Mesh`, `Shape`, `Shader`, `Effect`, `Instance`, `UserData`, `Sound`, `Signal` — plus `Ringo` (a real character, the features composing), `RingoInstances` (that cast mounted as instance parts), `MaskInstance` (a mask crossing into an instance child, §2-6/§3-2-2 — **optional**, its source is third-party sample art this repo does not ship; see [`example/README.md`](./example/README.md)) and `ParticleEffect` (the heaviest packs). Each card is built so a failure names itself; the *Textures* toggle switches between a **Reference** pack and an **Embedded** one (the SDK's names for the two, and the words to use), and **Leak check** runs 8 load/dispose cycles against `liveHandles`, then 8 loads into **one** player against the texture registry — the reload path handle counts cannot see. Read `Mask` and `BlendMode` on **both** platforms — the only platform-specific defect this screen has ever caught was iOS-only.
+**Two host checks report a clean bill when they did nothing, and each says so in its own header.** `ssbake_check` — zeroes mean the path never ran. `ssshader_check` — a broken `ss-*` body and an unported one look identical on screen, so **port a body and its row in `ssshader_check.cpp` together**.
 
 ## Workspace conventions
 
