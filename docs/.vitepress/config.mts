@@ -6,8 +6,12 @@ const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 // social card must advertise where the page really lives.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
-// Sections match SSPlayerForWeb's — Setup / Usage / API / Customize / limits /
-// Development — so a reader moving between the players finds the same shelves.
+// Close to SSPlayerForWeb's shelves, with one deliberate divergence: what that
+// site calls "Customize" is "Going further" here, and its pages stay under
+// /usage/. Nothing on that shelf customizes *the package* — this port exposes no
+// custom shaders and no extension points, so the sibling's name would promise a
+// surface that does not exist. It is the same audience as Usage, one step in.
+//
 // English only for now; the Japanese locale goes under /ja/ and is a ROADMAP
 // item, with the TypeDoc reference staying shared at /api/ because it is
 // language neutral.
@@ -21,9 +25,9 @@ const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 // nothing catches this at build time.
 //
 // The sidebar is a difficulty gradient rather than a table of contents. Reading
-// top to bottom, the effort rises: install and copy a snippet, then get one
-// animation playing, then the reference, then the things a real app needs, then
-// what to do when it breaks and what this port cannot do at all.
+// top to bottom, the effort rises: install and copy a snippet, get one animation
+// playing, then the things a real app needs, then the reference to look names up
+// in, then what to do when it breaks and what this port cannot do at all.
 export default withMermaid({
   title: 'SSPlayerForReactNative',
   description: 'SpriteStudio 7 player for React Native (Nitro Modules + React Native Skia)',
@@ -67,7 +71,6 @@ export default withMermaid({
           { text: 'Setup', link: '/setup/install' },
           { text: 'Usage', link: '/usage/basic' },
           { text: 'API', link: '/api-guide' },
-          { text: 'Customize', link: '/customize/events' },
           { text: 'ROADMAP', link: `${GITHUB}/blob/main/ROADMAP.md` },
         ],
         sidebar: [
@@ -88,18 +91,20 @@ export default withMermaid({
             ],
           },
           {
-            text: 'API Reference',
+            text: 'Going further',
             items: [
-              { text: 'Where to start', link: '/api-guide' },
-              { text: 'Generated reference', link: '/api/' },
+              { text: 'Events & user data', link: '/usage/events' },
+              { text: 'Part overrides & following', link: '/usage/parts' },
+              { text: 'Textures & resources', link: '/usage/textures' },
+              { text: 'Reanimated', link: '/usage/reanimated' },
             ],
           },
           {
-            text: 'Customize',
+            text: 'API Reference',
             items: [
-              { text: 'Events & user data', link: '/customize/events' },
-              { text: 'Part overrides & following', link: '/customize/parts' },
-              { text: 'Textures & resources', link: '/customize/textures' },
+              { text: 'Where to start', link: '/api-guide' },
+              { text: 'Components at a glance', link: '/components' },
+              { text: 'Generated reference', link: '/api/' },
             ],
           },
           {
