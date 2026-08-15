@@ -1,0 +1,132 @@
+---
+title: チェックアウトから動かす
+description: リポジトリを動かす — ネイティブコア、サンプルパック、そしてサンプルアプリ。
+---
+
+# チェックアウトから動かす
+
+**SDK / プレイヤー開発者向け**です。このパッケージを変更する人、その下の Rust コアを
+変更する人、あるいは npm リリース前にプレイヤーを動かして見たい人が対象です。
+
+自分のアプリでパッケージを*使う*だけなら、必要なのは[インストール](/ja/setup/install)の
+方です。このページの内容はそこには一切含まれません。
+
+## clone する
+
+```bash
+git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
+cd SSPlayerForReactNative
+git submodule update --init --recursive
+npm install
+```
+
+submodule は `SpriteStudio-SDK/` — リポジトリ全体で **Brain** と呼んでいる Rust コアです。
+npm workspaces を使っており、pnpm は意図的に避けています。isolated な node_modules 配置は
+Metro・CMake・podspec のパス解決を壊すためです。
+
+## clone した中身
+
+```
+SSPlayerForReactNative/
+├── SpriteStudio-SDK/                   <- [submodule] Rust コア（「Brain」）
+├── scripts/                            <- .js シム -> ホスト OS ごとの .sh / .ps1
+│   ├── SDK_VERSION.txt                 <- 固定された SDK リリースタグ
+│   ├── download-sdk.*                  <- 固定リリースをインストール（Rust 不要）
+│   ├── build-runtime.*                 <- 代わりに submodule から Brain をビルド
+│   ├── deploy-examples.*               <- SDK のテストプロジェクトを .ssab に変換
+│   ├── generate-nitro-code.*           <- レイヤー 1 の spec に nitrogen を実行
+│   └── generate-fbs-code.*             <- .fbs スキーマに flatc を実行
+├── packages/react-native-spritestudio/ <- npm パッケージ
+│   ├── src/specs/SsRuntime.nitro.ts    <- レイヤー 1 の spec（nitrogen の入力）
+│   ├── src/core/ src/player/ src/view/ <- レイヤー 2・3・4
+│   ├── cpp/                            <- Nitro 実装、ベイカー、Skia 描画パス
+│   ├── plugin/                         <- Expo config plugin: パックディレクトリを同梱
+│   ├── bin/                            <- npx react-native-spritestudio assets
+│   ├── nitrogen/                       <- [生成物・コミット対象・手で編集しない]
+│   └── native/                         <- [gitignore] libssruntime とヘッダ
+├── example/                            <- Expo アプリ: プレイヤー画面
+├── tools/                              <- ホスト側チェック（FrameData、ベイカー、マスク、hidden、シェーダー）
+└── docs/                               <- このサイト
+```
+
+`AGENTS.md` が同じ範囲を表の形で持っており、各パスの役割とそれに伴う不変条件が
+書かれています。
+
+## Brain を用意する
+
+`native/` は gitignore 対象なので、clone 直後にはネイティブコアが一切ありません。
+
+```bash
+npm run download-sdk
+```
+
+`scripts/SDK_VERSION.txt` で固定されたリリースをインストールします。**Rust ツールチェーン
+は不要**です。既にインストール済みのものが固定内容と一致していれば処理を飛ばすので、
+再実行しても安全です。
+
+**Brain 自体を変更するときにだけ**もう一方が必要になります。
+
+```bash
+npm run build-runtime -- build=release
+```
+
+`build-runtime` は `SpriteStudio-SDK/` submodule から同じレイアウトへビルドし、
+`<tag>+submodule-<sha>` と刻印するので両者が混同されることはありません。Rust が必要です。
+Windows では Android スライスのみを対象とします（iOS の xcframework には Xcode が必要）
+ので、そこでの完全な答えは `download-sdk` です。
+
+どちらのスクリプトも `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを
+指す `$SSSDK` を尊重します。
+
+```bash
+npm run build-runtime -- platform=ios build=release
+npm run download-sdk -- --force
+```
+
+::: warning 計測の前に release でビルドしてください
+`build=debug` の Brain は他のすべてのコストを覆い隠し、ベンチマークが見つけようとしている
+差を平坦にします。実際にここで誤った結論を生んだことがあります。
+
+2 つのインストールは意図的に区別されています。`download-sdk` は `native/VERSION` と
+`native/BUILD_MODE` を書き、`build-runtime` はどちらも書かず後者を削除します。これにより
+`prepack` が、ローカルビルドや debug ビルドの Brain に対して作られた tarball の公開を
+拒否できます。
+:::
+
+## サンプルパックを変換する
+
+```bash
+npm run deploy-examples
+```
+
+サンプルアプリ向けに `.sspj` → `.ssab` を、`ssconverter-cli` 経由で行います（Rust が必要）。
+併せて `example/src/ss-assets.ts` — サンプルのサブジェクト一覧が読まれる生成マニフェスト —
+も更新します。
+
+素材は SDK 自身の `tests/` と、任意で `example/SpriteStudio_Source/` から取られます。
+後者はこのリポジトリが同梱しないサードパーティ素材で、無い場合は報告のうえスキップされます。
+
+## サンプルを動かす
+
+```bash
+cd example
+npx expo prebuild --platform ios
+npx expo run:ios        # または --platform android && npx expo run:android
+```
+
+サンプルアプリは描画の検証面です — 1 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが
+何を証明するか、および任意の `MaskInstance` サンプルについては
+[`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example)
+が扱います。
+
+## チェック
+
+| 対象 | コマンド |
+|---|---|
+| 型チェック（パッケージ + サンプル） | `npm run typecheck` |
+| FlatBuffers アクセサが最新かつ読み取りパスが健全（`flatc` が必要） | `npm run check-framedata` |
+| マスク描画、およびインスタンスの子へまたがるマスク（macOS） | `npm run check-mask` |
+| 描画プランから外れている間もインスタンススロットが進み続けること | `npm run check-hidden` |
+| `ss-*` シェーダーがコンパイルでき、その演算が正しいこと（macOS） | `npm run check-shader` |
+| web スタブバレルが import 可能で throw すること（OS 不問、Brain 不要） | `npm run check-web-barrel` |
+| Nitro のコード生成が最新であること | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
