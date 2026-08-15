@@ -1,3 +1,5 @@
+[**English**](./README.md) | [**日本語**](./README.ja.md)
+
 # SpriteStudio Player for React Native
 
 **Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
@@ -24,15 +26,20 @@ A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/sprite
 ## 🚧 Status
 
 **Draws today, on both platforms:** **Normal, Mesh, Shape, Instance and Effect**
-parts, **mask and clipping** (on Normal and Shape targets — see below), the full framebuffer **blend table** and
-**PartColor** — plus the **override layer** (colour / cell / visibility),
+parts, **mask and clipping** (on Normal and Shape targets — see below, and
+including a mask that crosses into an Instance child), the full framebuffer
+**blend table**, **PartColor** and the thirteen **`ss-*` integration shaders** —
+plus the **override layer** (colour / cell / visibility),
 **user-data, audio and signal events**, the **animation lifecycle** callbacks
 (start / change / loop / complete), `fit`/`align` placement, the resource and
-atlas caches, `<SpriteStudioScene>` and the Expo config plugin.
+atlas caches, `<SpriteStudioScene>`, the Expo config plugin and the typed asset
+manifest.
 
 **Not yet:** **Nines and Text** parts; **masked Mesh and masked Effect**, which
-both draw *unmasked* today; a **mask reaching into an Instance child**; the
-**Instance part's own PartColor**, which the older players apply as a
+both draw *unmasked* today; **a child's own mask writers while a caller's mask
+reaches into it** — the caller's coverage is handed down and the child's own
+writers then write nothing for that frame; the
+**Instance part's own PartColor**, which both reference ports apply as a
 whole-subtree tint; and the
 **Reanimated tick**, where part transforms already publish as a shared value but
 the frame loop is still `requestAnimationFrame` on the JS thread.
@@ -51,7 +58,6 @@ is the reference wiring, with `expo-audio` as the *example's* dependency.
 
 This README stays the short version; the files below cover the rest.
 
-- [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
 - [**AGENTS.md**](AGENTS.md) — the working guide: architecture, invariants, **hard constraints**, verification. Start here before changing anything.
 - [**ROADMAP.md**](ROADMAP.md) — phases, exit criteria, deliberate non-goals
 - [**docs/phase0-spike.md**](docs/phase0-spike.md) — the measurement that shaped the architecture, its method and its pitfalls
@@ -247,8 +253,9 @@ SSPlayerForReactNative/
 │   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
 │   └── native/                         <- [gitignored] libssruntime + headers
 ├── example/                            <- Expo app: the player screen
-├── tools/                              <- host-side checks (FrameData, baker, mask)
-└── docs/phase0-spike.md                <- the measurement
+├── tools/                              <- host-side checks (FrameData, baker, mask, hidden, shader)
+└── docs/                               <- the VitePress site
+    └── phase0-spike.md                 <- the measurement
 ```
 
 ### Building the Brain
@@ -280,7 +287,10 @@ npm run deploy-examples -- --embedded
 |---|---|
 | Typecheck (package + example) | `npm run typecheck` |
 | FlatBuffers accessors current + read path sound (needs `flatc`) | `npm run check-framedata` |
-| Mask drawing, through the real shaders (macOS) | `npm run check-mask` |
+| Mask drawing, and a mask crossing into an instance child (macOS) | `npm run check-mask` |
+| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
+| The `ss-*` shaders compile, and their arithmetic (macOS) | `npm run check-shader` |
+| The web stub barrel imports clean, matches `index.ts` and throws (any OS, no Brain) | `npm run check-web-barrel` |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 
 [AGENTS.md](AGENTS.md) carries the rest: the four-layer architecture, the

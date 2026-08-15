@@ -70,9 +70,12 @@ export default withMermaid({
             text: 'Usage',
             items: [
               { text: 'Basic playback', link: '/usage/basic' },
+              { text: 'Transport', link: '/usage/transport' },
               { text: 'Many animations: a scene', link: '/usage/scene' },
               { text: 'Events & user data', link: '/usage/events' },
               { text: 'Part overrides & following', link: '/usage/parts' },
+              { text: 'Textures & resources', link: '/usage/textures' },
+              { text: 'Troubleshooting', link: '/usage/troubleshooting' },
             ],
           },
           {
