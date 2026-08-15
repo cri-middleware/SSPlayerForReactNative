@@ -22,17 +22,15 @@ const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 // link ROADMAP where a specific caveat is tracked there, which is sourcing
 // rather than navigation.
 //
-// English only for now; the Japanese locale goes under /ja/ and is a ROADMAP
-// item, with the TypeDoc reference staying shared at /api/ because it is
-// language neutral.
+// English at the root, Japanese under /ja/, and the TypeDoc reference shared by
+// both at /api/ because it is language neutral.
 //
-// Two things to know before adding /ja/. VitePress slugifies a heading through
-// NFKD, which *decomposes* voiced kana — the id for `プリロード` is フ+U+309A…,
-// not the precomposed string you typed, so a hand-written `#プリロード` link
-// silently does not match. Give every linked Japanese heading an explicit ASCII
-// id (`## プリロード {#preloading}`), ideally the same one its English page
-// uses. And VitePress's dead-link check does not look at anchors at all, so
-// nothing catches this at build time.
+// **Every linked Japanese heading carries an explicit ASCII id**, the same one
+// its English page uses — `## プリロード {#preloading}`. This is not a style
+// choice. VitePress slugifies through NFKD, which *decomposes* voiced kana, so
+// the id it emits for `プリロード` starts フ+U+309A… and a hand-written
+// `#プリロード` never matches the heading it points at. Nothing catches it
+// either: VitePress's dead-link check does not look at anchors at all.
 //
 // The sidebar is a difficulty gradient rather than a table of contents. Reading
 // top to bottom, the effort rises: install and copy a snippet, get one animation
@@ -128,6 +126,73 @@ export default withMermaid({
             items: [
               { text: 'Working from a checkout', link: '/development/from-source' },
               { text: 'Working on this repository', link: `${GITHUB}/blob/main/AGENTS.md` },
+            ],
+          },
+        ],
+      },
+    },
+
+    ja: {
+      label: '日本語',
+      lang: 'ja',
+      link: '/ja/',
+      // Without this every ja page inherits the top-level English description
+      // into its <meta> and Open Graph tags.
+      description: 'SpriteStudio 7 のアニメーションを React Native で再生するプレイヤー（Nitro Modules + React Native Skia）',
+      themeConfig: {
+        outline: { level: [2, 3], label: '目次' },
+        nav: [
+          { text: 'はじめに', link: '/ja/setup/install' },
+          { text: '使い方', link: '/ja/usage/basic' },
+          { text: 'API', link: '/ja/api-guide' },
+        ],
+        sidebar: [
+          {
+            text: 'はじめに',
+            items: [
+              { text: 'インストール', link: '/ja/setup/install' },
+              { text: 'クイックスタート', link: '/ja/setup/quickstart' },
+              { text: 'アセットの準備（.sspj → .ssab）', link: '/ja/setup/assets' },
+            ],
+          },
+          {
+            text: '使い方',
+            items: [
+              { text: '基本的な再生', link: '/ja/usage/basic' },
+              { text: '再生の制御', link: '/ja/usage/transport' },
+              { text: '複数アニメーション: シーン', link: '/ja/usage/scene' },
+            ],
+          },
+          {
+            text: 'さらに進む',
+            items: [
+              { text: 'イベントとユーザーデータ', link: '/ja/usage/events' },
+              { text: 'パーツの上書きと追従', link: '/ja/usage/parts' },
+              { text: 'テクスチャとリソース', link: '/ja/usage/textures' },
+              { text: 'Reanimated', link: '/ja/usage/reanimated' },
+            ],
+          },
+          {
+            text: 'API リファレンス',
+            items: [
+              { text: 'どこから見るか', link: '/ja/api-guide' },
+              { text: 'コンポーネント早見', link: '/ja/components' },
+              // Language-neutral, so both locales share the one TypeDoc build.
+              { text: '生成リファレンス', link: '/api/' },
+            ],
+          },
+          {
+            text: '困ったときと制約',
+            items: [
+              { text: 'トラブルシューティング', link: '/ja/troubleshooting' },
+              { text: '制約と適用範囲', link: '/ja/limitations' },
+            ],
+          },
+          {
+            text: '開発',
+            items: [
+              { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
+              { text: 'このリポジトリで作業する', link: `${GITHUB}/blob/main/AGENTS.md` },
             ],
           },
         ],

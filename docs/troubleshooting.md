@@ -69,9 +69,9 @@ player.lastTextureReport?.unresolved   // ['characters/effects.png']
 
 The fix is almost always that the `.png` did not travel next to the `.ssab`.
 Every `image_path` resolves **relative to the `.ssab`**, so the converter's
-whole output directory has to reach the device intact. Converting with
-Converting to an **Embedded** pack (`--embedded`) sidesteps it by putting the
-atlas inside the file.
+whole output directory has to reach the device intact. Converting to an
+**Embedded** pack (`--embedded`) sidesteps it by putting the atlas inside the
+file.
 
 ## An Instance part's child is missing
 
