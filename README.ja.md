@@ -4,7 +4,7 @@
 
 **アーティストが作った 2D アニメーションを React Native アプリへ — コンポーネント 1 つ、アニメーションのコードなし、動画ファイルなし。**
 
-▶️ **[サンプルアプリを動かす](#動作確認)** — SDK のサンプルアニメーションが、実際の API を通して iOS と Android で動きます。
+▶️ **[サンプルアプリを動かす](example/README.md)** — SDK のサンプルアニメーションが、実際の API を通して iOS と Android で動きます。
 
 **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio 7 はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
 
@@ -32,24 +32,22 @@
 奥、C++ 側にあるので、*何が描かれるか*を変えるならオプションを渡すのではなくパッケージ
 自体に手を入れることになります。
 
-自分の目的に必要なところまで読めば十分です。
+**アプリで使う場合**は下の[クイックスタート](#-クイックスタート)、その後はドキュメント
+サイトへ。最初の 1 体も、その先（イベント、パーツ上書き、テクスチャ差し替え）も、
+同じ読者層の深さ違いであって別の層ではありません。
 
-| やりたいこと | 読む場所 |
-|---|---|
-| アプリでアニメーションを再生する | [クイックスタート](#-1-クイックスタート) |
-| タイムラインに反応する、パーツを上書きする、シーン全体を配置する | 上記 + [さらに進む](#さらに進む) |
-| プレイヤーや、その下の Rust コアを変更する | 上記 + [フルビルド環境](#-2-フルビルド環境) + [AGENTS.md](AGENTS.md) |
-
-上 2 行は同じ読者層の深さ違いです。どちらも公開パッケージを普通に使う立場であり、
-3 行目のものは何ひとつ必要としません。
+**プレイヤー自体や、その下の Rust コアを変更する場合**は、まず
+[チェックアウトから動かす](docs/development/from-source.md)でリポジトリを動かし、
+検証用アプリについては [`example/README.md`](example/README.md)、変更前に読む作業ガイド
+が [AGENTS.md](AGENTS.md) です。何がいつ入るかは [ROADMAP.md](ROADMAP.md)。
 
 ---
 
-## 🚀 1. クイックスタート
+## 🚀 クイックスタート
 
-### セットアップ
+### インストール
 
-> 🚧 パッケージは**まだ npm に公開されていません** — この手順は初回リリース後に使えるようになります。それまでは[動作確認](#動作確認)でローカルに試してください。
+> 🚧 パッケージは**まだ npm に公開されていません** — この手順は初回リリース後に使えるようになります。それまでは[チェックアウトから動かす](docs/development/from-source.md)を参照してください。
 
 ```bash
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
@@ -113,98 +111,6 @@ export function Character() {
 | トランスポートを命令的に操作する | ref の `player` — レイヤー 3 の `SpriteStudioPlayer` |
 
 どれが使えるかは `.ssab` が決めます。この移植版が対応するパーツ種別とキーは追加の配線なしですべて扱われます — 一覧は [docs/limitations.md](docs/limitations.md) にあります。
-
-## ⚙ 2. フルビルド環境
-
-SDK / プレイヤー開発者向け — プレイヤー自体、または Rust コア（「Brain」）に手を入れる場合です。
-
-### 動作確認
-
-サンプルアプリを実行すると、プレイヤーが端から端まで動くのを確認できます。**Rust ツールチェーンは不要です** — `download-sdk` が固定された SDK リリースからビルド済みのネイティブコアを取得します。各エントリポイントはホスト OS に応じて `.sh` か `.ps1` に振り分ける `.js` シムなので、macOS・Linux・Windows のいずれでも動作します。
-
-```bash
-git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
-cd SSPlayerForReactNative
-git submodule update --init --recursive
-
-npm install
-npm run download-sdk        # ネイティブコア（固定された SDK リリースから）
-npm run deploy-examples     # サンプルアプリ用に .sspj -> .ssab
-
-cd example
-npx expo prebuild --platform ios
-npx expo run:ios            # または: npx expo prebuild --platform android && npx expo run:android
-```
-
-サンプルは 1 画面です。**Subject** で機能カード（`Basic`、`BlendMode`、`PartsColor`、`Mask`、`Mesh`、`Shape`、`Shader`、`Effect`、`Instance`、`UserData`、`Sound`、`Signal`）、実在のキャラクター（`Ringo`、および同じキャストをインスタンスパーツとしてマウントした `RingoInstances`）、SDK の 40 パックからなるパーティクルショーケース（`ParticleEffect`）を選びます。**Pack file** はサブジェクトが複数の `.ssab` を持つときに現れ、**Animation** は読み込んだパックから取得されます。**Textures** トグルは **Embedded** パックと **Reference** パックを切り替えるので、両方のテクスチャ経路を 1 か所で確認できます。ステージの下の表示は、発火したタイムラインキーと、ネイティブハンドルの現在数を示します。
-
-各サブジェクトは `deploy-examples` が実際に生成したものから来ています — 一覧は生成されたマニフェストから読まれるので、変換されなかったパックは、何も読み込まないカードを残すのではなく画面から消えます。
-
-### オプションのサブジェクト MaskInstance
-
-上の一覧に含まれないサブジェクトが 1 つあります。その元データが**このリポジトリに含まれない**ためです — `MaskInstance`、ステージをマスクし、キャラクターをインスタンスパーツとしてマウントする 3 つのシーンです。マスクがインスタンスの子へまたがる状況を実際に踏む唯一のアセットで（SDK 自身のサンプルはマスクとインスタンスパーツを別ファイルに分けています）、`npm run check-mask` の 4 番目のチェックが対象とするものです。これが無い場合、そのチェックは自身をスキップとして報告します。
-
-サードパーティのサンプル素材であり、再配布の許諾は当方にありません。追加するには、[SpriteStudio のサイト](https://www.webtech.co.jp/spritestudio/)から **OPTPiX SpriteStudio Basic Samples** をダウンロードし、その `Mask` プロジェクトを次の場所にコピーしてください。
-
-```
-example/SpriteStudio_Source/Mask/        <- Mask.sspj とその隣にあるすべて
-```
-
-あとは `npm run deploy-examples` が拾います — マニフェストも自身で更新するので、次のリロードでサブジェクトが現れます。そのマニフェストは**オプションのパックを含まない**状態でコミットされているため、追加すると `example/src/ss-assets.ts` が意図的に変更された状態になります。コミットしないでください。`assets --check` が「古い」と判定するのも同じ理由です。
-
-### リポジトリ構成
-
-```
-SSPlayerForReactNative/
-├── SpriteStudio-SDK/                   <- [submodule] Rust コア（「Brain」）
-├── scripts/                            <- .js シム -> ホスト OS ごとの .sh / .ps1
-│   ├── SDK_VERSION.txt                 <- 固定された SDK リリースタグ
-│   ├── download-sdk.*                  <- 固定リリースをインストール（Rust 不要）
-│   ├── build-runtime.*                 <- 代わりに submodule から Brain をビルド
-│   ├── deploy-examples.*               <- SDK のテストプロジェクトを .ssab に変換
-│   ├── generate-nitro-code.*           <- レイヤー 1 の spec に nitrogen を実行
-│   └── generate-fbs-code.*             <- .fbs スキーマに flatc を実行
-├── packages/react-native-spritestudio/ <- npm パッケージ
-│   ├── src/specs/SsRuntime.nitro.ts    <- レイヤー 1 の spec（nitrogen の入力）
-│   ├── src/core/ src/player/ src/view/ <- レイヤー 2・3・4
-│   ├── cpp/                            <- Nitro 実装、ベイカー、Skia 描画パス
-│   ├── plugin/                         <- Expo config plugin: パックディレクトリを同梱
-│   ├── bin/                            <- npx react-native-spritestudio assets
-│   ├── nitrogen/                       <- [生成物・コミット対象・手で編集しない]
-│   └── native/                         <- [gitignore] libssruntime とヘッダ
-├── example/                            <- Expo アプリ: プレイヤー画面
-├── tools/                              <- ホスト側チェック（FrameData、ベイカー、マスク、hidden、シェーダー）
-└── docs/                               <- VitePress サイト
-```
-
-### Brain のビルド
-
-`download-sdk` に **Rust ツールチェーンは不要**です。`build-runtime` を使うのは Brain 自体を変更しているときだけにしてください — submodule から同じレイアウトへビルドし、`<tag>+submodule-<sha>` と刻印されるので両者が混同されることはありません。Windows では Android スライスのみを対象とします（iOS の xcframework には Xcode が必要）。Windows での完全な答えは `download-sdk` です。
-
-各スクリプトは `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを指す `$SSSDK` を尊重します。これは各兄弟プレイヤーと同じ作法です。
-
-```bash
-npm run build-runtime -- platform=ios build=release
-npm run download-sdk -- --force
-npm run deploy-examples -- --embedded
-```
-
-> [!IMPORTANT]
-> **計測の前に Brain を release でビルドしてください。** `build=debug` の `libssruntime` は他のすべてのコストを覆い隠し、ベンチマークが見つけようとしている差を平坦にしてしまいます — spike の最中に実際に 1 つ誤った結論を生みました。
-
-### チェック
-
-| チェック | コマンド |
-|---|---|
-| 型チェック（パッケージ + サンプル） | `npm run typecheck` |
-| FlatBuffers アクセサが最新かつ読み取りパスが健全（`flatc` が必要） | `npm run check-framedata` |
-| マスク描画、およびインスタンスの子へまたがるマスク（macOS） | `npm run check-mask` |
-| 描画プランから外れている間もインスタンススロットが進み続けること | `npm run check-hidden` |
-| `ss-*` シェーダーがコンパイルでき、その演算が正しいこと（macOS） | `npm run check-shader` |
-| web スタブバレルが import 可能・`index.ts` と一致・throw すること（OS 不問、Brain 不要） | `npm run check-web-barrel` |
-| Nitro のコード生成が最新であること | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
-
-残りは [AGENTS.md](AGENTS.md) が扱います。4 層アーキテクチャ、**ハード制約**（`update()` のデルタがミリ秒であること、`ss_runtime_pause` がトグルであることなど、痛い目を見て学んだもの）、そしてどのサンプルサブジェクトが何を証明するかを示す機能別の検証表です。
 
 ## 📋 要件
 
