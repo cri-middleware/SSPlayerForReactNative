@@ -74,6 +74,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Task | Command |
 |---|---|
 | Typecheck (package + example) | `npm run typecheck` |
+| The package compiles to `lib/` | `npm run build` (any OS) — `bob build`, the step `prepack` runs before publishing. |
 | FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Mask drawing, and a mask crossing into an instance child | `npm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample. |
 | Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
