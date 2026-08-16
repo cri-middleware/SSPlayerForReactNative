@@ -38,14 +38,24 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Its own step, rather than left to build-pages.sh below (which is why that
+      # is invoked with install=no), so a dependency failure is legible as one in
+      # the run summary.
       - name: Install
         run: npm ci
 
-      - name: Build the site
-        # `typedoc && vitepress build`. TypeDoc fails the build on an error, and
-        # VitePress fails on a dead link, so a page that points at a heading
-        # somebody renamed does not reach the site.
-        run: npm run docs
+      - name: Build the Pages tree
+        # scripts/build-pages.sh — the same script a contributor runs locally, so
+        # CI and a local build cannot drift. It is `typedoc && vitepress build`:
+        # TypeDoc fails the build on an error, and VitePress fails on a dead link,
+        # so a page that points at a heading somebody renamed does not reach the
+        # site. Both locales come out of the one build; VitePress resolves docs/ja
+        # itself.
+        #
+        # Every option is spelled out rather than left to the script's defaults:
+        # they are chosen for a working tree, and a publish should not change
+        # because one of them did.
+        run: ./scripts/build-pages.sh install=no api=yes serve=no
 
       - name: Upload
         uses: actions/upload-pages-artifact@v5
