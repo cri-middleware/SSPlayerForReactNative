@@ -61,7 +61,7 @@ echo "    up to date with $(basename "$SDK_DIR")'s schemas"
 echo "==> building host libssruntime"
 # ssruntime is no_std by default; the same two features the SDK's own
 # release-*.sh pass are what supply the allocator and the panic handler.
-( cd "$SDK_DIR" && cargo build -q -p ssruntime --features libc_alloc,panic-handler )
+( cd "$SDK_DIR" && cargo build -q -p ssruntime-ffi --features libc_alloc,panic-handler )
 
 echo "==> compiling ssbake_check"
 # `native/include` is cbindgen's `ssruntime.h`: the effect slots are a C-API
