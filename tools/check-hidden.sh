@@ -33,7 +33,7 @@ NATIVE_INCLUDE="$PKG_DIR/native/include"
 mkdir -p "$BUILD_DIR"
 
 echo "==> building host libssruntime"
-( cd "$SDK_DIR" && cargo build -q -p ssruntime --features libc_alloc,panic-handler )
+( cd "$SDK_DIR" && cargo build -q -p ssruntime-ffi --features libc_alloc,panic-handler )
 
 echo "==> compiling sshidden_check"
 # The vendored flatbuffers headers rather than brew's: this reads FrameData

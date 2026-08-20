@@ -33,7 +33,7 @@ SKIA_LIB="$RNSKIA/libs/macos/libskia.xcframework/macos-arm64_x86_64/libskia.a"
 mkdir -p "$BUILD_DIR"
 
 echo "==> building host libssruntime"
-( cd "$SDK_DIR" && cargo build -q -p ssruntime --features libc_alloc,panic-handler )
+( cd "$SDK_DIR" && cargo build -q -p ssruntime-ffi --features libc_alloc,panic-handler )
 
 echo "==> compiling ssmask_check"
 # SSPLAYER_ENABLE_SKIA_DIRECT=1 so the guarded draw path is the one under test —
