@@ -25,10 +25,12 @@ producing a native build of your app that contains it. Both halves are below.
 | iOS | 15.1+ |
 | Android | API 24+ |
 
-Not supported: **Expo Go** (see step 3), **web** (use
-[SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) instead), and
-Windows / tvOS / visionOS. Full detail in
-[Limitations & Scope](/limitations).
+Not supported: **Expo Go** (see step 3) and Windows / tvOS / visionOS.
+
+**On web nothing draws** — but adding this package does not break a web build,
+so an app shipping web as well as native is fine. For SpriteStudio on the web
+use [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) instead.
+Full detail in [Limitations & Scope](/limitations).
 
 ## 2. Install
 

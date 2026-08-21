@@ -40,6 +40,7 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
 | | |
 |---|---|
 | iOS / Android | supported |
+| web | **nothing draws** — but installing the package does not break a web build: the web entry is a stub, so an app shipping both halves still bundles, and only rendering a player there throws. [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) is SpriteStudio on the web. |
 | macOS | may simply work — RN Skia and Nitro both support it. Not in CI, not guaranteed. |
 | tvOS / visionOS | blocked on the runtime: the Rust targets are Tier 3 and the SDK's XCFramework has no slices. |
 | Windows | no route — neither Nitro nor RN Skia supports react-native-windows. |

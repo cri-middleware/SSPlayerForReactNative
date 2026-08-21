@@ -92,7 +92,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 
 ## Workspace conventions
 
-*   npm workspaces; **not** pnpm — isolated layouts break Metro, CMake and podspec path resolution.
+*   npm workspaces; **not** pnpm — isolated layouts break Metro, CMake and podspec path resolution. It also settles a question that keeps coming back: **SSPlayerForWeb cannot be vendored in**, its packages being a pnpm workspace npm refuses to install — [ROADMAP.md](ROADMAP.md#surroundings).
 *   Every toolchain script is a `.js` shim over a `.sh` + `.ps1` pair, so naming a `.sh` in `package.json` would shut Windows contributors out.
 *   `.gitignore` carries a NuGet rule (`**/[Pp]ackages/*`) from the shared gibo template that would swallow the whole workspace; the `### SSPlayerForReactNative ###` section at the bottom undoes it. Re-append it if the template is ever regenerated.
 *   `SsPlayerPackage.kt` is read by an autolinking **regex over the whole file, first match wins** — prose naming a type and `ReactPackage` in the wrong order gets instantiated as a class name.

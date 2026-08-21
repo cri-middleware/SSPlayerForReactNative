@@ -160,18 +160,19 @@ why.
 
 ### Web
 
-**This package does not play animations on web**, and for SpriteStudio on the
-web the answer is [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb)
+**Adding this package does not break your web build.** Importing
+`react-native-spritestudio` under react-native-web is safe and that bundle
+builds, because the entry point web resolves is a *stub* — carried for the app
+that ships web **as well as** native and plays SpriteStudio only on the native
+half. The placement arithmetic, the path helpers and the vocabulary enums are
+the real implementations on both platforms; only the parts that need Skia or the
+native runtime are stubbed, and rendering a player on web throws an error naming
+this package.
+
+**What it does not do is play animations on web.** For SpriteStudio on the web
+the answer is [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb)
 — `@spritestudio/ssplayer-webgl` renders the same `.ssab` with no React Native
 in the way.
-
-What the package does carry is a web *stub*, for the app that ships web **as
-well as** native and plays SpriteStudio only on the native half. Importing
-`react-native-spritestudio` under react-native-web is safe, so that app's web
-bundle builds; rendering a player there throws an error naming this package.
-The placement arithmetic, the path helpers and the vocabulary enums are the
-real implementations on both platforms — only the parts that need Skia or the
-native runtime are stubbed.
 
 ## 🔗 Related Repositories
 
