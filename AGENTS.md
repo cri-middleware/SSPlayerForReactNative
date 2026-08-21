@@ -83,10 +83,12 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | `ss-*` shaders compile, and their arithmetic | `npm run check-shader` (macOS) |
 | The web stub barrel still imports clean, matches `index.ts` and throws | `npm run check-web-barrel` (any OS, no Brain needed) |
 | The docs site builds, and no page link is dead | `npm run build-docs` (any OS, no Brain needed). **It does not check `#anchors`** — a link to a heading that does not exist still builds green, so verify those by hand. |
-| Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
+| Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` (also in CI) |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures`. |
 | Asset manifest | `deploy-examples` refreshes it; (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts` to verify. **`--check` calls it stale if you deployed the optional `MaskInstance` sample** — the manifest describes a deployed tree and the committed one is the without-it state. That modification is on purpose; do not commit it. |
+
+**CI runs what it can without SDK access** (`.github/workflows/ci.yml`): typecheck, the Nitro bindings being current, `bob build`, both halves of every toolchain script parsing, and the `files` guard. It cannot run the host checks or `prepack` — those need the private SDK submodule, and two of them need the macOS-only libskia — so a green CI is not a substitute for running them before a release.
 
 **Rendering is verified on the example's Player screen** — one feature card per capability, a *Textures* toggle between a **Reference** and an **Embedded** pack, and a **Leak check**. What each subject proves, and the optional `MaskInstance` sample, are in [`example/README.md`](./example/README.md). Read `Mask` and `BlendMode` on **both** platforms: the only platform-specific defect this screen has ever caught was iOS-only.
 

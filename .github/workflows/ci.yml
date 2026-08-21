@@ -1,0 +1,108 @@
+name: CI
+
+# Everything here runs with **no secrets and no submodules**, which is the whole
+# reason it can exist today: SpriteStudio-SDK is private, so a job that needed it
+# would fail for every external contributor and every fork.
+#
+# What that leaves out, so nobody mistakes a green tick for more than it is:
+#
+#   * the host checks (`check-framedata`, `check-mask`, `check-shader`,
+#     `check-hidden`) — they build a host Brain out of the SDK submodule, and
+#     `check-mask` / `check-shader` also link the macOS-only libskia RN Skia
+#     ships. They want a macOS job with SDK access.
+#   * `cpp/format/` being current — regenerating needs a `flatc` whose version
+#     matches the vendored headers, which `static_assert` on it. An
+#     apt-installed flatc would report a diff that means "wrong flatc", not
+#     "stale output". `npm run check-framedata` is where that check lives.
+#   * anything that needs the Brain — `prepack`, and therefore `npm pack`.
+#
+# Add a macOS job with `secrets.SDK_SUBMODULE_TOKEN` when there is one; the
+# sibling players already carry that pattern.
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE*'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: 🐧 Checks (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        # No submodules on purpose. `third_party/flatbuffers` is only needed to
+        # *compile* the C++, which happens in the consumer's build, and the SDK
+        # is private. Nothing below opens either.
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        # Passes with no submodules, no `native/` and no SDK access — the
+        # property this whole workflow is built on.
+        run: npm run typecheck
+
+      - name: The Nitro bindings are current
+        # `nitrogen/` is generated output that is committed and never hand-edited,
+        # so the thing worth checking is that it still matches the spec. A PR that
+        # edits `SsRuntime.nitro.ts` and forgets to regenerate produces bindings
+        # that disagree with it, and nothing else would notice.
+        run: |
+          npm run generate-nitro-code
+          git diff --exit-code -- packages/react-native-spritestudio/nitrogen \
+            || { echo "::error::nitrogen/ is stale — run 'npm run generate-nitro-code' and commit the result"; exit 1; }
+
+      - name: The package builds
+        # What `prepack` runs before publishing, minus the parts that need the
+        # Brain. A TypeScript error that only `bob` sees would otherwise surface
+        # at release time.
+        run: npm run build --workspace packages/react-native-spritestudio
+
+      - name: Both halves of every toolchain script parse
+        # Each npm script is a `.js` shim over a `.sh` + `.ps1` pair so Windows
+        # contributors are not shut out — which only holds if the `.ps1` half is
+        # also kept working, and it is the half nobody runs by accident.
+        run: |
+          for f in scripts/*.sh tools/*.sh; do bash -n "$f"; done
+          pwsh -NoProfile -Command '
+            $bad = 0
+            Get-ChildItem scripts/*.ps1 | ForEach-Object {
+              $errors = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
+              if ($errors) { Write-Host "::error file=$($_.Name)::$($errors[0].Message)"; $bad = 1 }
+            }
+            exit $bad'
+
+      - name: The published tarball would not carry build output
+        # `files` takes a directory *recursively*, which is how `"android"` once
+        # pulled 2.8 GB of `.cxx` into `npm pack`. `prepack` guards the rest, but
+        # it needs the Brain and so cannot run here.
+        run: |
+          node -e '
+            const { files } = require("./packages/react-native-spritestudio/package.json")
+            if (files.includes("android")) {
+              console.error("::error::files lists \"android\" whole — list CMakeLists.txt, build.gradle and src instead")
+              process.exit(1)
+            }
+          '
