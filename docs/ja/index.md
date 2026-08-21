@@ -28,3 +28,9 @@ features:
   - title: 1 フレームあたり、プレイヤー 1 つにつき 1 回の呼び出し
     details: タイムライン、ジオメトリ、Skia の描画呼び出しは、Nitro Modules（JSI）越しの Rust コアと C++ で行われます。賑やかなシーンでも 60 fps を保てるのはこのためです。
 ---
+
+## 関連リポジトリ
+
+- [SpriteStudio Docs](https://cri-middleware.github.io/SpriteStudio-Docs/) — SDK と公式 Player のドキュメントポータル。
+- [SpriteStudio-SDK](https://github.com/cri-middleware/SpriteStudio-SDK) — `libssruntime` / `libssconverter` を提供する SDK 本体。
+- [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI) — Player を介さず `.sspj` を変換するデスクトップ GUI。
