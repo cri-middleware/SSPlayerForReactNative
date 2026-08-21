@@ -119,6 +119,7 @@ export default withMermaid({
               { text: 'Part overrides & following', link: '/usage/parts' },
               { text: 'Textures & resources', link: '/usage/textures' },
               { text: 'Reanimated', link: '/usage/reanimated' },
+              { text: 'Performance', link: '/usage/performance' },
             ],
           },
           {
@@ -134,6 +135,7 @@ export default withMermaid({
             items: [
               { text: 'Troubleshooting', link: '/troubleshooting' },
               { text: 'Limitations & Scope', link: '/limitations' },
+              { text: 'License & notices', link: '/licenses' },
             ],
           },
           {
@@ -185,6 +187,7 @@ export default withMermaid({
               { text: 'パーツの上書きと追従', link: '/ja/usage/parts' },
               { text: 'テクスチャとリソース', link: '/ja/usage/textures' },
               { text: 'Reanimated', link: '/ja/usage/reanimated' },
+              { text: 'パフォーマンス', link: '/ja/usage/performance' },
             ],
           },
           {
@@ -201,6 +204,7 @@ export default withMermaid({
             items: [
               { text: 'トラブルシューティング', link: '/ja/troubleshooting' },
               { text: '制約と適用範囲', link: '/ja/limitations' },
+              { text: 'ライセンスと表記', link: '/ja/licenses' },
             ],
           },
           {
