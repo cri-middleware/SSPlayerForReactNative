@@ -34,3 +34,57 @@ npm パッケージは未公開で、**実機での動作確認もまだあり�
 Android エミュレータのみです。現時点で何が描けるかは
 [制約と適用範囲](/ja/limitations)を参照してください。
 :::
+
+## `.sspj` から画面まで {#pipeline}
+
+変換は**ビルド時に一度だけ**、手元のマシンで行います。エディタ連携はなく、実行時に
+変換されるものもありません。そのぶん見落とされやすいのが下図の中段です。パックは
+*ディレクトリ*で、**ネイティブのアプリアセット**として運ばれ、変更するたびにアプリの
+ビルドが必要になります。
+
+```mermaid
+graph LR
+    SS[".sspj / 画像"]
+
+    subgraph Convert ["① 変換 — 手元で一度だけ"]
+        WEB["ssconverter-web<br>ブラウザ"]
+        GUI["SSConverterGUI<br>デスクトップ"]
+        CLI["ssconverter-cli<br>CLI / CI"]
+    end
+
+    PACK["パックのディレクトリ<br>.ssab + .png / .ssqb"]
+
+    subgraph Ship ["② 同梱 — ネイティブのアプリアセットとして"]
+        PLUGIN["Expo config plugin"]
+        BUILD["ネイティブビルド"]
+    end
+
+    subgraph Run ["③ 実行"]
+        VIEW["SpriteStudioView"]
+        RT("libssruntime<br>JSI 越しの Rust + C++") -. "更新 · ベイク" .-> VIEW
+    end
+
+    CANVAS{{"Skia キャンバス"}}
+
+    SS --> WEB
+    SS --> GUI
+    SS --> CLI
+    WEB --> PACK
+    GUI --> PACK
+    CLI --> PACK
+    PACK --> PLUGIN
+    PLUGIN --> BUILD
+    BUILD --> VIEW
+    VIEW -->|"描画"| CANVAS
+    VIEW -. "パックを変更したら ② からやり直し" .-> PLUGIN
+
+    classDef gen stroke-dasharray:5 5;
+    class PACK gen;
+    classDef tool fill:#eef2ff,stroke:#818cf8,color:#1e1b4b;
+    class WEB,GUI,CLI tool;
+    classDef ship fill:#fef9c3,stroke:#eab308,color:#422006;
+    class PLUGIN,BUILD ship;
+```
+
+コンバータの選び方と、パックのディレクトリが保たなければならないものは
+[アセットの準備](/ja/setup/assets)にあります。

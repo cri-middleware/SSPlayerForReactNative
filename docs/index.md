@@ -34,3 +34,57 @@ The npm package is not published, and nothing here has run on a **physical
 device** — iOS simulator and Android emulator only. See
 [Limitations & Scope](/limitations) for what draws today.
 :::
+
+## From `.sspj` to the screen {#pipeline}
+
+Conversion happens **once, at build time**, on your machine. There is no editor
+integration and nothing converts at runtime — which makes the middle stage below
+the one that is easy to underestimate: a pack is a *directory*, it travels as a
+**native app asset**, and changing it means building the app again.
+
+```mermaid
+graph LR
+    SS[".sspj / images"]
+
+    subgraph Convert ["① Convert — once, on your machine"]
+        WEB["ssconverter-web<br>browser"]
+        GUI["SSConverterGUI<br>desktop"]
+        CLI["ssconverter-cli<br>CLI / CI"]
+    end
+
+    PACK["pack directory<br>.ssab + .png / .ssqb"]
+
+    subgraph Ship ["② Ship — as a native app asset"]
+        PLUGIN["Expo config plugin"]
+        BUILD["native build"]
+    end
+
+    subgraph Run ["③ Run"]
+        VIEW["SpriteStudioView"]
+        RT("libssruntime<br>Rust + C++ under JSI") -. "advance · bake" .-> VIEW
+    end
+
+    CANVAS{{"Skia canvas"}}
+
+    SS --> WEB
+    SS --> GUI
+    SS --> CLI
+    WEB --> PACK
+    GUI --> PACK
+    CLI --> PACK
+    PACK --> PLUGIN
+    PLUGIN --> BUILD
+    BUILD --> VIEW
+    VIEW -->|"draw"| CANVAS
+    VIEW -. "pack changed · run ② again" .-> PLUGIN
+
+    classDef gen stroke-dasharray:5 5;
+    class PACK gen;
+    classDef tool fill:#eef2ff,stroke:#818cf8,color:#1e1b4b;
+    class WEB,GUI,CLI tool;
+    classDef ship fill:#fef9c3,stroke:#eab308,color:#422006;
+    class PLUGIN,BUILD ship;
+```
+
+Picking a converter, and what a pack directory has to keep intact, are both in
+[Preparing assets](/setup/assets).
