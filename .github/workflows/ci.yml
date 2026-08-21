@@ -79,6 +79,16 @@ jobs:
         # at release time.
         run: npm run build --workspace packages/react-native-spritestudio
 
+      - name: The web stub barrel still imports clean
+        # The one check here that runs the code rather than reading it: it
+        # transpiles `src/`, walks `index.web.ts`'s import closure and then
+        # imports it. All three ways it breaks pass `typecheck` and surface in
+        # somebody else's web build — a re-export that reaches Skia or Nitro
+        # (both throw at module scope on web), an export missing from the web
+        # barrel, a stub that stopped throwing. Needs no Brain and no SDK: being
+        # import-clean is the whole property.
+        run: npm run check-web-barrel
+
       - name: Both halves of every toolchain script parse
         # Each npm script is a `.js` shim over a `.sh` + `.ps1` pair so Windows
         # contributors are not shut out — which only holds if the `.ps1` half is
