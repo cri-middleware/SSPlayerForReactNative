@@ -125,9 +125,9 @@ Skia の下限は実質的な制約です。2.11 で API オブジェクトが `
 
 ### Web について
 
-**このパッケージは web ではアニメーションを再生しません。** web 上の SpriteStudio に対する答えは [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) です — `@spritestudio/ssplayer-webgl` が同じ `.ssab` を、React Native を挟まずに描画します。
+**このパッケージを追加しても web ビルドは壊れません。** react-native-web の下で `react-native-spritestudio` を import しても安全で、そのバンドルはビルドできます。web が解決するエントリポイントが*スタブ*だからです — native に**加えて** web も出荷し、SpriteStudio は native 側でだけ再生するアプリのために持っています。配置の計算、パスのヘルパー、語彙の enum は両プラットフォームで実装そのものであり、スタブになっているのは Skia かネイティブランタイムを必要とする部分だけです。そこでプレイヤーを描画しようとしたときだけ、このパッケージ名を含むエラーが投げられます。
 
-このパッケージが持っているのは web 用の*スタブ*で、native に**加えて** web も出荷し、SpriteStudio は native 側でだけ再生するアプリのためのものです。react-native-web の下で `react-native-spritestudio` を import しても安全なので、そうしたアプリの web バンドルはビルドできます。そこでプレイヤーを描画しようとすると、このパッケージ名を含むエラーが投げられます。配置の計算、パスのヘルパー、語彙の enum は両プラットフォームで実装そのものであり、スタブになっているのは Skia かネイティブランタイムを必要とする部分だけです。
+**行わないのは、web でのアニメーション再生です。** web 上の SpriteStudio に対する答えは [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) です — `@spritestudio/ssplayer-webgl` が同じ `.ssab` を、React Native を挟まずに描画します。
 
 ## 🔗 関連リポジトリ
 

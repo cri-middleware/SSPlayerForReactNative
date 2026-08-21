@@ -25,9 +25,12 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 | iOS | 15.1+ |
 | Android | API 24+ |
 
-対象外：**Expo Go**（手順 3 を参照）、**web**（代わりに
-[SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください）、
-Windows / tvOS / visionOS。詳細は[制約と適用範囲](/ja/limitations)にあります。
+対象外：**Expo Go**（手順 3 を参照）と Windows / tvOS / visionOS。
+
+**web では何も描画されません** — ただしこのパッケージを追加しても web ビルドは壊れない
+ので、native に加えて web も出荷するアプリで問題は起きません。web 上の SpriteStudio に
+は代わりに [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) を使って
+ください。詳細は[制約と適用範囲](/ja/limitations)にあります。
 
 ## 2. インストールする
 
