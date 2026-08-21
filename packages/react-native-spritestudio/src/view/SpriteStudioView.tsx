@@ -73,10 +73,9 @@ export interface SpriteStudioViewRef {
  * one `SkPicture`; the picture goes to the canvas through a Reanimated shared
  * value, so a frame costs no React render.
  *
- * The heavy lifting is one `drawInto` call per frame regardless of vertex count
- * — Phase 0 measured that routing vertices through JS caps the frame rate no
- * matter where they are baked (`docs/phase0-spike.md`), so Layer 1 owns the
- * drawing and this component owns only the clock and the placement.
+ * The heavy lifting is one `drawInto` call per frame regardless of vertex
+ * count: Layer 1 owns the drawing, and this component owns only the clock and
+ * the placement.
  *
  * **For several animations at once, reach for `<SpriteStudioScene>` instead.**
  * This component is one canvas and one `requestAnimationFrame` loop, so twenty

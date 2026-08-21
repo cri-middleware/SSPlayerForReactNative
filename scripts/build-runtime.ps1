@@ -21,7 +21,7 @@ param (
 #              newest under $env:ANDROID_HOME\ndk)
 #
 # Measure in release. A debug libssruntime swamps every other cost and flattens
-# the differences a benchmark exists to find (docs/phase0-spike.md).
+# the differences a benchmark exists to find.
 #
 # SDK location: $env:SSSDK, else .\SpriteStudio-SDK, else ..\SpriteStudio-SDK.
 

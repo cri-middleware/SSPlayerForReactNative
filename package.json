@@ -6,7 +6,8 @@
   "license": "BSD-3-Clause",
   "workspaces": [
     "packages/*",
-    "example"
+    "example",
+    "docs"
   ],
   "//scripts": [
     "Every entry point is a .js shim that picks the .sh or .ps1 implementation",
@@ -18,22 +19,40 @@
     "libskia RN Skia ships, which has no Linux slice.",
     "check-hidden needs neither flatc nor Skia — only a host cargo build — so it",
     "is the cheapest of the three to run.",
+    "check-web-barrel is plain node rather than a .sh/.ps1 pair, and needs no",
+    "Brain at all: nothing in it is platform-specific, so a shim would only shut",
+    "Windows contributors out of the one check they could otherwise run.",
     "generate-fbs-code takes an optional output dir so check-framedata can",
-    "regenerate into a scratch dir and diff, rather than reimplementing it."
+    "regenerate into a scratch dir and diff, rather than reimplementing it.",
+    "build names the package rather than --workspaces --if-present: docs has a",
+    "build too, and it is typedoc + vitepress, already reachable as `docs`.",
+    "build-release is `release` minus the publish: it writes the tarball into",
+    "release-dist/ and re-opens it, and uploads nothing. It runs anywhere; the",
+    "publish beside it is macOS-only.",
+    "prepare-docs and build-docs are the family-standard docs pair; docs and",
+    "docs:dev stay as the raw workspace passthrough build-docs itself calls.",
+    "The docs need no Brain: typedoc reads TypeScript, vitepress reads markdown."
   ],
   "scripts": {
     "download-sdk": "node scripts/download-sdk.js",
     "build-runtime": "node scripts/build-runtime.js",
     "deploy-examples": "node scripts/deploy-examples.js",
+    "build-release": "node scripts/build-release.js",
     "release": "node scripts/release.js",
     "generate-nitro-code": "node scripts/generate-nitro-code.js",
     "check-framedata": "bash tools/check-framedata.sh",
     "check-mask": "bash tools/check-mask.sh",
     "check-hidden": "bash tools/check-hidden.sh",
     "check-shader": "bash tools/check-shader.sh",
+    "check-web-barrel": "node tools/check-web-barrel.mjs",
+    "build": "npm run build --workspace react-native-spritestudio",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "generate-fbs-code": "node scripts/generate-fbs-code.js",
-    "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets"
+    "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets",
+    "docs": "npm run build --workspace docs",
+    "docs:dev": "npm run dev --workspace docs",
+    "prepare-docs": "node scripts/prepare-docs.js",
+    "build-docs": "node scripts/build-docs.js"
   },
   "engines": {
     "node": ">=20"

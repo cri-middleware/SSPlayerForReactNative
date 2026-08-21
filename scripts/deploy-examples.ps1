@@ -37,7 +37,7 @@ $outRoot = Join-Path $rootDir "example/assets/ss"
 #                     whether the render path itself works before any
 #                     character's authoring choices are in the picture.
 #   Ringo           - the character case.
-#   ParticleEffect  - the worst case the Phase 0 measurement is about; design
+#   ParticleEffect  - the worst case for vertex count; design
 #                     doc ch.8 is explicit that the vertex ceiling is set by
 #                     effects, not by characters.
 $projects = @(
@@ -64,6 +64,25 @@ $embeddedProjects = @(
     @{ Dir = "overall"; Sspj = "overall.sspj"; Out = "overall-embedded" }
     @{ Dir = "Ringo"; Sspj = "Ringo.sspj"; Out = "Ringo-embedded" }
 )
+
+# Projects supplied **locally** rather than by the SDK.
+#
+# example\SpriteStudio_Source\ is not in this repository - it is third-party
+# sample art, and the licence to redistribute it is not ours to give. Everything
+# here is therefore optional: a project whose directory is absent is reported
+# and skipped, and the example, the asset manifest and check-mask all work
+# without it. See README.md for where to get them.
+#
+# Only one so far, and the reason it is not in the SDK's tests is worth stating:
+# the SDK's samples keep masks and instance parts in separate files, so nothing
+# upstream exercises a mask that has to reach into an instance child - which is
+# what 40_components/40_mask.md 2-6 specifies. This is the official OPTPiX basic
+# sample for exactly that.
+$localDeployed = @()
+$localProjects = @(
+    @{ Dir = "Mask"; Sspj = "Mask.sspj"; Out = "MaskInstance" }
+)
+$localSrc = Join-Path $rootDir "example/SpriteStudio_Source"
 
 # Accept both spellings: the .js shim forwards arguments verbatim, so the same
 # `npm run deploy-examples -- --embedded` works on every OS.
@@ -96,17 +115,20 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-function Deploy-Project($dir, $sspj, $outName, $bake) {
-    $src = Join-Path $sdkDir "tests/$dir/$sspj"
+# The source root is a parameter because the projects come from two places; the
+# converter does not care which.
+function Deploy-Project($dir, $sspj, $outName, $bake, $srcRoot) {
+    if (-not $srcRoot) { $srcRoot = Join-Path $sdkDir "tests" }
+    $src = Join-Path $srcRoot "$dir/$sspj"
     $out = Join-Path $outRoot $outName
 
     if (-not (Test-Path $src)) {
-        Write-Error "$app`: $dir/$sspj not found in the SDK submodule"
+        Write-Error "$app`: $dir/$sspj not found under $srcRoot"
         exit 1
     }
 
     $suffix = if ($bake) { " (embedded)" } else { "" }
-    Write-Host "Converting tests/$dir/$sspj$suffix ..."
+    Write-Host "Converting $dir/$sspj$suffix ..."
     if (Test-Path $out) { Remove-Item -Recurse -Force $out }
     New-Item -ItemType Directory -Force -Path $out | Out-Null
 
@@ -133,6 +155,39 @@ foreach ($project in $projects) {
 
 foreach ($project in $embeddedProjects) {
     Deploy-Project $project.Dir $project.Sspj $project.Out $true
+}
+
+foreach ($project in $localProjects) {
+    $dir = Join-Path $localSrc $project.Dir
+    if (-not (Test-Path $dir)) {
+        Write-Host "== $($project.Out): skipped, $dir is not here"
+        Write-Host "   That project is third-party sample art this repository does not"
+        Write-Host "   ship. Everything else is unaffected; see README.md to add it."
+        continue
+    }
+    Deploy-Project $project.Dir $project.Sspj $project.Out $embedded $localSrc
+    $localDeployed += $project.Out
+}
+
+# The manifest last, because it is a description of the tree above and the app
+# reads its whole subject list out of it. Regenerating here rather than leaving
+# it to a second command is what keeps "I converted a pack and it did not appear"
+# from being a state you can reach at all - including the reverse, a pack the
+# manifest still names after the project supplying it went away.
+#
+# It is committed in its without-optional-packs state, so deploying one of those
+# leaves example\src\ss-assets.ts modified on purpose. Do not commit it.
+Write-Host "Refreshing example/src/ss-assets.ts ..."
+Push-Location (Join-Path $rootDir "example")
+try {
+    node ../packages/react-native-spritestudio/bin/spritestudio.js assets --out src/ss-assets.ts
+    if ($LASTEXITCODE -ne 0) { throw "assets manifest generation failed" }
+} finally {
+    Pop-Location
+}
+if ($localDeployed.Count -gt 0) {
+    Write-Host "   $($localDeployed -join ', ') came from example\SpriteStudio_Source\, so this"
+    Write-Host "   file now differs from the committed one. That is expected - do not commit it."
 }
 
 Write-Host "Done."

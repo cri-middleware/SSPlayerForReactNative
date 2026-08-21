@@ -433,10 +433,10 @@ int main(int argc, char** argv) {
   }
   // `setup_animation` leaves the transport **stopped**, so without these the
   // loop below re-checks frame 0 as many times as it is asked to and reports the
-  // same clean result it would for a working sweep. AGENTS.md records this as
-  // the bug that invalidated every number Phase 0 published; this program has
-  // had it too, which is why the effect totals below are the first numbers here
-  // that depend on time passing at all.
+  // same clean result it would for a working sweep. AGENTS.md records this as a
+  // trap that has invalidated whole sets of numbers before; this program has had
+  // it too, which is why the effect totals below are the first numbers here that
+  // depend on time passing at all.
   //
   // Order is load-bearing: `setup_animation` resets the loop count and `play`
   // arms the counter with whatever is in effect at that moment (-1 = infinite),

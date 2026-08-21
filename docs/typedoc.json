@@ -1,0 +1,26 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "../packages/react-native-spritestudio/src/index.ts"
+  ],
+  "tsconfig": "../packages/react-native-spritestudio/tsconfig.json",
+  "plugin": [
+    "typedoc-plugin-markdown",
+    "typedoc-vitepress-theme"
+  ],
+  "out": "api",
+  "readme": "none",
+  "githubPages": false,
+  "hideBreadcrumbs": true,
+  "externalSymbolLinkMappings": {
+    "@shopify/react-native-skia": {
+      "*": "https://shopify.github.io/react-native-skia/"
+    },
+    "react-native": {
+      "*": "https://reactnative.dev/docs/components-and-apis"
+    }
+  },
+  "validation": {
+    "invalidLink": false
+  }
+}

@@ -404,8 +404,8 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
 
     // Looping and playing, because `setup_animation` leaves the transport
     // stopped and a walk that forgets this measures frame 0 N times — the trap
-    // AGENTS.md has warned about since Phase 0, and which `ssbake_check` itself
-    // shipped with for a whole phase.
+    // AGENTS.md warns about, and which `ssbake_check` itself shipped with for a
+    // whole phase.
     ss_runtime_set_loop(ctx_, -1);
     ss_runtime_play(ctx_);
 
@@ -849,7 +849,8 @@ void HybridSsContext::instanceStepSlots(float childFrame, float dtMilliseconds,
   instances_.step(ctx_, frameNo_, dtMilliseconds, childLooped);
 }
 
-size_t HybridSsContext::drawInstance(void* canvas, uint32_t partIndex, float alphaScale) {
+size_t HybridSsContext::drawInstance(void* canvas, uint32_t partIndex, float alphaScale,
+                                     const ::ssplayer::SsMaskInput& mask) {
   const sscore::SsInstanceState* state = instances_.stateFor(partIndex);
   if (state == nullptr || !state->visible || state->child == nullptr) return 0;
   // The canvas already carries the mount transform; the child draws its whole
@@ -858,11 +859,12 @@ size_t HybridSsContext::drawInstance(void* canvas, uint32_t partIndex, float alp
   // by `cellmap.name_hash`, and one lookup space covers the whole tree — a
   // same-pack child needs no entries of its own at all.
   return static_cast<HybridSsContext*>(state->child)
-      ->drawSubtree(canvas, drawTextures_, drawTextureCount_, alphaScale);
+      ->drawSubtree(canvas, drawTextures_, drawTextureCount_, alphaScale, mask);
 }
 
 size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBinding* textures,
-                                    size_t textureCount, float alphaScale) {
+                                    size_t textureCount, float alphaScale,
+                                    const ::ssplayer::SsMaskInput& inherited) {
   if (ctx_ == nullptr || textures == nullptr || textureCount == 0) return 0;
 
   // Borrowed for the duration of this call only, so `drawInstance` — which
@@ -882,7 +884,24 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
   if (!maskFlags_.empty()) {
     mask.flags = maskFlags_.data();
     mask.flagCount = maskFlags_.size();
-    if (maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
+    if (inherited.plan != nullptr) {
+      // §3-2-2: "the coverage and metadata are owned solely by the parent; the
+      // child only references the parent's coverage and never builds its own".
+      // So the caller's plan comes in whole and `maskPlan_.build` is skipped —
+      // not an optimisation, the rule. `flags` stays this player's, because part
+      // indices do not cross an instance boundary and §2-6 wants each of these
+      // parts judged on its own settings composed with what came down.
+      //
+      // A child that writes masks of its own is "a separate track" in the same
+      // paragraph, and this port does not run two: while a parent's mask reaches
+      // in, the child's own writers write nothing. See ROADMAP.md.
+      mask.plan = inherited.plan;
+      mask.coverage = inherited.coverage;
+      mask.inherited = true;
+      mask.visibleInside = inherited.visibleInside;
+      mask.callerRank = inherited.callerRank;
+      for (int i = 0; i < 6; ++i) mask.slotXf[i] = inherited.slotXf[i];
+    } else if (maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
       mask.plan = &maskPlan_;
     }
   }

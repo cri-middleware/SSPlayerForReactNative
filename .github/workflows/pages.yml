@@ -1,0 +1,78 @@
+name: Deploy Pages
+
+# Publishes the VitePress site (docs/) to GitHub Pages via the artifact method —
+# no gh-pages branch.
+#
+# A published release or a manual dispatch rebuilds it, and nothing else does —
+# the trigger pair every sibling repository uses. Use "Run workflow" for an
+# immediate refresh, e.g. a docs fix that should not wait for the next release.
+#
+# No submodules and no secrets: TypeDoc reads `src/`, which is TypeScript, and
+# VitePress renders markdown. Neither needs the Brain or the private SDK.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never two deploys at once, and let an in-progress one finish rather than
+# cancelling it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # Its own step, rather than left to build-pages.sh below (which is why that
+      # is invoked with prepare=no), so a dependency failure is legible as one in
+      # the run summary.
+      - name: Install
+        run: npm ci
+
+      - name: Build the Pages tree
+        # scripts/build-pages.sh — the same script a contributor runs locally, so
+        # CI and a local build cannot drift. It is `typedoc && vitepress build`:
+        # TypeDoc fails the build on an error, and VitePress fails on a dead link,
+        # so a page that points at a heading somebody renamed does not reach the
+        # site. Both locales come out of the one build; VitePress resolves docs/ja
+        # itself.
+        #
+        # Every option is spelled out rather than left to the script's defaults:
+        # they are chosen for a working tree, and a publish should not change
+        # because one of them did.
+        run: ./scripts/build-pages.sh prepare=no api=yes serve=no
+
+      - name: Upload
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Least privilege: only this job gets the Pages write and OIDC tokens.
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

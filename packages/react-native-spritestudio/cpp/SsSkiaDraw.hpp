@@ -16,6 +16,8 @@ struct SsMaskPartFlags;
 
 namespace ssplayer {
 
+struct SsMaskCoverage;
+
 /// The frame's masking, or all-null when nothing writes coverage.
 ///
 /// The plan is built by the caller because it needs the *static* half of the
@@ -27,6 +29,38 @@ struct SsMaskInput {
   /// Indexed by part index, as `SsAnimeBinaryView::maskFlags()` returns them.
   const sscore::SsMaskPartFlags* flags = nullptr;
   size_t flagCount = 0;
+
+  /// §2-6: the coverage belongs to a **caller** and this frame is the
+  /// sub-animation mounted on one of its instance parts.
+  ///
+  /// The fields below are the caller's composed state, and they are identity
+  /// values for a root — so a top-level animation evaluates every part by its
+  /// own settings, which is what the spec asks for.
+  ///
+  /// §2-6's `mask_influence` AND is not among them: it is carried by whether
+  /// this struct arrives with a `plan` at all. A caller whose instance part is
+  /// not a mask target passes none, and a subtree with no coverage is exactly a
+  /// subtree the AND has already settled as unmasked.
+  bool inherited = false;
+  /// The instance part's own rank in the **caller's** draw order. Scope does not
+  /// compose (§2-6): the sub-animation sits where the instance part sits, so
+  /// every part inside it asks "which writers reach *that* rank".
+  int32_t callerRank = -1;
+  /// `caller's visible_inside || own` — OR, so once any level asks for "inside",
+  /// everything below draws inside.
+  bool visibleInside = false;
+  /// Child-local → the coverage's space: `M_child = M_parent · slot_xf`. The
+  /// coverage and its metadata are the caller's alone, so a child's vertices have
+  /// to be mapped into that space before they can be looked up in it.
+  float slotXf[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+  /// §3-2-2 step 1: **the caller's rasterised coverage**, borrowed for the
+  /// duration of its draw call.
+  ///
+  /// Handed over rather than rebuilt, because it cannot be rebuilt here: the
+  /// writers in the plan are the *caller's* parts, and this frame's baker holds
+  /// the child's geometry. Rasterising one against the other yields an empty
+  /// bitmap — which reads as "no mask" and is exactly the bug this field fixes.
+  const SsMaskCoverage* coverage = nullptr;
 
   bool active() const { return plan != nullptr && flags != nullptr && flagCount > 0; }
 };
@@ -43,8 +77,13 @@ struct SsInstanceRenderer {
   /// `canvas` is already transformed into the child's space. `alphaScale` is the
   /// mount point's opacity, folded into the child's *bake* rather than applied
   /// as a layer, because SpriteStudio modulates a sub-animation per part.
+  /// `mask` is what the caller composed for this mount (§2-6) — inactive when
+  /// the frame has no mask, or when the instance part is not a mask target and
+  /// the AND has therefore settled "unmasked" for everything below it.
+  ///
   /// Returns the vertices drawn; 0 when there is nothing mounted there.
-  virtual size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale) = 0;
+  virtual size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale,
+                              const SsMaskInput& mask) = 0;
 };
 
 /// One `cellmap.name_hash` → `SkPaint*` entry of the texture table.
