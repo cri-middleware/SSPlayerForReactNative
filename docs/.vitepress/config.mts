@@ -2,8 +2,8 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 
 const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 
-// Only ever the published address. `base` below is '/' during local dev, and a
-// social card must advertise where the page really lives.
+// Only ever the published address. `base` below is a path, not an origin, so it
+// cannot build an absolute og:url on its own.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
 // Close to SSPlayerForWeb's shelves, with two deliberate divergences.
@@ -46,6 +46,21 @@ export default withMermaid({
 
 
   head: [['meta', { property: 'og:site_name', content: 'SSPlayerForReactNative' }]],
+
+  // mermaid 11.17 pulls in fastdom, which is CommonJS and is not on VitePress's
+  // own pre-bundle list. Left out, the dev server hands the browser the raw file
+  // and the import of its default export throws at module scope — the whole site
+  // renders blank, not just the diagrams. `vitepress build` is unaffected, since
+  // Rollup handles CJS: this is one of the few faults a green build cannot see.
+  //
+  // Both specifiers are needed. mermaid imports the package *and* the subpath,
+  // and pre-bundling one leaves the other served raw — the second failure looks
+  // identical to the first, so fixing only `fastdom` reads as no fix at all.
+  vite: {
+    optimizeDeps: {
+      include: ['fastdom', 'fastdom/extensions/fastdom-promised.js'],
+    },
+  },
 
   transformPageData(pageData) {
     const title = pageData.frontmatter.title ?? pageData.title ?? 'SSPlayerForReactNative'
