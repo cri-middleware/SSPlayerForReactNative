@@ -942,3 +942,7 @@ example/android/
 # `!packages/**` line above would otherwise let it in — the same NuGet-template
 # trap this section exists to undo.
 packages/react-native-spritestudio/lib/
+
+# Local release build (scripts/build-release.*) — the tarball a release would
+# upload, built to be looked at, not committed.
+/release-dist/
