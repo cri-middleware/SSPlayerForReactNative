@@ -39,7 +39,7 @@ jobs:
           cache: npm
 
       # Its own step, rather than left to build-pages.sh below (which is why that
-      # is invoked with install=no), so a dependency failure is legible as one in
+      # is invoked with prepare=no), so a dependency failure is legible as one in
       # the run summary.
       - name: Install
         run: npm ci
@@ -55,7 +55,7 @@ jobs:
         # Every option is spelled out rather than left to the script's defaults:
         # they are chosen for a working tree, and a publish should not change
         # because one of them did.
-        run: ./scripts/build-pages.sh install=no api=yes serve=no
+        run: ./scripts/build-pages.sh prepare=no api=yes serve=no
 
       - name: Upload
         uses: actions/upload-pages-artifact@v5
