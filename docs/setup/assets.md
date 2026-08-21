@@ -6,12 +6,74 @@ description: Converting .sspj to .ssab, and why a pack is a directory rather tha
 # Preparing assets (`.sspj` → `.ssab`)
 
 SpriteStudio 7 saves a `.sspj` project; what this package plays is a `.ssab`.
-Converting between them is a step **you** run, on your own machine, with the
-command-line [`ssconverter-cli`](https://github.com/cri-middleware/SpriteStudio-SDK) or the desktop
-[SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI).
+Converting between them is a step **you** run, on your own machine, **once at
+build time**. React Native has no editor to host an importer in, so unlike the
+engine players there is no automatic path and nothing converts at runtime — the
+conversion is a step you own.
 
-**Nothing converts at runtime and there is no watch mode.** Treat it the way you
-would any other asset build step: convert, then build the app.
+```mermaid
+graph LR
+    SS[".sspj / images"]
+
+    subgraph Convert ["① Convert — once, on your machine"]
+        WEB["ssconverter-web<br>browser"]
+        GUI["SSConverterGUI<br>desktop"]
+        CLI["ssconverter-cli<br>CLI / CI"]
+    end
+
+    PACK["pack directory<br>.ssab + .png / .ssqb"]
+
+    subgraph Ship ["② Ship — as a native app asset"]
+        PLUGIN["Expo config plugin"]
+        BUILD["native build"]
+    end
+
+    subgraph Run ["③ Run — in your app"]
+        VIEW["SpriteStudioView<br>source · animation"]
+    end
+
+    CANVAS{{"your screen"}}
+
+    SS --> WEB
+    SS --> GUI
+    SS --> CLI
+    WEB --> PACK
+    GUI --> PACK
+    CLI --> PACK
+    PACK --> PLUGIN
+    PLUGIN --> BUILD
+    BUILD --> VIEW
+    VIEW -->|"draw"| CANVAS
+    VIEW -. "pack changed · run ② again" .-> PLUGIN
+
+    classDef gen stroke-dasharray:5 5;
+    class PACK gen;
+    classDef tool fill:#eef2ff,stroke:#818cf8,color:#1e1b4b;
+    class WEB,GUI,CLI tool;
+    classDef ship fill:#fef9c3,stroke:#eab308,color:#422006;
+    class PLUGIN,BUILD ship;
+```
+
+The middle stage is the one that is easy to underestimate, and the rest of this
+page is that stage in detail: a pack is a *directory*, it travels as a **native
+app asset**, and changing it means building the app again.
+
+## Choosing a converter
+
+Three tools, one converter behind them. Pick by how you work rather than by
+capability — the output is the same.
+
+| Tool | Best for | Getting it |
+|---|---|---|
+| `ssconverter-web` | converting a few projects by hand, nothing installed | open <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">the hosted converter</a> |
+| SSConverterGUI | a desktop GUI, used repeatedly | a binary from [its Releases](https://github.com/cri-middleware/SSConverterGUI/releases) |
+| `ssconverter-cli` | CI, batch, reproducibility | a binary from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) |
+
+::: warning `ssconverter-web` needs a Chromium browser
+It picks a folder through the **File System Access API**, so Chrome or Edge
+works and Firefox and Safari do not. A pack is a directory on the way in as well
+as on the way out.
+:::
 
 ::: tip The conversion itself is documented once, for every player
 [Converting with a standalone tool](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/)

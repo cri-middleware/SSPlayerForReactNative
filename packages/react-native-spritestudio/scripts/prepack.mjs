@@ -53,13 +53,23 @@ if (!existsSync(modeFile)) {
 
 // --- 3. the licences this package promises to carry --------------------------
 //
-// THIRD_PARTY_NOTICES.md tells an app developer to ship these two with their
+// THIRD_PARTY_NOTICES.md tells an app developer to ship these three with their
 // app. `build-runtime` only warns when the crate notices are absent, so without
 // this the promise and the tarball disagree.
 for (const f of ['LICENSE.md', 'THIRD-PARTY-LICENSES.ssruntime.md']) {
   if (!has('native', f)) {
     fail(`native/${f} is missing`, 'THIRD_PARTY_NOTICES.md names it as a file to redistribute — run the SDK\'s scripts/generate-licenses.sh')
   }
+}
+
+// The third is the FlatBuffers licence, and it is the one that got away: `files`
+// listed `third_party/flatbuffers/include` and stopped there, so the headers
+// were compiled into the consumer's binary while the Apache-2.0 text they are
+// told to redistribute was not in the package they installed. It sits beside
+// `include/`, not inside it, which is exactly why the check below is separate
+// from the header check.
+if (!has('third_party', 'flatbuffers', 'LICENSE')) {
+  fail('third_party/flatbuffers/LICENSE is missing', 'Apache-2.0 requires the text to travel with the headers — check `files` still lists it, and that the submodule is initialised')
 }
 
 // --- 4. the vendored headers, which are a submodule --------------------------

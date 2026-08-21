@@ -6,12 +6,73 @@ description: .sspj から .ssab への変換と、パックがファイルでは
 # アセットの準備（`.sspj` → `.ssab`）
 
 SpriteStudio 7 が保存するのは `.sspj` プロジェクトで、このパッケージが再生するのは
-`.ssab` です。その間の変換は**あなた自身が**手元のマシンで実行する手順で、コマンドライン
-の [`ssconverter-cli`](https://github.com/cri-middleware/SpriteStudio-SDK) または
-デスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI) を使います。
+`.ssab` です。その間の変換は**あなた自身が**手元のマシンで、**ビルド時に一度だけ**実行
+する手順です。React Native にはインポータを載せるエディタが無いので、エンジン系の
+プレイヤーと違って自動の経路はなく、実行時に変換されるものもありません。変換はあなたが
+持つ手順です。
 
-**実行時には何も変換されず、watch モードもありません。** 他のアセットのビルド手順と
-同じ扱いにしてください — 変換してから、アプリをビルドします。
+```mermaid
+graph LR
+    SS[".sspj / 画像"]
+
+    subgraph Convert ["① 変換 — 手元で一度だけ"]
+        WEB["ssconverter-web<br>ブラウザ"]
+        GUI["SSConverterGUI<br>デスクトップ"]
+        CLI["ssconverter-cli<br>CLI / CI"]
+    end
+
+    PACK["パックのディレクトリ<br>.ssab + .png / .ssqb"]
+
+    subgraph Ship ["② 同梱 — ネイティブのアプリアセットとして"]
+        PLUGIN["Expo config plugin"]
+        BUILD["ネイティブビルド"]
+    end
+
+    subgraph Run ["③ 実行 — あなたのアプリで"]
+        VIEW["SpriteStudioView<br>source · animation"]
+    end
+
+    CANVAS{{"画面"}}
+
+    SS --> WEB
+    SS --> GUI
+    SS --> CLI
+    WEB --> PACK
+    GUI --> PACK
+    CLI --> PACK
+    PACK --> PLUGIN
+    PLUGIN --> BUILD
+    BUILD --> VIEW
+    VIEW -->|"描画"| CANVAS
+    VIEW -. "パックを変更したら ② からやり直し" .-> PLUGIN
+
+    classDef gen stroke-dasharray:5 5;
+    class PACK gen;
+    classDef tool fill:#eef2ff,stroke:#818cf8,color:#1e1b4b;
+    class WEB,GUI,CLI tool;
+    classDef ship fill:#fef9c3,stroke:#eab308,color:#422006;
+    class PLUGIN,BUILD ship;
+```
+
+見落とされやすいのは中段で、このページの残りはその中段の詳細です。パックは*ディレクトリ*
+で、**ネイティブのアプリアセット**として運ばれ、変更するたびにアプリのビルドが必要に
+なります。
+
+## コンバータを選ぶ
+
+ツールは 3 つ、背後のコンバータは 1 つです。能力ではなく**作業スタイル**で選んでください
+— 出力は同じです。
+
+| ツール | 向いている場面 | 入手方法 |
+|---|---|---|
+| `ssconverter-web` | 数個を手作業で変換。インストール不要 | <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">ホスト版のコンバータ</a>を開く |
+| SSConverterGUI | デスクトップ GUI で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
+| `ssconverter-cli` | CI、バッチ、再現性 | [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) のバイナリ |
+
+::: warning `ssconverter-web` には Chromium 系ブラウザが必要です
+フォルダ選択に **File System Access API** を使うため、Chrome や Edge では動作し、
+Firefox と Safari では動作しません。パックは出口だけでなく、入口でもディレクトリです。
+:::
 
 ::: tip 変換そのものは、全プレイヤー共通で 1 か所に書かれています
 [スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)

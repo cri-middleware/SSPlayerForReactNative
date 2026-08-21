@@ -2,8 +2,8 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 
 const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 
-// Only ever the published address. `base` below is '/' during local dev, and a
-// social card must advertise where the page really lives.
+// Only ever the published address. `base` below is a path, not an origin, so it
+// cannot build an absolute og:url on its own.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
 // Close to SSPlayerForWeb's shelves, with two deliberate divergences.
@@ -14,8 +14,8 @@ const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 // promise a surface that does not exist. It is the same audience as Usage, one
 // step in.
 //
-// And ROADMAP is not in the nav, where the sibling puts it. Three of the four
-// nav entries stay on the site and that one bounced to raw markdown on GitHub;
+// And ROADMAP is not in the nav, where the sibling puts it. Every entry here
+// stays on the site; the sibling's fifth bounced to raw markdown on GitHub;
 // more to the point, it is a contributor's document — vertex ceilings, packaging
 // decisions, a thread-safety note — sitting at the same level as Usage. The
 // reader's version of "what is missing" is /limitations. Individual pages still
@@ -46,6 +46,21 @@ export default withMermaid({
 
 
   head: [['meta', { property: 'og:site_name', content: 'SSPlayerForReactNative' }]],
+
+  // mermaid 11.17 pulls in fastdom, which is CommonJS and is not on VitePress's
+  // own pre-bundle list. Left out, the dev server hands the browser the raw file
+  // and the import of its default export throws at module scope — the whole site
+  // renders blank, not just the diagrams. `vitepress build` is unaffected, since
+  // Rollup handles CJS: this is one of the few faults a green build cannot see.
+  //
+  // Both specifiers are needed. mermaid imports the package *and* the subpath,
+  // and pre-bundling one leaves the other served raw — the second failure looks
+  // identical to the first, so fixing only `fastdom` reads as no fix at all.
+  vite: {
+    optimizeDeps: {
+      include: ['fastdom', 'fastdom/extensions/fastdom-promised.js'],
+    },
+  },
 
   transformPageData(pageData) {
     const title = pageData.frontmatter.title ?? pageData.title ?? 'SSPlayerForReactNative'
@@ -78,7 +93,17 @@ export default withMermaid({
         nav: [
           { text: 'Setup', link: '/setup/install' },
           { text: 'Usage', link: '/usage/basic' },
+          { text: 'Going further', link: '/usage/events' },
           { text: 'API', link: '/api-guide' },
+          {
+            text: 'More',
+            items: [
+              { text: 'Troubleshooting', link: '/troubleshooting' },
+              { text: 'Limitations & Scope', link: '/limitations' },
+              { text: 'License & notices', link: '/licenses' },
+              { text: 'Working from a checkout', link: '/development/from-source' },
+            ],
+          },
         ],
         sidebar: [
           {
@@ -104,6 +129,7 @@ export default withMermaid({
               { text: 'Part overrides & following', link: '/usage/parts' },
               { text: 'Textures & resources', link: '/usage/textures' },
               { text: 'Reanimated', link: '/usage/reanimated' },
+              { text: 'Performance', link: '/usage/performance' },
             ],
           },
           {
@@ -119,6 +145,7 @@ export default withMermaid({
             items: [
               { text: 'Troubleshooting', link: '/troubleshooting' },
               { text: 'Limitations & Scope', link: '/limitations' },
+              { text: 'License & notices', link: '/licenses' },
             ],
           },
           {
@@ -144,7 +171,17 @@ export default withMermaid({
         nav: [
           { text: 'はじめに', link: '/ja/setup/install' },
           { text: '使い方', link: '/ja/usage/basic' },
+          { text: 'さらに進む', link: '/ja/usage/events' },
           { text: 'API', link: '/ja/api-guide' },
+          {
+            text: 'その他',
+            items: [
+              { text: 'トラブルシューティング', link: '/ja/troubleshooting' },
+              { text: '制約と適用範囲', link: '/ja/limitations' },
+              { text: 'ライセンスと表記', link: '/ja/licenses' },
+              { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
+            ],
+          },
         ],
         sidebar: [
           {
@@ -170,6 +207,7 @@ export default withMermaid({
               { text: 'パーツの上書きと追従', link: '/ja/usage/parts' },
               { text: 'テクスチャとリソース', link: '/ja/usage/textures' },
               { text: 'Reanimated', link: '/ja/usage/reanimated' },
+              { text: 'パフォーマンス', link: '/ja/usage/performance' },
             ],
           },
           {
@@ -186,6 +224,7 @@ export default withMermaid({
             items: [
               { text: 'トラブルシューティング', link: '/ja/troubleshooting' },
               { text: '制約と適用範囲', link: '/ja/limitations' },
+              { text: 'ライセンスと表記', link: '/ja/licenses' },
             ],
           },
           {

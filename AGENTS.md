@@ -66,6 +66,7 @@ The Brain loads a `.ssab`, advances time, and emits per-frame **SoA buffers** pl
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts` to match. Sources come from the SDK's `tests/` and, optionally, `example/SpriteStudio_Source/` — third-party art this repo does not ship, reported and skipped when absent. | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. Needs `flatc`. | After a schema change |
+| `prepare-docs` → `build-docs` | `npm ci`, then TypeDoc + VitePress into `docs/.vitepress/dist`. **No Brain, no Rust** — TypeDoc reads TypeScript and VitePress reads markdown, which is why `pages.yml` checks out without submodules. `scripts/build-pages.sh` is the two together and is what that workflow runs. | Working on the docs |
 
 ## Verification
 
@@ -80,7 +81,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
 | `ss-*` shaders compile, and their arithmetic | `npm run check-shader` (macOS) |
 | The web stub barrel still imports clean, matches `index.ts` and throws | `npm run check-web-barrel` (any OS, no Brain needed) |
-| The docs site builds, and no page link is dead | `npm run docs` (any OS, no Brain needed). **It does not check `#anchors`** — a link to a heading that does not exist still builds green, so verify those by hand. |
+| The docs site builds, and no page link is dead | `npm run build-docs` (any OS, no Brain needed). **It does not check `#anchors`** — a link to a heading that does not exist still builds green, so verify those by hand. |
 | Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures`. |

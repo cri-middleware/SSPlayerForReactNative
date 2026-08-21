@@ -28,9 +28,3 @@ features:
   - title: One JS call per frame, per player
     details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI). That is what lets a busy scene stay at 60 fps.
 ---
-
-::: warning Not released yet
-The npm package is not published, and nothing here has run on a **physical
-device** — iOS simulator and Android emulator only. See
-[Limitations & Scope](/limitations) for what draws today.
-:::
