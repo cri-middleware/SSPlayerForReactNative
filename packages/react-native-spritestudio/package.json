@@ -16,6 +16,7 @@
     "android/build.gradle",
     "android/src",
     "third_party/flatbuffers/include",
+    "third_party/flatbuffers/LICENSE",
     "native/libs",
     "native/include",
     "native/VERSION",
