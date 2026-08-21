@@ -66,6 +66,7 @@ The Brain loads a `.ssab`, advances time, and emits per-frame **SoA buffers** pl
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts` to match. Sources come from the SDK's `tests/` and, optionally, `example/SpriteStudio_Source/` — third-party art this repo does not ship, reported and skipped when absent. | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. Needs `flatc`. | After a schema change |
+| `build-release` → `release` | The pair: build the tarball into `release-dist/` and re-open it, then the same run with the publish on the end. **`sdk=build` cannot pack** — `prepack` refuses a Brain that is not the pinned release, so that mode rehearses everything and reports the file list instead. `release` is macOS-only; `build-release` is not. | Before a release |
 | `prepare-docs` → `build-docs` | `npm ci`, then TypeDoc + VitePress into `docs/.vitepress/dist`. **No Brain, no Rust** — TypeDoc reads TypeScript and VitePress reads markdown, which is why `pages.yml` checks out without submodules. `scripts/build-pages.sh` is the two together and is what that workflow runs. | Working on the docs |
 
 ## Verification
