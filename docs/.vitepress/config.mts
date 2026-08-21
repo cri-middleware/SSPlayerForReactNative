@@ -14,8 +14,8 @@ const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 // promise a surface that does not exist. It is the same audience as Usage, one
 // step in.
 //
-// And ROADMAP is not in the nav, where the sibling puts it. Three of the four
-// nav entries stay on the site and that one bounced to raw markdown on GitHub;
+// And ROADMAP is not in the nav, where the sibling puts it. Every entry here
+// stays on the site; the sibling's fifth bounced to raw markdown on GitHub;
 // more to the point, it is a contributor's document — vertex ceilings, packaging
 // decisions, a thread-safety note — sitting at the same level as Usage. The
 // reader's version of "what is missing" is /limitations. Individual pages still
@@ -93,7 +93,17 @@ export default withMermaid({
         nav: [
           { text: 'Setup', link: '/setup/install' },
           { text: 'Usage', link: '/usage/basic' },
+          { text: 'Going further', link: '/usage/events' },
           { text: 'API', link: '/api-guide' },
+          {
+            text: 'More',
+            items: [
+              { text: 'Troubleshooting', link: '/troubleshooting' },
+              { text: 'Limitations & Scope', link: '/limitations' },
+              { text: 'License & notices', link: '/licenses' },
+              { text: 'Working from a checkout', link: '/development/from-source' },
+            ],
+          },
         ],
         sidebar: [
           {
@@ -161,7 +171,17 @@ export default withMermaid({
         nav: [
           { text: 'はじめに', link: '/ja/setup/install' },
           { text: '使い方', link: '/ja/usage/basic' },
+          { text: 'さらに進む', link: '/ja/usage/events' },
           { text: 'API', link: '/ja/api-guide' },
+          {
+            text: 'その他',
+            items: [
+              { text: 'トラブルシューティング', link: '/ja/troubleshooting' },
+              { text: '制約と適用範囲', link: '/ja/limitations' },
+              { text: 'ライセンスと表記', link: '/ja/licenses' },
+              { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
+            ],
+          },
         ],
         sidebar: [
           {
