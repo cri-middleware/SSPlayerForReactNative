@@ -432,10 +432,30 @@ export interface SsContext
   stop(): void
   /** Seeks without changing play/pause state. Moves the playhead. */
   setFrameNo(frameNo: number): void
-  /** 0 = infinite. */
+  /**
+   * How many times to play: `n` cycles then stop, `-1` forever, and `0` asks
+   * for the same as `-1` rather than "no cycles".
+   *
+   * The one transport setting that is per-transition: `setupAnimation` resets
+   * it, so a host that wants a count to hold has to set it again after each
+   * switch.
+   */
   setLoop(loops: number): void
-  /** Multiplier on the authored frame rate; negative plays backwards. */
+  /**
+   * Multiplier on the authored frame rate.
+   *
+   * `0` **stops the playhead** where it stands rather than meaning "no
+   * setting", and a negative rate is clamped to the same stop — reversing is
+   * `setPlaybackDirection`'s job, not the speed's. Survives `setupAnimation`.
+   */
   setSpeed(rate: number): void
+  /**
+   * Which way the playhead walks, and what it does at the far end.
+   *
+   * Survives `setupAnimation` — "play this backwards" describes the playback,
+   * not the clip that happens to be loaded. The heading inside a ping-pong
+   * cycle does not: a new animation always starts on the outward leg.
+   */
   setPlaybackDirection(direction: number, style: number): void
   /**
    * Whether a long `update()` may skip intermediate frames. False makes every
