@@ -407,15 +407,19 @@ export interface SsContext
   /** As `play()`, but starting at `frameNo`. Moves the playhead. */
   playFrom(frameNo: number): void
   /**
-   * Pauses, and does nothing if already paused.
+   * Holds playback on the current frame, and does nothing if already held or
+   * if nothing is playing.
    *
-   * The C-API's `ss_runtime_pause` is a **toggle**
-   * (`is_pausing = !is_pausing`), which makes a second call a resume. That is
-   * the wrong shape for a declarative `playing` prop, so this side guards on
-   * `isPausing` and splits the toggle into `pause()` / `resume()`.
+   * Maps onto `ss_runtime_pause`, which is one-way and idempotent. It used to
+   * be a **toggle** (`is_pausing = !is_pausing`) — the wrong shape for a
+   * declarative `playing` prop, since a second call resumed — and the runtime
+   * split it into `pause` / `resume`.
    */
   pause(): void
-  /** Resumes a paused animation, and does nothing if not paused. */
+  /**
+   * Lifts a `pause()`, carrying on from the same frame. Does nothing if not
+   * held. Not the same as `play()`, which heads out and rewinds.
+   */
   resume(): void
   /**
    * Halts the transport **where it stands** — it does not rewind, and it does
