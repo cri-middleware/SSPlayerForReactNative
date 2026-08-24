@@ -293,19 +293,17 @@ void HybridSsContext::playFrom(double frameNo) {
 
 void HybridSsContext::pause() {
   if (ctx_ == nullptr) return;
-  // `ss_runtime_pause` is a *toggle* — `playback_controller.rs` is literally
-  // `is_pausing = !is_pausing` — so calling it while already paused resumes.
-  // Guarded, because a `pause()` that resumes on the second call is the wrong
-  // shape for a declarative `playing` prop to drive.
-  if (ss_runtime_is_pausing(ctx_)) return;
+  // One-way and idempotent on the C-API side, and ignored while nothing is
+  // playing, so this needs no guard: the runtime used to publish a *toggle*
+  // (`is_pausing = !is_pausing`), which is the wrong shape for a declarative
+  // `playing` prop to drive, and it was split into pause / resume.
   ss_runtime_pause(ctx_);
   // Neither pause nor resume moves the playhead, so the published frame stands.
 }
 
 void HybridSsContext::resume() {
   if (ctx_ == nullptr) return;
-  if (!ss_runtime_is_pausing(ctx_)) return;
-  ss_runtime_pause(ctx_);
+  ss_runtime_resume(ctx_);
 }
 
 void HybridSsContext::stop() {
