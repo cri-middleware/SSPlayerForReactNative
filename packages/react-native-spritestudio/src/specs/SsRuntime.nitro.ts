@@ -388,7 +388,11 @@ export interface SsContext
   readonly fps: number
   readonly startFrame: number
   readonly endFrame: number
-  /** Configured loop count; 0 means infinite. */
+  /**
+   * Configured loop count. `-1` is infinite, and it is what you read back for
+   * one: `setLoop` normalizes everything at or below zero to `-1`, so passing
+   * `0` asks for infinite but never comes back as `0`.
+   */
   readonly loops: number
   readonly remainLoops: number
   /** `SsPlaybackDirection` wire value. */
