@@ -191,8 +191,8 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     // `applySettings()` replays onto the animation once it is set up, so setting
     // them on a player with no resource is not a race — it is how it is meant to
     // be primed.
-    next.setSpeed(speed)
-    next.setLoop(loop)
+    next.setSpeedScale(speed)
+    next.setLoopCount(loop)
 
     applied.current = animation
     next
@@ -259,12 +259,12 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // commits the render that publishes the player — a `player`-keyed effect
   // rewound the animation and fired a second `onAnimationStart`.
   useEffect(() => {
-    player?.setSpeed(speed)
+    player?.setSpeedScale(speed)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speed])
 
   useEffect(() => {
-    player?.setLoop(loop)
+    player?.setLoopCount(loop)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loop])
 

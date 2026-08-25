@@ -77,7 +77,7 @@ any of them, and reading `.value` during render to fake it defeats the point.
 <SpriteStudioView speed={speedShared} />
 ```
 
-Drive it from JS instead — `player.setSpeed(x)`, or the `speed` prop.
+Drive it from JS instead — `player.setSpeedScale(x)`, or the `speed` prop.
 
 ### Expect the frame loop on the UI thread
 

@@ -214,8 +214,9 @@ export class SsInternalPlayer {
   }
 
   /** Starts from the beginning — not a resume. See `resume()`. */
-  play(): void {
-    this.require().play()
+  play(startFrame?: number): void {
+    if (startFrame == null) this.require().play()
+    else this.require().playFrom(startFrame)
   }
   playFrom(frameNo: number): void {
     this.require().playFrom(frameNo)
@@ -236,10 +237,10 @@ export class SsInternalPlayer {
     this.require().setFrameNo(frameNo)
   }
   /** 0 = infinite. */
-  setLoop(loops: number): void {
+  setLoopCount(loops: number): void {
     this.require().setLoop(loops)
   }
-  setSpeed(rate: number): void {
+  setSpeedScale(rate: number): void {
     this.require().setSpeed(rate)
   }
   setPlaybackDirection(
@@ -248,7 +249,7 @@ export class SsInternalPlayer {
   ): void {
     this.require().setPlaybackDirection(direction, style)
   }
-  setSkipFrames(skip: boolean): void {
+  setFrameSkipEnabled(skip: boolean): void {
     this.require().setSkipFrames(skip)
   }
   setSection(startFrame: number, endFrame: number): void {
@@ -258,10 +259,10 @@ export class SsInternalPlayer {
     this.require().setFrameRate(fps)
   }
   /** Whether the DISPLAY frame keeps its fraction. See `setSubFrame`. */
-  get subFrame(): boolean {
+  get subFrameEnabled(): boolean {
     return this.context?.subFrame ?? true
   }
-  setSubFrame(enabled: boolean): void {
+  setSubFrameEnabled(enabled: boolean): void {
     this.require().setSubFrame(enabled)
   }
 
@@ -356,6 +357,19 @@ export class SsInternalPlayer {
   }
 
   /** Animation names in this pack, for feeding to `setupAnimation`. */
+  /**
+   * Cellmap names in the pack, without the `.ssce` extension — the namespace
+   * {@link setPartCell} hashes against.
+   */
+  cellmapNames(): string[] {
+    return this.context?.cellmapNames() ?? []
+  }
+
+  /** The cell names inside one cellmap — the other half of what {@link setPartCell} takes. */
+  cellNames(cellmapName: string): string[] {
+    return this.context?.cellNames(cellmapName) ?? []
+  }
+
   getAnimationNames(): string[] {
     return this.require().getAnimationNames()
   }

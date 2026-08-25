@@ -32,7 +32,7 @@ const ref = useRef<SpriteStudioViewRef>(null)
 
 ref.current?.player?.setAnimation('attack')
 ref.current?.player?.seek(12)
-ref.current?.player?.setSpeed(0.5)
+ref.current?.player?.setSpeedScale(0.5)
 ```
 
 | | |
@@ -40,21 +40,31 @@ ref.current?.player?.setSpeed(0.5)
 | `play()` / `pause()` / `resume()` / `stop()` | See the verbs below. |
 | `seek(frameNo)` | Jump the playhead. |
 | `setAnimation(name)` | Select a different animation, posed on its first frame. **Does not start it** — call `play()`. Returns `false` if the pack has no such name, and does nothing at all if that animation is already the one set up. |
-| `setSpeed(rate)` / `setLoop(loops)` | The prop equivalents. |
+| `setSpeedScale(rate)` / `setLoopCount(loops)` | The prop equivalents. |
 | `setAnimationSection(start, end)` | Restrict playback to a frame range of the current animation. Not carried across a `setAnimation`. |
-| `setSkipFrames(skip)` | On (the default) keeps playback on the wall clock; off advances one frame per tick. |
+| `setFrameSkipEnabled(skip)` | On (the default) keeps playback on the wall clock; off advances one frame per tick. |
 | `setFrameRate(fps)` | Replace the advance rate, in **absolute** fps. `0` clears the override. Survives a `setAnimation`. |
-| `setSubFrame(enabled)` | Sub-frame interpolation, **on** by default — whether what is drawn may sit between two authored frames. |
+| `setSubFrameEnabled(enabled)` | Sub-frame interpolation, **on** by default — whether what is drawn may sit between two authored frames. |
 | `setPlaybackDirection(direction, style)` | Below. |
 | `getAnimationNames()` | What the loaded pack carries. |
 
-`setSpeed` and `setFrameRate` are both rate controls and they compose, but they
+`setSpeedScale` and `setFrameRate` are both rate controls and they compose, but they
 say different things: **speed is a multiple** of whatever the clip was authored
 at, so it means the same against every clip; **frame rate replaces** it, so 60
 against a 30fps clip is double speed and against a 60fps clip is none.
 
 And to read where it is: `frameNo`, `isPlaying`, `isFinished`,
-`isPlayingForward`, `currentAnimation`, `fps`, `partCount`.
+`isPausing`, `isPlayingForward`, `justLooped`, `currentAnimation`, `frameRate`,
+`partCount`.
+
+`justLooped` is a **pulse**: true only inside the tick `advance` just ran, and
+replaced by the next one. `onLoop` delivers the same edge if you would rather not
+poll for it.
+
+`play()` takes an optional frame — `play(12)` heads out from frame 12 rather than
+from the start of the section, and that frame becomes the reference the loop
+count counts from. Seeking and then playing does not do the same thing, because
+`play` rewinds.
 
 `isPlayingForward` is the odd one out: it reports which way the playhead is
 actually travelling, which is **not** the heading `setPlaybackDirection`

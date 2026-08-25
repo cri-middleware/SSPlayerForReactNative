@@ -31,7 +31,7 @@ const ref = useRef<SpriteStudioViewRef>(null)
 
 ref.current?.player?.setAnimation('attack')
 ref.current?.player?.seek(12)
-ref.current?.player?.setSpeed(0.5)
+ref.current?.player?.setSpeedScale(0.5)
 ```
 
 | | |
@@ -39,20 +39,27 @@ ref.current?.player?.setSpeed(0.5)
 | `play()` / `pause()` / `resume()` / `stop()` | 下の「4 つの動詞」を参照。 |
 | `seek(frameNo)` | 再生ヘッドを移動します。 |
 | `setAnimation(name)` | 別のアニメーションを選択し、先頭フレームで待機させます。**再生は始めません** — `play()` を呼んでください。その名前が無ければ `false` を返し、すでに設定済みのアニメーションなら何もしません。 |
-| `setSpeed(rate)` / `setLoop(loops)` | prop と同等のもの。 |
+| `setSpeedScale(rate)` / `setLoopCount(loops)` | prop と同等のもの。 |
 | `setAnimationSection(start, end)` | 現在のアニメーションの再生範囲を制限します。`setAnimation` を跨いでは保持されません。 |
-| `setSkipFrames(skip)` | ON（既定）は実時間に追従してフレームを飛ばし、OFF は 1 tick で 1 フレームだけ進めます。 |
+| `setFrameSkipEnabled(skip)` | ON（既定）は実時間に追従してフレームを飛ばし、OFF は 1 tick で 1 フレームだけ進めます。 |
 | `setFrameRate(fps)` | 進行レートを **絶対値** の fps で上書きします。`0` で解除。`setAnimation` を跨いで保持されます。 |
-| `setSubFrame(enabled)` | サブフレーム補間。**既定 ON** で、描画が authored フレームの間に位置することを許すかどうかです。 |
+| `setSubFrameEnabled(enabled)` | サブフレーム補間。**既定 ON** で、描画が authored フレームの間に位置することを許すかどうかです。 |
 | `setPlaybackDirection(direction, style)` | 下記。 |
 | `getAnimationNames()` | 読み込んだパックが持つアニメーション名。 |
 
-`setSpeed` と `setFrameRate` はどちらもレート制御で、併用できますが意味が違います。
+`setSpeedScale` と `setFrameRate` はどちらもレート制御で、併用できますが意味が違います。
 **速度は倍率**なのでどのクリップに対しても同じ意味になり、**フレームレートは置き換え**
 なので、30fps のクリップに 60 を指定すれば倍速、60fps のクリップなら等速です。
 
-現在位置を読むには `frameNo`・`isPlaying`・`isFinished`・`isPlayingForward`・
-`currentAnimation`・`fps`・`partCount` があります。
+現在位置を読むには `frameNo`・`isPlaying`・`isPausing`・`isFinished`・`isPlayingForward`・
+`justLooped`・`currentAnimation`・`frameRate`・`partCount` があります。
+
+`justLooped` は**パルス**です。直近の `advance` が走った tick の間だけ真で、次の tick で
+置き換わります。ポーリングしたくなければ `onLoop` が同じエッジを配ります。
+
+`play()` はフレームを 1 つ取れます。`play(12)` は区間の先頭ではなくフレーム 12 から
+頭出しし、そのフレームがループ回数の基準になります。seek してから play しても同じには
+なりません（`play` は巻き戻すため）。
 
 `isPlayingForward` だけは性質が異なります。これはプレイヘッドが実際にどちら向きに
 進んでいるかであり、`setPlaybackDirection` で設定した向きとは**別物**です — ピンポン

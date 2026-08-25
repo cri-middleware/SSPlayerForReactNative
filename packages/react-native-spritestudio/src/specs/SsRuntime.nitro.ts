@@ -676,6 +676,21 @@ export interface SsContext
   getAnimationNames(): string[]
 
   /**
+   * Cellmap names in this pack, without the `.ssce` extension — the namespace
+   * `setPartCell` hashes against.
+   *
+   * Read from the `.ssab` rather than the texture table, because a cellmap
+   * whose atlas is embedded still has a name.
+   */
+  cellmapNames(): string[]
+
+  /**
+   * The cell names inside one cellmap — the other half of what `setPartCell`
+   * takes. Empty when the cellmap is not in this pack.
+   */
+  cellNames(cellmapName: string): string[]
+
+  /**
    * Bake **and draw** the current frame, entirely in C++.
    *
    * Nothing per-vertex crosses into JS — no `SkPoint` host objects to allocate
