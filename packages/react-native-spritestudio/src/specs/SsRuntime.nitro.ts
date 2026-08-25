@@ -97,25 +97,25 @@ export interface SsTextureInfo {
 }
 
 /**
- * A box in **player-local units, Y-up** — the space the root transform works in,
- * and the same one `local_vertices` and the world matrices are expressed in.
+ * A box in **player-local units, Y-down** — the space the root transform works
+ * in, and the same one `local_vertices` and the world matrices are expressed in.
  *
- * Y-up rather than Skia's Y-down because that is the Brain's convention all the
- * way up to `SsInternalPlayer.draw`, which is the single place the flip happens
- * (`canvas.scale(s, -s)`). A box that arrived Y-down would have to be flipped
- * back there, and the two conventions would meet somewhere less obvious.
+ * Y-down because the context is (`HybridSsContext` sets the Brain's coordinate
+ * system), which is Skia's own sense: the root transform is then a plain
+ * translate-and-scale with no flip hidden in it, and every number that crosses
+ * this boundary — box, world matrix, baked vertex — agrees about which way is up.
  */
 export interface SsBox {
   /** Left edge. */
   x: number
-  /** **Bottom** edge, +Y being up. */
+  /** **Top** edge, +Y being down. */
   y: number
   width: number
   height: number
 }
 
 /**
- * One part's placement this frame, in **player-local units, Y-up**.
+ * One part's placement this frame, in **player-local units, Y-down**.
  *
  * Decomposed rather than handed over as a matrix because the callers are
  * placement code — attaching a React view to a hand, spawning a projectile at a
@@ -399,6 +399,17 @@ export interface SsContext
   readonly playbackDirection: number
   /** `SsPlaybackStyle` wire value. */
   readonly playbackStyle: number
+  /**
+   * Which way the playhead is actually travelling this frame — **not** the same
+   * as `playbackDirection`, which is only the heading that was configured. Under
+   * ping-pong the return leg runs backward while `playbackDirection` still reads
+   * forward, and a negative speed does not flip it (a negative speed is a stop).
+   *
+   * This is the gate the sibling players put in front of audio: SpriteStudio has
+   * no reverse audio, so a key crossed on a backward leg must not be played. A
+   * host wiring `onAudio` into its own audio stack wants the same test.
+   */
+  readonly isPlayingForward: boolean
   readonly skipFrames: boolean
   /**
    * Whether the frame handed to the Brain **for display** keeps its fraction.

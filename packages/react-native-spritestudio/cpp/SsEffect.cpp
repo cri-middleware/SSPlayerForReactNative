@@ -55,13 +55,13 @@ void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, f
     const ss_effect_event_info ev = ss_runtime_get_active_effect_event(context, partIndex);
     const ss_effect_step_result result =
         ss_effect_slot_step(slot, ev, parentFrame, deltaSeconds, fps, parentLooped,
-                            // `y_flip = false`: this Player is Y-up below the
-                            // root, because the root transform is what turns
-                            // SpriteStudio's Y-up into Skia's Y-down
-                            // (`SsInternalPlayer`'s negative Y scale). Passing
-                            // true would flip the particles a second time and
-                            // mirror every effect about its emitter.
-                            /*y_flip=*/false,
+                            // `y_flip = true`: the context runs Y-down (see
+                            // `HybridSsContext`'s constructor), so the particles
+                            // are mirrored here with everything else. Passing
+                            // false would leave every effect mirrored about its
+                            // emitter relative to the parts around it. Same value
+                            // ForWeb, ForFlutter and ForGodot pass.
+                            /*y_flip=*/true,
                             // (x, y) pairs. The plan reports it back and the
                             // baker reads it there rather than assuming.
                             /*vert_stride=*/2);

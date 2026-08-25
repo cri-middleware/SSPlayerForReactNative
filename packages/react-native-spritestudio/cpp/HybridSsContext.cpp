@@ -42,6 +42,15 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // Direct is the mode the SoA + DrawBatch contract is defined against; it also
   // stops the Brain serializing vertices/cells/deforms we never read.
   ss_runtime_set_render_mode(ctx_, 0);
+  // Y-down, because Skia's canvas is. The Brain owns the flip — it mirrors the
+  // whole hierarchy once, at the source (position_y, rotation_z and pivot_y) —
+  // so everything downstream reads one consistent space: the baked geometry, the
+  // world matrices `getPartTransform` decomposes, and the box `measureContentBox`
+  // accumulates. Doing it in the root transform instead, as this used to, left
+  // those three disagreeing: the draw came out right way up while every matrix
+  // handed to a caller was still Y-up. ForWeb, ForFlutter, ForGodot and ForRenPy
+  // all set it here for the same reason.
+  ss_context_set_coordinate_system(ctx_, 1);
   // Read once: these are PartData, so they are fixed for the life of the
   // resource. Re-reading them per frame would be the mistake the mask spec opens
   // by warning against — the animated `mask` / `hide` come from FrameData.
@@ -244,6 +253,9 @@ bool HybridSsContext::getIsPlaying() { return ctx_ != nullptr && ss_runtime_is_p
 bool HybridSsContext::getIsPausing() { return ctx_ != nullptr && ss_runtime_is_pausing(ctx_); }
 bool HybridSsContext::getIsFinished() { return ctx_ != nullptr && ss_runtime_is_finished(ctx_); }
 bool HybridSsContext::getIsLooped() { return ctx_ != nullptr && ss_runtime_is_looped(ctx_); }
+// True with no context: forward is the resting state, and reporting backward for
+// a player that is not playing would gate audio off on its very first frame.
+bool HybridSsContext::getIsPlayingForward() { return ctx_ == nullptr || ss_runtime_is_playing_forward(ctx_); }
 bool HybridSsContext::getSkipFrames() {
   return ctx_ != nullptr && ss_runtime_get_skip_frames(ctx_);
 }

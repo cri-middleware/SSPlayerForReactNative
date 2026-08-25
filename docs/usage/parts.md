@@ -34,7 +34,7 @@ override is a patch, not a replacement.
 | Field | Type | Means |
 |---|---|---|
 | `visible` | `boolean` | Show or hide the part. |
-| `cascade` | `boolean` | Whether a `visible: false` reaches descendants. Default `true`. |
+| `cascade` | `boolean` | Whether a `visible: false` reaches descendants. Default `false` — a keyframed hide never cascades in SS7, so cascading is the opt-in. |
 | `color` | `string \| number` | A tint. Anything Skia parses (`'#f00'`, `'rgba(255,0,0,.5)'`) or a packed `0xRRGGBBAA` number. |
 | `colorBlend` | `SsPartColorBlendValue` | How the tint combines: `SsPartColorBlend.mix` / `.mul` / `.add` / `.sub`. Default `mix`. |
 | `cell` | `SsCellRef` | Swap which cell the part samples. |
@@ -61,17 +61,19 @@ parts={{
 
 ### How long an override lasts
 
-`priority` defaults to `SsOverridePriority.permanent`, which is **not** the
-C-API's default. It is what a declarative prop has to mean: a map carrying
-`hat: { visible: false }` says the hat is hidden for as long as the prop says
-so, and one the next keyframe silently undid would make the prop describe a
-single frame.
+`priority` defaults to `SsOverridePriority.untilNextAnimation` — the C-API's
+own default (`HoldUntilNextAnimation`), and the one the sibling players take
+(ForWeb, ForUnity, ForFlutter, ForGodot, ForRenPy, ForWgpu).
+
+What makes a map carrying `hat: { visible: false }` mean "the hat is hidden for
+as long as the prop says so" is not the priority but the replay: as below, the
+map is re-applied onto every newly set-up animation.
 
 | | |
 |---|---|
 | `untilNextKeyframe` | The animation takes the part back at its next authored key. |
-| `untilNextAnimation` | Survives keyframes, dropped when another animation is set up. |
-| `permanent` | Holds until the prop says otherwise. **The default.** |
+| `untilNextAnimation` | Survives keyframes, dropped when another animation is set up. **The default.** |
+| `permanent` | Holds across animation changes. |
 
 Overrides are replayed onto each newly set-up animation whatever the priority,
 because `setup_animation` resets the override layer along with everything else —

@@ -54,7 +54,20 @@ at, so it means the same against every clip; **frame rate replaces** it, so 60
 against a 30fps clip is double speed and against a 60fps clip is none.
 
 And to read where it is: `frameNo`, `isPlaying`, `isFinished`,
-`currentAnimation`, `fps`, `partCount`.
+`isPlayingForward`, `currentAnimation`, `fps`, `partCount`.
+
+`isPlayingForward` is the odd one out: it reports which way the playhead is
+actually travelling, which is **not** the heading `setPlaybackDirection`
+configured — under ping-pong the return leg runs backward while the configured
+heading still reads forward. Gate audio on it. SpriteStudio has no reverse
+audio, so a key crossed on a backward leg is not meant to sound, and this is the
+test the players that play audio themselves apply:
+
+```ts
+player.onAudio = (e) => {
+  if (player.isPlayingForward) mySoundBank.play(e.soundName, e.loopNum)
+}
+```
 
 ## play, pause, resume and stop are four distinct verbs
 

@@ -132,12 +132,12 @@ export function resolveRootTransform(
     s *= fit === 'cover' ? Math.max(sx, sy) : Math.min(sx, sy)
   }
 
-  // The signs the draw applies: X is mirrored by `flipX`, and Y is negated
-  // *because* SpriteStudio is Y-up and Skia is Y-down — `flipY` toggles that
-  // negation rather than adding a second one. Kept identical to
-  // `SsInternalPlayer.draw`, which is the only place it is actually applied.
+  // The signs the draw applies: both axes are plain mirrors now, because the
+  // Brain already hands us Y-down geometry (see `HybridSsContext`) and `box`
+  // was measured in that same space. Kept identical to `SsInternalPlayer.draw`,
+  // which is the only place it is actually applied.
   const signedX = flipX ? -s : s
-  const signedY = flipY ? s : -s
+  const signedY = flipY ? -s : s
 
   let x = width / 2
   let y = height / 2
