@@ -59,7 +59,7 @@ export interface SpriteStudioPlayerApi {
    * verbs are kept distinct here because the SDK's porting guide asks Players
    * not to fold them (`30_core/20_playback_control.md`).
    */
-  play(): void
+  play(startFrame?: number): void
   /** Holds playback where it stands. Idempotent, ignored while nothing plays. */
   pause(): void
   /**
@@ -82,16 +82,16 @@ export interface SpriteStudioPlayerApi {
   getAnimationNames(): string[]
   seek(frameNo: number): void
   /** Multiplier on the authored frame rate; negative plays backwards. */
-  setSpeed(rate: number): void
+  setSpeedScale(rate: number): void
   /** 0 = infinite. */
-  setLoop(loops: number): void
+  setLoopCount(loops: number): void
   /** Restricts playback to `[startFrame, endFrame]` of the current animation. */
   setAnimationSection(startFrame: number, endFrame: number): void
   /**
    * Whether a long tick may skip frames to stay on the wall clock (the default)
    * or advance exactly one frame, stretching playback instead.
    */
-  setSkipFrames(skip: boolean): void
+  setFrameSkipEnabled(enabled: boolean): void
   /**
    * Overrides the advance rate, in absolute frames per second. `0` clears the
    * override and hands playback back to whatever each animation was authored at.
@@ -101,7 +101,7 @@ export interface SpriteStudioPlayerApi {
    * Sub-frame interpolation, on by default: whether what is drawn may sit
    * between two authored frames.
    */
-  setSubFrame(enabled: boolean): void
+  setSubFrameEnabled(enabled: boolean): void
   /**
    * Advances the clock by `dtMilliseconds`. The default drive — see the class
    * comment. Milliseconds is the Brain's unit and is carried unconverted
@@ -478,6 +478,20 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   get isFinished(): boolean {
     return this.internalPlayer?.isFinished ?? false
   }
+
+  /** Whether playback is held by {@link pause}. Stays false before the first {@link play}. */
+  get isPausing(): boolean {
+    return this.internalPlayer?.isPausing ?? false
+  }
+
+  /**
+   * Whether the last {@link advance} crossed a loop boundary. A **pulse**, true
+   * only inside the tick that crossed — take {@link onLoop} instead if you would
+   * rather have it delivered than polled.
+   */
+  get justLooped(): boolean {
+    return this.internalPlayer?.isLooped ?? false
+  }
   /**
    * Which way the playhead is actually travelling this frame.
    *
@@ -496,7 +510,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   get isPlayingForward(): boolean {
     return this.internalPlayer?.isPlayingForward ?? true
   }
-  get fps(): number {
+  get frameRate(): number {
     return this.internalPlayer?.fps ?? 0
   }
   get partCount(): number {
@@ -504,6 +518,24 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /** See `SpriteStudioPlayerApi`. Empty before a load completes. */
+  /** Resolve a part name to its index, or `-1` when the name is not in the animation. */
+  findPartIndex(partName: string): number {
+    return this.internalPlayer?.findPartIndex(partName) ?? -1
+  }
+
+  /**
+   * Cellmap names in the pack, without the `.ssce` extension — the namespace a
+   * cell override takes. Empty before a load completes.
+   */
+  cellmapNames(): string[] {
+    return this.internalPlayer?.cellmapNames() ?? []
+  }
+
+  /** The cell names inside one cellmap — the other half a cell override takes. */
+  cellNames(cellmapName: string): string[] {
+    return this.internalPlayer?.cellNames(cellmapName) ?? []
+  }
+
   getAnimationNames(): string[] {
     return this.internalPlayer?.getAnimationNames() ?? []
   }
@@ -561,10 +593,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * without losing the playhead. Mapping a boolean prop onto the four is Layer
    * 4's job, and it is the only layer that knows the prop exists.
    */
-  play(): void {
+  play(startFrame?: number): void {
     this.wasFinished = false
     const internal = this.internalPlayer
-    if (internal != null) this.startPlayback(internal)
+    if (internal != null) this.startPlayback(internal, startFrame)
     this.notify()
   }
 
@@ -583,13 +615,16 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /**
    * `internal.play()` and the notification that goes with it, in one place.
    *
+   * `startFrame` is forwarded when a caller asked to head out from a frame; the
+   * replay after a setup passes nothing, since it means "start this clip".
+   *
    * Two call sites reach it — an explicit `play()` and `applySettings` after a
    * setup — and both are starts. Resume deliberately does not come through
    * here: it is the other half of the verb, and firing "started" for it would
    * make the two indistinguishable to a listener.
    */
-  private startPlayback(internal: SsInternalPlayer): void {
-    internal.play()
+  private startPlayback(internal: SsInternalPlayer, startFrame?: number): void {
+    internal.play(startFrame)
     this.onAnimationStart?.(this.animation ?? '')
   }
 
@@ -611,14 +646,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.notify()
   }
 
-  setSpeed(rate: number): void {
+  setSpeedScale(rate: number): void {
     this.settings.speed = rate
-    this.internalPlayer?.setSpeed(rate)
+    this.internalPlayer?.setSpeedScale(rate)
   }
 
-  setLoop(loops: number): void {
+  setLoopCount(loops: number): void {
     this.settings.loops = loops
-    this.internalPlayer?.setLoop(loops)
+    this.internalPlayer?.setLoopCount(loops)
   }
 
   setPlaybackDirection(
@@ -651,9 +686,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Turn it off when every frame matters — an animation whose events must all
    * fire, or a deterministic capture.
    */
-  setSkipFrames(skip: boolean): void {
-    this.settings.skipFrames = skip
-    this.internalPlayer?.setSkipFrames(skip)
+  setFrameSkipEnabled(enabled: boolean): void {
+    this.settings.skipFrames = enabled
+    this.internalPlayer?.setFrameSkipEnabled(enabled)
   }
 
   /**
@@ -683,14 +718,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * authored frames — and it reaches the instance children too, which are drawn
    * at their own playhead and have to be floored on the same terms.
    */
-  setSubFrame(enabled: boolean): void {
+  setSubFrameEnabled(enabled: boolean): void {
     this.settings.subFrame = enabled
-    this.internalPlayer?.setSubFrame(enabled)
+    this.internalPlayer?.setSubFrameEnabled(enabled)
   }
 
   /** See {@link setSubFrame}. */
-  get subFrame(): boolean {
-    return this.internalPlayer?.subFrame ?? this.settings.subFrame
+  get subFrameEnabled(): boolean {
+    return this.internalPlayer?.subFrameEnabled ?? this.settings.subFrame
   }
 
   /**
@@ -707,10 +742,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // The loop count is the one the Brain drops on every setup, deliberately.
     // The rest it keeps on its own; they are pushed anyway because this is also
     // the path a value chosen before the load takes to reach a fresh animation.
-    internal.setLoop(this.settings.loops)
-    internal.setSpeed(this.settings.speed)
-    internal.setSkipFrames(this.settings.skipFrames)
-    internal.setSubFrame(this.settings.subFrame)
+    internal.setLoopCount(this.settings.loops)
+    internal.setSpeedScale(this.settings.speed)
+    internal.setFrameSkipEnabled(this.settings.skipFrames)
+    internal.setSubFrameEnabled(this.settings.subFrame)
     if (this.settings.frameRate != null) internal.setFrameRate(this.settings.frameRate)
     internal.setPlaybackDirection(this.settings.direction, this.settings.style)
     // Playback is deliberately NOT started here: `setAnimation` selects, `play`
@@ -785,7 +820,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // outlive the animation switch that should have dropped it for anyone
       // reaching past this map into Layer 2. The declarative behaviour is
       // unchanged either way: `applySettings` replays the map after every setup.
-      const priority = override.priority ?? SsOverridePriority.untilNextAnimation
+      const priority = override.priority ?? SsOverridePriority.holdUntilNextAnimation
 
       if (override.visible == null) internal.clearPartVisibility(index)
       else {

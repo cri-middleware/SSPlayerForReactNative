@@ -20,7 +20,7 @@ export type SsPartColorBlendValue =
 /**
  * How long an override outlives the animation that is playing under it.
  *
- * Omitting `priority` means `untilNextAnimation`, which is the family's default
+ * Omitting `priority` means `holdUntilNextAnimation`, which is the family's default
  * (ForWeb, ForUnity, ForFlutter, ForGodot, ForRenPy and ForWgpu all take the
  * C-API's `HoldUntilNextAnimation`). `permanent` used to be it here, on the
  * reasoning that a declarative `parts` map should outlive a clip switch — but
@@ -30,8 +30,8 @@ export type SsPartColorBlendValue =
  * map after every animation setup, so a prop still describes the state.
  */
 export const SsOverridePriority = {
-  untilNextKeyframe: 0,
-  untilNextAnimation: 1,
+  overwriteOnNextKeyframe: 0,
+  holdUntilNextAnimation: 1,
   permanent: 2,
 } as const
 export type SsOverridePriorityValue =
@@ -67,7 +67,7 @@ export interface SsPartOverride {
   color?: string | number
   colorBlend?: SsPartColorBlendValue
   cell?: SsCellRef
-  /** Defaults to {@link SsOverridePriority.untilNextAnimation}. */
+  /** Defaults to {@link SsOverridePriority.holdUntilNextAnimation}. */
   priority?: SsOverridePriorityValue
 }
 

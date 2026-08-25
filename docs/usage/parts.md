@@ -61,7 +61,7 @@ parts={{
 
 ### How long an override lasts
 
-`priority` defaults to `SsOverridePriority.untilNextAnimation` — the C-API's
+`priority` defaults to `SsOverridePriority.holdUntilNextAnimation` — the C-API's
 own default (`HoldUntilNextAnimation`), and the one the sibling players take
 (ForWeb, ForUnity, ForFlutter, ForGodot, ForRenPy, ForWgpu).
 
@@ -71,8 +71,8 @@ map is re-applied onto every newly set-up animation.
 
 | | |
 |---|---|
-| `untilNextKeyframe` | The animation takes the part back at its next authored key. |
-| `untilNextAnimation` | Survives keyframes, dropped when another animation is set up. **The default.** |
+| `overwriteOnNextKeyframe` | The animation takes the part back at its next authored key. |
+| `holdUntilNextAnimation` | Survives keyframes, dropped when another animation is set up. **The default.** |
 | `permanent` | Holds across animation changes. |
 
 Overrides are replayed onto each newly set-up animation whatever the priority,

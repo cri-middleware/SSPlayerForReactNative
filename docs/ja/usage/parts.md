@@ -60,7 +60,7 @@ parts={{
 
 ### オーバーライドはどれだけ持続するか {#how-long-an-override-lasts}
 
-`priority` の既定は `SsOverridePriority.untilNextAnimation` で、これは C-API の既定
+`priority` の既定は `SsOverridePriority.holdUntilNextAnimation` で、これは C-API の既定
 （`HoldUntilNextAnimation`）と同じ、他のプレイヤー（ForWeb / ForUnity / ForFlutter /
 ForGodot / ForRenPy / ForWgpu）とも揃った値です。
 
@@ -70,8 +70,8 @@ ForGodot / ForRenPy / ForWgpu）とも揃った値です。
 
 | | |
 |---|---|
-| `untilNextKeyframe` | 次に作成されたキーでアニメーションがそのパーツを取り戻します。 |
-| `untilNextAnimation` | キーフレームは越えますが、別のアニメーションが設定されると解除されます。**既定値。** |
+| `overwriteOnNextKeyframe` | 次に作成されたキーでアニメーションがそのパーツを取り戻します。 |
+| `holdUntilNextAnimation` | キーフレームは越えますが、別のアニメーションが設定されると解除されます。**既定値。** |
 | `permanent` | アニメーションの切り替えを越えて保持されます。 |
 
 オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用

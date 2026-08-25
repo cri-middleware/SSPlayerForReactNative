@@ -74,7 +74,7 @@ shared value の**入力はありません**。`speed`・`loop`・再生位置�
 <SpriteStudioView speed={speedShared} />
 ```
 
-JS 側から駆動してください — `player.setSpeed(x)`、または `speed` prop です。
+JS 側から駆動してください — `player.setSpeedScale(x)`、または `speed` prop です。
 
 ### フレームループが UI スレッドにあると期待する
 

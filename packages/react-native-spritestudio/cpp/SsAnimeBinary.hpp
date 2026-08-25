@@ -117,6 +117,40 @@ class SsAnimeBinaryView {
     return toView(animations->Get(index)->name());
   }
 
+  // --- cellmaps -----------------------------------------------------------
+  //
+  // Deliberately separate from the texture list below. That one is cellmaps
+  // *and* external textures, keyed by whatever `DrawBatch.texture_hash` carries,
+  // because to a renderer they are one question. This one is the namespace a
+  // cell override hashes against, and an external texture is not in it.
+
+  /// Cellmap names, without the `.ssce` extension.
+  std::vector<std::string_view> cellmapNames() const noexcept {
+    std::vector<std::string_view> out;
+    const auto* v = root_ != nullptr ? root_->cellmaps() : nullptr;
+    if (v == nullptr) return out;
+    out.reserve(v->size());
+    for (uint32_t i = 0; i < v->size(); ++i) out.emplace_back(toView(v->Get(i)->name()));
+    return out;
+  }
+
+  /// The cell names inside one cellmap, empty when the name is not in this pack.
+  std::vector<std::string_view> cellNames(std::string_view cellmapName) const noexcept {
+    std::vector<std::string_view> out;
+    const auto* v = root_ != nullptr ? root_->cellmaps() : nullptr;
+    if (v == nullptr) return out;
+    for (uint32_t i = 0; i < v->size(); ++i) {
+      const auto* cellmap = v->Get(i);
+      if (toView(cellmap->name()) != cellmapName) continue;
+      const auto* cells = cellmap->cells();
+      if (cells == nullptr) return out;
+      out.reserve(cells->size());
+      for (uint32_t c = 0; c < cells->size(); ++c) out.emplace_back(toView(cells->Get(c)->name()));
+      return out;
+    }
+    return out;
+  }
+
   // --- textures -----------------------------------------------------------
 
   /// Cellmaps and external textures, in that order.

@@ -792,6 +792,22 @@ std::vector<std::string> HybridSsContext::getAnimationNames() {
   return out;
 }
 
+std::vector<std::string> HybridSsContext::cellmapNames() {
+  const sscore::SsAnimeBinaryView view = ssab();
+  std::vector<std::string> out;
+  if (!view.valid()) return out;
+  for (const std::string_view name : view.cellmapNames()) out.emplace_back(name);
+  return out;
+}
+
+std::vector<std::string> HybridSsContext::cellNames(const std::string& cellmapName) {
+  const sscore::SsAnimeBinaryView view = ssab();
+  std::vector<std::string> out;
+  if (!view.valid()) return out;
+  for (const std::string_view name : view.cellNames(cellmapName)) out.emplace_back(name);
+  return out;
+}
+
 void HybridSsContext::refreshFrame() {
   // Every caller guards already, but `release()` can now run at any time JS
   // chooses rather than only at destruction, so the invariant is stated here
