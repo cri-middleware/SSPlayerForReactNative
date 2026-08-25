@@ -50,8 +50,22 @@ export interface SpriteStudioPlayerApi {
   readonly isFinished: boolean
   readonly currentAnimation: string | null
 
+  /**
+   * **Head-out.** Rewinds to the start of the section and re-arms the loop
+   * count — it is not a resume, and using it to lift a `pause()` sends the
+   * playhead back to the start. That is the Brain's contract, and these four
+   * verbs are kept distinct here because the SDK's porting guide asks Players
+   * not to fold them (`30_core/20_playback_control.md`).
+   */
   play(): void
+  /** Holds playback where it stands. Idempotent, ignored while nothing plays. */
   pause(): void
+  /**
+   * Lifts a {@link pause}, carrying on from the same frame. Idempotent, and a
+   * no-op on a stopped animation — starting one is {@link play}'s job.
+   */
+  resume(): void
+  /** Ends playback. Nothing rewinds; the frame it stopped on stays on screen. */
   stop(): void
   setAnimation(name: string): boolean
   /**
@@ -69,6 +83,13 @@ export interface SpriteStudioPlayerApi {
   setSpeed(rate: number): void
   /** 0 = infinite. */
   setLoop(loops: number): void
+  /** Restricts playback to `[startFrame, endFrame]` of the current animation. */
+  setAnimationSection(startFrame: number, endFrame: number): void
+  /**
+   * Whether a long tick may skip frames to stay on the wall clock (the default)
+   * or advance exactly one frame, stretching playback instead.
+   */
+  setSkipFrames(skip: boolean): void
   /**
    * Advances the clock by `dtMilliseconds`. The default drive — see the class
    * comment. Milliseconds is the Brain's unit and is carried unconverted
@@ -164,11 +185,22 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private animation: string | null = null
   private wasFinished = false
 
-  /** Pending transport settings, replayed onto each newly loaded animation. */
+  /**
+   * Pending transport settings, replayed onto each newly set-up animation.
+   *
+   * The loop count has to be here: the Brain resets it on every transition,
+   * because a transition is what states a count. The rest is here so a value
+   * chosen *before* a resource exists still lands — the Brain keeps the speed
+   * and the direction across a setup on its own.
+   *
+   * Whether it is **playing** is deliberately absent. Starting playback is
+   * `play()`'s job and nothing else's; folding it into a load or a switch is
+   * what made `setAnimation` start the animation it was only asked to select.
+   */
   private readonly settings = {
     speed: 1,
     loops: 0,
-    playing: true,
+    skipFrames: true,
     direction: SsPlaybackDirection.forward as SsPlaybackDirection,
     style: SsPlaybackStyle.normal as SsPlaybackStyle,
   }
@@ -318,6 +350,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       this.remeasure(requested)
     }
 
+    // Selects and poses, without starting: `play()` is the host's call, and for
+    // the components that is what the `playing` prop maps onto.
     if (requested != null) this.setAnimation(requested)
     else this.applySettings()
 
@@ -439,14 +473,32 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.getAnimationNames() ?? []
   }
 
+  /**
+   * Select an animation, and pose it on its first frame. **Does not start
+   * playback** — that is {@link play}'s job, and keeping the two apart is what
+   * lets a caller swap the animation on a paused player, or show an idle pose.
+   *
+   * **Selecting the animation already set up does nothing at all.** It is a
+   * switch, so with nothing to switch to it costs nothing and disturbs nothing:
+   * the playhead stays, the loop budget is not re-armed, and the overrides
+   * survive. That makes it safe for a state machine to assert its current clip
+   * every frame. To restart, call {@link play}.
+   */
   setAnimation(name: string): boolean {
-    // Captured before the assignment, so "did it actually change" survives it.
-    // Re-setting the same name is a restart, and reports itself as one through
-    // `onAnimationStart` rather than as a change to something it already was.
+    const internal = this.internalPlayer
+    if (internal == null) {
+      // No resource yet: remember what was asked for, so a caller can set the
+      // animation before the load lands. `load` starts on this value.
+      this.animation = name
+      return false
+    }
+    // Against what the runtime HAS, which `load` resets by building a new
+    // internal player — so a second pack naming an animation the same way as the
+    // first still gets set up.
+    if (internal.currentAnimation === name) return true
+
     const previous = this.animation
     this.animation = name
-    const internal = this.internalPlayer
-    if (internal == null) return false
 
     // An animation-scoped box describes *this* animation, so switching makes it
     // stale. A pack-scoped one is the union over the whole file and does not
@@ -456,12 +508,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     }
 
     if (!internal.setupAnimation(name)) return false
-    // Before `applySettings`, which is what starts playback: a listener should
-    // see "now playing X" and then "X started", not the other way round. The
-    // sibling Players order it the same way.
     if (previous !== name) this.onAnimationChange?.(name)
-    // setup resets playback, so the settings have to be replayed onto it — the
-    // same reason they are replayed after a load.
+    // setup drops the loop count and the override layer, so both go back on.
     this.wasFinished = false
     this.applySettings()
     this.notify()
@@ -469,23 +517,31 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
-   * Plays: resumes if paused, otherwise starts from the beginning.
+   * **Head-out**: rewinds to the start of the section and re-arms the loop
+   * count.
    *
-   * Layer 1 keeps the two apart because the Brain does — `ss_runtime_play`
-   * rewinds. Up here they are one verb, so `playing={false}` → `playing={true}`
-   * carries on rather than restarting, and `stop()` then `play()` restarts.
+   * Not a resume — {@link resume} is. The two used to be one verb here, on the
+   * grounds that a `playing` prop means one thing; but a Player publishing three
+   * verbs where the contract asks for four leaves a host no way to lift a pause
+   * without losing the playhead. Mapping a boolean prop onto the four is Layer
+   * 4's job, and it is the only layer that knows the prop exists.
    */
   play(): void {
-    this.settings.playing = true
     this.wasFinished = false
     const internal = this.internalPlayer
-    if (internal != null) {
-      // Resume only a *running* transport that happens to be paused. Pausing
-      // one that never started leaves `isPausing` true with `isPlaying` false,
-      // and resuming that would clear the pause flag without starting anything.
-      if (internal.isPausing && internal.isPlaying) internal.resume()
-      else this.startPlayback(internal)
-    }
+    if (internal != null) this.startPlayback(internal)
+    this.notify()
+  }
+
+  /**
+   * Lifts a {@link pause}, carrying on from the same frame.
+   *
+   * Idempotent, and a no-op on a stopped animation: starting one is
+   * {@link play}'s job, and `play` rewinds. No `onAnimationStart` — a resume is
+   * not a start, and firing it here would make the two indistinguishable.
+   */
+  resume(): void {
+    this.internalPlayer?.resume()
     this.notify()
   }
 
@@ -502,15 +558,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.onAnimationStart?.(this.animation ?? '')
   }
 
+  /** Holds playback where it stands. Idempotent, and ignored while nothing plays. */
   pause(): void {
-    this.settings.playing = false
     this.internalPlayer?.pause()
     this.notify()
   }
 
-  /** Halts where it stands. The next `play()` starts from the beginning. */
+  /** Halts where it stands — nothing rewinds. The next `play()` heads out. */
   stop(): void {
-    this.settings.playing = false
     this.wasFinished = false
     this.internalPlayer?.stop()
     this.notify()
@@ -541,6 +596,32 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
+   * Restricts playback to `[startFrame, endFrame]` of the **current** animation,
+   * so `play`, looping and ping-pong all work within that range.
+   *
+   * Not carried across a {@link setAnimation}: frame numbers only mean something
+   * inside the animation they were measured in. Set it after each switch.
+   */
+  setAnimationSection(startFrame: number, endFrame: number): void {
+    this.internalPlayer?.setSection(startFrame, endFrame)
+    this.notify()
+  }
+
+  /**
+   * How a long tick is spent. On (the default) advances by the elapsed time and
+   * drops the frames in between, keeping playback on the wall clock; off
+   * advances exactly one frame per tick, so nothing is skipped but a stalled app
+   * plays in slow motion.
+   *
+   * Turn it off when every frame matters — an animation whose events must all
+   * fire, or a deterministic capture.
+   */
+  setSkipFrames(skip: boolean): void {
+    this.settings.skipFrames = skip
+    this.internalPlayer?.setSkipFrames(skip)
+  }
+
+  /**
    * Replays the transport settings onto a freshly set-up animation.
    *
    * The order matters and is not decorative: `setup_animation` resets the loop
@@ -551,11 +632,16 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private applySettings(): void {
     const internal = this.internalPlayer
     if (internal == null) return
+    // The loop count is the one the Brain drops on every setup, deliberately.
+    // The rest it keeps on its own; they are pushed anyway because this is also
+    // the path a value chosen before the load takes to reach a fresh animation.
     internal.setLoop(this.settings.loops)
     internal.setSpeed(this.settings.speed)
+    internal.setSkipFrames(this.settings.skipFrames)
     internal.setPlaybackDirection(this.settings.direction, this.settings.style)
-    if (this.settings.playing) this.startPlayback(internal)
-    else internal.pause()
+    // Playback is deliberately NOT started here: `setAnimation` selects, `play`
+    // starts, and this runs inside the former.
+    //
     // After `setup_animation`, which resets the override layer along with
     // everything else — and after the part indices are therefore valid again,
     // since they are resolved against the animation that is now set up.
@@ -621,14 +707,20 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
         continue
       }
       this.overriddenParts.add(name)
-      const priority = override.priority ?? SsOverridePriority.permanent
+      // The family's default. `permanent` used to be it, which made an override
+      // outlive the animation switch that should have dropped it for anyone
+      // reaching past this map into Layer 2. The declarative behaviour is
+      // unchanged either way: `applySettings` replays the map after every setup.
+      const priority = override.priority ?? SsOverridePriority.untilNextAnimation
 
       if (override.visible == null) internal.clearPartVisibility(index)
       else {
         internal.setPartVisibility(
           index,
           override.visible ? 2 : 1,
-          override.cascade ?? true
+          // Off by default, as everywhere else: a keyframed hide never cascades
+          // in SS7, so cascading is the opt-in.
+          override.cascade ?? false
         )
       }
 

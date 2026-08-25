@@ -157,6 +157,11 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // resource yet. Written before `load()` because that is the call which applies
   // it, so the effect below sees the two agree and does not restart it.
   const applied = useRef<string | undefined>(undefined)
+  // Read by the load and animation effects, which must not re-run when the prop
+  // flips — that is the transport effect's job, and re-running the load there
+  // would re-read the pack.
+  const playingRef = useRef(playing)
+  playingRef.current = playing
   // Bumped when a load lands, so that effect gets a second chance at a prop it
   // could not apply while the load was in flight.
   const [loadTick, setLoadTick] = useState(0)
@@ -185,17 +190,19 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     // The transport for the same reason. These are Layer 3's own record, which
     // `applySettings()` replays onto the animation once it is set up, so setting
     // them on a player with no resource is not a race — it is how it is meant to
-    // be primed. Without it `playing={false}` still gets one `play()`, because
-    // the default is true and the prop only arrives on the next commit.
+    // be primed.
     next.setSpeed(speed)
     next.setLoop(loop)
-    if (playing) next.play()
-    else next.pause()
 
     applied.current = animation
     next
       .load(sourceUri, { animation, measure })
       .then(() => {
+        // `load` selects and poses; starting is a separate verb, so the first
+        // play happens here. `playing={false}` therefore leaves the animation on
+        // its first frame without ever having played — which is what the prop
+        // says, and what it could not do while `setAnimation` started playback.
+        if (playingRef.current) next.play()
         setLoadTick((tick) => tick + 1)
         callbacks.current.onLoad?.()
       })
@@ -227,7 +234,11 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   useEffect(() => {
     if (player == null || animation == null) return
     if (applied.current === animation) return
-    if (player.setAnimation(animation)) applied.current = animation
+    if (!player.setAnimation(animation)) return
+    applied.current = animation
+    // A switch selects and poses; it does not start. Head out into the new
+    // animation only if this component is meant to be playing at all.
+    if (playingRef.current) player.play()
   }, [player, animation, loadTick])
 
   // --- textures -----------------------------------------------------------
@@ -259,8 +270,19 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
 
   useEffect(() => {
     if (player == null) return
-    if (playing) player.play()
-    else player.pause()
+    if (!playing) {
+      player.pause()
+      return
+    }
+    // `playing` going false → true means "carry on", not "start over", so a held
+    // transport is resumed. Only one that is not running at all is headed out —
+    // a player mounted with `playing={false}`, or one whose animation finished.
+    //
+    // Layer 3 publishes the four verbs separately, as the SDK's transport
+    // contract asks; mapping a boolean onto them belongs here, in the only layer
+    // that knows a boolean prop exists.
+    if (player.isPlaying) player.resume()
+    else player.play()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing])
 

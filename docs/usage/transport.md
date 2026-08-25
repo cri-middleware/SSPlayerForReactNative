@@ -37,26 +37,36 @@ ref.current?.player?.setSpeed(0.5)
 
 | | |
 |---|---|
-| `play()` / `pause()` / `stop()` | See the verbs below. |
+| `play()` / `pause()` / `resume()` / `stop()` | See the verbs below. |
 | `seek(frameNo)` | Jump the playhead. |
-| `setAnimation(name)` | Mount a different animation. Returns `false` if the pack has no such name. |
+| `setAnimation(name)` | Select a different animation, posed on its first frame. **Does not start it** — call `play()`. Returns `false` if the pack has no such name, and does nothing at all if that animation is already the one set up. |
 | `setSpeed(rate)` / `setLoop(loops)` | The prop equivalents. |
+| `setAnimationSection(start, end)` | Restrict playback to a frame range of the current animation. Not carried across a `setAnimation`. |
+| `setSkipFrames(skip)` | On (the default) keeps playback on the wall clock; off advances one frame per tick. |
 | `setPlaybackDirection(direction, style)` | Below. |
 | `getAnimationNames()` | What the loaded pack carries. |
 
 And to read where it is: `frameNo`, `isPlaying`, `isFinished`,
 `currentAnimation`, `fps`, `partCount`.
 
-## play, pause and stop are not three of a kind
+## play, pause, resume and stop are four distinct verbs
 
-`play()` is **one verb covering two actions**, because Layer 1 keeps them apart
-(the Brain's `ss_runtime_play` rewinds) and a component prop cannot:
+They are not interchangeable, and none of them is a synonym for another:
 
-- **After `pause()`** — resumes where it stands. `playing={false}` →
-  `playing={true}` carries on rather than restarting.
-- **After `stop()`, or from a fresh setup** — starts from the beginning.
+| | |
+|---|---|
+| `play()` | **Head-out.** Rewinds to the start of the section and re-arms the loop count. Using it to lift a `pause()` sends the playhead back to the start. |
+| `pause()` | Holds playback where it stands. Idempotent, and ignored while nothing is playing. |
+| `resume()` | Lifts a `pause()`, carrying on from the same frame. Idempotent, and a **no-op on a stopped animation** — starting one is `play()`'s job. |
+| `stop()` | Ends playback. Nothing rewinds, so the frame it stopped on stays on screen. |
 
-`stop()` halts where it stands and arms the next `play()` to restart.
+`isPlaying` stays **true** across a `pause()` — a pause is a hold, not a stop —
+so `isPlaying && !isPausing` is what "currently advancing" means.
+
+The `playing` prop maps onto these for you: `false` pauses, and `true` resumes a
+held player or heads out into one that is not running at all. That mapping lives
+in the component precisely because it is the only layer that knows a boolean
+prop exists; the player itself keeps the four apart.
 
 ::: warning `onAnimationStart` does not fire on a resume
 Start means *started from the beginning*. A resume is the other half of the same
