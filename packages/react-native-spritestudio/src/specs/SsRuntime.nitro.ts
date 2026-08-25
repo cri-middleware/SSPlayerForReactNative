@@ -400,6 +400,14 @@ export interface SsContext
   /** `SsPlaybackStyle` wire value. */
   readonly playbackStyle: number
   readonly skipFrames: boolean
+  /**
+   * Whether the frame handed to the Brain **for display** keeps its fraction.
+   *
+   * The playhead is a float either way — `frameNo` reports it unrounded, and the
+   * instance / effect slots are always stepped from the unrounded value, since
+   * truncating there freezes a child on any tick worth less than a frame.
+   */
+  readonly subFrame: boolean
 
   /**
    * **Starts from the beginning** — not a resume. `ss_runtime_play` rewinds to
@@ -464,6 +472,22 @@ export interface SsContext
   setSkipFrames(skip: boolean): void
   /** Restricts playback to `[startFrame, endFrame]`. Moves the playhead. */
   setSection(startFrame: number, endFrame: number): void
+  /**
+   * Overrides the advance rate, in absolute frames per second.
+   *
+   * The host's rather than the clip's, so it survives `setupAnimation` — pass
+   * `0` (or a negative) to clear it and go back to whatever each animation was
+   * authored at. `setSpeed` is the multiplier; this replaces the rate.
+   */
+  setFrameRate(fps: number): void
+  /**
+   * See `subFrame`. Off floors the **display** frame only, pinning playback to
+   * whole authored frames; the playhead and the slot stepping are untouched.
+   *
+   * Propagates to the instance children, which are drawn at their own playhead
+   * and have to be floored on the same terms.
+   */
+  setSubFrame(enabled: boolean): void
 
   /** Part index for `partName`, or -1. Stable for the loaded pack. */
   findPartIndex(partName: string): number

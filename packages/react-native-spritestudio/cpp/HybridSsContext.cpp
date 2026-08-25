@@ -339,6 +339,25 @@ void HybridSsContext::setSkipFrames(bool skip) {
   ss_runtime_set_skip_frames(ctx_, skip);
 }
 
+void HybridSsContext::setFrameRate(double fps) {
+  if (ctx_ == nullptr) return;
+  ss_runtime_set_frame_rate(ctx_, static_cast<int>(fps));
+}
+
+void HybridSsContext::setSubFrame(bool enabled) {
+  subFrame_ = enabled;
+  // Down the whole tree. An instance child is drawn at its own playhead by its
+  // own `refreshFrame`, so leaving it out would draw the children between
+  // authored frames while the root sat on them.
+  for (const sscore::SsInstanceState& state : instances_.states()) {
+    if (state.child != nullptr) {
+      static_cast<HybridSsContext*>(state.child)->setSubFrame(enabled);
+    }
+  }
+  // What is already on screen was resolved under the old setting.
+  refreshFrame();
+}
+
 void HybridSsContext::setSection(double startFrame, double endFrame) {
   if (ctx_ == nullptr) return;
   ss_runtime_set_animation_section(ctx_, static_cast<int>(startFrame),
@@ -769,7 +788,12 @@ void HybridSsContext::refreshFrame() {
 
   unsigned char* fdPtr = nullptr;
   size_t fdLen = 0;
-  ss_runtime_get_frame_data(ctx_, frameNo_, &fdPtr, &fdLen);
+  // The DISPLAY frame. `frameNo_` keeps its fraction whatever `subFrame_` is
+  // set to -- it is what the instance and effect slots are stepped from, and
+  // truncating it there would freeze a child on any tick worth less than a
+  // frame. Flooring it here is the whole of what turning sub-frame off does.
+  const float drawFrame = subFrame_ ? frameNo_ : std::floor(frameNo_);
+  ss_runtime_get_frame_data(ctx_, drawFrame, &fdPtr, &fdLen);
   // No `flatbuffers::Verifier` here: it walks the whole buffer, and this runs
   // once per player per frame. The producer is the Brain, not untrusted input,
   // and `tools/ssbake_check.cpp` verifies every frame on the host under ASan —

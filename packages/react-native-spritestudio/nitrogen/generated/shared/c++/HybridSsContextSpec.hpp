@@ -85,6 +85,7 @@ namespace margelo::nitro::ssplayer {
       virtual double getPlaybackDirection() = 0;
       virtual double getPlaybackStyle() = 0;
       virtual bool getSkipFrames() = 0;
+      virtual bool getSubFrame() = 0;
       virtual double getPassedEventCount() = 0;
 
     public:
@@ -103,6 +104,8 @@ namespace margelo::nitro::ssplayer {
       virtual void setPlaybackDirection(double direction, double style) = 0;
       virtual void setSkipFrames(bool skip) = 0;
       virtual void setSection(double startFrame, double endFrame) = 0;
+      virtual void setFrameRate(double fps) = 0;
+      virtual void setSubFrame(bool enabled) = 0;
       virtual double findPartIndex(const std::string& partName) = 0;
       virtual SsBox measureContentBox(const std::vector<std::string>& animations, double maxFrames) = 0;
       virtual SsPartTransform getPartTransform(double partIndex) = 0;

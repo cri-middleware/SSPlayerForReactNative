@@ -246,6 +246,16 @@ export class SsInternalPlayer {
   setSection(startFrame: number, endFrame: number): void {
     this.require().setSection(startFrame, endFrame)
   }
+  setFrameRate(fps: number): void {
+    this.require().setFrameRate(fps)
+  }
+  /** Whether the DISPLAY frame keeps its fraction. See `setSubFrame`. */
+  get subFrame(): boolean {
+    return this.context?.subFrame ?? true
+  }
+  setSubFrame(enabled: boolean): void {
+    this.require().setSubFrame(enabled)
+  }
 
   /** Part index for `partName`, or -1. */
   findPartIndex(partName: string): number {
