@@ -91,8 +91,26 @@ export class SsInternalPlayer {
   }
 
   setupAnimation(name: string): boolean {
-    return this.require().setupAnimation(name)
+    const ok = this.require().setupAnimation(name)
+    if (ok) this.setUpAnimation = name
+    return ok
   }
+
+  /**
+   * The animation the Brain currently has set up, or null before the first
+   * successful `setupAnimation`.
+   *
+   * Tracked here, at the layer that owns the native context, so that "already
+   * set up" cannot be confused with "the name the host most recently asked
+   * for". A player is built per load, so this resets with the resource — which
+   * is what keeps a second pack that names an animation the same way as the
+   * first from being mistaken for one that is already selected.
+   */
+  get currentAnimation(): string | null {
+    return this.setUpAnimation
+  }
+
+  private setUpAnimation: string | null = null
 
   /**
    * Advances the Brain by `dtMilliseconds` and returns the new frame number.

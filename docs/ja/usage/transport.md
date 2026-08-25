@@ -36,27 +36,36 @@ ref.current?.player?.setSpeed(0.5)
 
 | | |
 |---|---|
-| `play()` / `pause()` / `stop()` | 下の「3 つは同種ではない」を参照。 |
+| `play()` / `pause()` / `resume()` / `stop()` | 下の「4 つの動詞」を参照。 |
 | `seek(frameNo)` | 再生ヘッドを移動します。 |
-| `setAnimation(name)` | 別のアニメーションを設定します。その名前が無ければ `false` を返します。 |
+| `setAnimation(name)` | 別のアニメーションを選択し、先頭フレームで待機させます。**再生は始めません** — `play()` を呼んでください。その名前が無ければ `false` を返し、すでに設定済みのアニメーションなら何もしません。 |
 | `setSpeed(rate)` / `setLoop(loops)` | prop と同等のもの。 |
+| `setAnimationSection(start, end)` | 現在のアニメーションの再生範囲を制限します。`setAnimation` を跨いでは保持されません。 |
+| `setSkipFrames(skip)` | ON（既定）は実時間に追従してフレームを飛ばし、OFF は 1 tick で 1 フレームだけ進めます。 |
 | `setPlaybackDirection(direction, style)` | 下記。 |
 | `getAnimationNames()` | 読み込んだパックが持つアニメーション名。 |
 
 現在位置を読むには `frameNo`・`isPlaying`・`isFinished`・`currentAnimation`・`fps`・
 `partCount` があります。
 
-## play・pause・stop は 3 つで同種ではありません
+## play・pause・resume・stop は 4 つの別々の動詞です
 
-`play()` は**1 つの動詞で 2 つの動作を兼ねています**。レイヤー 1 は両者を区別しています
-が（Brain の `ss_runtime_play` は巻き戻します）、コンポーネントの prop では区別できない
-ためです。
+どれも他の言い換えではありません。
 
-- **`pause()` の後** — その場から再開します。`playing={false}` → `playing={true}` は
-  やり直しではなく継続です。
-- **`stop()` の後、または新しくセットアップされた直後** — 最初から始まります。
+| | |
+|---|---|
+| `play()` | **頭出し。** 区間の先頭へ巻き戻し、ループ回数を再武装します。`pause()` を解除する目的で使うと再生ヘッドが先頭に戻ります。 |
+| `pause()` | その場で保持します。冪等で、何も再生していなければ無視されます。 |
+| `resume()` | `pause()` を解除し、同じフレームから続けます。冪等で、**停止中は何もしません** — 開始は `play()` の役目です。 |
+| `stop()` | 再生を終了します。巻き戻さないので、停止したフレームがそのまま残ります。 |
 
-`stop()` はその場で停止し、次の `play()` が最初から始まるようにします。
+`isPlaying` は `pause()` を跨いで **true のまま**です（pause は保持であって停止ではあり
+ません）。「いま進んでいるか」は `isPlaying && !isPausing` です。
+
+`playing` prop はこの 4 つへの写像をこちらで行います。`false` は pause、`true` は保持中
+なら resume、まったく動いていなければ頭出しです。この写像がコンポーネント側にあるのは、
+boolean の prop が存在することを知っている唯一の層だからで、Player 自身は 4 つを分けた
+まま持ちます。
 
 ::: warning `onAnimationStart` は再開では発火しません
 start は*最初から始まった*ことを意味します。再開は同じ動詞のもう半分であり、そこで
