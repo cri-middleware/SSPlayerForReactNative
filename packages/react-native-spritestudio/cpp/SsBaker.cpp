@@ -583,9 +583,12 @@ void SsBaker::bakeInstanceBatch(const ss::runtime::FrameData* fd, const SsSoAPoi
     draw.m[4] = m[12];
     draw.m[5] = m[13];
     // Compounds down the chain: a child three instances deep is dimmed by all
-    // three. Not read from a PartColor — an instance part can carry one, and
-    // both reference ports treat that as a whole-subtree *tint*, which is a
-    // group filter this port does not do yet (see AGENTS.md).
+    // three. Not read from a PartColor: an instance part can carry one, but what
+    // that should mean for the child is unspecified — the SDK's porting guide
+    // does not cover instance parts here, its part-type table is Normal / Mesh /
+    // Shape, and no fixture in the SDK's test projects authors one. Of the v7
+    // Players only SSPlayerForFlutter does anything with it. Out of scope here
+    // by decision, not pending: settle it SDK-side first.
     draw.alpha = (state != nullptr ? state->alpha() : 1.0f) * alphaScale;
     instances_.push_back(draw);
   }

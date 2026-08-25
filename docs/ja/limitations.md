@@ -30,8 +30,6 @@ Normal / Mesh / Shape / Instance / Effect の各パーツ。Normal と Shape の
   書きません。SDK はこの 2 つを「別のトラック」と呼んでおり、この移植版は 1 本しか
   走らせていません。外部からマスクが届かない限り、自分自身をマスクするサブアニメー
   ションは影響を受けません。
-- **Instance パーツ自身の PartColor** — 従来のプレイヤーはこれをサブツリー全体の色味と
-  して適用しますが、この移植版は一切行いません。
 - **Reanimated ティック** — パーツのトランスフォームは既に shared value として公開されて
   いますが、フレームループはまだ JS スレッド上の `requestAnimationFrame` です。
 
