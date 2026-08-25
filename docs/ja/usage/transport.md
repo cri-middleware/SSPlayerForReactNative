@@ -42,8 +42,14 @@ ref.current?.player?.setSpeed(0.5)
 | `setSpeed(rate)` / `setLoop(loops)` | prop と同等のもの。 |
 | `setAnimationSection(start, end)` | 現在のアニメーションの再生範囲を制限します。`setAnimation` を跨いでは保持されません。 |
 | `setSkipFrames(skip)` | ON（既定）は実時間に追従してフレームを飛ばし、OFF は 1 tick で 1 フレームだけ進めます。 |
+| `setFrameRate(fps)` | 進行レートを **絶対値** の fps で上書きします。`0` で解除。`setAnimation` を跨いで保持されます。 |
+| `setSubFrame(enabled)` | サブフレーム補間。**既定 ON** で、描画が authored フレームの間に位置することを許すかどうかです。 |
 | `setPlaybackDirection(direction, style)` | 下記。 |
 | `getAnimationNames()` | 読み込んだパックが持つアニメーション名。 |
+
+`setSpeed` と `setFrameRate` はどちらもレート制御で、併用できますが意味が違います。
+**速度は倍率**なのでどのクリップに対しても同じ意味になり、**フレームレートは置き換え**
+なので、30fps のクリップに 60 を指定すれば倍速、60fps のクリップなら等速です。
 
 現在位置を読むには `frameNo`・`isPlaying`・`isFinished`・`currentAnimation`・`fps`・
 `partCount` があります。

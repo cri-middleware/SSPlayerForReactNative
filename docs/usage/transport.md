@@ -43,8 +43,15 @@ ref.current?.player?.setSpeed(0.5)
 | `setSpeed(rate)` / `setLoop(loops)` | The prop equivalents. |
 | `setAnimationSection(start, end)` | Restrict playback to a frame range of the current animation. Not carried across a `setAnimation`. |
 | `setSkipFrames(skip)` | On (the default) keeps playback on the wall clock; off advances one frame per tick. |
+| `setFrameRate(fps)` | Replace the advance rate, in **absolute** fps. `0` clears the override. Survives a `setAnimation`. |
+| `setSubFrame(enabled)` | Sub-frame interpolation, **on** by default — whether what is drawn may sit between two authored frames. |
 | `setPlaybackDirection(direction, style)` | Below. |
 | `getAnimationNames()` | What the loaded pack carries. |
+
+`setSpeed` and `setFrameRate` are both rate controls and they compose, but they
+say different things: **speed is a multiple** of whatever the clip was authored
+at, so it means the same against every clip; **frame rate replaces** it, so 60
+against a 30fps clip is double speed and against a 60fps clip is none.
 
 And to read where it is: `frameNo`, `isPlaying`, `isFinished`,
 `currentAnimation`, `fps`, `partCount`.

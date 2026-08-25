@@ -87,6 +87,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   double getPlaybackDirection() override;
   double getPlaybackStyle() override;
   bool getSkipFrames() override;
+  bool getSubFrame() override { return subFrame_; }
 
   /// Takes the *spec* type, because that is what nitrogen declares — every
   /// `SsResource` crossing from JS is one of ours, so the downcast below is
@@ -106,6 +107,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   void setPlaybackDirection(double direction, double style) override;
   void setSkipFrames(bool skip) override;
   void setSection(double startFrame, double endFrame) override;
+  void setFrameRate(double fps) override;
+  void setSubFrame(bool enabled) override;
 
   double findPartIndex(const std::string& partName) override;
 
@@ -249,6 +252,11 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   double generation_ = 0;
   float frameNo_ = 0.0f;
+  /// Whether the DISPLAY frame keeps its fraction. On by default: this Player
+  /// draws for applications, where interpolating between authored frames is the
+  /// point (the game engines default it off). `frameNo_` itself is never
+  /// rounded — see `refreshFrame`.
+  bool subFrame_ = true;
   /// Index of the animation `setupAnimation` last selected, or -1.
   ///
   /// The Brain reports a passed event as a position in *that* animation's

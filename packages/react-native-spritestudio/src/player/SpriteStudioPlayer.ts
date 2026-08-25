@@ -91,6 +91,16 @@ export interface SpriteStudioPlayerApi {
    */
   setSkipFrames(skip: boolean): void
   /**
+   * Overrides the advance rate, in absolute frames per second. `0` clears the
+   * override and hands playback back to whatever each animation was authored at.
+   */
+  setFrameRate(fps: number): void
+  /**
+   * Sub-frame interpolation, on by default: whether what is drawn may sit
+   * between two authored frames.
+   */
+  setSubFrame(enabled: boolean): void
+  /**
    * Advances the clock by `dtMilliseconds`. The default drive — see the class
    * comment. Milliseconds is the Brain's unit and is carried unconverted
    * through every layer, so there is no seam for a 1000x to hide in.
@@ -201,6 +211,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     speed: 1,
     loops: 0,
     skipFrames: true,
+    // `null` rather than a number: a rate the host never chose must not be
+    // pushed, or the clip's authored rate becomes an override that then follows
+    // the player onto clips authored at a different one.
+    frameRate: null as number | null,
+    subFrame: true,
     direction: SsPlaybackDirection.forward as SsPlaybackDirection,
     style: SsPlaybackStyle.normal as SsPlaybackStyle,
   }
@@ -622,6 +637,43 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
+   * Overrides the advance rate, in **absolute** frames per second — the host's
+   * choice rather than the clip's, so it survives a {@link setAnimation}. Pass
+   * `0` (or a negative) to clear it and go back to whatever each animation was
+   * authored at.
+   *
+   * {@link setSpeed} is the other rate control and they compose, but they say
+   * different things: speed is a *multiple* of whatever the clip was authored
+   * at, so it means the same against every clip; this *replaces* the rate, so
+   * 60 against a 30fps clip is double speed and against a 60fps clip is none.
+   */
+  setFrameRate(fps: number): void {
+    this.settings.frameRate = fps
+    this.internalPlayer?.setFrameRate(fps)
+  }
+
+  /**
+   * Sub-frame interpolation — whether the frame handed to the Brain **for
+   * display** keeps its fraction. On by default, which is what makes playback
+   * smooth on a display refreshing faster than the animation was authored at.
+   *
+   * The playhead is a float either way ({@link frameNo} reports it unrounded),
+   * and the instance / effect children are always stepped from the unrounded
+   * value. Turning this off only floors what is drawn, pinning playback to whole
+   * authored frames — and it reaches the instance children too, which are drawn
+   * at their own playhead and have to be floored on the same terms.
+   */
+  setSubFrame(enabled: boolean): void {
+    this.settings.subFrame = enabled
+    this.internalPlayer?.setSubFrame(enabled)
+  }
+
+  /** See {@link setSubFrame}. */
+  get subFrame(): boolean {
+    return this.internalPlayer?.subFrame ?? this.settings.subFrame
+  }
+
+  /**
    * Replays the transport settings onto a freshly set-up animation.
    *
    * The order matters and is not decorative: `setup_animation` resets the loop
@@ -638,6 +690,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     internal.setLoop(this.settings.loops)
     internal.setSpeed(this.settings.speed)
     internal.setSkipFrames(this.settings.skipFrames)
+    internal.setSubFrame(this.settings.subFrame)
+    if (this.settings.frameRate != null) internal.setFrameRate(this.settings.frameRate)
     internal.setPlaybackDirection(this.settings.direction, this.settings.style)
     // Playback is deliberately NOT started here: `setAnimation` selects, `play`
     // starts, and this runs inside the former.

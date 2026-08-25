@@ -29,6 +29,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridGetter("playbackDirection", &HybridSsContextSpec::getPlaybackDirection);
       prototype.registerHybridGetter("playbackStyle", &HybridSsContextSpec::getPlaybackStyle);
       prototype.registerHybridGetter("skipFrames", &HybridSsContextSpec::getSkipFrames);
+      prototype.registerHybridGetter("subFrame", &HybridSsContextSpec::getSubFrame);
       prototype.registerHybridGetter("passedEventCount", &HybridSsContextSpec::getPassedEventCount);
       prototype.registerHybridMethod("bindInstancePack", &HybridSsContextSpec::bindInstancePack);
       prototype.registerHybridMethod("setupAnimation", &HybridSsContextSpec::setupAnimation);
@@ -44,6 +45,8 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridMethod("setPlaybackDirection", &HybridSsContextSpec::setPlaybackDirection);
       prototype.registerHybridMethod("setSkipFrames", &HybridSsContextSpec::setSkipFrames);
       prototype.registerHybridMethod("setSection", &HybridSsContextSpec::setSection);
+      prototype.registerHybridMethod("setFrameRate", &HybridSsContextSpec::setFrameRate);
+      prototype.registerHybridMethod("setSubFrame", &HybridSsContextSpec::setSubFrame);
       prototype.registerHybridMethod("findPartIndex", &HybridSsContextSpec::findPartIndex);
       prototype.registerHybridMethod("measureContentBox", &HybridSsContextSpec::measureContentBox);
       prototype.registerHybridMethod("getPartTransform", &HybridSsContextSpec::getPartTransform);
