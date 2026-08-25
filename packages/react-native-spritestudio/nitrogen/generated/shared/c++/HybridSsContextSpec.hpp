@@ -84,6 +84,7 @@ namespace margelo::nitro::ssplayer {
       virtual double getRemainLoops() = 0;
       virtual double getPlaybackDirection() = 0;
       virtual double getPlaybackStyle() = 0;
+      virtual bool getIsPlayingForward() = 0;
       virtual bool getSkipFrames() = 0;
       virtual bool getSubFrame() = 0;
       virtual double getPassedEventCount() = 0;

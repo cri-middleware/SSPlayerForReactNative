@@ -20,10 +20,14 @@ export type SsPartColorBlendValue =
 /**
  * How long an override outlives the animation that is playing under it.
  *
- * The default here is `permanent`, which is not the C-API's default but is what
- * a *declarative* prop means: a `parts` map carrying `hat: { visible: false }`
- * says the hat is hidden for as long as that prop says so, and one the next keyframe
- * silently undoes would make the prop describe one frame.
+ * Omitting `priority` means `untilNextAnimation`, which is the family's default
+ * (ForWeb, ForUnity, ForFlutter, ForGodot, ForRenPy and ForWgpu all take the
+ * C-API's `HoldUntilNextAnimation`). `permanent` used to be it here, on the
+ * reasoning that a declarative `parts` map should outlive a clip switch — but
+ * that only held for callers going through the map, and left anyone reaching
+ * past it into Layer 2 with an override the switch should have dropped. The
+ * declarative behaviour is unchanged either way: `applySettings` replays the
+ * map after every animation setup, so a prop still describes the state.
  */
 export const SsOverridePriority = {
   untilNextKeyframe: 0,
@@ -46,7 +50,11 @@ export interface SsCellRef {
  */
 export interface SsPartOverride {
   visible?: boolean
-  /** Propagates a `visible: false` to descendants. Defaults to true. */
+  /**
+   * Propagates a `visible: false` to descendants. Off by default, as everywhere
+   * else in the family: a keyframed hide never cascades in SS7, so cascading is
+   * the opt-in.
+   */
   cascade?: boolean
   /**
    * A colour, as anything Skia parses (`'#f00'`, `'rgba(...)'`) or a packed
@@ -59,6 +67,7 @@ export interface SsPartOverride {
   color?: string | number
   colorBlend?: SsPartColorBlendValue
   cell?: SsCellRef
+  /** Defaults to {@link SsOverridePriority.untilNextAnimation}. */
   priority?: SsOverridePriorityValue
 }
 

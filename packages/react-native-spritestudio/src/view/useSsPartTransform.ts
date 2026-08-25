@@ -65,17 +65,21 @@ export function useSsPartTransform(
       }
 
       // Exactly the mapping `SsInternalPlayer.draw` applies — translate, then
-      // scale with Y negated. Kept in step with it by construction rather than
-      // by comment: get this wrong and the follower drifts off the part in a
-      // way that looks like an animation bug.
+      // scale, both axes unnegated. Kept in step with it by construction rather
+      // than by comment: get this wrong and the follower drifts off the part in
+      // a way that looks like an animation bug.
       const sx = root.flipX ? -root.scale : root.scale
-      const sy = root.flipY ? root.scale : -root.scale
+      const sy = root.flipY ? -root.scale : root.scale
       value.value = {
         valid: true,
         x: root.x + sx * local.x,
         y: root.y + sy * local.y,
-        // Negated because the Y flip reverses which way a positive angle turns.
-        rotation: -local.rotation,
+        // Taken as it comes: the Brain mirrors the hierarchy itself (it negates
+        // `rotation_z` along with `position_y`), so the angle decomposed out of
+        // the world matrix already turns the way the screen does. Negating here
+        // as well — which is what this did while the flip lived in the root
+        // transform — would turn every follower the wrong way.
+        rotation: local.rotation,
         scaleX: local.scaleX * Math.abs(sx),
         scaleY: local.scaleY * Math.abs(sy),
       }

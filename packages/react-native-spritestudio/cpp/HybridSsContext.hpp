@@ -79,6 +79,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   bool getIsPausing() override;
   bool getIsFinished() override;
   bool getIsLooped() override;
+  bool getIsPlayingForward() override;
   double getFps() override;
   double getStartFrame() override;
   double getEndFrame() override;

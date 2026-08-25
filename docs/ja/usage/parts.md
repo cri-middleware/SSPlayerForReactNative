@@ -34,7 +34,7 @@ import { SpriteStudioView, SsPartColorBlend } from 'react-native-spritestudio'
 | フィールド | 型 | 意味 |
 |---|---|---|
 | `visible` | `boolean` | パーツの表示・非表示。 |
-| `cascade` | `boolean` | `visible: false` を子孫まで及ぼすか。既定は `true`。 |
+| `cascade` | `boolean` | `visible: false` を子孫まで及ぼすか。既定は `false` — SS7 ではキーフレームの hide が子孫に及ばないため、カスケードは opt-in です。 |
 | `color` | `string \| number` | 色味。Skia が解釈できるもの（`'#f00'`、`'rgba(255,0,0,.5)'`）か、パックされた `0xRRGGBBAA` の数値。 |
 | `colorBlend` | `SsPartColorBlendValue` | 色味の合成方法：`SsPartColorBlend.mix` / `.mul` / `.add` / `.sub`。既定は `mix`。 |
 | `cell` | `SsCellRef` | パーツが参照するセルを差し替えます。 |
@@ -60,17 +60,19 @@ parts={{
 
 ### オーバーライドはどれだけ持続するか {#how-long-an-override-lasts}
 
-`priority` の既定は `SsOverridePriority.permanent` で、これは C-API の既定とは**異なり
-ます**。宣言的な prop が意味するところは、そうでなければなりません。`hat: { visible:
-false }` を持つマップは「その prop がそう言っている限り帽子は隠れている」という意味で
-あり、次のキーフレームが黙って元に戻してしまうなら、その prop は 1 フレームだけを
-記述していることになってしまいます。
+`priority` の既定は `SsOverridePriority.untilNextAnimation` で、これは C-API の既定
+（`HoldUntilNextAnimation`）と同じ、他のプレイヤー（ForWeb / ForUnity / ForFlutter /
+ForGodot / ForRenPy / ForWgpu）とも揃った値です。
+
+`hat: { visible: false }` を持つマップが「その prop がそう言っている限り帽子は隠れて
+いる」という意味になることは、priority ではなくマップの再適用が担保します — 下記の
+とおり、オーバーライドはアニメーションが設定されるたびに replay されるためです。
 
 | | |
 |---|---|
 | `untilNextKeyframe` | 次に作成されたキーでアニメーションがそのパーツを取り戻します。 |
-| `untilNextAnimation` | キーフレームは越えますが、別のアニメーションが設定されると解除されます。 |
-| `permanent` | prop が別のことを言うまで保持されます。**既定値。** |
+| `untilNextAnimation` | キーフレームは越えますが、別のアニメーションが設定されると解除されます。**既定値。** |
+| `permanent` | アニメーションの切り替えを越えて保持されます。 |
 
 オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用
 されます。`setup_animation` がオーバーライドレイヤーを他のすべてと一緒にリセットする

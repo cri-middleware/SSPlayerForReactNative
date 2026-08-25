@@ -126,10 +126,10 @@ export class SsInternalPlayer {
   /**
    * Draws the current frame.
    *
-   * The transform is composed here and nowhere else. The
-   * base Y scale is **negative** because SpriteStudio authors Y-up and Skia's
-   * canvas is Y-down; `flipY` toggles that sign rather than adding a second
-   * flip, so a flipped player still lands the same way up.
+   * The transform is composed here and nowhere else. The base Y scale is
+   * **positive**: the Brain already runs Y-down (see `HybridSsContext`), so the
+   * geometry arrives in Skia's own sense and a negative scale here would flip it
+   * back. `flipY` is then a plain mirror, nothing more.
    *
    * Returns the number of vertices drawn — 0 when nothing was drawn, including
    * when no texture is registered yet.
@@ -145,7 +145,7 @@ export class SsInternalPlayer {
       canvas.translate(t.x, t.y)
       canvas.scale(
         t.flipX ? -t.scale : t.scale,
-        t.flipY ? t.scale : -t.scale
+        t.flipY ? -t.scale : t.scale
       )
       return context.drawInto(canvas, bindings)
     } finally {
@@ -194,6 +194,14 @@ export class SsInternalPlayer {
   }
   get isLooped(): boolean {
     return this.context?.isLooped ?? false
+  }
+  /**
+   * Which way the playhead is actually travelling — not the configured heading,
+   * which is `playbackDirection`. True with no context: forward is the resting
+   * state, and the caller that most wants this is an audio gate.
+   */
+  get isPlayingForward(): boolean {
+    return this.context?.isPlayingForward ?? true
   }
   get fps(): number {
     return this.context?.fps ?? 0
@@ -313,7 +321,9 @@ export class SsInternalPlayer {
   // Straight through. The Brain owns the override state, exactly as it owns the
   // playback state, and mirroring either here would give two answers.
 
-  setPartVisibility(partIndex: number, force: number, cascade = true): boolean {
+  // Off by default, matching the map layer above and the rest of the family;
+  // a keyframed hide never cascades in SS7, so cascading is the opt-in.
+  setPartVisibility(partIndex: number, force: number, cascade = false): boolean {
     return this.require().setPartVisibility(partIndex, force, cascade)
   }
   clearPartVisibility(partIndex: number): boolean {

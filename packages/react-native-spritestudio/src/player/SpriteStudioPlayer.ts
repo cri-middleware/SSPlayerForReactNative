@@ -48,6 +48,8 @@ export interface SpriteStudioPlayerApi {
   readonly frameNo: number
   readonly isPlaying: boolean
   readonly isFinished: boolean
+  /** Whether the playhead is travelling forward this frame. Gate audio on it. */
+  readonly isPlayingForward: boolean
   readonly currentAnimation: string | null
 
   /**
@@ -475,6 +477,24 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
   get isFinished(): boolean {
     return this.internalPlayer?.isFinished ?? false
+  }
+  /**
+   * Which way the playhead is actually travelling this frame.
+   *
+   * Not `playbackDirection`, which is only the heading that was configured:
+   * under ping-pong the return leg runs backward while the configured heading
+   * still reads forward. Gate audio on this — SpriteStudio has no reverse audio,
+   * so a key crossed on a backward leg is not meant to sound, and it is the test
+   * the players that do play audio themselves apply.
+   *
+   * ```ts
+   * player.onAudio = (e) => {
+   *   if (player.isPlayingForward) mySoundBank.play(e.soundName, e.loopNum)
+   * }
+   * ```
+   */
+  get isPlayingForward(): boolean {
+    return this.internalPlayer?.isPlayingForward ?? true
   }
   get fps(): number {
     return this.internalPlayer?.fps ?? 0

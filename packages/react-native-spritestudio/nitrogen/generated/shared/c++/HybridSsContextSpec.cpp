@@ -28,6 +28,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridGetter("remainLoops", &HybridSsContextSpec::getRemainLoops);
       prototype.registerHybridGetter("playbackDirection", &HybridSsContextSpec::getPlaybackDirection);
       prototype.registerHybridGetter("playbackStyle", &HybridSsContextSpec::getPlaybackStyle);
+      prototype.registerHybridGetter("isPlayingForward", &HybridSsContextSpec::getIsPlayingForward);
       prototype.registerHybridGetter("skipFrames", &HybridSsContextSpec::getSkipFrames);
       prototype.registerHybridGetter("subFrame", &HybridSsContextSpec::getSubFrame);
       prototype.registerHybridGetter("passedEventCount", &HybridSsContextSpec::getPassedEventCount);

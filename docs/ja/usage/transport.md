@@ -51,8 +51,21 @@ ref.current?.player?.setSpeed(0.5)
 **速度は倍率**なのでどのクリップに対しても同じ意味になり、**フレームレートは置き換え**
 なので、30fps のクリップに 60 を指定すれば倍速、60fps のクリップなら等速です。
 
-現在位置を読むには `frameNo`・`isPlaying`・`isFinished`・`currentAnimation`・`fps`・
-`partCount` があります。
+現在位置を読むには `frameNo`・`isPlaying`・`isFinished`・`isPlayingForward`・
+`currentAnimation`・`fps`・`partCount` があります。
+
+`isPlayingForward` だけは性質が異なります。これはプレイヘッドが実際にどちら向きに
+進んでいるかであり、`setPlaybackDirection` で設定した向きとは**別物**です — ピンポン
+再生の戻りの脚では、設定上の向きは forward のままでも実際には後ろ向きに進みます。
+音声はこれでゲートしてください。SpriteStudio に逆再生音声は無いため、後ろ向きの脚で
+跨いだキーは鳴らすべきものではなく、これは自前で音を鳴らすプレイヤーが掛けているのと
+同じ判定です。
+
+```ts
+player.onAudio = (e) => {
+  if (player.isPlayingForward) mySoundBank.play(e.soundName, e.loopNum)
+}
+```
 
 ## play・pause・resume・stop は 4 つの別々の動詞です
 
