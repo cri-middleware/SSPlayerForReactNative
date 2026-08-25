@@ -30,8 +30,6 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
   then write nothing for that frame. The SDK calls the two "a separate track",
   and this port runs one. A sub-animation that masks itself is unaffected as long
   as no mask reaches it from outside.
-- **The Instance part's own PartColor** — the older players apply it as a
-  whole-subtree tint; this port does not do it at all.
 - **The Reanimated tick** — part transforms already publish as a shared value,
   but the frame loop is still `requestAnimationFrame` on the JS thread.
 
