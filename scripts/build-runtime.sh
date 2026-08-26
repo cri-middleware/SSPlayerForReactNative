@@ -88,11 +88,14 @@ if [ -z "$SDK_DIR" ] || [ ! -f "${SDK_DIR}/Cargo.toml" ]; then
     exit 1
 fi
 
-# The C-API header is emitted by libs/ssruntime/build.rs (cbindgen) on every
+# The C-API header is emitted by libs/ssruntime-ffi/build.rs (cbindgen) on every
 # cargo build, so it exists by the time any platform build finishes. It is
 # platform-agnostic — one copy serves both the podspec and the Android CMake.
+# Take it from the same path the SDK's own release-ios-xcframework.sh reads:
+# the pre-split libs/ssruntime/target/ copy lingers as a stale artifact, and
+# copying that one silently installs a header older than the library.
 place_header() {
-    local src="${SDK_DIR}/libs/ssruntime/target/ssruntime.h"
+    local src="${SDK_DIR}/libs/ssruntime-ffi/target/ssruntime.h"
     if [ ! -f "$src" ]; then
         echo "${APP}: expected the cbindgen header at ${src}" >&2
         exit 1

@@ -129,9 +129,10 @@ foreach ($entry in $abis) {
     Write-Host "  libs/android/$($entry.Abi)/libssruntime.a"
 }
 
-# The C-API header is emitted by libs/ssruntime/build.rs (cbindgen) on every
-# cargo build, so it exists by now. It is platform-agnostic.
-$header = Join-Path $sdkDir "libs/ssruntime/target/ssruntime.h"
+# The C-API header is emitted by libs/ssruntime-ffi/build.rs (cbindgen) on every
+# cargo build, so it exists by now. It is platform-agnostic. The pre-split
+# libs/ssruntime/target/ copy lingers as a stale artifact — do not read it.
+$header = Join-Path $sdkDir "libs/ssruntime-ffi/target/ssruntime.h"
 if (-not (Test-Path $header)) {
     Write-Error "$app`: expected the cbindgen header at $header"
     exit 1
