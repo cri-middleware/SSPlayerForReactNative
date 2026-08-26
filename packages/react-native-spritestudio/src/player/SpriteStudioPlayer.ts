@@ -245,9 +245,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private clock: ReturnType<typeof requestAnimationFrame> | null = null
 
   /** Fires on the rising edge of the Brain's `isFinished`, so once per run. */
-  onComplete: SsAnimationCallback | null = null
+  onAnimationFinished: SsAnimationCallback | null = null
   /** Fires on any frame the playhead crossed a loop boundary. */
-  onLoop: SsAnimationCallback | null = null
+  onAnimationLooped: SsAnimationCallback | null = null
   /**
    * Fires when playback **starts from the beginning** — not on resume.
    *
@@ -256,14 +256,21 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * the loop counter, the other carries on. This is the first of the two, which
    * is the one worth reacting to.
    */
-  onAnimationStart: SsAnimationCallback | null = null
+  onAnimationStarted: SsAnimationCallback | null = null
   /**
    * Fires when a **different** animation is mounted, with the new name.
    *
    * Not on a re-`setAnimation` to the same name, which is a restart and reports
-   * itself through `onAnimationStart`.
+   * itself through `onAnimationStarted`.
+   *
+   * The conventions do not require this event, on the grounds that a host that
+   * called `setAnimation` already knows (SDK `20_design/40_api_conventions.md`,
+   * §4). Here it earns its place: `animation` is a **prop**, so a re-render can
+   * mount a different clip without anything in the host calling `setAnimation`
+   * at all — the switch happens in `applySettings`, below Layer 4. Without this
+   * there is no way to observe it.
    */
-  onAnimationChange: SsAnimationCallback | null = null
+  onAnimationChanged: SsAnimationCallback | null = null
   /**
    * Fires once per user-data key the playhead crossed, in `advance`.
    *
@@ -491,7 +498,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   /**
    * Whether the last {@link advance} crossed a loop boundary. A **pulse**, true
-   * only inside the tick that crossed — take {@link onLoop} instead if you would
+   * only inside the tick that crossed — take {@link onAnimationLooped} instead if you would
    * rather have it delivered than polled.
    */
   get justLooped(): boolean {
@@ -580,7 +587,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     }
 
     if (!internal.setupAnimation(name)) return false
-    if (previous !== name) this.onAnimationChange?.(name)
+    if (previous !== name) this.onAnimationChanged?.(name)
     // setup drops the loop count and the override layer, so both go back on.
     this.wasFinished = false
     this.applySettings()
@@ -609,7 +616,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Lifts a {@link pause}, carrying on from the same frame.
    *
    * Idempotent, and a no-op on a stopped animation: starting one is
-   * {@link play}'s job, and `play` rewinds. No `onAnimationStart` — a resume is
+   * {@link play}'s job, and `play` rewinds. No `onAnimationStarted` — a resume is
    * not a start, and firing it here would make the two indistinguishable.
    */
   resume(): void {
@@ -630,7 +637,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    */
   private startPlayback(internal: SsInternalPlayer, startFrame?: number): void {
     internal.play(startFrame)
-    this.onAnimationStart?.(this.animation ?? '')
+    this.onAnimationStarted?.(this.animation ?? '')
   }
 
   /** Holds playback where it stands. Idempotent, and ignored while nothing plays. */
@@ -915,7 +922,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Advances the animation and dispatches the frame's events.
    *
    * `isFinished` is a *state* the Brain latches until the next play/setup, so
-   * `onComplete` is fired off its rising edge — polling the state itself would
+   * `onAnimationFinished` is fired off its rising edge — polling the state itself would
    * fire it on every frame after the end.
    */
   advance(dtMilliseconds: number): void {
@@ -928,7 +935,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
-    if (internal.isLooped) this.onLoop?.(animation)
+    if (internal.isLooped) this.onAnimationLooped?.(animation)
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are
@@ -955,7 +962,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     }
 
     const finished = internal.isFinished
-    if (finished && !this.wasFinished) this.onComplete?.(animation)
+    if (finished && !this.wasFinished) this.onAnimationFinished?.(animation)
     this.wasFinished = finished
   }
 
