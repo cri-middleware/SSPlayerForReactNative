@@ -21,7 +21,7 @@
 ## 📚 ドキュメント
 
 - [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/) — セットアップ、使い方、生成された API リファレンス。🚧 初回リリース後に公開されます。
-- [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/) — SDK と各公式プレイヤーの総合案内。
+- [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と各公式プレイヤーの総合案内。
 
 ### 目的別・どこまで読めばよいか
 
@@ -61,7 +61,7 @@ npx expo install react-native-spritestudio @shopify/react-native-skia react-nati
 
 ### アセットの準備（`.sspj` → `.ssab`）
 
-アニメーションは SpriteStudio 7 で作成し、手元のマシンで SDK の `ssconverter-cli`（またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)）を使って変換します。コンバータは同梱しておらず、実行時に変換されることもありません — アセットを同梱する前に自分で実行する手順です。ツールの選び方とビルドパイプラインへの組み込みは[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/)にあります。
+アニメーションは SpriteStudio 7 で作成し、手元のマシンで SDK の `ssconverter-cli`（またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)）を使って変換します。コンバータは同梱しておらず、実行時に変換されることもありません — アセットを同梱する前に自分で実行する手順です。ツールの選び方とビルドパイプラインへの組み込みは[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)にあります。
 
 **パックはファイルではなくディレクトリです。** `.ssab` は、テクスチャ、Instance パーツが参照する外部パック、そして `.ssqb` を通じてシーケンスするパックを、すべて自身からの相対パスで指定します。したがって `ssconverter-cli` の**出力ディレクトリ**がそのまま端末に届く必要があります。
 
