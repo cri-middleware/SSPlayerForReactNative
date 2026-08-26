@@ -45,7 +45,7 @@ React Native には標準のオーディオ API がなく、パッケージ側�
 
 ## ライフサイクル
 
-`onAnimationStart`・`onAnimationChange`・`onLoop`・`onComplete` はいずれもアニメーション名
+`onAnimationStarted`・`onAnimationChanged`・`onAnimationLooped`・`onAnimationFinished` はいずれもアニメーション名
 を運びます。1 つのプレイヤーは、その上に載るアニメーションより長生きするからです。
 
 知っておく価値のある挙動が 2 つあります。**start は再開では発火しません**（`playing` が

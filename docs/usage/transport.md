@@ -58,7 +58,7 @@ And to read where it is: `frameNo`, `isPlaying`, `isFinished`,
 `partCount`.
 
 `justLooped` is a **pulse**: true only inside the tick `advance` just ran, and
-replaced by the next one. `onLoop` delivers the same edge if you would rather not
+replaced by the next one. `onAnimationLooped` delivers the same edge if you would rather not
 poll for it.
 
 `play()` takes an optional frame — `play(12)` heads out from frame 12 rather than
@@ -98,11 +98,11 @@ held player or heads out into one that is not running at all. That mapping lives
 in the component precisely because it is the only layer that knows a boolean
 prop exists; the player itself keeps the four apart.
 
-::: warning `onAnimationStart` does not fire on a resume
+::: warning `onAnimationStarted` does not fire on a resume
 Start means *started from the beginning*. A resume is the other half of the same
 verb, and firing "started" for it would make the two indistinguishable to a
 listener. By the same rule, re-setting the animation that is already playing is
-a **restart**: it reports through `onAnimationStart`, not `onAnimationChange`.
+a **restart**: it reports through `onAnimationStarted`, not `onAnimationChanged`.
 :::
 
 ## Direction and style

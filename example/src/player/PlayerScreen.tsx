@@ -710,10 +710,10 @@ export function PlayerScreen() {
             onUserData={onUserData}
             onAudio={onAudio}
             onSignal={onSignal}
-            onAnimationStart={(a) => pushEvent(`▶ ${a} started`)}
-            onAnimationChange={(a) => pushEvent(`⇄ ${a}`)}
-            onLoop={(a) => pushEvent(`↻ ${a} looped`)}
-            onComplete={(a) => pushEvent(`■ ${a} finished`)}
+            onAnimationStarted={(a) => pushEvent(`▶ ${a} started`)}
+            onAnimationChanged={(a) => pushEvent(`⇄ ${a}`)}
+            onAnimationLooped={(a) => pushEvent(`↻ ${a} looped`)}
+            onAnimationFinished={(a) => pushEvent(`■ ${a} finished`)}
             onError={(e) => setError(String(e))}
           />
         )}

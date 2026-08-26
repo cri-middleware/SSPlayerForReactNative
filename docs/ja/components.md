@@ -34,7 +34,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | 何を再生するか | `source`・`animation`・`playing`・`speed`・`loop` |
 | どこに置くか | `fit`・`align`・`offset`・`scale`・`flipX`・`flipY`・`style` |
 | 計測 | `frame`・`frameScope`・`measureFrames` |
-| 反応する | `onUserData`・`onAudio`・`onSignal`・`onLoad`・`onError`・`onComplete`・`onLoop`・`onAnimationStart`・`onAnimationChange` |
+| 反応する | `onUserData`・`onAudio`・`onSignal`・`onLoad`・`onError`・`onAnimationFinished`・`onAnimationLooped`・`onAnimationStarted`・`onAnimationChanged` |
 | 上書き | `parts`・`textures` |
 | ロード中 | `placeholder` |
 

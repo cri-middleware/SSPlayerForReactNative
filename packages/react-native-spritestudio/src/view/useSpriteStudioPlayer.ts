@@ -73,13 +73,13 @@ export interface SsPlayerProps {
   onLoad?: () => void
   onError?: (error: unknown) => void
   /** The animation reached its end. Carries which one, since a player outlives them. */
-  onComplete?: (animation: string) => void
+  onAnimationFinished?: (animation: string) => void
   /** The playhead crossed a loop boundary. */
-  onLoop?: (animation: string) => void
+  onAnimationLooped?: (animation: string) => void
   /** Playback started from the beginning — not on resume. */
-  onAnimationStart?: (animation: string) => void
+  onAnimationStarted?: (animation: string) => void
   /** A different animation was mounted. Not fired for a restart of the same one. */
-  onAnimationChange?: (animation: string) => void
+  onAnimationChanged?: (animation: string) => void
 }
 
 export interface SsPlayerState {
@@ -114,7 +114,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     parts,
     onLoad,
     onError,
-    onComplete,
+    onAnimationFinished,
   } = props
 
   const [player, setPlayer] = useState<SpriteStudioPlayer | null>(null)
@@ -124,24 +124,24 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   const callbacks = useRef({
     onLoad,
     onError,
-    onComplete,
+    onAnimationFinished,
     onUserData: props.onUserData,
     onAudio: props.onAudio,
     onSignal: props.onSignal,
-    onLoop: props.onLoop,
-    onAnimationStart: props.onAnimationStart,
-    onAnimationChange: props.onAnimationChange,
+    onAnimationLooped: props.onAnimationLooped,
+    onAnimationStarted: props.onAnimationStarted,
+    onAnimationChanged: props.onAnimationChanged,
   })
   callbacks.current = {
     onLoad,
     onError,
-    onComplete,
+    onAnimationFinished,
     onUserData: props.onUserData,
     onAudio: props.onAudio,
     onSignal: props.onSignal,
-    onLoop: props.onLoop,
-    onAnimationStart: props.onAnimationStart,
-    onAnimationChange: props.onAnimationChange,
+    onAnimationLooped: props.onAnimationLooped,
+    onAnimationStarted: props.onAnimationStarted,
+    onAnimationChanged: props.onAnimationChanged,
   }
 
   // --- load ---------------------------------------------------------------
@@ -181,12 +181,12 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     // run until React has committed the `setPlayer` above. A microtask beats a
     // commit, so anything installed there arrives after the events it wanted.
     //
-    // Only the two lifecycle forwarders, not the whole set: `onLoop` and
-    // `onComplete` cannot fire before the first `advance`, and the three event
+    // Only the two lifecycle forwarders, not the whole set: `onAnimationLooped` and
+    // `onAnimationFinished` cannot fire before the first `advance`, and the three event
     // forwarders are deliberately installed only while their prop is present —
     // Layer 3 gates its per-frame reads on them.
-    next.onAnimationStart = (a) => callbacks.current.onAnimationStart?.(a)
-    next.onAnimationChange = (a) => callbacks.current.onAnimationChange?.(a)
+    next.onAnimationStarted = (a) => callbacks.current.onAnimationStarted?.(a)
+    next.onAnimationChanged = (a) => callbacks.current.onAnimationChanged?.(a)
     // The transport for the same reason. These are Layer 3's own record, which
     // `applySettings()` replays onto the animation once it is set up, so setting
     // them on a player with no resource is not a race — it is how it is meant to
@@ -257,7 +257,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // running is a *restart* (`ss_runtime_play` rewinds) and reports itself as
   // one, so after a cached load — which resolves in a microtask, before React
   // commits the render that publishes the player — a `player`-keyed effect
-  // rewound the animation and fired a second `onAnimationStart`.
+  // rewound the animation and fired a second `onAnimationStarted`.
   useEffect(() => {
     player?.setSpeedScale(speed)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -295,20 +295,20 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   const wantsUserData = props.onUserData != null
   const wantsAudio = props.onAudio != null
   const wantsSignal = props.onSignal != null
-  const wantsLoop = props.onLoop != null
-  const wantsStart = props.onAnimationStart != null
-  const wantsChange = props.onAnimationChange != null
+  const wantsLoop = props.onAnimationLooped != null
+  const wantsStart = props.onAnimationStarted != null
+  const wantsChange = props.onAnimationChanged != null
   useEffect(() => {
     if (player == null) return
-    player.onComplete = (animation) => callbacks.current.onComplete?.(animation)
+    player.onAnimationFinished = (animation) => callbacks.current.onAnimationFinished?.(animation)
     if (wantsLoop) {
-      player.onLoop = (animation) => callbacks.current.onLoop?.(animation)
+      player.onAnimationLooped = (animation) => callbacks.current.onAnimationLooped?.(animation)
     }
     if (wantsStart) {
-      player.onAnimationStart = (a) => callbacks.current.onAnimationStart?.(a)
+      player.onAnimationStarted = (a) => callbacks.current.onAnimationStarted?.(a)
     }
     if (wantsChange) {
-      player.onAnimationChange = (a) => callbacks.current.onAnimationChange?.(a)
+      player.onAnimationChanged = (a) => callbacks.current.onAnimationChanged?.(a)
     }
     if (wantsUserData) {
       player.onUserData = (event) => callbacks.current.onUserData?.(event)
@@ -320,13 +320,13 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       player.onSignal = (event) => callbacks.current.onSignal?.(event)
     }
     return () => {
-      player.onComplete = null
+      player.onAnimationFinished = null
       player.onUserData = null
       player.onAudio = null
       player.onSignal = null
-      player.onLoop = null
-      player.onAnimationStart = null
-      player.onAnimationChange = null
+      player.onAnimationLooped = null
+      player.onAnimationStarted = null
+      player.onAnimationChanged = null
     }
   }, [player, wantsUserData, wantsAudio, wantsSignal, wantsLoop, wantsStart, wantsChange])
 

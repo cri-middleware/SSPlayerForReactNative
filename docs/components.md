@@ -33,7 +33,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | What plays | `source`, `animation`, `playing`, `speed`, `loop` |
 | Where it lands | `fit`, `align`, `offset`, `scale`, `flipX`, `flipY`, `style` |
 | Measuring | `frame`, `frameScope`, `measureFrames` |
-| Reacting | `onUserData`, `onAudio`, `onSignal`, `onLoad`, `onError`, `onComplete`, `onLoop`, `onAnimationStart`, `onAnimationChange` |
+| Reacting | `onUserData`, `onAudio`, `onSignal`, `onLoad`, `onError`, `onAnimationFinished`, `onAnimationLooped`, `onAnimationStarted`, `onAnimationChanged` |
 | Overriding | `parts`, `textures` |
 | While loading | `placeholder` |
 

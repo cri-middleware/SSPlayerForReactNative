@@ -55,7 +55,7 @@ ref.current?.player?.setSpeedScale(0.5)
 `justLooped`・`currentAnimation`・`frameRate`・`partCount` があります。
 
 `justLooped` は**パルス**です。直近の `advance` が走った tick の間だけ真で、次の tick で
-置き換わります。ポーリングしたくなければ `onLoop` が同じエッジを配ります。
+置き換わります。ポーリングしたくなければ `onAnimationLooped` が同じエッジを配ります。
 
 `play()` はフレームを 1 つ取れます。`play(12)` は区間の先頭ではなくフレーム 12 から
 頭出しし、そのフレームがループ回数の基準になります。seek してから play しても同じには
@@ -93,11 +93,11 @@ player.onAudio = (e) => {
 boolean の prop が存在することを知っている唯一の層だからで、Player 自身は 4 つを分けた
 まま持ちます。
 
-::: warning `onAnimationStart` は再開では発火しません
+::: warning `onAnimationStarted` は再開では発火しません
 start は*最初から始まった*ことを意味します。再開は同じ動詞のもう半分であり、そこで
 「開始」を発火させるとリスナーから両者を区別できなくなります。同じ規則により、既に再生中の
-アニメーションを設定し直すのは**やり直し**です。`onAnimationChange` ではなく
-`onAnimationStart` として報告されます。
+アニメーションを設定し直すのは**やり直し**です。`onAnimationChanged` ではなく
+`onAnimationStarted` として報告されます。
 :::
 
 ## 方向とスタイル

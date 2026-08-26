@@ -46,7 +46,7 @@ a boolean, and iOS is silent under the ringer switch without
 
 ## Lifecycle
 
-`onAnimationStart`, `onAnimationChange`, `onLoop` and `onComplete` all carry the
+`onAnimationStarted`, `onAnimationChanged`, `onAnimationLooped` and `onAnimationFinished` all carry the
 animation name, because one player outlives the animations mounted on it.
 
 Two semantics worth knowing: **start does not fire on a resume** (`playing`
