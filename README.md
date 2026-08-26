@@ -64,6 +64,18 @@ its own binary, with this package compiled into it. In a managed app that is
 already have the native projects, so rebuild them instead. Autolinking picks the
 package up either way. [Installation](docs/setup/install.md) has the detail.
 
+### See it running first
+
+Nothing of yours is needed to watch this work: the example app in this repository
+plays the SDK's own test animations, converted from the `SpriteStudio-SDK`
+submodule. [Working from a checkout](docs/development/from-source.md) is the path
+from clone to running app, and [the example app](example/README.md) says what each
+subject on its screen proves.
+
+> Converting those packs needs a Rust toolchain today, because `deploy-examples`
+> builds the SDK's `ssconverter-cli` from source. That goes away once
+> `ssconverter-core` is published.
+
 ### Preparing assets (`.sspj` → `.ssab`)
 
 Animations are authored in SpriteStudio 7 and converted on your machine with the
