@@ -83,6 +83,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   double getFps() override;
   double getStartFrame() override;
   double getEndFrame() override;
+  double getAnimationSpeed() override;
   double getLoops() override;
   double getRemainLoops() override;
   double getPlaybackDirection() override;

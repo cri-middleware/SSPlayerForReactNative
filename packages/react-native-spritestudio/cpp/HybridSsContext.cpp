@@ -269,6 +269,12 @@ double HybridSsContext::getStartFrame() {
 double HybridSsContext::getEndFrame() {
   return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_end_frame(ctx_));
 }
+double HybridSsContext::getAnimationSpeed() {
+  // The STORED rate, not the requested one: the Brain clamps 0 and negatives to
+  // a stop, and reading back the request would tell a host it got reverse
+  // playback when the playhead is frozen.
+  return ctx_ == nullptr ? 1.0 : static_cast<double>(ss_runtime_get_animation_speed(ctx_));
+}
 double HybridSsContext::getLoops() {
   return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_loops(ctx_));
 }

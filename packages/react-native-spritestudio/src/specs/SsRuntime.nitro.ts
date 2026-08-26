@@ -393,6 +393,13 @@ export interface SsContext
    * one: `setLoop` normalizes everything at or below zero to `-1`, so passing
    * `0` asks for infinite but never comes back as `0`.
    */
+  /**
+   * The speed the Brain **stored**, which is not always the one that was passed:
+   * `0` and negatives clamp to a stop, so a host that dragged a slider negative
+   * can see the stop it actually got rather than assuming it got reverse.
+   */
+  readonly animationSpeed: number
+
   readonly loops: number
   readonly remainLoops: number
   /** `SsPlaybackDirection` wire value. */
