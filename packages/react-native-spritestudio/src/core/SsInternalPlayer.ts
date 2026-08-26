@@ -37,6 +37,21 @@ import {
  * Owns the `SsContext` and disposes it. Does **not** own the `SsResource`: one
  * `.ssab` backs any number of players, and the Brain refcounts it internally.
  * Whoever loaded it disposes it.
+ *
+ * ## Naming
+ *
+ * **This layer follows the C API, not the Player API conventions.** It takes part
+ * *indices* and name *hashes*, and its override methods keep the C API's argument
+ * order (`blendOp` before the colour) — so `isLooped`, `fps`, `setSection` and
+ * `setPartColor` are the right names here even though `justLooped`, `frameRate`,
+ * `setAnimationSection` and `setPartColorOverride` are the right names one layer
+ * up (SDK `20_design/40_api_conventions.md`, which says outright that a Player
+ * copying the C API's order puts itself outside the convention).
+ *
+ * Layer 3 — `SpriteStudioPlayer` — is where the conventions apply: it takes part
+ * names, puts the value before its modifiers, and is what a host should reach for.
+ * Coming here means deliberately trading the ergonomics for the raw calls, and
+ * the names are the signpost that you have.
  */
 export class SsInternalPlayer {
   private context: SsContext | null
@@ -213,13 +228,16 @@ export class SsInternalPlayer {
     return this.context?.endFrame ?? 0
   }
 
-  /** Starts from the beginning — not a resume. See `resume()`. */
+  /**
+   * Head-out from the section start, or from `startFrame`. **Not a resume** —
+   * see `resume()`.
+   *
+   * One entry point rather than two: the binding's `playFrom` is reached through
+   * the argument, which is the shape the conventions give it (`play(startFrame)`).
+   */
   play(startFrame?: number): void {
     if (startFrame == null) this.require().play()
     else this.require().playFrom(startFrame)
-  }
-  playFrom(frameNo: number): void {
-    this.require().playFrom(frameNo)
   }
   /** Idempotent, unlike the C-API's toggle. */
   pause(): void {
