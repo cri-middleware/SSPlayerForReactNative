@@ -81,7 +81,12 @@ export interface SpriteStudioPlayerApi {
    */
   getAnimationNames(): string[]
   seek(frameNo: number): void
-  /** Multiplier on the authored frame rate; negative plays backwards. */
+  /**
+   * Multiplier on the authored frame rate. `0` and negatives **stop** the
+   * playhead where it stands rather than turning it around — reversing is
+   * `setPlaybackDirection`'s job, not the speed's, and the Brain clamps both to
+   * the same stop (`30_core/20_playback_control.md`).
+   */
   setSpeedScale(rate: number): void
   /** 0 = infinite. */
   setLoopCount(loops: number): void
