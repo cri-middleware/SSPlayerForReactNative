@@ -792,6 +792,21 @@ std::vector<std::string> HybridSsContext::getAnimationNames() {
   return out;
 }
 
+std::vector<std::string> HybridSsContext::partNames() {
+  const sscore::SsAnimeBinaryView view = ssab();
+  std::vector<std::string> out;
+  if (!view.valid()) return out;
+  // Walk the `.ssab` parts table rather than `partCount_`: that one is derived
+  // from the Brain's world-matrix SoA and is zero until the first update, while
+  // the names are static for the resource and wanted before a frame has run.
+  const uint32_t count = view.partCount();
+  out.reserve(count);
+  // An unnamed part holds its slot as an empty string so the vector stays
+  // index-aligned with the `partIndex` every event carries.
+  for (uint32_t i = 0; i < count; ++i) out.emplace_back(view.partName(i));
+  return out;
+}
+
 std::vector<std::string> HybridSsContext::cellmapNames() {
   const sscore::SsAnimeBinaryView view = ssab();
   std::vector<std::string> out;

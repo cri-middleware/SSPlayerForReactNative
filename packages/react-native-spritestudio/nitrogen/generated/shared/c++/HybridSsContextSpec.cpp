@@ -63,6 +63,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridMethod("clearPartOverrides", &HybridSsContextSpec::clearPartOverrides);
       prototype.registerHybridMethod("getTextures", &HybridSsContextSpec::getTextures);
       prototype.registerHybridMethod("getAnimationNames", &HybridSsContextSpec::getAnimationNames);
+      prototype.registerHybridMethod("partNames", &HybridSsContextSpec::partNames);
       prototype.registerHybridMethod("cellmapNames", &HybridSsContextSpec::cellmapNames);
       prototype.registerHybridMethod("cellNames", &HybridSsContextSpec::cellNames);
       prototype.registerHybridMethod("drawInto", &HybridSsContextSpec::drawInto);

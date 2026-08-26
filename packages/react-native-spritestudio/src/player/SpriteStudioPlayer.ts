@@ -539,6 +539,17 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Cellmap names in the pack, without the `.ssce` extension — the namespace a
    * cell override takes. Empty before a load completes.
    */
+  /**
+   * Part names in part-index order, empty before a load finishes.
+   *
+   * This is what turns the `partIndex` on an event back into something a human
+   * reads, and what fills a part picker. An unnamed part holds its slot as `''`
+   * so the list stays index-aligned; `length` is the part count.
+   */
+  partNames(): string[] {
+    return this.internalPlayer?.partNames() ?? []
+  }
+
   cellmapNames(): string[] {
     return this.internalPlayer?.cellmapNames() ?? []
   }

@@ -122,6 +122,7 @@ namespace margelo::nitro::ssplayer {
       virtual bool clearPartOverrides() = 0;
       virtual std::vector<SsTextureInfo> getTextures() = 0;
       virtual std::vector<std::string> getAnimationNames() = 0;
+      virtual std::vector<std::string> partNames() = 0;
       virtual std::vector<std::string> cellmapNames() = 0;
       virtual std::vector<std::string> cellNames(const std::string& cellmapName) = 0;
       virtual double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) = 0;
