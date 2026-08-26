@@ -358,6 +358,17 @@ export class SsInternalPlayer {
 
   /** Animation names in this pack, for feeding to `setupAnimation`. */
   /**
+   * Part names in part-index order, empty before an animation is set up.
+   *
+   * An unnamed part holds its slot as `''`, so the list stays aligned with the
+   * `partIndex` every event carries. `length` is the part count — {@link partCount}
+   * reads the Brain's matrix count instead, which is zero until the first advance.
+   */
+  partNames(): string[] {
+    return this.context?.partNames() ?? []
+  }
+
+  /**
    * Cellmap names in the pack, without the `.ssce` extension — the namespace
    * {@link setPartCell} hashes against.
    */

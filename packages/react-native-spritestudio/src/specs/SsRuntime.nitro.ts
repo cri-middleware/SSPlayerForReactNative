@@ -682,6 +682,16 @@ export interface SsContext
    * Read from the `.ssab` rather than the texture table, because a cellmap
    * whose atlas is embedded still has a name.
    */
+  /**
+   * Part names in part-index order, empty before an animation is set up.
+   *
+   * A part authored without a name holds its slot as `''` rather than being
+   * skipped, so the list stays aligned with the `partIndex` every event carries
+   * — turning one back into something a human reads is the point. `length` is
+   * the part count.
+   */
+  partNames(): string[]
+
   cellmapNames(): string[]
 
   /**

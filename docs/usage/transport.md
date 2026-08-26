@@ -57,6 +57,12 @@ And to read where it is: `frameNo`, `isPlaying`, `isFinished`,
 `isPausing`, `isPlayingForward`, `justLooped`, `currentAnimation`, `frameRate`,
 `partCount`.
 
+`partNames()` lists the parts in part-index order — what turns the `partIndex` on
+an event back into something a human reads, and what fills a part picker. An
+unnamed part holds its slot as `''`, so the list stays index-aligned. Prefer its
+`length` to `partCount`, which reads the Brain's matrix count and is `0` until the
+first `advance`.
+
 `justLooped` is a **pulse**: true only inside the tick `advance` just ran, and
 replaced by the next one. `onAnimationLooped` delivers the same edge if you would rather not
 poll for it.

@@ -133,6 +133,7 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   std::vector<SsTextureInfo> getTextures() override;
   std::vector<std::string> getAnimationNames() override;
+  std::vector<std::string> partNames() override;
   std::vector<std::string> cellmapNames() override;
   std::vector<std::string> cellNames(const std::string& cellmapName) override;
 

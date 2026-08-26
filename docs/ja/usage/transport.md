@@ -54,6 +54,11 @@ ref.current?.player?.setSpeedScale(0.5)
 現在位置を読むには `frameNo`・`isPlaying`・`isPausing`・`isFinished`・`isPlayingForward`・
 `justLooped`・`currentAnimation`・`frameRate`・`partCount` があります。
 
+`partNames()` はパーツ名をパーツ index 順で返します。イベントの `partIndex` を人間が読める形に
+戻す、パーツ一覧 UI を作る、といった用途です。名前の無いパーツは `''` で枠を保持するので index と
+揃ったままです。個数は `partCount` より `partNames().length` を使ってください。`partCount` は
+Brain の行列数を読むので、最初の `advance` まで `0` です。
+
 `justLooped` は**パルス**です。直近の `advance` が走った tick の間だけ真で、次の tick で
 置き換わります。ポーリングしたくなければ `onAnimationLooped` が同じエッジを配ります。
 
