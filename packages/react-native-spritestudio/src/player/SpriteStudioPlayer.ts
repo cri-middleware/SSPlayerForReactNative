@@ -752,6 +752,53 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
+   * Multiplier in effect, read back from the Brain rather than from what was
+   * asked for. `0` and negatives clamp to a **stop** there, so setting `-2` and
+   * reading this back gives `0` — the stop it actually became, not the reverse
+   * playback the request looks like. Falls back to the pending setting before a
+   * resource exists.
+   */
+  get speedScale(): number {
+    return this.internalPlayer?.speedScale ?? this.settings.speed
+  }
+
+  /** Cycles configured for this run; `0` and `-1` are both infinite. */
+  get loopCount(): number {
+    return this.internalPlayer?.loopCount ?? this.settings.loops
+  }
+
+  /** See {@link setFrameSkipEnabled}. */
+  get frameSkipEnabled(): boolean {
+    return this.internalPlayer?.frameSkipEnabled ?? this.settings.skipFrames
+  }
+
+  /**
+   * The heading that was **configured** — not {@link isPlayingForward}, which is
+   * where the playhead is actually going this frame.
+   */
+  get playbackDirection(): SsPlaybackDirection {
+    return this.internalPlayer?.playbackDirection ?? this.settings.direction
+  }
+
+  /** What the playhead does at the far end of the section. */
+  get playbackStyle(): SsPlaybackStyle {
+    return this.internalPlayer?.playbackStyle ?? this.settings.style
+  }
+
+  /** First and last frame of the range being played — the section once one is set. */
+  get startFrame(): number {
+    return this.internalPlayer?.startFrame ?? 0
+  }
+  get endFrame(): number {
+    return this.internalPlayer?.endFrame ?? 0
+  }
+
+  /** Frames in that range, both ends inclusive. Feed it to a scrubber. */
+  get totalFrames(): number {
+    return this.internalPlayer?.totalFrames ?? 0
+  }
+
+  /**
    * Replays the transport settings onto a freshly set-up animation.
    *
    * The order matters and is not decorative: `setup_animation` resets the loop

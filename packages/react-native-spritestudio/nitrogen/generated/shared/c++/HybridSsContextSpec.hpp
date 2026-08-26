@@ -80,6 +80,7 @@ namespace margelo::nitro::ssplayer {
       virtual double getFps() = 0;
       virtual double getStartFrame() = 0;
       virtual double getEndFrame() = 0;
+      virtual double getAnimationSpeed() = 0;
       virtual double getLoops() = 0;
       virtual double getRemainLoops() = 0;
       virtual double getPlaybackDirection() = 0;

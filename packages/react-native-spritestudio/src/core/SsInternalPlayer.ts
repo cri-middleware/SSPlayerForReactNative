@@ -14,8 +14,8 @@ import type {
 import { SsTextureRegistry } from './SsTextureRegistry'
 import {
   SS_ROOT_TRANSFORM_IDENTITY,
-  type SsPlaybackDirection,
-  type SsPlaybackStyle,
+  SsPlaybackDirection,
+  SsPlaybackStyle,
   type SsRootTransform,
 } from './types'
 
@@ -258,6 +258,41 @@ export class SsInternalPlayer {
   setFrameRate(fps: number): void {
     this.require().setFrameRate(fps)
   }
+  /**
+   * The speed the Brain stored, which is not always the one that was passed:
+   * `0` and negatives clamp to a stop, so this reports the stop rather than the
+   * request.
+   */
+  get speedScale(): number {
+    return this.context?.animationSpeed ?? 1
+  }
+
+  /** Cycles configured for this run; `-1` is infinite. */
+  get loopCount(): number {
+    return this.context?.loops ?? -1
+  }
+
+  /** The configured heading — not `isPlayingForward`, which is the live one. */
+  get playbackDirection(): SsPlaybackDirection {
+    return (this.context?.playbackDirection ?? SsPlaybackDirection.forward) as SsPlaybackDirection
+  }
+
+  /** What the playhead does at the far end of the section. */
+  get playbackStyle(): SsPlaybackStyle {
+    return (this.context?.playbackStyle ?? SsPlaybackStyle.normal) as SsPlaybackStyle
+  }
+
+  /** Whether a long tick may drop frames to stay on the wall clock. */
+  get frameSkipEnabled(): boolean {
+    return this.context?.skipFrames ?? true
+  }
+
+  /** Frames in the range being played, both ends inclusive. */
+  get totalFrames(): number {
+    const ctx = this.context
+    return ctx == null ? 0 : ctx.endFrame - ctx.startFrame + 1
+  }
+
   /** Whether the DISPLAY frame keeps its fraction. See `setSubFrame`. */
   get subFrameEnabled(): boolean {
     return this.context?.subFrame ?? true

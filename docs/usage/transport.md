@@ -53,9 +53,16 @@ say different things: **speed is a multiple** of whatever the clip was authored
 at, so it means the same against every clip; **frame rate replaces** it, so 60
 against a 30fps clip is double speed and against a 60fps clip is none.
 
-And to read where it is: `frameNo`, `isPlaying`, `isFinished`,
-`isPausing`, `isPlayingForward`, `justLooped`, `currentAnimation`, `frameRate`,
-`partCount`.
+And to read where it is: `frameNo`, `startFrame`, `endFrame`, `totalFrames`,
+`isPlaying`, `isFinished`, `isPausing`, `isPlayingForward`, `justLooped`,
+`currentAnimation`, `frameRate`, `partCount`.
+
+Every setter above has a getter beside it — `speedScale`, `loopCount`,
+`frameSkipEnabled`, `subFrameEnabled`, `playbackDirection`, `playbackStyle`. They
+read the **Brain**, not what you asked for, which is the difference that matters
+for `speedScale`: `0` and negatives clamp to a stop there, so setting `-2` and
+reading it back gives `0` rather than the reverse playback the request looks
+like.
 
 `partNames()` lists the parts in part-index order — what turns the `partIndex` on
 an event back into something a human reads, and what fills a part picker. An

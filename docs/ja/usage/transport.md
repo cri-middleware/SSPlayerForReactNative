@@ -51,8 +51,15 @@ ref.current?.player?.setSpeedScale(0.5)
 **速度は倍率**なのでどのクリップに対しても同じ意味になり、**フレームレートは置き換え**
 なので、30fps のクリップに 60 を指定すれば倍速、60fps のクリップなら等速です。
 
-現在位置を読むには `frameNo`・`isPlaying`・`isPausing`・`isFinished`・`isPlayingForward`・
-`justLooped`・`currentAnimation`・`frameRate`・`partCount` があります。
+現在位置を読むには `frameNo`・`startFrame`・`endFrame`・`totalFrames`・`isPlaying`・
+`isPausing`・`isFinished`・`isPlayingForward`・`justLooped`・`currentAnimation`・
+`frameRate`・`partCount` があります。
+
+上の setter にはそれぞれ getter が対応します（`speedScale`・`loopCount`・
+`frameSkipEnabled`・`subFrameEnabled`・`playbackDirection`・`playbackStyle`）。返すのは
+要求値ではなく **Brain の値**です。特に `speedScale` で効きます。`0` と負値は Brain 側で停止に
+クランプされるので、`-2` を設定して読み戻すと、要求が示す逆再生ではなく実際になった `0` が
+返ります。
 
 `partNames()` はパーツ名をパーツ index 順で返します。イベントの `partIndex` を人間が読める形に
 戻す、パーツ一覧 UI を作る、といった用途です。名前の無いパーツは `''` で枠を保持するので index と

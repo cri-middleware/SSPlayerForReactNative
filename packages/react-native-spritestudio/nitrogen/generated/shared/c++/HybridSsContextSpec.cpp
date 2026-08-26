@@ -24,6 +24,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridGetter("fps", &HybridSsContextSpec::getFps);
       prototype.registerHybridGetter("startFrame", &HybridSsContextSpec::getStartFrame);
       prototype.registerHybridGetter("endFrame", &HybridSsContextSpec::getEndFrame);
+      prototype.registerHybridGetter("animationSpeed", &HybridSsContextSpec::getAnimationSpeed);
       prototype.registerHybridGetter("loops", &HybridSsContextSpec::getLoops);
       prototype.registerHybridGetter("remainLoops", &HybridSsContextSpec::getRemainLoops);
       prototype.registerHybridGetter("playbackDirection", &HybridSsContextSpec::getPlaybackDirection);
