@@ -4,7 +4,7 @@
 
 **アーティストが作った 2D アニメーションを React Native アプリへ — コンポーネント 1 つ、アニメーションのコードなし、動画ファイルなし。**
 
-**[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio 7 はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
+**[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
 
 > [!WARNING]
 > **未リリースです。** npm パッケージは未公開で、**実機での動作確認もまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは [docs/limitations.md](docs/limitations.md) を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
@@ -61,7 +61,7 @@ npx expo install react-native-spritestudio @shopify/react-native-skia react-nati
 
 ### アセットの準備（`.sspj` → `.ssab`）
 
-アニメーションは SpriteStudio 7 で作成し、手元のマシンで SDK の `ssconverter-cli`（またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)）を使って変換します。コンバータは同梱しておらず、実行時に変換されることもありません — アセットを同梱する前に自分で実行する手順です。ツールの選び方とビルドパイプラインへの組み込みは[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)にあります。
+アニメーションは SpriteStudio で作成し、手元のマシンで SDK の `ssconverter-cli`（またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)）を使って変換します。コンバータは同梱しておらず、実行時に変換されることもありません — アセットを同梱する前に自分で実行する手順です。ツールの選び方とビルドパイプラインへの組み込みは[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)にあります。
 
 **パックはファイルではなくディレクトリです。** `.ssab` は、テクスチャ、Instance パーツが参照する外部パック、そして `.ssqb` を通じてシーケンスするパックを、すべて自身からの相対パスで指定します。したがって `ssconverter-cli` の**出力ディレクトリ**がそのまま端末に届く必要があります。
 

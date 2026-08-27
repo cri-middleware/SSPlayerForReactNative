@@ -1,5 +1,5 @@
 /**
- * SpriteStudio 7 player for React Native.
+ * SpriteStudio player for React Native.
  *
  * Four layers, top to bottom (see AGENTS.md):
  *

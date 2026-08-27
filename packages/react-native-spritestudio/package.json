@@ -1,7 +1,7 @@
 {
   "name": "react-native-spritestudio",
   "version": "7.0.0-beta.1",
-  "description": "SpriteStudio 7 animation player for React Native (New Architecture / Nitro + Skia)",
+  "description": "SpriteStudio animation player for React Native (New Architecture / Nitro + Skia)",
   "license": "BSD-3-Clause",
   "main": "lib/module/index.js",
   "types": "lib/typescript/index.d.ts",

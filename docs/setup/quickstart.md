@@ -10,7 +10,7 @@ has to name it.
 
 ## 1. Ship the pack
 
-Animations are authored in SpriteStudio 7 and converted on your machine to a
+Animations are authored in SpriteStudio and converted on your machine to a
 `.ssab` **directory** — see [Preparing assets](/setup/assets), which is the part
 that surprises people. Point the config plugin at the directory holding your
 packs:

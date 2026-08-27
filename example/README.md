@@ -76,7 +76,7 @@ what `npm run check-mask`'s fourth check runs against — and that check reports
 itself skipped without it.
 
 It is third-party sample art and the licence to redistribute it is not ours to
-give. Download **OPTPiX SpriteStudio Basic Samples** from
+give. Download **SpriteStudio Basic Samples** from
 [the SpriteStudio site](https://www.webtech.co.jp/spritestudio/) and copy its
 `Mask` project in:
 

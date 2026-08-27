@@ -1,7 +1,7 @@
 ---
 layout: home
 title: SSPlayerForReactNative
-description: SpriteStudio 7 のアニメーションを React Native で — コンポーネント 1 つ、アニメーションのコードなし。
+description: SpriteStudio のアニメーションを React Native で — コンポーネント 1 つ、アニメーションのコードなし。
 
 hero:
   name: SpriteStudio Player
@@ -20,7 +20,7 @@ hero:
 
 features:
   - title: アニメーションのコードは書かない
-    details: 動きは SpriteStudio 7 で視覚的に作られます — ボーンリグ、メッシュ変形、マスク、パーティクル。プレイヤーは書き出されたファイルを再生するだけです。パーツごとの Animated / Reanimated タイムラインも、切り出すスプライトシートもありません。
+    details: 動きは SpriteStudio で視覚的に作られます — ボーンリグ、メッシュ変形、マスク、パーティクル。プレイヤーは書き出されたファイルを再生するだけです。パーツごとの Animated / Reanimated タイムラインも、切り出すスプライトシートもありません。
   - title: ラスター素材を、ネイティブ描画で
     details: ラスターのスプライト素材にリグを入れて変形させるので、手描きのキャラクターが作られたとおりに動きます。ベクターツールとは適性が異なり、.gif や .mp4 を同梱するより軽量です。
   - title: フレームレートに縛られない滑らかさ

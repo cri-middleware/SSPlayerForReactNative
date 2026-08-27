@@ -38,7 +38,7 @@ const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 // in, then what to do when it breaks and what this port cannot do at all.
 export default withMermaid({
   title: 'SSPlayerForReactNative',
-  description: 'SpriteStudio 7 player for React Native (Nitro Modules + React Native Skia)',
+  description: 'SpriteStudio player for React Native (Nitro Modules + React Native Skia)',
   lastUpdated: true,
   cleanUrls: true,
   lang: 'en',
@@ -168,7 +168,7 @@ export default withMermaid({
       link: '/ja/',
       // Without this every ja page inherits the top-level English description
       // into its <meta> and Open Graph tags.
-      description: 'SpriteStudio 7 のアニメーションを React Native で再生するプレイヤー（Nitro Modules + React Native Skia）',
+      description: 'SpriteStudio のアニメーションを React Native で再生するプレイヤー（Nitro Modules + React Native Skia）',
       themeConfig: {
         outline: { level: [2, 3], label: '目次' },
         nav: [

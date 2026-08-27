@@ -4,7 +4,7 @@
 
 **Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
 
-A player that renders **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio 7 is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
+A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
 
 > [!WARNING]
 > **Not released yet.** The npm package is not published, and nothing here has
@@ -78,7 +78,7 @@ subject on its screen proves.
 
 ### Preparing assets (`.sspj` → `.ssab`)
 
-Animations are authored in SpriteStudio 7 and converted on your machine with the
+Animations are authored in SpriteStudio and converted on your machine with the
 SDK's `ssconverter-cli` (or the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)).
 No converter is bundled and nothing converts at runtime — this is a step you run before the assets ship. [Converting with a standalone tool](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/) covers picking a tool and putting it in a build pipeline.
 

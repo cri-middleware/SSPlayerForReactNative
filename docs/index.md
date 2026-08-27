@@ -1,7 +1,7 @@
 ---
 layout: home
 title: SSPlayerForReactNative
-description: SpriteStudio 7 animation in React Native — one component, no animation code.
+description: SpriteStudio animation in React Native — one component, no animation code.
 
 hero:
   name: SpriteStudio Player
@@ -20,7 +20,7 @@ hero:
 
 features:
   - title: Zero animation code
-    details: The motion is authored visually in SpriteStudio 7 — bone rigs, mesh deform, masks, particles — and the player plays the exported file. No Animated or Reanimated timeline per part, no spritesheet to slice.
+    details: The motion is authored visually in SpriteStudio — bone rigs, mesh deform, masks, particles — and the player plays the exported file. No Animated or Reanimated timeline per part, no spritesheet to slice.
   - title: Raster, drawn natively
     details: It rigs and deforms raster sprite art, so hand-painted characters animate exactly as authored. A different fit from vector tools, and lighter than shipping a .gif or an .mp4.
   - title: Smooth, not locked to a frame rate
