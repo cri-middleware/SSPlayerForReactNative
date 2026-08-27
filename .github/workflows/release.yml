@@ -1,0 +1,103 @@
+name: Release
+
+# One-shot publish of `react-native-spritestudio` to npm, dispatched by hand.
+#
+# This is a thin wrapper around `scripts/release.sh` on purpose. That script is
+# what a maintainer runs on a laptop, and re-stating its order here would give
+# the two routes a chance to disagree about what a release is. Everything it
+# enforces — a clean tree, the *pinned* Brain rather than a local build,
+# generated code that still matches its inputs, the four host checks, and a
+# `prepack` that refuses a tarball a consumer could not use — holds identically
+# whichever way it is run.
+#
+# **macOS only, and not by oversight.** The tarball carries the Brain's iOS
+# xcframework, which only Xcode can build, and `check-mask` / `check-shader`
+# link the host `libskia.a` that RN Skia ships with a macOS slice and no Linux
+# one. `release.sh` refuses to start anywhere else.
+#
+# 🚧 **Blocked today, and the failure is the correct one.** `scripts/SDK_VERSION.txt`
+# names a SpriteStudio-SDK release tag that has not been published, so
+# `download-sdk.sh` — step 2 of the script — cannot resolve it and the run stops
+# there. See ROADMAP.md. Nothing here works around that: this workflow exists so
+# the channel is ready the moment the tag lands, not so a green tick can be had
+# without one.
+#
+# Secrets:
+#   SS_NPM_TOKEN  an npm automation token. Automation tokens bypass 2FA, which CI
+#                 cannot answer interactively — which is why `release.sh --otp`
+#                 has no counterpart input here.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Verify only — everything up to npm pack, publish nothing'
+        type: boolean
+        default: true
+
+# An npm version is immutable once published, so two of these must never
+# overlap, and a queued one must not be cancelled half way.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read # release.sh bumps nothing and tags nothing — both are decisions
+
+jobs:
+  release:
+    name: 🍎 Release (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout (with both submodules)
+        uses: actions/checkout@v7
+        with:
+          # `release.sh` runs its own `git submodule update --init` over the same
+          # two paths, which is a no-op once this step has done it.
+          submodules: recursive
+
+      - name: A real publish comes from main
+        # `release.sh` only prints a note when it runs off main, which is right
+        # for a laptop: verifying a branch is a normal thing to want. Publishing
+        # is not undoable, so that half is refused rather than noted.
+        if: ${{ !inputs.dry_run && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error::a publish must be dispatched from main (this ref: ${GITHUB_REF}) — re-run with dry_run to verify a branch"
+          exit 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          # Writes the .npmrc that NODE_AUTH_TOKEN is read through. Without it
+          # the token is set and ignored, and the publish fails as anonymous.
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install flatc
+        # `check-framedata` is the only check that needs it, and it compiles its
+        # probe against brew's flatbuffers headers as well as the vendored ones.
+        # The vendored copy is 25.12.19 and its `static_assert` on the version is
+        # what catches a formula that has moved past it — a failure there reads
+        # as "wrong flatc", not "stale output".
+        run: brew install flatbuffers
+
+      - name: Release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.SS_NPM_TOKEN }}
+          # npm provenance attestation needs a PUBLIC repository, and npm rejects
+          # the publish outright rather than degrading. Flip to 'true' when this
+          # repository goes public — nothing else has to change. SSPlayerForWeb
+          # carries the same line for the same reason.
+          NPM_CONFIG_PROVENANCE: 'false'
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            ./scripts/release.sh --dry-run
+          else
+            ./scripts/release.sh
+          fi
