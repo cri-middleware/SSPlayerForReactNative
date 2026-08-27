@@ -4,7 +4,7 @@
 
 **Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
 
-Plays **[OPTPiX SpriteStudio 7](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) on React Native's New Architecture, drawing natively through [React Native Skia](https://shopify.github.io/react-native-skia/) with the timeline and geometry in a Rust core under [Nitro Modules](https://nitro.margelo.com/) (JSI).
+Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) on React Native's New Architecture, drawing natively through [React Native Skia](https://shopify.github.io/react-native-skia/) with the timeline and geometry in a Rust core under [Nitro Modules](https://nitro.margelo.com/) (JSI).
 
 > [!WARNING]
 > **Not released yet.** This package is not published to npm, and nothing here has run on a **physical device** — iOS simulator and Android emulator only.

@@ -2,7 +2,7 @@
   "name": "ssplayer-for-react-native",
   "version": "0.0.0",
   "private": true,
-  "description": "SpriteStudio 7 player for React Native — workspace root",
+  "description": "SpriteStudio player for React Native — workspace root",
   "license": "BSD-3-Clause",
   "workspaces": [
     "packages/*",

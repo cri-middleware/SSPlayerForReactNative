@@ -5,7 +5,7 @@ description: Converting .sspj to .ssab, and why a pack is a directory rather tha
 
 # Preparing assets (`.sspj` → `.ssab`)
 
-SpriteStudio 7 saves a `.sspj` project; what this package plays is a `.ssab`.
+SpriteStudio saves a `.sspj` project; what this package plays is a `.ssab`.
 Converting between them is a step **you** run, on your own machine, **once at
 build time**. React Native has no editor to host an importer in, so unlike the
 engine players there is no automatic path and nothing converts at runtime — the

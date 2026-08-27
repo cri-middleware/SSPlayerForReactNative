@@ -76,7 +76,7 @@ $embeddedProjects = @(
 # Only one so far, and the reason it is not in the SDK's tests is worth stating:
 # the SDK's samples keep masks and instance parts in separate files, so nothing
 # upstream exercises a mask that has to reach into an instance child - which is
-# what 40_components/40_mask.md 2-6 specifies. This is the official OPTPiX basic
+# what 40_components/40_mask.md 2-6 specifies. This is the official SpriteStudio basic
 # sample for exactly that.
 $localDeployed = @()
 $localProjects = @(
