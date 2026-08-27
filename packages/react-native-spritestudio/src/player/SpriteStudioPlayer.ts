@@ -898,7 +898,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
           index,
           override.visible ? 2 : 1,
           // Off by default, as everywhere else: a keyframed hide never cascades
-          // in SS7, so cascading is the opt-in.
+          // in SpriteStudio, so cascading is the opt-in.
           override.cascade ?? false
         )
       }

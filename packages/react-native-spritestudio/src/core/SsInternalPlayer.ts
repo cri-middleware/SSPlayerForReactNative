@@ -376,7 +376,7 @@ export class SsInternalPlayer {
   // playback state, and mirroring either here would give two answers.
 
   // Off by default, matching the map layer above and the rest of the family;
-  // a keyframed hide never cascades in SS7, so cascading is the opt-in.
+  // a keyframed hide never cascades in SpriteStudio, so cascading is the opt-in.
   setPartVisibility(partIndex: number, force: number, cascade = false): boolean {
     return this.require().setPartVisibility(partIndex, force, cascade)
   }

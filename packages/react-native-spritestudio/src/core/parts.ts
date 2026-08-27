@@ -52,7 +52,7 @@ export interface SsPartOverride {
   visible?: boolean
   /**
    * Propagates a `visible: false` to descendants. Off by default, as everywhere
-   * else in the family: a keyframed hide never cascades in SS7, so cascading is
+   * else in the family: a keyframed hide never cascades in SpriteStudio, so cascading is
    * the opt-in.
    */
   cascade?: boolean

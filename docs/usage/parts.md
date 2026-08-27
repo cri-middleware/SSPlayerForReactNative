@@ -34,7 +34,7 @@ override is a patch, not a replacement.
 | Field | Type | Means |
 |---|---|---|
 | `visible` | `boolean` | Show or hide the part. |
-| `cascade` | `boolean` | Whether a `visible: false` reaches descendants. Default `false` — a keyframed hide never cascades in SS7, so cascading is the opt-in. |
+| `cascade` | `boolean` | Whether a `visible: false` reaches descendants. Default `false` — a keyframed hide never cascades in SpriteStudio, so cascading is the opt-in. |
 | `color` | `string \| number` | A tint. Anything Skia parses (`'#f00'`, `'rgba(255,0,0,.5)'`) or a packed `0xRRGGBBAA` number. |
 | `colorBlend` | `SsPartColorBlendValue` | How the tint combines: `SsPartColorBlend.mix` / `.mul` / `.add` / `.sub`. Default `mix`. |
 | `cell` | `SsCellRef` | Swap which cell the part samples. |

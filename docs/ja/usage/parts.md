@@ -34,7 +34,7 @@ import { SpriteStudioView, SsPartColorBlend } from 'react-native-spritestudio'
 | フィールド | 型 | 意味 |
 |---|---|---|
 | `visible` | `boolean` | パーツの表示・非表示。 |
-| `cascade` | `boolean` | `visible: false` を子孫まで及ぼすか。既定は `false` — SS7 ではキーフレームの hide が子孫に及ばないため、カスケードは opt-in です。 |
+| `cascade` | `boolean` | `visible: false` を子孫まで及ぼすか。既定は `false` — SpriteStudio ではキーフレームの hide が子孫に及ばないため、カスケードは opt-in です。 |
 | `color` | `string \| number` | 色味。Skia が解釈できるもの（`'#f00'`、`'rgba(255,0,0,.5)'`）か、パックされた `0xRRGGBBAA` の数値。 |
 | `colorBlend` | `SsPartColorBlendValue` | 色味の合成方法：`SsPartColorBlend.mix` / `.mul` / `.add` / `.sub`。既定は `mix`。 |
 | `cell` | `SsCellRef` | パーツが参照するセルを差し替えます。 |
