@@ -145,6 +145,6 @@ Skia の下限は実質的な制約です。2.11 で API オブジェクトが `
 
 ## 📄 ライセンス
 
-本プロジェクトは BSD-3-Clause ライセンスの下で提供されます — [LICENSE.md](LICENSE.md) を参照してください。
+本プロジェクトは BSD-3-Clause ライセンスの下で提供されます — [LICENSE.md](LICENSE.md) を参照してください。参考訳は [LICENSE.ja.md](LICENSE.ja.md) にあります。
 
 また、FlatBuffers と `libssruntime` を公開するアプリにコンパイルして組み込むため、*あなたの*バイナリに義務が生じます。謝辞に何を含めるべきかは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
