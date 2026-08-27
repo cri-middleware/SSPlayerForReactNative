@@ -61,10 +61,14 @@
   "bin": {
     "react-native-spritestudio": "./bin/spritestudio.js"
   },
+  "//publishConfig": "npm tags whatever is published as `latest` regardless of the prerelease identifier, so a 7.0.0-beta.1 with no tag here would be what a bare `npm i react-native-spritestudio` installs. `beta` matches the identifier in the version and what SSPlayerForWgpu publishes under.",
+  "publishConfig": {
+    "tag": "beta"
+  },
   "module": "lib/module/index.js",
   "react-native": "src/index.ts",
   "source": "src/index.ts",
-  "//browser": "Not web support — the stub barrel, so an app that ships web as well as native can still build its web bundle (src/index.web.ts). Points at source for the same reason `react-native` does; it moves to lib/ with `main` when the npm-publishing item in ROADMAP.md lands.",
+  "//browser": "Not web support — the stub barrel, so an app that ships web as well as native can still build its web bundle (src/index.web.ts). Still points at source while `main` resolves into lib/; moving it there is the open half of the npm-publishing item in ROADMAP.md.",
   "browser": "src/index.web.ts",
   "react-native-builder-bob": {
     "source": "src",
