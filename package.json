@@ -47,6 +47,7 @@
     "check-web-barrel": "node tools/check-web-barrel.mjs",
     "build": "npm run build --workspace react-native-spritestudio",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "generate-fbs-code": "node scripts/generate-fbs-code.js",
     "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets",
     "docs": "npm run build --workspace docs",

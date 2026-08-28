@@ -1,0 +1,11 @@
+{
+  // What `npm run typecheck` runs: the source *and* the tests.
+  //
+  // The tests cannot simply be added to the base config's `include`. Nothing
+  // else here passes `--project`, so a bare `tsc` picks that file up — and
+  // `tools/check-web-barrel.mjs` runs one with `--rootDir src`, which fails on
+  // a `test/` file the include pulled in. Keeping the widened include in its
+  // own config leaves every such invocation alone.
+  "extends": "./tsconfig.json",
+  "include": ["src", "test"]
+}

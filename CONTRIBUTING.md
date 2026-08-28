@@ -89,14 +89,15 @@ checks and what each one proves. The short version:
 | | |
 |---|---|
 | `npm run typecheck` | package and example |
+| `npm test` | the unit tests over the engine-independent half of `core/` (any OS, no Brain) |
 | `npm run build` | the package compiles to `lib/` |
 | `npm run check-web-barrel` | the web stub barrel still imports clean (any OS, no Brain) |
 | `npm run generate-nitro-code` then `git diff --exit-code packages/*/nitrogen` | the Nitro bindings are current |
 
 **A green CI is not a substitute for running these.** CI has no access to the
-private SDK submodule and no macOS libskia, so it runs typecheck, the Nitro
-bindings check, `bob build`, the web barrel, script parsing and the `files`
-guard — and none of the host checks or `prepack`.
+private SDK submodule and no macOS libskia, so it runs typecheck, the unit
+tests, the Nitro bindings check, `bob build`, the web barrel, script parsing and
+the `files` guard — and none of the host checks or `prepack`.
 
 Rendering is verified by hand on the example's Player screen, one feature card per
 capability; [`example/README.md`](./example/README.md) says what each subject
@@ -220,17 +221,18 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
 ### PR を出す前に実行するもの
 
 全体の表は [AGENTS.md](./AGENTS.md#verification) にあります（各チェックが何を保証するかも
-そこに書いてあります）。最低限は次の 4 つです。
+そこに書いてあります）。最低限は次の 5 つです。
 
 | | |
 |---|---|
 | `npm run typecheck` | パッケージと example |
+| `npm test` | `core/` のエンジン非依存部分のユニットテスト（OS 不問・Brain 不要） |
 | `npm run build` | パッケージが `lib/` にコンパイルされること |
 | `npm run check-web-barrel` | web スタブの barrel が import 可能なこと（OS 不問・Brain 不要） |
 | `npm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
 
 **CI が緑であることは、これらを実行した代わりにはなりません。** CI は private な SDK
-サブモジュールにも macOS の libskia にもアクセスできないため、typecheck・Nitro
+サブモジュールにも macOS の libskia にもアクセスできないため、typecheck・ユニットテスト・Nitro
 バインディング・`bob build`・web barrel・スクリプトの構文・`files` ガードまでしか
 実行できず、ホスト側のチェックと `prepack` は動きません。
 

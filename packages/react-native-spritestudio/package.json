@@ -29,7 +29,8 @@
   ],
   "scripts": {
     "nitrogen": "nitrogen",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
     "prepack": "bob build && node scripts/prepack.mjs",
     "build": "bob build"
   },
@@ -45,7 +46,8 @@
     "nitrogen": "^0.37.0",
     "react-native-builder-bob": "^0.43.0",
     "react-native-nitro-modules": "^0.37.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
   },
   "repository": {
     "type": "git",

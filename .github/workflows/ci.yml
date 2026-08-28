@@ -63,6 +63,14 @@ jobs:
         # property this whole workflow is built on.
         run: npm run typecheck
 
+      - name: Unit tests
+        # The engine-independent half of `core/`: URI resolution, the fit/align
+        # arithmetic and the refcounted cache. Every one of them is reachable
+        # without Nitro, Skia or the Brain, which is why they can run here at
+        # all — the rest of the package is not, and is covered by the host
+        # checks a maintainer runs before a release.
+        run: npm test
+
       - name: The Nitro bindings are current
         # `nitrogen/` is generated output that is committed and never hand-edited,
         # so the thing worth checking is that it still matches the spec. A PR that
