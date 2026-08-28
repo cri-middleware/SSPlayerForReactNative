@@ -76,6 +76,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Task | Command |
 |---|---|
 | Typecheck (package + example) | `npm run typecheck` |
+| Unit tests (engine-independent `core/`) | `npm test` (any OS, **no Brain needed**, also in CI) — `vitest run` over `packages/react-native-spritestudio/test/`. |
 | The package compiles to `lib/` | `npm run build` (any OS) — `bob build`, the step `prepack` runs before publishing. |
 | FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Mask drawing, and a mask crossing into an instance child | `npm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample. |
@@ -88,7 +89,21 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures`. |
 | Asset manifest | `deploy-examples` refreshes it; (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts` to verify. **`--check` calls it stale if you deployed the optional `MaskInstance` sample** — the manifest describes a deployed tree and the committed one is the without-it state. That modification is on purpose; do not commit it. |
 
-**CI runs what it can without SDK access** (`.github/workflows/ci.yml`): typecheck, the Nitro bindings being current, `bob build`, the web stub barrel, both halves of every toolchain script parsing, and the `files` guard. It cannot run the host checks or `prepack` — those need the private SDK submodule, and two of them need the macOS-only libskia — so a green CI is not a substitute for running them before a release.
+**CI runs what it can without SDK access** (`.github/workflows/ci.yml`): typecheck, the unit tests, the Nitro bindings being current, `bob build`, the web stub barrel, both halves of every toolchain script parsing, and the `files` guard. It cannot run the host checks or `prepack` — those need the private SDK submodule, and two of them need the macOS-only libskia — so a green CI is not a substitute for running them before a release.
+
+**What `npm test` covers, and why it stops where it does.** Four modules under
+`core/` reach no Nitro, no Skia and no Brain — `assets` (URI scheme, sibling
+resolution, `..` collapsing), `fit` (the fit/align/flip arithmetic behind both
+Layer 4 components), `SsRefCache` (the refcounts `SsRuntime.liveHandles` rests
+on) and `caches` (which of the two singletons disposes and which does not).
+Everything else in the package touches a native module at import time, so it is
+the host checks below and the Player screen that cover it, not this. Tests live
+in `test/` rather than beside the source **because `files` ships `src`
+recursively** — a `src/**/*.test.ts` would land in the tarball. They are
+typechecked through `tsconfig.test.json`, which `typecheck` passes with
+`--project`: widening the base config's `include` instead would break
+`check-web-barrel`, which runs a bare `tsc --rootDir src` and would then be
+handed the `test/` files.
 
 **Rendering is verified on the example's Player screen** — one feature card per capability, a *Textures* toggle between a **Reference** and an **Embedded** pack, and a **Leak check**. What each subject proves, and the optional `MaskInstance` sample, are in [`example/README.md`](./example/README.md). Read `Mask` and `BlendMode` on **both** platforms: the only platform-specific defect this screen has ever caught was iOS-only.
 
