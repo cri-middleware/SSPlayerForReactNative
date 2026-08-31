@@ -69,8 +69,9 @@ struct SsPartDraw {
   /// texcoord channel is therefore free — it can be a **mask target** despite
   /// not being quad-shaped: the coverage UV is written straight into that
   /// channel per vertex rather than reconstructed by inverting a quad's UV. A
-  /// Mesh needs that channel for its atlas, which is exactly why a Mesh target
-  /// still draws unmasked.
+  /// Mesh needs that channel for its atlas, so it is masked by a route of its
+  /// own instead — an offscreen layer cut by the coverage (`SsSkiaDraw.cpp`) —
+  /// rather than through this channel.
   bool untextured = false;
 
   /// True when this part has to leave its batch and go through the PartColor

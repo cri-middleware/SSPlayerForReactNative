@@ -81,9 +81,20 @@ struct SsMaskPartFlags {
   bool isWriter() const { return pureMask || maskWrite; }
   /// §1-2: `is_clipping = mask_write && !pure_mask`.
   bool isClipping() const { return maskWrite && !pureMask; }
-  /// §2-2: subject to the mask test at all. A clipping writer always is — its
-  /// `mask_influence` encodes the OP, not an opt-out.
-  bool isTarget() const { return maskInfluence || maskWrite; }
+  /// §2-2: subject to the mask test at all — true only when the part opted in
+  /// with `mask_influence == 1`.
+  ///
+  /// This is `mask_influence` alone, clipping parts included. `mask_influence` is
+  /// deliberately overloaded (§1-2): on a clipping part it is BOTH the OP and the
+  /// target flag, so `mask_influence == 0` opts the clipping part out of being a
+  /// target exactly as it does any drawn part (§2-2) — it still writes its own
+  /// coverage as a writer, but its own colour is no longer masked and draws
+  /// unconditionally. ORing `mask_write` in here was the bug: it forced a
+  /// clipping part with `mask_influence == 0` and `visible_inside == 1` to be
+  /// tested, and with nothing covering it the `masked == visible_inside` test
+  /// discarded it. SSPlayerForGodot and the wgpu coverage backend both gate the
+  /// target purely on `mask_influence`.
+  bool isTarget() const { return maskInfluence; }
 };
 
 /// One coverage-bitmap writer for the current frame (§3-2-1).
@@ -103,6 +114,18 @@ struct SsMaskWriter {
   /// §2-5's cutout: texels at or below this alpha contribute no coverage.
   /// `kSsNoCutoutThreshold` means "never cut out".
   float threshold = 0.0f;
+
+  /// **Carry-over (§2-6 / ForGodot's `_bubble_child_clip_writers`)**: when a
+  /// mounted instance child holds a clipping writer, it "bubbles up" to clip this
+  /// player's own parts drawn after the instance. Its geometry then lives in the
+  /// child's baker, not this player's, and has to be carried into this player's
+  /// space before it is rasterised. Null for an ordinary own writer, in which
+  /// case `partDrawIndex` indexes `SsBaker::parts()` of the player that owns the
+  /// plan as usual.
+  const SsBaker* foreignBaker = nullptr;
+  /// The instance mount matrix, `a,b,c,d,tx,ty` — child-world -> this player's
+  /// space. Only meaningful when `foreignBaker != nullptr`.
+  float foreignXf[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
 };
 
 /// One target's resolved mask test: which writers reach it, and with what
@@ -131,6 +154,21 @@ class SsMaskPlan {
   /// `flags` is indexed by part index, as `SsAnimeBinaryView` reads it.
   bool build(const ss::runtime::FrameData* fd, const SsBaker& baker,
              const SsMaskPartFlags* flags, size_t flagCount);
+
+  /// Carry-over (§2-6): fold a mounted instance child's **clipping** writers into
+  /// this plan as foreign writers, so they clip this player's own parts drawn
+  /// after the instance. Called after `build`, once per visible+influenced mount.
+  ///
+  /// `childBaker` / `childPlan` are the child's, freshly baked; `mountXf` is the
+  /// instance matrix (child-world -> this player's space); `ownerRank` is the
+  /// instance part's rank in this player's draw order; `inheritedInfluence` is the
+  /// AND-chain reaching the instance (a `false` drops the writer's OP to the
+  /// union plane). Pure-mask writers do NOT bubble — they close within the child.
+  /// A plan can end up non-empty from bubbling alone (a player whose only mask is
+  /// a child's), so this also seeds the coverage box when `build` found nothing.
+  void bubbleChildClipWriters(const SsBaker& childBaker, const SsMaskPlan& childPlan,
+                              const float* mountXf, int32_t ownerRank,
+                              bool inheritedInfluence);
 
   void clear();
 
