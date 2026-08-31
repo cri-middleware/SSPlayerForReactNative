@@ -115,6 +115,83 @@ bool SsMaskPlan::build(const ss::runtime::FrameData* fd, const SsBaker& baker,
   return true;
 }
 
+void SsMaskPlan::bubbleChildClipWriters(const SsBaker& childBaker, const SsMaskPlan& childPlan,
+                                        const float* mountXf, int32_t ownerRank,
+                                        bool inheritedInfluence) {
+  if (mountXf == nullptr) return;
+
+  const std::vector<SsPartDraw>& childParts = childBaker.parts();
+  const std::vector<float>& childPos = childBaker.positions();
+
+  const float a = mountXf[0], b = mountXf[1], c = mountXf[2], d = mountXf[3];
+  const float tx = mountXf[4], ty = mountXf[5];
+
+  // build() already set the box when this player had own writers; otherwise the
+  // first bubbled vertex seeds it (a player whose only mask is a child's).
+  bool haveBounds = !writers_.empty();
+  float left = left_, top = top_, right = right_, bottom = bottom_;
+
+  for (const SsMaskWriter& cw : childPlan.writers()) {
+    if (writers_.size() >= static_cast<size_t>(kSsMaxMaskWriters)) break;
+    // Only clipping writers carry out of the sub-animation (§2-6). A pure mask
+    // closes within the child. A writer the child itself bubbled up does not
+    // bubble a second level here — this port runs a single carry-over track.
+    if (!cw.isClipping || cw.foreignBaker != nullptr) continue;
+    if (cw.partDrawIndex < 0 ||
+        static_cast<size_t>(cw.partDrawIndex) >= childParts.size()) {
+      continue;
+    }
+    const SsPartDraw& part = childParts[static_cast<size_t>(cw.partDrawIndex)];
+    if (part.vertexCount < 3) continue;
+    const size_t vbase = static_cast<size_t>(part.vertexOffset) * 2;
+    if (vbase + static_cast<size_t>(part.vertexCount) * 2 > childPos.size()) continue;
+
+    // The union box has to contain the writer in *this* player's space, so its
+    // vertices go through the mount matrix before they extend it.
+    for (int32_t v = 0; v < part.vertexCount; ++v) {
+      const float cx = childPos[vbase + static_cast<size_t>(v) * 2];
+      const float cy = childPos[vbase + static_cast<size_t>(v) * 2 + 1];
+      const float x = a * cx + c * cy + tx;
+      const float y = b * cx + d * cy + ty;
+      if (!haveBounds) {
+        left = right = x;
+        top = bottom = y;
+        haveBounds = true;
+        continue;
+      }
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+    }
+
+    SsMaskWriter w;
+    w.partIndex = cw.partIndex;
+    // Scoped at the instance's rank: it clips this player's parts drawn *after*
+    // the mount, exactly as a native clipping writer at that rank would.
+    w.drawRank = ownerRank;
+    w.bit = static_cast<int32_t>(writers_.size());
+    w.partDrawIndex = cw.partDrawIndex;
+    // §2-6: the child writer's OP composed with the influence reaching the mount —
+    // a `mask_influence == 0` instance drops it to the increment (union) plane.
+    w.opInvert = cw.opInvert && inheritedInfluence;
+    w.isClipping = true;
+    w.threshold = cw.threshold;
+    w.foreignBaker = &childBaker;
+    for (int i = 0; i < 6; ++i) w.foreignXf[i] = mountXf[i];
+    writers_.push_back(w);
+
+    if (minClipRank_ < 0 || ownerRank < minClipRank_) minClipRank_ = ownerRank;
+  }
+
+  if (haveBounds) {
+    left_ = left;
+    top_ = top;
+    right_ = right;
+    bottom_ = bottom;
+  }
+}
+
 bool SsMaskPlan::bitsFor(int32_t rank, const SsMaskPartFlags& flags, SsMaskBits* out) const {
   if (out == nullptr || writers_.empty()) return false;
   if (!flags.isTarget()) return false;

@@ -185,6 +185,14 @@ class HybridSsContext final : public HybridSsContextSpec,
                      size_t textureCount, float alphaScale,
                      const ::ssplayer::SsMaskInput& inherited = {});
 
+  /// Bakes this child and builds its own writer plan so a **caller** can carry
+  /// its clipping writers into its own coverage (§2-6 carry-over). Returns true
+  /// only when the plan holds at least one clipping writer worth lifting. Baked
+  /// at alpha 1 (coverage ignores vertex colour) and re-baked for real when the
+  /// child later draws; a caller reads `baker_` / `maskPlan_` right after this,
+  /// before that re-bake. Called by an owner's `drawSubtree`, on the child.
+  bool prepareForBubble();
+
   /// Spawns one child per instance part, once.
   ///
   /// Deferred to the first `setupAnimation` rather than done in the constructor,

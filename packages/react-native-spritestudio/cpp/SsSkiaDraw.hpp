@@ -37,10 +37,20 @@ struct SsMaskInput {
   /// values for a root — so a top-level animation evaluates every part by its
   /// own settings, which is what the spec asks for.
   ///
-  /// §2-6's `mask_influence` AND is not among them: it is carried by whether
-  /// this struct arrives with a `plan` at all. A caller whose instance part is
-  /// not a mask target passes none, and a subtree with no coverage is exactly a
-  /// subtree the AND has already settled as unmasked.
+  /// §2-6's `mask_influence` AND-chain, composed down the instance hierarchy. The
+  /// identity is `true` (a root evaluates each part by its own settings). Once it
+  /// reaches `false` it never returns, and the **whole subtree is then unmasked —
+  /// its own masks included**, not only the caller's. A mounted sub-animation
+  /// therefore applies its OWN masking only while this stays true; a
+  /// `mask_influence == 0` instance part turns it off for everything below, so the
+  /// child draws its parts unclipped even though it has writers of its own. This
+  /// has to ride down even on a frame with no coverage to pass — which is why it
+  /// is a field of its own rather than "carried by whether a `plan` arrives".
+  bool influence = true;
+
+  /// True when a caller's coverage actually reaches this frame — its `plan` /
+  /// `coverage` below are then borrowed from the caller. Only set when `influence`
+  /// survived the AND above **and** the caller had a mask to pass.
   bool inherited = false;
   /// The instance part's own rank in the **caller's** draw order. Scope does not
   /// compose (§2-6): the sub-animation sits where the instance part sits, so

@@ -947,6 +947,11 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
   baker_.bake(frame_, soa_, effects_.frame(), alphaScale);
 
   ::ssplayer::SsMaskInput mask;
+  // §2-6's AND-chain: whether this player, mounted, may mask at all. The identity
+  // is `true` for a root (`drawInto` hands in a default `inherited`), and a
+  // `mask_influence == 0` instance part above has already turned it off for this
+  // whole subtree.
+  mask.influence = inherited.influence;
   // The flags go in **whether or not a plan builds**. They are static PartData,
   // and the draw path needs one of them — `pureMask` — even on a frame with no
   // coverage at all: a pure mask writes coverage and never colour, and that is
@@ -963,17 +968,43 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
       // indices do not cross an instance boundary and §2-6 wants each of these
       // parts judged on its own settings composed with what came down.
       //
-      // A child that writes masks of its own is "a separate track" in the same
-      // paragraph, and this port does not run two: while a parent's mask reaches
-      // in, the child's own writers write nothing. See ROADMAP.md.
+      // The carry-over track — a child's own clipping writers lifted up to clip a
+      // caller's parts — runs in the `else` below, where this player builds its
+      // own plan. It does **not** run *here*: when a caller's mask reaches in, this
+      // port still uses only the caller's coverage, and the child's own writers
+      // write nothing for that frame. Both coverages sampled by one part at once
+      // is the remaining "separate track" (§3-2-2, ROADMAP.md).
       mask.plan = inherited.plan;
       mask.coverage = inherited.coverage;
       mask.inherited = true;
       mask.visibleInside = inherited.visibleInside;
       mask.callerRank = inherited.callerRank;
       for (int i = 0; i < 6; ++i) mask.slotXf[i] = inherited.slotXf[i];
-    } else if (maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) {
-      mask.plan = &maskPlan_;
+    } else if (inherited.influence) {
+      // Own masking is allowed by the AND-chain (a `mask_influence == 0` instance
+      // above would have turned it off). Build this player's own writers, then
+      // carry each visible instance child's clipping writers up (§2-6): they clip
+      // this player's parts drawn after the mount. The plan can be non-empty from
+      // the carry-over alone — a player whose only mask part is hidden but whose
+      // mounted child still clips (`InstancePropagation`, `Hole32` hidden).
+      maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size());
+      for (const sscore::SsInstanceDraw& mount : baker_.instances()) {
+        const sscore::SsInstanceState* st = instances_.stateFor(mount.partIndex);
+        if (st == nullptr || !st->visible || st->child == nullptr) continue;
+        auto* child = static_cast<HybridSsContext*>(st->child);
+        if (!child->prepareForBubble()) continue;
+        // Writer-side composition (§2-6): the influence reaching the child is this
+        // player's, ANDed with the instance part's `mask_influence`. It only sets
+        // the writer's OP; the carry-over itself happens for every visible child.
+        const bool ownMi = mount.partIndex < maskFlags_.size()
+                               ? maskFlags_[mount.partIndex].maskInfluence
+                               : true;
+        maskPlan_.bubbleChildClipWriters(child->baker_, child->maskPlan_, mount.m,
+                                         mount.drawRank, inherited.influence && ownMi);
+      }
+      if (!maskPlan_.empty() && maskPlan_.width() > 0.0f && maskPlan_.height() > 0.0f) {
+        mask.plan = &maskPlan_;
+      }
     }
   }
 
@@ -982,6 +1013,22 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
   drawTextures_ = nullptr;
   drawTextureCount_ = 0;
   return drawn;
+}
+
+bool HybridSsContext::prepareForBubble() {
+  if (ctx_ == nullptr || frame_ == nullptr) return false;
+  // Coverage ignores vertex colour, so alpha 1 and no effects: only the clipping
+  // writers' shapes are wanted, and those are Normal / Shape / Mesh, never
+  // Effect. This bake is thrown away when the child draws for real (it re-bakes
+  // through `drawSubtree`), but the caller lifts what it needs out of it — and
+  // out of the plan below — before that happens.
+  baker_.bake(frame_, soa_);
+  if (maskFlags_.empty()) return false;
+  if (!maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) return false;
+  for (const sscore::SsMaskWriter& w : maskPlan_.writers()) {
+    if (w.isClipping) return true;
+  }
+  return false;
 }
 
 double HybridSsContext::drawInto(SkCanvasHandle canvas,
