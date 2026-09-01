@@ -63,6 +63,16 @@ app asset**, and changing it means building the app again.
 Three tools, one converter behind them. Pick by how you work rather than by
 capability — the output is the same.
 
+::: tip No `.sspj` of your own yet?
+The [official SpriteStudio sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)
+works as-is — that page is only available in Japanese, but the downloads
+themselves are language-neutral. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)
+is a good character sample, and
+[Particle](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample) is a good
+one if you want effects. The downloaded project feeds any of the converters
+below as-is.
+:::
+
 | Tool | Best for | Getting it |
 |---|---|---|
 | `ssconverter-web` | converting a few projects by hand, nothing installed | open <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">the hosted converter</a> |
