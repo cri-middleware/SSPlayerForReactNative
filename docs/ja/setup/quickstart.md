@@ -8,6 +8,14 @@ description: インストール済みの状態から、画面にアニメーシ�
 満たすべき条件は 2 つです。パックが端末に届いていること、そしてコンポーネントが
 それを名指ししていることです。
 
+::: tip SpriteStudio のデータが手元に無くても始められます
+[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)が
+そのまま使えます。キャラクターなら
+[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら
+[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)
+が手頃です。
+:::
+
 ## 1. パックを同梱する
 
 アニメーションは SpriteStudio で作成し、手元のマシンで `.ssab` の**ディレクトリ**へ

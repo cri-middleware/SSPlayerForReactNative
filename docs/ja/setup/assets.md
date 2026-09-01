@@ -63,6 +63,14 @@ graph LR
 ツールは 3 つ、背後のコンバータは 1 つです。能力ではなく**作業スタイル**で選んでください
 — 出力は同じです。
 
+::: tip 手元に `.sspj` がまだ無いときは
+[SpriteStudio 公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)が
+そのまま使えます。キャラクターなら
+[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら
+[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)
+が手頃です。ダウンロードしたプロジェクトは、下のどのコンバータにもそのまま渡せます。
+:::
+
 | ツール | 向いている場面 | 入手方法 |
 |---|---|---|
 | `ssconverter-web` | 数個を手作業で変換。インストール不要 | <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">ホスト版のコンバータ</a>を開く |
