@@ -118,6 +118,7 @@ class HybridSsContext final : public HybridSsContextSpec,
                           double maxFrames) override;
 
   SsPartTransform getPartTransform(double partIndex) override;
+  bool isPartSkinnedMesh(double partIndex) override;
   double getPassedEventCount() override;
   std::vector<SsUserDataEvent> getUserDataEvents() override;
   std::vector<SsAudioEvent> getAudioEvents() override;

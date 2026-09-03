@@ -293,6 +293,29 @@ class SsAnimeBinaryView {
     return toView(v->Get(index)->name());
   }
 
+  /// Whether part `index` is a **skinned** mesh — a mesh part bound to bones.
+  ///
+  /// The distinction a part *tracker* has to make. A skinned mesh's vertices are
+  /// drawn from its bound bones' matrices, while the part's own node transform
+  /// stays at its setup position (usually near the character root) — so a
+  /// follower reading that transform snaps near the root rather than onto the
+  /// deformed art. A rigid (deform-only) mesh, and every non-mesh part, places
+  /// the art at its own node and follows correctly, so those are false.
+  ///
+  /// The judgement is the cross-player one every sibling shares, keyed off the
+  /// same `.ssab` field so the answers agree (SDK `20_design/40_api_conventions.md`
+  /// §3; SSPlayerForWgpu's `is_part_skinned_mesh`, SSPlayerForWeb's
+  /// `isPartSkinnedMesh`): a `mesh_binding` is present and its `influence_bone`
+  /// list is non-empty. False out of range.
+  bool isPartSkinnedMesh(uint32_t index) const noexcept {
+    const auto* v = root_ != nullptr ? root_->parts() : nullptr;
+    if (v == nullptr || index >= v->size()) return false;
+    const ss::format::PartMeshBinding* binding = v->Get(index)->mesh_binding();
+    if (binding == nullptr) return false;
+    const auto* bones = binding->influence_bone();
+    return bones != nullptr && bones->size() > 0;
+  }
+
   /// Index of the animation called `name`, or -1.
   ///
   /// The `.ssab` is the only thing that knows the order, and the Brain reports

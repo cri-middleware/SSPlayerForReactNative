@@ -52,6 +52,10 @@ export function useSsPartTransform(
     }
 
     let raf = 0
+    // One-shot, and only in dev: the check reads the `.ssab` across JSI, so it
+    // runs on the first frame the part resolves and never again — not per frame
+    // on the loop this hook already documents as the costly one.
+    let checked = false
     const tick = (): void => {
       raf = requestAnimationFrame(tick)
       const local = player.getPartTransform(partName)
@@ -62,6 +66,26 @@ export function useSsPartTransform(
         // second to say the same thing.
         if (value.value.valid) value.value = ABSENT
         return
+      }
+
+      // The part has resolved (it has a matrix), so this is the frame to say —
+      // once — that following it will not do what it looks like. A skinned mesh
+      // is drawn from its bones while *this* transform stays at the part's setup
+      // node, near the character root; the follower would sit there, not on the
+      // art. Non-blocking: the value below is still published, exactly as the
+      // sibling Players report the transform and only *mark* the target rather
+      // than refusing it. Point a null / bone part at the art and follow that.
+      if (__DEV__ && !checked) {
+        checked = true
+        if (player.isPartSkinnedMesh(partName)) {
+          console.warn(
+            `react-native-spritestudio: '${partName}' is a skinned (bone-bound) ` +
+              `mesh part, so useSsPartTransform follows its node transform — which ` +
+              `sits near the character root, not on the deformed art. The follower ` +
+              `will not track the visible part. Add a NULL / bone part at that spot ` +
+              `in SpriteStudio and follow that instead.`
+          )
+        }
       }
 
       // Exactly the mapping `SsInternalPlayer.draw` applies — translate, then

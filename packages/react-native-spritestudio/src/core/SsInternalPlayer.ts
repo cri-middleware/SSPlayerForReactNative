@@ -350,6 +350,17 @@ export class SsInternalPlayer {
     return this.require().getPartTransform(partIndex)
   }
 
+  /**
+   * Whether part `partIndex` is a skinned (bone-bound) mesh — see the spec.
+   *
+   * A static `.ssab` read, so it answers before the first `advance` and returns
+   * false once disposed rather than throwing: a query about a torn-down player
+   * is not a misuse the way a transport call would be.
+   */
+  isPartSkinnedMesh(partIndex: number): boolean {
+    return this.context?.isPartSkinnedMesh(partIndex) ?? false
+  }
+
   /** Events the last `advance` crossed — the cheap gate in front of the next one. */
   get passedEventCount(): number {
     return this.context?.passedEventCount ?? 0

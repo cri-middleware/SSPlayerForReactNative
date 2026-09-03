@@ -850,6 +850,32 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
+   * Whether `part` is a **skinned** mesh — a mesh part bound to bones, and so
+   * the one kind of part a follower cannot sit on.
+   *
+   * A skinned mesh draws its vertices from its bound bones, while the part's own
+   * transform — what {@link getPartTransform} and `useSsPartTransform` report —
+   * stays at its setup node position, usually near the character root. So a view
+   * following such a part lands near the root rather than on the deformed art.
+   * To follow the art, add a NULL / bone part at that spot in SpriteStudio and
+   * follow *that* — a null, joint, armature or bone-point part places its own
+   * node where the art is. See [Following a part](/usage/parts#following-a-part).
+   *
+   * False for a rigid (deform-only) mesh and every non-mesh part — those follow
+   * correctly — and false for an unknown name or before a load. The judgement is
+   * the cross-player one (ForWeb and ForWgpu carry the same query): a
+   * `mesh_binding` present with at least one influence bone.
+   */
+  isPartSkinnedMesh(part: string | number): boolean {
+    const internal = this.internalPlayer
+    if (internal == null) return false
+    const index =
+      typeof part === 'number' ? part : internal.findPartIndex(part)
+    if (index < 0) return false
+    return internal.isPartSkinnedMesh(index)
+  }
+
+  /**
    * Applies a whole override map, and **clears what a previous one set**.
    *
    * Declarative rather than incremental: a part that has dropped out of the map
