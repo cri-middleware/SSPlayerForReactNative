@@ -494,6 +494,15 @@ SsPartTransform HybridSsContext::getPartTransform(double partIndex) {
                          static_cast<double>(determinant));
 }
 
+bool HybridSsContext::isPartSkinnedMesh(double partIndex) {
+  // A static `.ssab` property, so it reads the binary view rather than the
+  // Brain's per-frame SoA — the same split `partNames` follows, and it answers
+  // before the first `update()` for the same reason. Out of range is false.
+  if (partIndex < 0) return false;
+  const sscore::SsAnimeBinaryView view = ssab();
+  return view.valid() && view.isPartSkinnedMesh(static_cast<uint32_t>(partIndex));
+}
+
 double HybridSsContext::getPassedEventCount() {
   if (ctx_ == nullptr) return 0.0;
   return static_cast<double>(ss_runtime_get_passed_event_count(ctx_));

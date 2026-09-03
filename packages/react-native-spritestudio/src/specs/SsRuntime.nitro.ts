@@ -548,6 +548,24 @@ export interface SsContext
   getPartTransform(partIndex: number): SsPartTransform
 
   /**
+   * Whether part `partIndex` is a **skinned** mesh — a mesh part bound to bones.
+   *
+   * The one thing a follower of `getPartTransform` has to know. A skinned mesh's
+   * vertices are drawn from its bound bones' matrices, while the part's own node
+   * transform — what this returns a placement for — stays at its setup position,
+   * usually near the character root. So a view pinned to such a part snaps near
+   * the root rather than onto the deformed art. A rigid (deform-only) mesh and
+   * every non-mesh part place their art at their own node, so those are false
+   * and follow correctly.
+   *
+   * A static `.ssab` read, keyed off the same field every sibling Player uses so
+   * the answers agree (`mesh_binding` present with a non-empty `influence_bone`
+   * list) — see `20_design/40_api_conventions.md` §3. False for an out-of-range
+   * index. Available before the first `update()`, like `partNames`.
+   */
+  isPartSkinnedMesh(partIndex: number): boolean
+
+  /**
    * How many events the last `update()` crossed — user data, signals and all.
    *
    * A **cheap gate** in front of `getUserDataEvents` / `getAudioEvents`, each of

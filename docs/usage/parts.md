@@ -113,6 +113,39 @@ the animation's own space; `useSsPartTransform` is the one that reaches the
 screen.
 :::
 
+### Mesh (skinned) parts cannot be followed directly
+
+A **skinned** mesh part — a deforming part such as a hand or a face, bound to
+bones — has its vertices drawn by the bones' skinning, while the part's own
+transform (the one `useSsPartTransform` reports) stays at its **setup node
+position, usually near the character root**. So targeting such a part makes the
+follower snap near the root rather than onto the visible art. This is not a bug
+to fix but the shape of the data: the node and the deformed vertices are two
+different places, and the transform is faithful to the node.
+
+To follow the position of a mesh part, add a **NULL part** (a bone-point / empty
+part) at that spot in SpriteStudio and target *that* part's name instead. A bone
+(armature) or joint part works the same way — a null, joint, armature or
+bone-point part places its own node where the art is, so it is a good follow
+target.
+
+`isPartSkinnedMesh(part)` reports which parts this applies to — the same
+judgement the sibling players make (ForWeb, ForWgpu), read from the pack's
+`.ssab`. Use it to build a picker that only offers parts a follower can sit on:
+
+```ts
+// The parts a follower can actually track: everything except a skinned mesh.
+const followable = player
+  .partNames()
+  .filter((name) => name !== '' && !player.isPartSkinnedMesh(name))
+```
+
+It takes a part **name or index**, and is `false` for a rigid (deform-only)
+mesh and every non-mesh part — those follow correctly — as well as for an
+unknown name or before a load. As a backstop, following a skinned mesh through
+`useSsPartTransform` also logs a one-time `__DEV__` warning naming the part; it
+is **non-blocking**, so the transform is still published rather than refused.
+
 ::: warning This one costs a frame loop
 Each hook instance currently runs its own `requestAnimationFrame` beside the
 view's and reads the part **by name** across JSI every frame. It works, and it
