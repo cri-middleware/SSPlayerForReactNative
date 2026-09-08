@@ -113,6 +113,14 @@ the animation's own space; `useSsPartTransform` is the one that reaches the
 screen.
 :::
 
+::: info Skew is not part of the followed transform
+A part's **Skew** is a non-inheriting local-vertex deform — a per-part quad
+shear — so it never enters the world matrix and never reaches a follower.
+`getPartTransform` reports **position, rotation and scale only**. A view riding
+a sheared part, or a part *under* a sheared parent, stays unsheared. That is
+what SpriteStudio shows: Skew does not inherit to children or attachments.
+:::
+
 ### Mesh (skinned) parts cannot be followed directly
 
 A **skinned** mesh part — a deforming part such as a hand or a face, bound to

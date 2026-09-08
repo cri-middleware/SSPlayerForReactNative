@@ -838,6 +838,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    *
    * Player-local: `rootTransform` still has to be applied to reach the screen,
    * and `useSsPartTransform` is what does that.
+   *
+   * Position, rotation and scale only. A part's Skew is a non-inheriting
+   * local-vertex deform, so it never enters the world matrix this decomposes:
+   * a followed part — or one under a sheared parent — is reported unsheared,
+   * matching SpriteStudio, where Skew does not inherit to children.
    */
   getPartTransform(part: string | number): SsPartTransform | null {
     const internal = this.internalPlayer
