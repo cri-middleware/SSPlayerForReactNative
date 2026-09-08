@@ -38,6 +38,11 @@ const ABSENT: SsPartScreenTransform = {
  *
  * The reported transform is in **view pixels**, root transform applied, because
  * that is the space an `Animated.View` on top of the canvas lives in.
+ *
+ * Position, rotation and scale only — never Skew: a part's Skew is a
+ * non-inheriting local-vertex deform that stays out of the world matrix, so a
+ * follower is not sheared even when it rides a sheared part (or one under a
+ * sheared parent), matching SpriteStudio.
  */
 export function useSsPartTransform(
   player: SpriteStudioPlayer | null,
