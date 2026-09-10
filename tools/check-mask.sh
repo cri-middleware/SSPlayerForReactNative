@@ -27,8 +27,14 @@ FRAME="${3:-30}"
 
 [ "$(uname)" = "Darwin" ] || { echo "check-mask.sh: macOS only (RN Skia ships no host libskia for this platform)" >&2; exit 1; }
 
+# Two places, because RN Skia 2.11 moved the binaries out of the main package:
+# `react-native-skia-apple-macos` is what npm installs, and the podspec copies it
+# into `@shopify/react-native-skia/libs/macos/` — so that copy exists only once a
+# `pod install` has run. Prefer it anyway, so the check links what the app links.
 SKIA_LIB="$RNSKIA/libs/macos/libskia.xcframework/macos-arm64_x86_64/libskia.a"
-[ -f "$SKIA_LIB" ] || { echo "check-mask.sh: $SKIA_LIB not found — run npm install" >&2; exit 1; }
+SKIA_PKG="$ROOT_DIR/node_modules/react-native-skia-apple-macos/libs/libskia.xcframework/macos-arm64_x86_64/libskia.a"
+[ -f "$SKIA_LIB" ] || SKIA_LIB="$SKIA_PKG"
+[ -f "$SKIA_LIB" ] || { echo "check-mask.sh: no host libskia at $SKIA_PKG — run npm install" >&2; exit 1; }
 
 mkdir -p "$BUILD_DIR"
 
