@@ -81,6 +81,13 @@ void ss_runtime_get_mesh_vertex_offsets(void* context, const uint32_t** out_data
 void ss_runtime_get_mesh_uvs(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_mesh_indices(void* context, const int32_t** out_data, size_t* out_len);
 void ss_runtime_get_mesh_index_offsets(void* context, const uint32_t** out_data, size_t* out_len);
+// Shape. Not optional here even though only check 3 and 4 load a `.ssab`: a
+// converted Spine clipping arrives as a Shape mask, so without these a pack
+// whose every writer is a Shape presents as a pack with no writers at all.
+void ss_runtime_get_shape_vertices(void* context, const float** out_data, size_t* out_len);
+void ss_runtime_get_shape_vertex_box_coords(void* context, const float** out_data,
+                                            size_t* out_len);
+void ss_runtime_get_shape_vertex_counts(void* context, const int32_t** out_data, size_t* out_len);
 const unsigned char* ss_runtime_get_ssab_buf(void* context);
 uintptr_t ss_runtime_get_ssab_len(void* context);
 }
@@ -449,6 +456,9 @@ struct Baked {
     ss_runtime_get_mesh_uvs(ctx, &soa.meshUvs, &soa.meshUvCount);
     ss_runtime_get_mesh_indices(ctx, &soa.meshIndices, &soa.meshIndexCount);
     ss_runtime_get_mesh_index_offsets(ctx, &soa.meshIndexOffsets, &soa.meshIndexOffsetCount);
+    ss_runtime_get_shape_vertices(ctx, &soa.shapeVertices, &soa.shapeVertexCount);
+    ss_runtime_get_shape_vertex_box_coords(ctx, &soa.shapeBoxCoords, &soa.shapeBoxCoordCount);
+    ss_runtime_get_shape_vertex_counts(ctx, &soa.shapeVertexCounts, &soa.shapeVertexCountCount);
 
     baker.bake(fd, soa);
     return true;
