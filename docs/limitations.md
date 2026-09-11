@@ -21,10 +21,13 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
 ## Not yet
 
 - **`Nines` and `Text`** parts.
-- **Masked Mesh and masked Effect** — both draw *unmasked*. The mask replay
-  places its coverage sample by inverting one affine quad's UV; a mesh needs that
-  texcoord channel for its atlas, and an effect is a cloud of quads rather than
-  one.
+- **Masked Effect** — it draws *unmasked*. The mask replay places its coverage
+  sample by inverting one affine quad's UV, and an effect is a cloud of quads
+  rather than one, with no single shape to cut. Masked **Mesh** is supported: a
+  mesh needs its texcoord channel for its atlas, so it fits neither the quad path
+  nor the Shape path, and is instead drawn into an isolated layer whose alpha the
+  same triangles then cut with `kDstIn`, carrying the coverage UV per vertex —
+  the same range SSPlayerForWeb covers.
 - **A child's own mask writers while a caller's mask reaches into it.** The
   caller's coverage is handed down and the child references it; its own writers
   then write nothing for that frame. The SDK calls the two "a separate track",
