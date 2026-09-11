@@ -34,7 +34,7 @@ react-native-web のルートが同じ API を別の実装から提供できる�
 
 - `ssCheckForLeaks(source)` — N 回ロードと破棄を行い、ネイティブハンドルのカウントが
   戻ったかを報告します。達成条件を実行可能にしたものです。
-- `SsRuntime.liveHandles` — カウントそのもの。
+- `SsRuntimeModule.liveHandles` — カウントそのもの。
 - `player.lastTextureReport` — 直近のロードで解決できなかったもの。テクスチャの欠落は
   そうでなければ無言です。バッチがスキップされるため、症状は「あるパーツが単に
   存在しない」ことになります。

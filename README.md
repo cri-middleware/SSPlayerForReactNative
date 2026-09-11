@@ -143,7 +143,7 @@ error** rather than a blank canvas.
 | You want to… | Reach for |
 |---|---|
 | React to keys the artist placed on the timeline | `onUserData`, `onAudio`, `onSignal` |
-| Know when an animation started, changed, looped or finished | `onAnimationStart`, `onAnimationChange`, `onLoop`, `onComplete` |
+| Know when an animation started, changed, looped or finished | `onAnimationStarted`, `onAnimationChanged`, `onAnimationLooped`, `onAnimationFinished` |
 | Recolour, hide or swap a part at runtime | the `parts` prop — declarative, so removing an entry reverts it |
 | Draw a whole cast on one canvas and one clock | `<SpriteStudioScene>` + `<SpriteStudioSprite>` |
 | Attach a React view to a part (a health bar over a head) | `useSsPartTransform` — publishes through a Reanimated shared value |

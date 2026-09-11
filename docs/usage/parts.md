@@ -62,8 +62,7 @@ parts={{
 ### How long an override lasts
 
 `priority` defaults to `SsOverridePriority.holdUntilNextAnimation` — the C-API's
-own default (`HoldUntilNextAnimation`), and the one the sibling players take
-(ForWeb, ForUnity, ForFlutter, ForGodot, ForRenPy, ForWgpu).
+own default (`HoldUntilNextAnimation`), and the one the sibling players take.
 
 What makes a map carrying `hat: { visible: false }` mean "the hat is hidden for
 as long as the prop says so" is not the priority but the replay: as below, the

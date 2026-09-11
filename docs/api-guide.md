@@ -34,7 +34,7 @@ player, so a view that mounts against a warm cache draws on its first frame.
 
 - `ssCheckForLeaks(source)` — loads and disposes N times and reports whether the
   native handle counts came back. The exit criterion, made runnable.
-- `SsRuntime.liveHandles` — the counts themselves.
+- `SsRuntimeModule.liveHandles` — the counts themselves.
 - `player.lastTextureReport` — what the last load could not resolve. A missing
   texture is otherwise silent: the batch is skipped, so the symptom is a part
   that is simply not there.

@@ -61,8 +61,7 @@ parts={{
 ### オーバーライドはどれだけ持続するか {#how-long-an-override-lasts}
 
 `priority` の既定は `SsOverridePriority.holdUntilNextAnimation` で、これは C-API の既定
-（`HoldUntilNextAnimation`）と同じ、他のプレイヤー（ForWeb / ForUnity / ForFlutter /
-ForGodot / ForRenPy / ForWgpu）とも揃った値です。
+（`HoldUntilNextAnimation`）と同じ、他のプレイヤーとも揃った値です。
 
 `hat: { visible: false }` を持つマップが「その prop がそう言っている限り帽子は隠れて
 いる」という意味になることは、priority ではなくマップの再適用が担保します — 下記の
