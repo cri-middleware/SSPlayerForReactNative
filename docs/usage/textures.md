@@ -71,7 +71,7 @@ have.
 
 ::: warning Never hash a name yourself
 Every key the Rust core hands over is pre-baked with its own FNV-1a, and
-`SsRuntime.hashString` exposes exactly that function. A second implementation is
+`SsRuntimeModule.hashString` exposes exactly that function. A second implementation is
 one more than can be kept in agreement.
 :::
 

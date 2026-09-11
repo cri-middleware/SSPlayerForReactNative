@@ -70,7 +70,7 @@ player.textures.register('Ringo', someSkImage)
 
 ::: warning 名前を自分でハッシュしないでください
 Rust コアが渡してくるキーはすべて、コア自身の FNV-1a で事前に計算されており、
-`SsRuntime.hashString` がまさにその関数を公開しています。2 つ目の実装は、整合を保てる
+`SsRuntimeModule.hashString` がまさにその関数を公開しています。2 つ目の実装は、整合を保てる
 数より 1 つ多いものです。
 :::
 
