@@ -21,7 +21,7 @@
 ## 📚 ドキュメント
 
 - [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/ja/) — セットアップ、使い方、生成された API リファレンス。🚧 初回リリース後に公開されます。
-- [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と各公式プレイヤーの総合案内。
+- [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と全公式 Player の入口 — 🚧 初回リリース後に公開
 
 ---
 
@@ -102,7 +102,7 @@ export function Character() {
 | キャスト全体をキャンバス 1 枚・クロック 1 つで描く | `<SpriteStudioScene>` + `<SpriteStudioSprite>` |
 | React のビューをパーツに追従させる（頭の上の HP バーなど） | `useSsPartTransform` — Reanimated の shared value 経由で公開されます |
 | ロードのコストをマウント前に払う | `ssPreload` / `ssUnload` |
-| トランスポートを命令的に操作する | ref の `player` — レイヤー 3 の `SpriteStudioPlayer` |
+| トランスポートを命令的に操作する | ref の `player`（`SpriteStudioPlayer`） |
 
 どれが使えるかは `.ssab` が決めます。この移植版が対応するパーツ種別とキーは追加の配線なしですべて扱われます — 一覧は [docs/limitations.md](docs/limitations.md) にあります。
 
