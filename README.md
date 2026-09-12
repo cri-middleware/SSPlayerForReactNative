@@ -24,7 +24,7 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 ## 📚 Documentation
 
 - [**Documentation site**](https://cri-middleware.github.io/SSPlayerForReactNative/) — setup, usage, the generated API reference. 🚧 Live after the first release.
-- [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place.
+- [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
 
 ---
 
@@ -139,7 +139,7 @@ error** rather than a blank canvas.
 | Draw a whole cast on one canvas and one clock | `<SpriteStudioScene>` + `<SpriteStudioSprite>` |
 | Attach a React view to a part (a health bar over a head) | `useSsPartTransform` — publishes through a Reanimated shared value |
 | Pay the load cost before the mount | `ssPreload` / `ssUnload` |
-| Drive the transport imperatively | the ref's `player` — Layer 3's `SpriteStudioPlayer` |
+| Drive the transport imperatively | the ref's `player` — a `SpriteStudioPlayer` |
 
 The `.ssab` decides which of these are available, and every part type and key
 this port supports is handled without extra wiring —
