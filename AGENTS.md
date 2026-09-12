@@ -1,6 +1,6 @@
 # SSPlayerForReactNative — AI Agent Guide
 
-React Native **Body** for the SpriteStudio-SDK **Brain**. An npm workspace whose package drives the Rust `libssruntime` over **Nitro Modules (JSI)** and draws through **React Native Skia**. The Brain lives in the `SpriteStudio-SDK/` submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md). `CLAUDE.md` is a symlink to this file.
+React Native **Body** for the SpriteStudio-SDK **Brain**. An npm workspace whose package drives the Rust `libssruntime` over **Nitro Modules (JSI)** and draws through **React Native Skia**. The Brain lives in the `SpriteStudio-SDK/` submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 
 **Status and what lands when live in [ROADMAP.md](ROADMAP.md)**; this file is the working guide. **The reasoning behind an invariant lives in the code, at the site it binds** — this file is the index, saying what the rule is and where its argument is. The exception is the short list under [Hard constraints](#hard-constraints) that no file could hold: facts about the build system, about Nitro, about what happens when something is *absent*.
 

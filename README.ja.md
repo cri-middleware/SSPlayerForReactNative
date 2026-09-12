@@ -12,7 +12,7 @@
 ## ✨ なぜ SpriteStudio Player か
 
 - **スプライトも、シーン全体も、アニメーションのコードなしで動かせます。** 呼吸やまばたき、髪や衣服の揺れ、派手な斬撃や魔法エフェクト。パーツごとに `Animated` や Reanimated のタイムラインを手で組んだり、スプライトシートを切って `<Image>` でめくったりする代わりに、動きは専用エディタで視覚的に作られ、プレイヤーはそれを再生するだけです — ボーンリグ、メッシュ変形、マスク、パーティクルまで含めて。対象はマスコット 1 体に限りません。アニメーションする **UI や HUD、シーン全体**をエディタ上で構成し、まとめて 1 つとして描画できます。
-- **ラスタースプライトのアニメーションを、ネイティブ描画で — ベクターでも動画でもなく。** **ラスターのスプライト素材**にリグを入れて変形させるので、手描きのキャラクターやゲームスプライトが作られたとおりに動きます。Lottie のようなベクターツールとは適性が異なり、`.gif` や `.mp4` を同梱するよりはるかに軽量です。実行時に自由にスケールし、継ぎ目なくループし、単に再生するのではなくアプリに反応します。タイムラインとジオメトリは、SpriteStudio の各公式プレイヤーが共通して使う Rust コアそのものであって再実装ではないため、アーティストが書き出したものがどのプラットフォームにも同じように渡ります — ただし*この*移植版がそこから何を描けるかは所によりまだ追いついておらず、それは下の **ステータス** に挙げてあります。
+- **ラスタースプライトのアニメーションを、ネイティブ描画で — ベクターでも動画でもなく。** **ラスターのスプライト素材**にリグを入れて変形させるので、手描きのキャラクターやゲームスプライトが作られたとおりに動きます。Lottie のようなベクターツールとは適性が異なり、`.gif` や `.mp4` を同梱するよりはるかに軽量です。実行時に自由にスケールし、継ぎ目なくループし、単に再生するのではなくアプリに反応します。タイムラインとジオメトリは、SpriteStudio の各公式プレイヤーが共通して使う Rust コアそのものであって再実装ではないため、アーティストが書き出したものがどのプラットフォームにも同じように渡ります — ただし*この*移植版がそこから何を描けるかは所によりまだ追いついておらず、それは [docs/limitations.md](docs/limitations.md) に挙げてあります。
 - **フレームレートに縛られない滑らかな動き。** 再生ヘッドは浮動小数で、フレームは描画される瞬間に組み立てられます。したがって動きは、作成時の fps によるパラパラ漫画でも 30 fps で焼かれた動画でもなく、ディスプレイのリフレッシュレートと指定した速度に追従します。
 - **アニメーションが 1 フレームのコストにならないように作られています。** 重い処理 — タイムライン、ジオメトリ、Skia の描画呼び出し — はすべて [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアと C++ で行われます。JavaScript の 1 フレームあたりの仕事は**プレイヤー 1 つにつき 1 回の呼び出し**で、これが賑やかなシーンでも 60 fps を保てる理由です。
 - **React Native のツリーに馴染みます。** `<SpriteStudioView>` はごく普通のビューです — 他のビューと同じように配置し、サイズを決め、クリップし、アニメーションさせられます。多数のアニメーションを同時に？ `<SpriteStudioScene>` は N 個ずつではなく、**キャンバス 1 枚とクロック 1 つ**でキャスト全体を描画します。
@@ -20,28 +20,18 @@
 
 ## 📚 ドキュメント
 
-- [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/) — セットアップ、使い方、生成された API リファレンス。🚧 初回リリース後に公開されます。
+- [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/ja/) — セットアップ、使い方、生成された API リファレンス。🚧 初回リリース後に公開されます。
 - [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と各公式プレイヤーの総合案内。
-
-### 目的別・どこまで読めばよいか
-
-読者は 2 種類で、その境界は明確です。プレイヤーを**使う**人と、プレイヤーを**変える**
-人です。設定でどうにかなる中間はありません — 描画は 1 フレームあたり 1 回の呼び出しの
-奥、C++ 側にあるので、*何が描かれるか*を変えるならオプションを渡すのではなくパッケージ
-自体に手を入れることになります。
-
-**アプリで使う場合**は下の[クイックスタート](#-クイックスタート)、その後はドキュメント
-サイトへ。最初の 1 体も、その先（イベント、パーツ上書き、テクスチャ差し替え）も、
-同じ読者層の深さ違いであって別の層ではありません。
-
-**プレイヤー自体や、その下の Rust コアを変更する場合**は、まず
-[チェックアウトから動かす](docs/development/from-source.md)でリポジトリを動かし、
-検証用アプリについては [`example/README.md`](example/README.md)、変更前に読む作業ガイド
-が [AGENTS.md](AGENTS.md) です。何がいつ入るかは [ROADMAP.md](ROADMAP.md)。
 
 ---
 
 ## 🚀 クイックスタート
+
+**アプリで使う場合**はこのまま下へ。入れる → アセットを準備する → 再生する。その先
+（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。
+**プレイヤー自体や、その下の Rust コアを変更する場合**は
+[チェックアウトから動かす](docs/development/from-source.md)、変更前に読む作業ガイドが
+[AGENTS.md](AGENTS.md) です（何がいつ入るかは [ROADMAP.md](ROADMAP.md)）。
 
 ### インストール
 
@@ -61,7 +51,7 @@ npx expo install react-native-spritestudio @shopify/react-native-skia react-nati
 
 ### アセットの準備（`.sspj` → `.ssab`）
 
-アニメーションは SpriteStudio で作成し、手元のマシンで SDK の `ssconverter-cli`（またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)）を使って変換します。コンバータは同梱しておらず、実行時に変換されることもありません — アセットを同梱する前に自分で実行する手順です。ツールの選び方とビルドパイプラインへの組み込みは[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)にあります。
+アニメーションは SpriteStudio で作成します（対応するのは **7.5 以上**で作成されたプロジェクトです）。変換は手元のマシンで SDK の `ssconverter-cli`（またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)）を使って変換します。コンバータは同梱しておらず、実行時に変換されることもありません — アセットを同梱する前に自分で実行する手順です。ツールの選び方とビルドパイプラインへの組み込みは[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)にあります。
 
 **パックはファイルではなくディレクトリです。** `.ssab` は、テクスチャ、Instance パーツが参照する外部パック、そして `.ssqb` を通じてシーケンスするパックを、すべて自身からの相対パスで指定します。したがって `ssconverter-cli` の**出力ディレクトリ**がそのまま端末に届く必要があります。
 
@@ -120,11 +110,10 @@ export function Character() {
 
 | | |
 |---|---|
-| React Native | `^0.86.2` — **New Architecture 専用** |
-| React | `^19.2.8` |
-| Peer deps | `@shopify/react-native-skia` `^2.11.0`、`react-native-nitro-modules` `^0.36.5`、`react-native-reanimated` `^4.5.3` — および `react-native-worklets` `^0.11.3`（Reanimated 4 が依存ではなく自身の peer として要求するもの） |
+| React Native | **New Architecture 専用** |
 | iOS | 15.1+ |
 | Android | API 24+ |
+| Peer deps | `react-native`、`react`、`@shopify/react-native-skia`、`react-native-nitro-modules`、`react-native-reanimated` — および `react-native-worklets`（Reanimated 4 が依存ではなく自身の peer として要求するもの）。それぞれ必要なバージョンは [`peerDependencies`](packages/react-native-spritestudio/package.json) にあり、インストール時にパッケージマネージャが検証します |
 | SpriteStudio-SDK | [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) で固定 |
 
 Skia の下限は実質的な制約です。2.11 で API オブジェクトが `jsi::NativeState` パターンへ移り、このパッケージは新しい方法で取り出しています。Windows・tvOS・visionOS は対象外です — 理由は [ROADMAP.md](ROADMAP.md#platform-and-verification) を参照してください。

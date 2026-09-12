@@ -15,7 +15,7 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 ## ✨ Why SpriteStudio Player?
 
 - **Bring your sprites — and whole scenes — to life, with zero animation code.** Breathing and blinking, swaying hair and clothes, flashy slash and magic effects. Instead of hand-wiring an `Animated` or Reanimated timeline per part, or slicing a spritesheet and flipping through it with `<Image>`, the motion is authored visually in a dedicated editor and the player just plays it — bone rigs, mesh deform, masks and particles included. And it is not limited to a single mascot: compose entire animated **UIs, HUDs and full scenes** in the editor and render them as one.
-- **Raster sprite animation, drawn natively — not vector, not video.** It rigs and deforms **raster sprite art**, so hand-painted characters and game sprites animate exactly as authored — a different fit from vector tools like Lottie, and far lighter than shipping a `.gif` or an `.mp4`. It scales freely at runtime, loops seamlessly, and reacts to your app instead of merely playing back. The timeline and the geometry come from the same Rust core every official SpriteStudio player uses rather than a reimplementation, so what your artist exports is what every platform is given — though what *this* port draws from it is still catching up in places, which **Status** below lists.
+- **Raster sprite animation, drawn natively — not vector, not video.** It rigs and deforms **raster sprite art**, so hand-painted characters and game sprites animate exactly as authored — a different fit from vector tools like Lottie, and far lighter than shipping a `.gif` or an `.mp4`. It scales freely at runtime, loops seamlessly, and reacts to your app instead of merely playing back. The timeline and the geometry come from the same Rust core every official SpriteStudio player uses rather than a reimplementation, so what your artist exports is what every platform is given — though what *this* port draws from it is still catching up in places, which [docs/limitations.md](docs/limitations.md) lists.
 - **Smooth motion, not locked to a frame rate.** The playhead is a float and the frame is built at the moment it is drawn, so motion follows your display's refresh rate and the speed you set — not the authored fps flipbook, and not a video baked at 30.
 - **Built so the animation does not cost you a frame.** Everything expensive — the timeline, the geometry and the Skia draw calls — happens in a Rust core and C++ under [Nitro Modules](https://nitro.margelo.com/) (JSI). JavaScript's job per frame is **one call per player**, which is what lets a busy scene stay at 60 fps.
 - **Composes with the React Native tree.** `<SpriteStudioView>` is an ordinary view — position, size, clip and animate it like any other. Many animations at once? `<SpriteStudioScene>` draws a whole cast through **one canvas and one clock** instead of N of each.
@@ -26,27 +26,17 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 - [**Documentation site**](https://cri-middleware.github.io/SSPlayerForReactNative/) — setup, usage, the generated API reference. 🚧 Live after the first release.
 - [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place.
 
-### Where to read, by goal
-
-Two audiences, and the line between them is sharp: people **using** the player
-in an app, and people **changing** it. There is no configurable middle — the
-drawing lives in C++ behind a single call per frame, so altering *what* gets
-drawn means working on the package itself rather than passing it options.
-
-**Using the player in an app?** [Quick Start](#-quick-start) below, then the
-documentation site. That covers both the first animation and everything after it
-— events, part overrides, custom textures — which are the same audience one step
-in, not a different one.
-
-**Working on the player, or on the Rust core under it?**
-[Working from a checkout](docs/development/from-source.md) gets the repository
-running, [`example/README.md`](example/README.md) explains the verification app,
-and [AGENTS.md](AGENTS.md) is the working guide to read before changing
-anything. [ROADMAP.md](ROADMAP.md) is what lands when.
-
 ---
 
 ## 🚀 Quick Start
+
+**Using it in your app?** Read on — install, prepare assets, play. Everything after
+that (events, part overrides, custom textures) is the same path further in, on the
+[documentation site](https://cri-middleware.github.io/SSPlayerForReactNative/).
+**Working on the player, or the Rust core under it?**
+[Working from a checkout](docs/development/from-source.md), then
+[AGENTS.md](AGENTS.md) before changing anything; [ROADMAP.md](ROADMAP.md) is what
+lands when.
 
 ### Install
 
@@ -78,7 +68,8 @@ subject on its screen proves.
 
 ### Preparing assets (`.sspj` → `.ssab`)
 
-Animations are authored in SpriteStudio and converted on your machine with the
+Animations are authored in SpriteStudio — **7.5 or later**, which is what the
+format this reads is defined against — and converted on your machine with the
 SDK's `ssconverter-cli` (or the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)).
 No converter is bundled and nothing converts at runtime — this is a step you run before the assets ship. [Converting with a standalone tool](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/) covers picking a tool and putting it in a build pipeline.
 
@@ -158,11 +149,10 @@ this port supports is handled without extra wiring —
 
 | | |
 |---|---|
-| React Native | `^0.86.2` — **New Architecture only** |
-| React | `^19.2.8` |
-| Peer deps | `@shopify/react-native-skia` `^2.11.0`, `react-native-nitro-modules` `^0.36.5`, `react-native-reanimated` `^4.5.3` — and `react-native-worklets` `^0.11.3`, which Reanimated 4 requires as a peer of its own rather than depending on |
+| React Native | **New Architecture only** |
 | iOS | 15.1+ |
 | Android | API 24+ |
+| Peer deps | `react-native`, `react`, `@shopify/react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — and `react-native-worklets`, which Reanimated 4 requires as a peer of its own rather than depending on. The version each one needs lives in [`peerDependencies`](packages/react-native-spritestudio/package.json), and your package manager enforces it at install |
 | SpriteStudio-SDK | pinned in [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) |
 
 The Skia lower bound is real: 2.11 moved its API objects onto the
