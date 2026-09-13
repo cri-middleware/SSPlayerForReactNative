@@ -15,6 +15,20 @@ updates:
     groups:
       npm:
         patterns: ['*']
+    # The five the root `overrides` pin are not the registry's to move. Their
+    # version comes from the Expo compatibility table `example/` installs
+    # against, so a registry bump raises a declared range that the overrides
+    # then contradict -- and npm stops resolving the workspace at all rather
+    # than installing something old. #65 did exactly that (peer
+    # `react-native@^0.87.1` against an override pinning 0.86.2) and `npm ci`
+    # has been red ever since. Move them by hand, together, when the example's
+    # Expo SDK moves.
+    ignore:
+      - dependency-name: react
+      - dependency-name: react-native
+      - dependency-name: '@shopify/react-native-skia'
+      - dependency-name: react-native-reanimated
+      - dependency-name: react-native-worklets
 
   - package-ecosystem: github-actions
     directory: /
