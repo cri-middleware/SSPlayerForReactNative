@@ -34,12 +34,23 @@
     "prepack": "bob build && node scripts/prepack.mjs",
     "build": "bob build"
   },
+  "//peerDependencies": [
+    "One line, and it is the line the root `overrides` pin: whatever Expo's",
+    "compatibility table chose for example/. Everything that has ever built or",
+    "run here -- typecheck, the unit tests, the example app, the host checks --",
+    "ran against that line, so a wider range would claim a version nobody has",
+    "compiled the Nitro/Skia side against. Move these with the overrides when",
+    "the example's Expo SDK moves, not when the registry does; that is also why",
+    "Dependabot is told to leave these five alone.",
+    "The caret does the right thing on both shapes: ^0.86.2 is the 0.86 line",
+    "(npm locks the minor below 1.0.0), ^2.11.0 and ^4.5.3 span their majors."
+  ],
   "peerDependencies": {
-    "@shopify/react-native-skia": "^2.11.2",
+    "@shopify/react-native-skia": "^2.11.0",
     "react": "^19.2.8",
-    "react-native": "^0.87.1",
+    "react-native": "^0.86.2",
     "react-native-nitro-modules": "^0.37.0",
-    "react-native-reanimated": "^4.6.0"
+    "react-native-reanimated": "^4.5.3"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
