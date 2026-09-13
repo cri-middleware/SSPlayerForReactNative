@@ -11,13 +11,13 @@ The `parts` prop is **declarative**: it describes the state, not a history of
 calls, so removing an entry reverts that part to what the animation says.
 
 ```tsx
-import { SpriteStudioView, SsPartColorBlend } from 'react-native-spritestudio'
+import { SpriteStudioView, SsBlendOp } from 'react-native-spritestudio'
 
 <SpriteStudioView
   source={SsAssets['Ringo/Ringo']}
   parts={{
-    body: { color: '#ff3366', colorBlend: SsPartColorBlend.mix },
-    hat: { visible: false },
+    body: { color: '#ff3366', blendOp: SsBlendOp.mix },
+    hat: { hide: true },
   }}
 />
 ```
@@ -33,10 +33,10 @@ override is a patch, not a replacement.
 
 | Field | Type | Means |
 |---|---|---|
-| `visible` | `boolean` | Show or hide the part. |
-| `cascade` | `boolean` | Whether a `visible: false` reaches descendants. Default `false` — a keyframed hide never cascades in SpriteStudio, so cascading is the opt-in. |
+| `hide` | `boolean` | Force-hide the part (`true`) or force-show it (`false`). Omitting the key is the third answer: leave it to the animation. |
+| `cascade` | `boolean` | Whether a `hide: true` reaches descendants. Default `false` — a keyframed hide never cascades in SpriteStudio, so cascading is the opt-in. |
 | `color` | `string \| number` | A tint. Anything Skia parses (`'#f00'`, `'rgba(255,0,0,.5)'`) or a packed `0xRRGGBBAA` number. |
-| `colorBlend` | `SsPartColorBlendValue` | How the tint combines: `SsPartColorBlend.mix` / `.mul` / `.add` / `.sub`. Default `mix`. |
+| `blendOp` | `SsBlendOpValue` | How the tint combines: `SsBlendOp.mix` / `.mul` / `.add` / `.sub`. Default `mix`. |
 | `cell` | `SsCellRef` | Swap which cell the part samples. |
 | `priority` | `SsOverridePriorityValue` | How long it outlives the timeline. |
 
@@ -64,7 +64,7 @@ parts={{
 `priority` defaults to `SsOverridePriority.holdUntilNextAnimation` — the C-API's
 own default (`HoldUntilNextAnimation`), and the one the sibling players take.
 
-What makes a map carrying `hat: { visible: false }` mean "the hat is hidden for
+What makes a map carrying `hat: { hide: true }` mean "the hat is hidden for
 as long as the prop says so" is not the priority but the replay: as below, the
 map is re-applied onto every newly set-up animation.
 
@@ -135,7 +135,7 @@ const hidden = player.isPartHidden(target)
 `isPartHidden(part)` takes a part **name or index** and reads the **display**
 frame — the same frame that was drawn, floored when sub-frame is off — so it
 cannot disagree with what is on screen. It reports the animation's own hide, not
-a `setPartOverrides` `visible: false`, and it is `false` for an unknown name, an
+a `setPartOverrides` `hide: true`, and it is `false` for an unknown name, an
 out-of-range index and before the first frame has played.
 
 This is the `onHide` option the sibling players offer on their built-in

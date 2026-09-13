@@ -13,9 +13,9 @@
  * opens by warning against conflating them), so this enum is deliberately
  * separate from the framebuffer one rather than shared with it.
  */
-export const SsPartColorBlend = { mix: 0, mul: 1, add: 2, sub: 3 } as const
-export type SsPartColorBlendValue =
-  (typeof SsPartColorBlend)[keyof typeof SsPartColorBlend]
+export const SsBlendOp = { mix: 0, mul: 1, add: 2, sub: 3 } as const
+export type SsBlendOpValue =
+  (typeof SsBlendOp)[keyof typeof SsBlendOp]
 
 /**
  * How long an override outlives the animation that is playing under it.
@@ -49,9 +49,19 @@ export interface SsCellRef {
  * left to the animation — this is a patch, not a replacement.
  */
 export interface SsPartOverride {
-  visible?: boolean
   /**
-   * Propagates a `visible: false` to descendants. Off by default, as everywhere
+   * Force-hide the part (`true`) or force-show it (`false`). Omit the key to
+   * leave it to the animation — this is a patch, so absent and `false` are
+   * different answers.
+   *
+   * Spelled the family's way round. Every sibling Player takes
+   * `setPartVisibilityOverride(part, hide, …)`, because the Brain's override is
+   * a force-hide; a map that said `visible` would make porting a question of
+   * inverting every boolean, with nothing to catch one left un-inverted.
+   */
+  hide?: boolean
+  /**
+   * Propagates a `hide: true` to descendants. Off by default, as everywhere
    * else in the family: a keyframed hide never cascades in SpriteStudio, so cascading is
    * the opt-in.
    */
@@ -65,7 +75,7 @@ export interface SsPartOverride {
    * shared notion is one more than can be kept in agreement.
    */
   color?: string | number
-  colorBlend?: SsPartColorBlendValue
+  blendOp?: SsBlendOpValue
   cell?: SsCellRef
   /** Defaults to {@link SsOverridePriority.holdUntilNextAnimation}. */
   priority?: SsOverridePriorityValue

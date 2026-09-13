@@ -5,7 +5,7 @@ import type { SsFrameScope } from '../core/fit'
 import { ssPackColor } from '../core/packColor'
 import {
   SsOverridePriority,
-  SsPartColorBlend,
+  SsBlendOp,
   type SsPartOverrides,
 } from '../core/parts'
 import { SsInternalPlayer } from '../core/SsInternalPlayer'
@@ -867,7 +867,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Read from the **display** frame — floored when sub-frame is off, the same
    * frame that was drawn — so it cannot disagree with what is on screen. It
    * reflects the animation's own hide, not a {@link setPartOverrides}
-   * `visible: false`. False for an unknown name, an out-of-range index and
+   * `hide: true`. False for an unknown name, an out-of-range index and
    * before the first `advance`; {@link findPartIndex} is the existence test.
    */
   isPartHidden(part: string | number): boolean {
@@ -948,11 +948,16 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // unchanged either way: `applySettings` replays the map after every setup.
       const priority = override.priority ?? SsOverridePriority.holdUntilNextAnimation
 
-      if (override.visible == null) internal.clearPartVisibility(index)
+      if (override.hide == null) internal.clearPartVisibility(index)
       else {
         internal.setPartVisibility(
           index,
-          override.visible ? 2 : 1,
+          // Layer 2 keeps the C ABI's tri-state force flag: 1 force-hides,
+          // 2 force-shows. An absent key is the third answer and took the
+          // branch above, so `hide: false` still means force-show rather than
+          // revert — the same three ways round the sibling Players offer as
+          // `setPartVisibilityOverride(part, false)` next to `clear…`.
+          override.hide ? 1 : 2,
           // Off by default, as everywhere else: a keyframed hide never cascades
           // in SpriteStudio, so cascading is the opt-in.
           override.cascade ?? false
@@ -963,7 +968,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       else {
         internal.setPartColor(
           index,
-          override.colorBlend ?? SsPartColorBlend.mix,
+          override.blendOp ?? SsBlendOp.mix,
           ssPackColor(override.color),
           priority
         )

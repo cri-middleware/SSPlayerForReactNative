@@ -11,13 +11,13 @@ description: パーツの色変え・非表示・差し替えと、パーツに�
 取り除けばそのパーツはアニメーションが言うとおりの状態に戻ります。
 
 ```tsx
-import { SpriteStudioView, SsPartColorBlend } from 'react-native-spritestudio'
+import { SpriteStudioView, SsBlendOp } from 'react-native-spritestudio'
 
 <SpriteStudioView
   source={SsAssets['Ringo/Ringo']}
   parts={{
-    body: { color: '#ff3366', colorBlend: SsPartColorBlend.mix },
-    hat: { visible: false },
+    body: { color: '#ff3366', blendOp: SsBlendOp.mix },
+    hat: { hide: true },
   }}
 />
 ```
@@ -33,10 +33,10 @@ import { SpriteStudioView, SsPartColorBlend } from 'react-native-spritestudio'
 
 | フィールド | 型 | 意味 |
 |---|---|---|
-| `visible` | `boolean` | パーツの表示・非表示。 |
-| `cascade` | `boolean` | `visible: false` を子孫まで及ぼすか。既定は `false` — SpriteStudio ではキーフレームの hide が子孫に及ばないため、カスケードは opt-in です。 |
+| `hide` | `boolean` | パーツを強制的に隠す（`true`）／強制的に表示する（`false`）。キー自体を省くのが 3 つ目の答えで、アニメーションに任せます。 |
+| `cascade` | `boolean` | `hide: true` を子孫まで及ぼすか。既定は `false` — SpriteStudio ではキーフレームの hide が子孫に及ばないため、カスケードは opt-in です。 |
 | `color` | `string \| number` | 色味。Skia が解釈できるもの（`'#f00'`、`'rgba(255,0,0,.5)'`）か、パックされた `0xRRGGBBAA` の数値。 |
-| `colorBlend` | `SsPartColorBlendValue` | 色味の合成方法：`SsPartColorBlend.mix` / `.mul` / `.add` / `.sub`。既定は `mix`。 |
+| `blendOp` | `SsBlendOpValue` | 色味の合成方法：`SsBlendOp.mix` / `.mul` / `.add` / `.sub`。既定は `mix`。 |
 | `cell` | `SsCellRef` | パーツが参照するセルを差し替えます。 |
 | `priority` | `SsOverridePriorityValue` | タイムラインに対してどれだけ長く残るか。 |
 
@@ -63,7 +63,7 @@ parts={{
 `priority` の既定は `SsOverridePriority.holdUntilNextAnimation` で、これは C-API の既定
 （`HoldUntilNextAnimation`）と同じ、他のプレイヤーとも揃った値です。
 
-`hat: { visible: false }` を持つマップが「その prop がそう言っている限り帽子は隠れて
+`hat: { hide: true }` を持つマップが「その prop がそう言っている限り帽子は隠れて
 いる」という意味になることは、priority ではなくマップの再適用が担保します — 下記の
 とおり、オーバーライドはアニメーションが設定されるたびに replay されるためです。
 
@@ -131,7 +131,7 @@ const hidden = player.isPartHidden(target)
 `isPartHidden(part)` はパーツ**名またはインデックス**を取り、**表示フレーム**
 （実際に描かれたフレーム。サブフレームが off のときは floor されたもの）を読むので、
 画面に出ているものと食い違いません。返すのはアニメーション自身の hide であって
-`setPartOverrides` の `visible: false` ではありません。未知の名前・範囲外の
+`setPartOverrides` の `hide: true` ではありません。未知の名前・範囲外の
 インデックス・最初のフレームが再生される前は `false` です。
 
 これは兄弟プレイヤーが組み込みのアタッチメントに用意している `onHide` オプションに
