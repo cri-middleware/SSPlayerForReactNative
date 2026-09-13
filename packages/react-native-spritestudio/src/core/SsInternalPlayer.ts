@@ -351,6 +351,19 @@ export class SsInternalPlayer {
   }
 
   /**
+   * Whether part `partIndex` is hidden on the frame being displayed — see the
+   * spec.
+   *
+   * A per-frame read, unlike {@link isPartSkinnedMesh}, so it answers false
+   * before the first `advance` (there is no frame yet) as well as once
+   * disposed. Same reasoning either way: a query about a player that is not
+   * showing anything is not a misuse the way a transport call would be.
+   */
+  isPartHidden(partIndex: number): boolean {
+    return this.context?.isPartHidden(partIndex) ?? false
+  }
+
+  /**
    * Whether part `partIndex` is a skinned (bone-bound) mesh — see the spec.
    *
    * A static `.ssab` read, so it answers before the first `advance` and returns

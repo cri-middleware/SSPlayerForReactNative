@@ -494,6 +494,23 @@ SsPartTransform HybridSsContext::getPartTransform(double partIndex) {
                          static_cast<double>(determinant));
 }
 
+bool HybridSsContext::isPartHidden(double partIndex) {
+  // The DISPLAY frame, which `refreshFrame()` already floored when sub-frame is
+  // off — so this reads the same frame the baker drew and cannot disagree with
+  // what is on screen. `frame_` is null before the first update, which is the
+  // one case where "not hidden" is a guess rather than a reading; a caller that
+  // needs to tell the two apart has `findPartIndex` for existence, and the
+  // frame itself only starts existing once something has played.
+  if (ctx_ == nullptr || frame_ == nullptr || partIndex < 0) return false;
+  const auto* parts = frame_->parts();
+  if (parts == nullptr) return false;
+  const auto index = static_cast<size_t>(partIndex);
+  if (index >= parts->size()) return false;
+  // The parts vector is `num_parts` long and ordered by part index — the same
+  // indexing the SoA getters use — so `index` addresses this part directly.
+  return parts->Get(static_cast<::flatbuffers::uoffset_t>(index))->hide();
+}
+
 bool HybridSsContext::isPartSkinnedMesh(double partIndex) {
   // A static `.ssab` property, so it reads the binary view rather than the
   // Brain's per-frame SoA — the same split `partNames` follows, and it answers

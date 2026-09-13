@@ -548,6 +548,22 @@ export interface SsContext
   getPartTransform(partIndex: number): SsPartTransform
 
   /**
+   * Whether part `partIndex` is hidden on the frame being displayed.
+   *
+   * The companion to `getPartTransform`, which reports where a part *would* be
+   * whether or not it is drawn. A host driving its own view from a part needs
+   * both: the pose to place it, and this to decide whether to show it — the
+   * `onHide` option the sibling Players offer on their built-in attachments.
+   *
+   * Read from the **display** frame's `FrameData` — floored when sub-frame is
+   * off, the same frame the renderer bakes — so it cannot disagree with what is
+   * on screen. It reflects the animation's own hide, not a
+   * `setPartVisibility` force-hide. False for an out-of-range index and before
+   * the first `update()`, when there is no frame to read.
+   */
+  isPartHidden(partIndex: number): boolean
+
+  /**
    * Whether part `partIndex` is a **skinned** mesh — a mesh part bound to bones.
    *
    * The one thing a follower of `getPartTransform` has to know. A skinned mesh's

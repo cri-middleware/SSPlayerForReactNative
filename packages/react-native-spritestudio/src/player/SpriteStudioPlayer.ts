@@ -855,6 +855,31 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
+   * Whether `part` is hidden on the frame being displayed.
+   *
+   * The companion to {@link getPartTransform}, which reports where a part
+   * *would* be whether or not it is drawn. A view driven from a part needs
+   * both: the transform to place it, and this to decide whether to show it —
+   * the `onHide` option the sibling Players offer on their built-in
+   * attachments. `useSsPartTransform` reports the pose only, so this is the
+   * call a host makes alongside it.
+   *
+   * Read from the **display** frame — floored when sub-frame is off, the same
+   * frame that was drawn — so it cannot disagree with what is on screen. It
+   * reflects the animation's own hide, not a {@link setPartOverrides}
+   * `visible: false`. False for an unknown name, an out-of-range index and
+   * before the first `advance`; {@link findPartIndex} is the existence test.
+   */
+  isPartHidden(part: string | number): boolean {
+    const internal = this.internalPlayer
+    if (internal == null) return false
+    const index =
+      typeof part === 'number' ? part : internal.findPartIndex(part)
+    if (index < 0) return false
+    return internal.isPartHidden(index)
+  }
+
+  /**
    * Whether `part` is a **skinned** mesh — a mesh part bound to bones, and so
    * the one kind of part a follower cannot sit on.
    *
