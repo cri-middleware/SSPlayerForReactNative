@@ -111,6 +111,7 @@ namespace margelo::nitro::ssplayer {
       virtual double findPartIndex(const std::string& partName) = 0;
       virtual SsBox measureContentBox(const std::vector<std::string>& animations, double maxFrames) = 0;
       virtual SsPartTransform getPartTransform(double partIndex) = 0;
+      virtual bool isPartHidden(double partIndex) = 0;
       virtual bool isPartSkinnedMesh(double partIndex) = 0;
       virtual std::vector<SsUserDataEvent> getUserDataEvents() = 0;
       virtual std::vector<SsAudioEvent> getAudioEvents() = 0;
