@@ -120,12 +120,12 @@ export {
 export { ssPackColor } from './core/packColor'
 export {
   SsOverridePriority,
-  SsPartColorBlend,
+  SsBlendOp,
   type SsCellRef,
   type SsPartOverride,
   type SsPartOverrides,
   type SsOverridePriorityValue,
-  type SsPartColorBlendValue,
+  type SsBlendOpValue,
 } from './core/parts'
 export {
   SsPlaybackDirection,
