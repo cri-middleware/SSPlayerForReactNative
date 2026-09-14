@@ -96,6 +96,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// checked rather than assumed only to keep a hand-rolled implementer honest.
   bool bindInstancePack(const std::shared_ptr<HybridSsResourceSpec>& pack) override;
   bool setupAnimation(const std::string& name) override;
+  std::string lastErrorMessage() override;
   double update(double dtMilliseconds) override;
 
   void play() override;

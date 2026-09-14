@@ -35,6 +35,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridGetter("passedEventCount", &HybridSsContextSpec::getPassedEventCount);
       prototype.registerHybridMethod("bindInstancePack", &HybridSsContextSpec::bindInstancePack);
       prototype.registerHybridMethod("setupAnimation", &HybridSsContextSpec::setupAnimation);
+      prototype.registerHybridMethod("lastErrorMessage", &HybridSsContextSpec::lastErrorMessage);
       prototype.registerHybridMethod("update", &HybridSsContextSpec::update);
       prototype.registerHybridMethod("play", &HybridSsContextSpec::play);
       prototype.registerHybridMethod("playFrom", &HybridSsContextSpec::playFrom);

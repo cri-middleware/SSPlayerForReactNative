@@ -632,9 +632,15 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private reportMissingAnimation(name: string): void {
     if (this.reportedMissingAnimation === name) return
     this.reportedMissingAnimation = name
+    // The Brain's own reason, verbatim. This used to say "has no animation",
+    // which is the common case and not the only one: the same call fails with
+    // "SSAB data is not loaded" on a player whose pack never bound, and telling
+    // that reader the name is missing sends them to the wrong place.
+    const reason = this.internalPlayer?.lastErrorMessage
     console.warn(
       `react-native-spritestudio: '${this.resourceUri ?? 'the loaded pack'}' ` +
-        `has no animation '${name}'. Check getAnimationNames() for what it does have.`
+        `could not select animation '${name}'${reason == null ? '' : ` — ${reason}`}. ` +
+        `Check getAnimationNames() for what it does have.`
     )
   }
 
