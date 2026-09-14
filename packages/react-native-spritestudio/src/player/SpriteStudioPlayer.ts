@@ -588,7 +588,6 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     if (internal.currentAnimation === name) return true
 
     const previous = this.animation
-    this.animation = name
 
     // An animation-scoped box describes *this* animation, so switching makes it
     // stale. A pack-scoped one is the union over the whole file and does not
@@ -597,13 +596,46 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       this.remeasure(name)
     }
 
-    if (!internal.setupAnimation(name)) return false
+    if (!internal.setupAnimation(name)) {
+      this.reportMissingAnimation(name)
+      return false
+    }
+    // Assigned from the result, not ahead of it. `currentAnimation` reads this
+    // field, so assigning first left it naming an animation the runtime had
+    // never set up — and `onAnimationStarted` then published that name too.
+    this.animation = name
+    this.reportedMissingAnimation = null
     if (previous !== name) this.onAnimationChanged?.(name)
     // setup drops the loop count and the override layer, so both go back on.
     this.wasFinished = false
     this.applySettings()
     this.notify()
     return true
+  }
+
+  /** The name already reported missing — see {@link reportMissingAnimation}. */
+  private reportedMissingAnimation: string | null = null
+
+  /**
+   * Say which pack was asked for what (SDK: `20_design/40_api_conventions`, §7).
+   *
+   * Once per wrong name, because {@link setAnimation}'s early return cannot
+   * absorb the repeat: it compares against what the runtime HAS, and a failed
+   * switch leaves that alone, so a state machine asserting a typo every frame
+   * would report it every frame. Keyed on the name, so a second wrong one still
+   * gets its own line.
+   *
+   * The names that *would* have worked are not printed. {@link getAnimationNames}
+   * is public, so a caller who wants the list can print it, and requiring one
+   * would mean deciding here how to truncate a pack with two hundred animations.
+   */
+  private reportMissingAnimation(name: string): void {
+    if (this.reportedMissingAnimation === name) return
+    this.reportedMissingAnimation = name
+    console.warn(
+      `react-native-spritestudio: '${this.resourceUri ?? 'the loaded pack'}' ` +
+        `has no animation '${name}'. Check getAnimationNames() for what it does have.`
+    )
   }
 
   /**
