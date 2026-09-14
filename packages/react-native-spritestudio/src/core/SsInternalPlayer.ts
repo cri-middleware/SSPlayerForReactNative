@@ -112,6 +112,17 @@ export class SsInternalPlayer {
   }
 
   /**
+   * Why the last call that tracks a reason failed, or `null` when it succeeded.
+   *
+   * Read it straight after the call that returned false — it describes the LAST
+   * failure, not a history. For reporting, not for branching; see the spec.
+   */
+  get lastErrorMessage(): string | null {
+    const message = this.require().lastErrorMessage()
+    return message === '' ? null : message
+  }
+
+  /**
    * The animation the Brain currently has set up, or null before the first
    * successful `setupAnimation`.
    *

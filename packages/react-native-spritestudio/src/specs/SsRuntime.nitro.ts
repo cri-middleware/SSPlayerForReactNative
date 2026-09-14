@@ -345,6 +345,19 @@ export interface SsContext
   bindInstancePack(pack: SsResource): boolean
 
   setupAnimation(name: string): boolean
+
+  /**
+   * Why the last call that tracks a reason failed, or `''` when it succeeded.
+   *
+   * The Brain's own wording, not a code. It is for **reporting**, not for
+   * branching: branching would mean hard-coding the integers from
+   * `SSRuntimeError::as_code`, which the C ABI publishes as a compatibility
+   * surface but exports no constants for (unlike `SS_RUNTIME_TRACK_BLEND_*`).
+   *
+   * It describes the LAST failure, so read it straight after the call that
+   * returned false rather than treating it as a log.
+   */
+  lastErrorMessage(): string
   /**
    * Advances by `dtMilliseconds` and returns the new frame number. Invalidates
    * every previously issued buffer.

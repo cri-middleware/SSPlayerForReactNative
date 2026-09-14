@@ -177,6 +177,16 @@ void HybridSsContext::dispose() { release(); }
 
 HybridSsContext::~HybridSsContext() { release(); }
 
+std::string HybridSsContext::lastErrorMessage() {
+  if (ctx_ == nullptr) return {};
+  const int32_t code = ss_runtime_get_last_error(ctx_);
+  if (code == 0) return {};
+  // A static string in the runtime — nothing to free, and nothing to outlive,
+  // unlike the frame buffers this ABI lends out until the next call.
+  const char* text = ss_runtime_error_message(code);
+  return text == nullptr ? std::string{} : std::string{text};
+}
+
 bool HybridSsContext::setupAnimation(const std::string& name) {
   if (ctx_ == nullptr) return false;
   if (!ss_runtime_setup_animation(ctx_, name.c_str())) return false;

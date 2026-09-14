@@ -94,6 +94,7 @@ namespace margelo::nitro::ssplayer {
       // Methods
       virtual bool bindInstancePack(const std::shared_ptr<HybridSsResourceSpec>& pack) = 0;
       virtual bool setupAnimation(const std::string& name) = 0;
+      virtual std::string lastErrorMessage() = 0;
       virtual double update(double dtMilliseconds) = 0;
       virtual void play() = 0;
       virtual void playFrom(double frameNo) = 0;
