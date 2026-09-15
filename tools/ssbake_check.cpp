@@ -441,7 +441,7 @@ int main(int argc, char** argv) {
   // Order is load-bearing: `setup_animation` resets the loop count and `play`
   // arms the counter with whatever is in effect at that moment (-1 = infinite),
   // so a longer `frames` than the animation keeps sweeping instead of stopping.
-  ss_runtime_set_loop(ctx, -1);
+  ss_runtime_set_loop_count(ctx, -1);
   ss_runtime_play(ctx);
 
   // PartData, so read once — the same split the draw path keeps.
@@ -469,7 +469,7 @@ int main(int argc, char** argv) {
   // table, so the name has to become an index before any of them can be read —
   // the same resolution `HybridSsContext` does at `setupAnimation`.
   const int32_t animationIndex = view.animationIndex(animation);
-  const int32_t fps = ss_runtime_get_fps(ctx);
+  const int32_t fps = ss_runtime_get_frame_rate(ctx);
   size_t maxVertices = 0;
   size_t maxBatches = 0;
 
@@ -483,7 +483,7 @@ int main(int argc, char** argv) {
     // After the update, so `is_looped` is this tick's edge — the same ordering
     // `HybridSsContext::update` keeps.
     effects.step(ctx, frameNo, deltaMs / 1000.0f, fps > 0 ? static_cast<float>(fps) : 60.0f,
-                 ss_runtime_is_looped(ctx));
+                 ss_runtime_just_looped(ctx));
 
     // Before the FrameData fetch below, which `continue`s past a frame with no
     // buffer — an audio key is authored on a frame, not on geometry, so a pack
@@ -491,7 +491,7 @@ int main(int argc, char** argv) {
     CountAudio(ctx, view, animationIndex, audioTotals);
     CountSignals(ctx, view, animationIndex, signalTotals);
 
-    unsigned char* fdPtr = nullptr;
+    const unsigned char* fdPtr = nullptr;
     size_t fdLen = 0;
     ss_runtime_get_frame_data(ctx, frameNo, &fdPtr, &fdLen);
     if (fdPtr == nullptr || fdLen == 0) continue;

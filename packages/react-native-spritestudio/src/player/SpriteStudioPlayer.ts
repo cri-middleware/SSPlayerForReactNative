@@ -508,7 +508,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * rather have it delivered than polled.
    */
   get justLooped(): boolean {
-    return this.internalPlayer?.isLooped ?? false
+    return this.internalPlayer?.justLooped ?? false
   }
   /**
    * Which way the playhead is actually travelling this frame.
@@ -529,7 +529,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.isPlayingForward ?? true
   }
   get frameRate(): number {
-    return this.internalPlayer?.fps ?? 0
+    return this.internalPlayer?.frameRate ?? 0
   }
   get partCount(): number {
     return this.internalPlayer?.partCount ?? 0
@@ -773,7 +773,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * `0` (or a negative) to clear it and go back to whatever each animation was
    * authored at.
    *
-   * {@link setSpeed} is the other rate control and they compose, but they say
+   * {@link setSpeedScale} is the other rate control and they compose, but they say
    * different things: speed is a *multiple* of whatever the clip was authored
    * at, so it means the same against every clip; this *replaces* the rate, so
    * 60 against a 30fps clip is double speed and against a 60fps clip is none.
@@ -856,7 +856,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    *
    * The order matters and is not decorative: `setup_animation` resets the loop
    * count to its default, and `play` arms the counter with whatever is in effect
-   * at that moment (`30_core/20_playback_control.md`). So `setLoop` has to come
+   * at that moment (`30_core/20_playback_control.md`). So `setLoopCount` has to come
    * before `play`, not after.
    */
   private applySettings(): void {
@@ -1107,7 +1107,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
-    if (internal.isLooped) this.onAnimationLooped?.(animation)
+    if (internal.justLooped) this.onAnimationLooped?.(animation)
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are

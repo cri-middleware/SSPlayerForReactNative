@@ -396,14 +396,14 @@ export interface SsContext
    */
   readonly isFinished: boolean
   /** True on the frame a loop boundary was crossed. */
-  readonly isLooped: boolean
+  readonly justLooped: boolean
   /** Authored frame rate of the current animation. */
-  readonly fps: number
+  readonly frameRate: number
   readonly startFrame: number
   readonly endFrame: number
   /**
    * Configured loop count. `-1` is infinite, and it is what you read back for
-   * one: `setLoop` normalizes everything at or below zero to `-1`, so passing
+   * one: `setLoopCount` normalizes everything at or below zero to `-1`, so passing
    * `0` asks for infinite but never comes back as `0`.
    */
   /**
@@ -411,10 +411,10 @@ export interface SsContext
    * `0` and negatives clamp to a stop, so a host that dragged a slider negative
    * can see the stop it actually got rather than assuming it got reverse.
    */
-  readonly animationSpeed: number
+  readonly speedScale: number
 
-  readonly loops: number
-  readonly remainLoops: number
+  readonly loopCount: number
+  readonly remainingLoops: number
   /** `SsPlaybackDirection` wire value. */
   readonly playbackDirection: number
   /** `SsPlaybackStyle` wire value. */
@@ -479,7 +479,7 @@ export interface SsContext
    * it, so a host that wants a count to hold has to set it again after each
    * switch.
    */
-  setLoop(loops: number): void
+  setLoopCount(loops: number): void
   /**
    * Multiplier on the authored frame rate.
    *
@@ -487,7 +487,7 @@ export interface SsContext
    * setting", and a negative rate is clamped to the same stop — reversing is
    * `setPlaybackDirection`'s job, not the speed's. Survives `setupAnimation`.
    */
-  setSpeed(rate: number): void
+  setSpeedScale(rate: number): void
   /**
    * Which way the playhead walks, and what it does at the far end.
    *
@@ -508,7 +508,7 @@ export interface SsContext
    *
    * The host's rather than the clip's, so it survives `setupAnimation` — pass
    * `0` (or a negative) to clear it and go back to whatever each animation was
-   * authored at. `setSpeed` is the multiplier; this replaces the rate.
+   * authored at. `setSpeedScale` is the multiplier; this replaces the rate.
    */
   setFrameRate(fps: number): void
   /**
