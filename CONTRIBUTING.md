@@ -89,7 +89,7 @@ checks and what each one proves. The short version:
 | | |
 |---|---|
 | `npm run typecheck` | package and example |
-| `npm test` | the unit tests over the engine-independent half of `core/` (any OS, no Brain) |
+| `npm test` | the unit tests over `core/`, `player/` and `view/` (any OS, no Brain) |
 | `npm run build` | the package compiles to `lib/` |
 | `npm run check-web-barrel` | the web stub barrel still imports clean (any OS, no Brain) |
 | `npm run generate-nitro-code` then `git diff --exit-code packages/*/nitrogen` | the Nitro bindings are current |
@@ -226,7 +226,7 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
 | | |
 |---|---|
 | `npm run typecheck` | パッケージと example |
-| `npm test` | `core/` のエンジン非依存部分のユニットテスト（OS 不問・Brain 不要） |
+| `npm test` | `core/`・`player/`・`view/` のユニットテスト（OS 不問・Brain 不要） |
 | `npm run build` | パッケージが `lib/` にコンパイルされること |
 | `npm run check-web-barrel` | web スタブの barrel が import 可能なこと（OS 不問・Brain 不要） |
 | `npm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |

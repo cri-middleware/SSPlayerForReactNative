@@ -367,7 +367,13 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // `<SpriteStudioView source={…} />` with no `animation` prop. The pack's
     // first is the only defensible choice, and it is what `currentAnimation`
     // will then report, so a caller can still find out what it got.
-    const requested = options?.animation ?? internal.getAnimationNames()[0]
+    //
+    // A name `setAnimation` was given before there was a resource comes first,
+    // though — that call had nothing to select against and said so by returning
+    // false, and this is where it lands.
+    const requested =
+      options?.animation ?? this.pendingAnimation ?? internal.getAnimationNames()[0]
+    this.pendingAnimation = null
 
     // Before `setAnimation`, which is the ordering Layer 1 requires: measuring
     // walks each animation's frames and leaves the last one set up, so it has to
@@ -580,6 +586,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // No resource yet: remember what was asked for, so a caller can set the
       // animation before the load lands. `load` starts on this value.
       this.animation = name
+      this.pendingAnimation = name
       return false
     }
     // Against what the runtime HAS, which `load` resets by building a new
@@ -612,6 +619,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.notify()
     return true
   }
+
+  /**
+   * A name chosen before there was a resource, for the next {@link load} to
+   * start on. **Consumed there**, so it cannot follow the player onto a second
+   * pack that has no animation by that name — which is why this is not simply
+   * `animation`, whose value survives a load.
+   */
+  private pendingAnimation: string | null = null
 
   /** The name already reported missing — see {@link reportMissingAnimation}. */
   private reportedMissingAnimation: string | null = null

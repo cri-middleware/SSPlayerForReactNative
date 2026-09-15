@@ -64,11 +64,10 @@ jobs:
         run: npm run typecheck
 
       - name: Unit tests
-        # The engine-independent half of `core/`: URI resolution, the fit/align
-        # arithmetic and the refcounted cache. Every one of them is reachable
-        # without Nitro, Skia or the Brain, which is why they can run here at
-        # all — the rest of the package is not, and is covered by the host
-        # checks a maintainer runs before a release.
+        # `core/`, `player/` and `view/`. Nitro, Skia and Reanimated are aliased
+        # to stubs and the Brain is faked at the package's own module boundary,
+        # so none of it needs a device — what is left to the host checks and the
+        # example's Player screen is the drawing, which a fake cannot judge.
         run: npm test
 
       - name: The Nitro bindings are current
