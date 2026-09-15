@@ -76,7 +76,7 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 | Task | Command |
 |---|---|
 | Typecheck (package + example) | `npm run typecheck` |
-| Unit tests (engine-independent `core/`) | `npm test` (any OS, **no Brain needed**, also in CI) — `vitest run` over `packages/react-native-spritestudio/test/`. |
+| Unit tests (`core/`, `player/`, `view/`) | `npm test` (any OS, **no Brain needed**, also in CI) — `vitest run` over `packages/react-native-spritestudio/test/`. |
 | The package compiles to `lib/` | `npm run build` (any OS) — `bob build`, the step `prepack` runs before publishing. |
 | FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
 | Mask drawing, and a mask crossing into an instance child | `npm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample. |
@@ -91,14 +91,33 @@ Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- bu
 
 **CI runs what it can without SDK access** (`.github/workflows/ci.yml`): typecheck, the unit tests, the Nitro bindings being current, `bob build`, the web stub barrel, both halves of every toolchain script parsing, and the `files` guard. It cannot run the host checks or `prepack` — those need the private SDK submodule, and two of them need the macOS-only libskia — so a green CI is not a substitute for running them before a release.
 
-**What `npm test` covers, and why it stops where it does.** Four modules under
-`core/` reach no Nitro, no Skia and no Brain — `assets` (URI scheme, sibling
-resolution, `..` collapsing), `fit` (the fit/align/flip arithmetic behind both
-Layer 4 components), `SsRefCache` (the refcounts `SsRuntime.liveHandles` rests
-on) and `caches` (which of the two singletons disposes and which does not).
-Everything else in the package touches a native module at import time, so it is
-the host checks below and the Player screen that cover it, not this. Tests live
-in `test/` rather than beside the source **because `files` ships `src`
+**What `npm test` covers, and where the fakes are.** All three layers above
+Layer 1, on any machine: `core/` (URI resolution, the fit/align arithmetic, the
+refcounts `SsRuntime.liveHandles` rests on), `player/` (the transport, the lease
+bookkeeping, the event gates, the leak check) and `view/` (the hook's load and
+teardown decisions, the boolean `playing` prop mapped onto four verbs, the
+scene's single clock and draw order).
+
+Two seams, and they are different in kind. **`vitest.config.mts` aliases
+`react-native`, `@shopify/react-native-skia` and `react-native-reanimated` to
+stubs** under `test/support/stubs/` — those are reached transitively (Skia comes
+in through `SsTextureLoader` at module scope), so without them a Layer 3 test
+that never mentions Skia cannot import. They only have to be importable and
+inspectable, which is why the Skia one records what a tick drew. **The behaviour
+under test is faked one layer in, at the package's own modules**: a test
+`vi.mock`s `src/runtime` (the Nitro hybrid object built at module scope, which
+is what actually needs a device), plus whichever of `core/SsInternalPlayer`,
+`core/SsTextureRegistry`, `player/source` and `player/SpriteStudioPlayer` sits
+below what it is about. `test/support/` holds one fake per module and
+`definePack(uri, …)` configures the lot. The rule the files follow: **fake the
+layer below, keep the layer under test real** — `leakCheck.test.ts` leaves
+`player/source` alone precisely because the leases are what it measures.
+
+What this still does not cover is **drawing**, which no fake can judge: that is
+the host checks below and the example's Player screen. The C++ is not compiled
+by anything in this repository either — see ROADMAP.md.
+
+Tests live in `test/` rather than beside the source **because `files` ships `src`
 recursively** — a `src/**/*.test.ts` would land in the tarball. They are
 typechecked through `tsconfig.test.json`, which `typecheck` passes with
 `--project`: widening the base config's `include` instead would break

@@ -52,11 +52,21 @@
     "react-native-nitro-modules": "^0.37.0",
     "react-native-reanimated": "^4.5.3"
   },
+  "//devDependencies": [
+    "`react-test-renderer` is pinned to the exact `react` the root `overrides`",
+    "chose, not a caret: React refuses to run against a renderer from a",
+    "different build, so the two move together. It is deprecated in React 19 and",
+    "is still the only renderer that does not need a DOM, which is what the",
+    "`view/` tests need -- @testing-library/react-native sits on it for the same",
+    "reason. Move it when react moves."
+  ],
   "devDependencies": {
     "@types/react": "^19.3.0",
+    "@types/react-test-renderer": "^19.3.0",
     "nitrogen": "^0.37.1",
     "react-native-builder-bob": "^0.43.1",
     "react-native-nitro-modules": "^0.37.1",
+    "react-test-renderer": "19.2.8",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
   },
