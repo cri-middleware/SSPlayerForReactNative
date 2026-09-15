@@ -97,7 +97,7 @@ class SsEffectSlots {
   /// freezes an effect whose per-tick progress is under one frame. `deltaSeconds`
   /// and `fps` matter only to independent slots (they run on their own clock and
   /// ignore `parentFrame`); synced slots are the reverse. `parentLooped` is the
-  /// parent's loop **edge** for this update — `ss_runtime_is_looped` is cleared
+  /// parent's loop **edge** for this update — `ss_runtime_just_looped` is cleared
   /// at the top of each one — which re-arms a synced effect so it fires again
   /// next cycle.
   void step(void* context, float parentFrame, float deltaSeconds, float fps, bool parentLooped);

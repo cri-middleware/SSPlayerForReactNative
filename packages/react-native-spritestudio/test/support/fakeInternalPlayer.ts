@@ -60,10 +60,10 @@ export class SsInternalPlayer {
   isPlaying = false
   isPausing = false
   isFinished = false
-  isLooped = false
+  justLooped = false
   isPlayingForward = true
   frameNo = 0
-  fps = 30
+  frameRate = 30
   startFrame = 0
   endFrame = 0
 
@@ -224,7 +224,7 @@ export class SsInternalPlayer {
 
   setFrameRate(fps: number): void {
     this.record('setFrameRate', fps)
-    this.fps = fps
+    this.frameRate = fps
   }
 
   setPlaybackDirection(

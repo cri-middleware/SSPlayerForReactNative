@@ -316,7 +316,7 @@ describe('advance', () => {
     const player = await loaded({ animation: 'Walk' })
     const looped = vi.fn()
     player.onAnimationLooped = looped
-    SsInternalPlayer.last().isLooped = true
+    SsInternalPlayer.last().justLooped = true
 
     player.advance(16)
     player.advance(16)

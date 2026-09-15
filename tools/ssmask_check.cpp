@@ -68,7 +68,7 @@ bool ss_runtime_setup_animation(void* context, const char* name);
 void ss_runtime_set_render_mode(void* context, uint8_t mode);
 void ss_runtime_play(void* context);
 float ss_runtime_update(void* context, float delta);
-void ss_runtime_get_frame_data(void* context, float frame_no, unsigned char** out_data,
+void ss_runtime_get_frame_data(void* context, float frame_no, const unsigned char** out_data,
                                size_t* out_len);
 void ss_runtime_get_world_matrices(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_local_vertices(void* context, const float** out_data, size_t* out_len);
@@ -434,7 +434,7 @@ struct Baked {
     float frameNo = 0.0f;
     for (int i = 0; i < atFrame; ++i) frameNo = ss_runtime_update(ctx, 1000.0f / 60.0f);
 
-    unsigned char* fdPtr = nullptr;
+    const unsigned char* fdPtr = nullptr;
     size_t fdLen = 0;
     ss_runtime_get_frame_data(ctx, frameNo, &fdPtr, &fdLen);
     if (fdPtr == nullptr) {

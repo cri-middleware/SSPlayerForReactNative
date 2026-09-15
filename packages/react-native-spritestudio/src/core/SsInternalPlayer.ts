@@ -42,11 +42,17 @@ import {
  *
  * **This layer follows the C API, not the Player API conventions.** It takes part
  * *indices* and name *hashes*, and its override methods keep the C API's argument
- * order (`blendOp` before the colour) — so `isLooped`, `fps`, `setSection` and
- * `setPartColor` are the right names here even though `justLooped`, `frameRate`,
- * `setAnimationSection` and `setPartColorOverride` are the right names one layer
- * up (SDK `20_design/40_api_conventions.md`, which says outright that a Player
- * copying the C API's order puts itself outside the convention).
+ * order (`blendOp` before the colour) — so `setSection` and `setPartColor` are
+ * the right names here even though `setAnimationSection` and
+ * `setPartColorOverride` are the right names one layer up (SDK
+ * `20_design/40_api_conventions.md`, which says outright that a Player copying
+ * the C API's order puts itself outside the convention).
+ *
+ * That list used to be longer. `isLooped` and `fps` were on it, because the C
+ * API spelled them that way; it now says `ss_runtime_just_looped` and
+ * `ss_runtime_get_frame_rate`, so following the C API and following the
+ * vocabulary are the same thing for those two, and this layer says
+ * `justLooped` and `frameRate` like everyone else.
  *
  * Layer 3 — `SpriteStudioPlayer` — is where the conventions apply: it takes part
  * names, puts the value before its modifiers, and is what a host should reach for.
@@ -218,8 +224,8 @@ export class SsInternalPlayer {
   get isFinished(): boolean {
     return this.context?.isFinished ?? false
   }
-  get isLooped(): boolean {
-    return this.context?.isLooped ?? false
+  get justLooped(): boolean {
+    return this.context?.justLooped ?? false
   }
   /**
    * Which way the playhead is actually travelling — not the configured heading,
@@ -229,8 +235,8 @@ export class SsInternalPlayer {
   get isPlayingForward(): boolean {
     return this.context?.isPlayingForward ?? true
   }
-  get fps(): number {
-    return this.context?.fps ?? 0
+  get frameRate(): number {
+    return this.context?.frameRate ?? 0
   }
   get startFrame(): number {
     return this.context?.startFrame ?? 0
@@ -267,10 +273,10 @@ export class SsInternalPlayer {
   }
   /** 0 = infinite. */
   setLoopCount(loops: number): void {
-    this.require().setLoop(loops)
+    this.require().setLoopCount(loops)
   }
   setSpeedScale(rate: number): void {
-    this.require().setSpeed(rate)
+    this.require().setSpeedScale(rate)
   }
   setPlaybackDirection(
     direction: SsPlaybackDirection,
@@ -293,12 +299,12 @@ export class SsInternalPlayer {
    * request.
    */
   get speedScale(): number {
-    return this.context?.animationSpeed ?? 1
+    return this.context?.speedScale ?? 1
   }
 
   /** Cycles configured for this run; `-1` is infinite. */
   get loopCount(): number {
-    return this.context?.loops ?? -1
+    return this.context?.loopCount ?? -1
   }
 
   /** The configured heading — not `isPlayingForward`, which is the live one. */

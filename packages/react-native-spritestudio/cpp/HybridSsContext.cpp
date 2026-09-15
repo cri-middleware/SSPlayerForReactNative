@@ -50,7 +50,7 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // those three disagreeing: the draw came out right way up while every matrix
   // handed to a caller was still Y-up. ForWeb, ForFlutter, ForGodot and ForRenPy
   // all set it here for the same reason.
-  ss_context_set_coordinate_system(ctx_, 1);
+  ss_runtime_set_coordinate_system(ctx_, 1);
   // Read once: these are PartData, so they are fixed for the life of the
   // resource. Re-reading them per frame would be the mistake the mask spec opens
   // by warning against — the animated `mask` / `hide` come from FrameData.
@@ -223,7 +223,7 @@ double HybridSsContext::update(double dtMilliseconds) {
   // Read *after* the update: `is_looped` is cleared at the top of each one, so
   // what it reports here is this tick's loop **edge**, which is what re-arms a
   // synced effect. Read before, it would be the previous tick's.
-  const bool looped = ss_runtime_is_looped(ctx_);
+  const bool looped = ss_runtime_just_looped(ctx_);
   stepEffects(static_cast<float>(dtMilliseconds), looped);
   instances_.step(ctx_, frameNo_, static_cast<float>(dtMilliseconds), looped);
   return static_cast<double>(frameNo_);
@@ -247,7 +247,7 @@ void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
   if (ctx_ == nullptr || effects_.empty()) return;
   // The *animation's* authored fps, which is what converts an independent
   // slot's delta into frames — not the display's refresh rate.
-  const int32_t fps = ss_runtime_get_fps(ctx_);
+  const int32_t fps = ss_runtime_get_frame_rate(ctx_);
   effects_.step(ctx_, frameNo_, dtMilliseconds / 1000.0f,
                 fps > 0 ? static_cast<float>(fps) : 60.0f, looped);
 }
@@ -262,7 +262,7 @@ void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
 bool HybridSsContext::getIsPlaying() { return ctx_ != nullptr && ss_runtime_is_playing(ctx_); }
 bool HybridSsContext::getIsPausing() { return ctx_ != nullptr && ss_runtime_is_pausing(ctx_); }
 bool HybridSsContext::getIsFinished() { return ctx_ != nullptr && ss_runtime_is_finished(ctx_); }
-bool HybridSsContext::getIsLooped() { return ctx_ != nullptr && ss_runtime_is_looped(ctx_); }
+bool HybridSsContext::getJustLooped() { return ctx_ != nullptr && ss_runtime_just_looped(ctx_); }
 // True with no context: forward is the resting state, and reporting backward for
 // a player that is not playing would gate audio off on its very first frame.
 bool HybridSsContext::getIsPlayingForward() { return ctx_ == nullptr || ss_runtime_is_playing_forward(ctx_); }
@@ -270,8 +270,8 @@ bool HybridSsContext::getSkipFrames() {
   return ctx_ != nullptr && ss_runtime_get_skip_frames(ctx_);
 }
 
-double HybridSsContext::getFps() {
-  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_fps(ctx_));
+double HybridSsContext::getFrameRate() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_frame_rate(ctx_));
 }
 double HybridSsContext::getStartFrame() {
   return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_start_frame(ctx_));
@@ -279,17 +279,17 @@ double HybridSsContext::getStartFrame() {
 double HybridSsContext::getEndFrame() {
   return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_end_frame(ctx_));
 }
-double HybridSsContext::getAnimationSpeed() {
+double HybridSsContext::getSpeedScale() {
   // The STORED rate, not the requested one: the Brain clamps 0 and negatives to
   // a stop, and reading back the request would tell a host it got reverse
   // playback when the playhead is frozen.
-  return ctx_ == nullptr ? 1.0 : static_cast<double>(ss_runtime_get_animation_speed(ctx_));
+  return ctx_ == nullptr ? 1.0 : static_cast<double>(ss_runtime_get_speed_scale(ctx_));
 }
-double HybridSsContext::getLoops() {
-  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_loops(ctx_));
+double HybridSsContext::getLoopCount() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_loop_count(ctx_));
 }
-double HybridSsContext::getRemainLoops() {
-  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_remain_loops(ctx_));
+double HybridSsContext::getRemainingLoops() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_remaining_loops(ctx_));
 }
 double HybridSsContext::getPlaybackDirection() {
   return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_playback_direction(ctx_));
@@ -347,14 +347,14 @@ void HybridSsContext::setFrameNo(double frameNo) {
   resync();
 }
 
-void HybridSsContext::setLoop(double loops) {
+void HybridSsContext::setLoopCount(double loops) {
   if (ctx_ == nullptr) return;
-  ss_runtime_set_loop(ctx_, static_cast<int>(loops));
+  ss_runtime_set_loop_count(ctx_, static_cast<int>(loops));
 }
 
-void HybridSsContext::setSpeed(double rate) {
+void HybridSsContext::setSpeedScale(double rate) {
   if (ctx_ == nullptr) return;
-  ss_runtime_set_animation_speed(ctx_, static_cast<float>(rate));
+  ss_runtime_set_speed_scale(ctx_, static_cast<float>(rate));
 }
 
 void HybridSsContext::setPlaybackDirection(double direction, double style) {
@@ -451,10 +451,10 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
     // stopped and a walk that forgets this measures frame 0 N times — the trap
     // AGENTS.md warns about, and which `ssbake_check` itself shipped with for a
     // whole phase.
-    ss_runtime_set_loop(ctx_, -1);
+    ss_runtime_set_loop_count(ctx_, -1);
     ss_runtime_play(ctx_);
 
-    const int32_t fps = ss_runtime_get_fps(ctx_);
+    const int32_t fps = ss_runtime_get_frame_rate(ctx_);
     const float stepMs = 1000.0f / (fps > 0 ? static_cast<float>(fps) : 60.0f);
     int32_t frames = static_cast<int32_t>(maxFrames);
     if (frames <= 0) {
@@ -871,7 +871,7 @@ void HybridSsContext::refreshFrame() {
   // too instead of resting on all of them staying correct.
   if (ctx_ == nullptr) return;
 
-  unsigned char* fdPtr = nullptr;
+  const unsigned char* fdPtr = nullptr;
   size_t fdLen = 0;
   // The DISPLAY frame. `frameNo_` keeps its fraction whatever `subFrame_` is
   // set to -- it is what the instance and effect slots are stepped from, and

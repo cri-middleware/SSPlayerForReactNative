@@ -240,16 +240,16 @@ int main(int argc, char** argv) {
 
   // Infinite, so the head keeps playing across the hide window instead of
   // finishing partway through and taking every slot with it.
-  ss_runtime_set_loop(ctx, 0);
+  ss_runtime_set_loop_count(ctx, 0);
   ss_runtime_play(ctx);
 
   for (int tick = 0; tick < ticks; ++tick) {
     const float frameNo = ss_runtime_update(ctx, kDeltaMs);
-    const bool looped = ss_runtime_is_looped(ctx);
+    const bool looped = ss_runtime_just_looped(ctx);
 
     // Read before the step, so the draw plan is this tick's and not the one the
     // step left behind.
-    unsigned char* fdPtr = nullptr;
+    const unsigned char* fdPtr = nullptr;
     size_t fdLen = 0;
     ss_runtime_get_frame_data(ctx, frameNo, &fdPtr, &fdLen);
     const ss::runtime::FrameData* frame =
