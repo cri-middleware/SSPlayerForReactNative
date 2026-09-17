@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { SkImage } from '@shopify/react-native-skia'
 
 import { ssClearCaches, ssImageCache } from '../src/core/caches'
 import { SsOverridePriority } from '../src/core/parts'
@@ -636,6 +637,120 @@ describe('the texture report', () => {
 
     expect(warn).not.toHaveBeenCalled()
     expect(player.lastTextureReport?.unresolved).toEqual([])
+  })
+})
+
+describe('runtime texture replacement', () => {
+  /** A stand-in for a decoded atlas — the registry only ever holds the reference. */
+  const fakeImage = (tag: string): SkImage => ({ tag }) as unknown as SkImage
+
+  /** The fake registry's entry for a texture name, or undefined. */
+  function boundImage(player: SpriteStudioPlayer, name: string): unknown {
+    const registry = player.textures as unknown as SsTextureRegistry
+    return registry.bound(SsRuntimeModule.hashString(name))
+  }
+
+  it('binds a replacement over the pack atlas', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = await loaded()
+    const face = fakeImage('face')
+
+    expect(player.setCellmapTexture('common', face)).toBe(true)
+
+    expect(player.getCellmapTexture('common')).toBe(face)
+    expect(boundImage(player, 'common')).toBe(face)
+    const registry = player.textures as unknown as SsTextureRegistry
+    expect(registry.isOverridden(SsRuntimeModule.hashString('common'))).toBe(true)
+  })
+
+  it('restores the pack atlas when handed null', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = await loaded()
+    const original = boundImage(player, 'common')
+    player.setCellmapTexture('common', fakeImage('face'))
+
+    expect(player.setCellmapTexture('common', null)).toBe(true)
+
+    expect(player.getCellmapTexture('common')).toBeNull()
+    // Back to exactly what the loader had put in, not merely cleared.
+    expect(boundImage(player, 'common')).toBe(original)
+    const registry = player.textures as unknown as SsTextureRegistry
+    expect(registry.isOverridden(SsRuntimeModule.hashString('common'))).toBe(false)
+  })
+
+  it('rejects a name the loaded pack has no texture for', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = await loaded()
+
+    expect(player.setCellmapTexture('missing', fakeImage('x'))).toBe(false)
+
+    expect(player.getCellmapTexture('missing')).toBeNull()
+    expect(warn.mock.calls[0]?.[0]).toMatch(/no replaceable texture called 'missing'/)
+  })
+
+  it('lists cellmaps and external textures as replaceable', async () => {
+    definePack(PACK, {
+      animations: ['Idle'],
+      // A cellmap and the file name a TextureChange points at — different hash
+      // spaces, both legitimately replaceable.
+      textures: [embeddedTexture('common'), embeddedTexture('common.png')],
+    })
+    const player = await loaded()
+
+    expect(player.getReplaceableTextureNames()).toEqual(['common', 'common.png'])
+    // An external-texture file name is a valid target too.
+    expect(player.setCellmapTexture('common.png', fakeImage('costume'))).toBe(true)
+    expect(player.getCellmapTexture('common.png')).toBeTruthy()
+  })
+
+  it('re-keys an override onto the pack after a source change', async () => {
+    const OTHER = 'ss/overall/Other.ssab'
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    definePack(OTHER, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = await loaded()
+    const face = fakeImage('face')
+    player.setCellmapTexture('common', face)
+
+    await player.load(OTHER)
+
+    // The override followed onto the new pack's own `common`, replayed by name.
+    expect(player.getCellmapTexture('common')).toBe(face)
+    expect(boundImage(player, 'common')).toBe(face)
+  })
+
+  it('applies an override set before the pack has loaded', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = new SpriteStudioPlayer()
+    const face = fakeImage('face')
+
+    // No resource yet: recorded, and made to win over the pack atlas the load
+    // is about to register.
+    player.setCellmapTexture('common', face)
+    await player.load(PACK)
+
+    expect(player.getCellmapTexture('common')).toBe(face)
+    expect(boundImage(player, 'common')).toBe(face)
+    player.dispose()
+  })
+
+  it('takes its overrides off a shared registry on dispose', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const shared = new SsTextureRegistry()
+    const player = new SpriteStudioPlayer({
+      textures: shared as unknown as RealTextureRegistry,
+    })
+    await player.load(PACK)
+    const original = shared.bound(SsRuntimeModule.hashString('common'))
+    player.setCellmapTexture('common', fakeImage('face'))
+
+    player.dispose()
+
+    // The shared registry survives, its `common` is back to the pack atlas, and
+    // the override is gone — a sibling sharing it must not inherit this swap.
+    expect(shared.disposed).toBe(false)
+    expect(shared.isOverridden(SsRuntimeModule.hashString('common'))).toBe(false)
+    expect(shared.bound(SsRuntimeModule.hashString('common'))).toBe(original)
   })
 })
 

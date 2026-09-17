@@ -58,6 +58,15 @@ parts={{
 }}
 ```
 
+::: info `cell` は 1 パーツ、`setCellmapTexture` はアトラスまるごと
+この 2 つは別のツールで、混同しないことが大切です。ここでの `cell` は**パーツ単位**の
+オーバーライドで、*1 つの*パーツが参照するセルを、アトラスに既にあるセルの中から変えます
+（口の形、目の状態など）。セルマップが描画に使う**テクスチャそのもの**を差し替える — その
+セルマップを使う全パーツをまとめて色替えする、衣装アトラスに入れ替える — なら、代わりに
+[`player.setCellmapTexture`](/ja/usage/textures#from-code-at-runtime) を使います。一方は同じ画像
+の別の領域を選び、もう一方は別の画像を渡します。
+:::
+
 ### オーバーライドはどれだけ持続するか {#how-long-an-override-lasts}
 
 `priority` の既定は `SsOverridePriority.holdUntilNextAnimation` で、これは C-API の既定

@@ -55,6 +55,45 @@ siblings to resolve, which is exactly what Metro is good at.
 the decoded `SkImage`s. It returns `null` until every texture has decoded, so
 you can hold off drawing rather than flash a frame with a missing atlas.
 
+### From code, at runtime
+
+The `textures` prop is declarative — it describes the atlases in effect. When you
+want to swap one **imperatively** instead — a costume the player earns mid-scene,
+an expression driven by game state — reach the player through a ref and call
+`setCellmapTexture`:
+
+```tsx
+const ref = useRef<SpriteStudioViewRef>(null)
+// ...
+ref.current?.player?.setCellmapTexture('Ringo', winterAtlas)   // swap
+ref.current?.player?.setCellmapTexture('Ringo', null)          // back to the pack's own
+```
+
+This is what an avatar system is built on: one animation, and a wardrobe of
+atlases you switch between, instead of a separate export per costume. Passing
+`null` **restores** the pack's own atlas — it reloads nothing you have to
+manage. `getCellmapTexture(name)` reads back the replacement in effect (the
+override only, never the pack's own), and `getReplaceableTextureNames()` lists
+every name you may pass — the cellmap names plus the texture *file* names an
+authored texture change points at.
+
+Three things worth knowing, all from the SDK's own
+[Runtime texture replacement](https://github.com/cri-middleware/SpriteStudio-SDK/blob/develop/libs/ssruntime/docs/40_components/70_external_resources.md)
+spec:
+
+- **It reaches instance children.** The whole player tree draws through one
+  texture table here, so a child part that samples the same cellmap picks up the
+  swap too — there is nothing to set on the child separately. (This is where the
+  React Native player differs from the Godot one, whose children keep their own
+  table.)
+- **It survives a `source` change**, re-keyed onto the new pack by name. Clear it
+  with `null`, or let `dispose` drop it.
+- **A texture change (`TCHG`) wins on the frames it applies to.** Those frames
+  bind through the texture *file* name, not the cellmap name, so to affect them
+  replace that name instead — it is in `getReplaceableTextureNames()`. And a
+  replacement is assumed to share the original's **size and layout**: the cell
+  rects stay in the original atlas's pixel space.
+
 ## The registry
 
 `SsTextureRegistry` maps a cellmap-name hash to the paint its batches draw with.

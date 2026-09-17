@@ -59,6 +59,17 @@ parts={{
 }}
 ```
 
+::: info `cell` swaps one part; `setCellmapTexture` swaps a whole atlas
+These are two different tools and it is worth keeping them apart. `cell` here is
+a **per-part** override — it changes which cell *one* part samples, from the
+cells already in the atlas (a mouth shape, an eye state). To replace the **whole
+texture** a cellmap draws from — recolour every part that uses it at once, or
+swap in a costume atlas — reach for
+[`player.setCellmapTexture`](/usage/textures#from-code-at-runtime) instead. One
+picks a different region of the same image; the other hands over a different
+image.
+:::
+
 ### How long an override lasts
 
 `priority` defaults to `SsOverridePriority.holdUntilNextAnimation` — the C-API's

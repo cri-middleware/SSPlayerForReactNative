@@ -27,6 +27,8 @@ features:
     details: The playhead is a float and the frame is built at the moment it is drawn, so motion follows your display's refresh rate and the speed you set.
   - title: One JS call per frame, per player
     details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI). That is what lets a busy scene stay at 60 fps.
+  - title: Dynamic costumes
+    details: Swap the atlas a cellmap draws from at runtime — a colour variant, an equipment change, an avatar built from parts — without re-exporting the animation. `player.setCellmapTexture(name, image)`, and `null` puts the original back.
 ---
 
 ## Related Repositories

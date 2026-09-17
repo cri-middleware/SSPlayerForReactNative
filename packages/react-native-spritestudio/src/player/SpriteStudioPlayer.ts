@@ -1,4 +1,4 @@
-import type { SkCanvas } from '@shopify/react-native-skia'
+import type { SkCanvas, SkImage } from '@shopify/react-native-skia'
 
 import { ssImageCache } from '../core/caches'
 import type { SsFrameScope } from '../core/fit'
@@ -13,7 +13,10 @@ import {
   SsTextureLoader,
   type SsTextureLoadReport,
 } from '../core/SsTextureLoader'
-import { SsTextureRegistry } from '../core/SsTextureRegistry'
+import {
+  SsTextureRegistry,
+  type SsTextureOptions,
+} from '../core/SsTextureRegistry'
 import {
   SsPlaybackDirection,
   SsPlaybackStyle,
@@ -390,9 +393,23 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     if (requested != null) this.setAnimation(requested)
     else this.applySettings()
 
+    // The textures this pack (and its instance children) needs, read once here
+    // rather than again per query. After `setAnimation` because the children —
+    // and so their textures — do not exist until then, and before the
+    // `loadTextures` early-out because a runtime override does not depend on the
+    // pack's own atlases being loaded. The names are copied strings, so retaining
+    // them past the borrowed `SsTextureInfo[]` is safe.
+    const textureInfos = internal.getTextures()
+    this.replaceableTextureNames = textureInfos.map((info) => info.name)
+
     this.notify()
 
-    if (options?.loadTextures === false) return
+    if (options?.loadTextures === false) {
+      // Still replay any runtime replacements the caller set: they are keyed by
+      // name and do not need the pack's own textures loaded first.
+      this.applyCellmapTextureOverrides()
+      return
+    }
 
     // The pack names its own textures, so load them rather than making the
     // caller do it: `image_path` is relative to the `.ssab`, and `uri` is where
@@ -402,11 +419,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // After `notify()` on purpose — the animation is usable the moment the
     // context exists, and holding the load open for a texture fetch would delay
     // the first frame for no reason. It simply draws nothing until they arrive.
-    const report = await SsTextureLoader.load(
-      this.textures,
-      internal.getTextures(),
-      uri
-    )
+    const report = await SsTextureLoader.load(this.textures, textureInfos, uri)
     if (token !== this.loadToken || this.disposed) {
       // The leases this pass took belong to a load that is no longer wanted.
       for (const key of report.imageKeys) ssImageCache.release(key)
@@ -443,7 +456,36 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
           ` textures. Missing: ${report.unresolved.join(', ')}. Those parts will not draw.`
       )
     }
+
+    // After the loader, so a replacement wins over the pack atlas the loader just
+    // put in, and after the supersede check, so a discarded load does not paint
+    // into the live registry. This is what carries a runtime override across a
+    // `source` change onto the new pack, the way `applySettings` carries the
+    // part overrides.
+    this.applyCellmapTextureOverrides()
+
     this.notify()
+  }
+
+  /**
+   * Replays the recorded runtime texture replacements onto the current registry,
+   * re-keying each by name against the pack that is now loaded.
+   *
+   * A name the new pack has no texture for is left recorded but unapplied — it
+   * may match again after a later `source` change, exactly as ForGodot keeps its
+   * `_cellmap_overrides` by name and simply skips a name the current resource
+   * does not resolve.
+   */
+  private applyCellmapTextureOverrides(): void {
+    if (this.cellmapTextureOverrides.size === 0) return
+    for (const [name, override] of this.cellmapTextureOverrides) {
+      if (!this.replaceableTextureNames.includes(name)) continue
+      this.textures.override(
+        SsRuntimeModule.hashString(name),
+        override.image,
+        override.options
+      )
+    }
   }
 
   /**
@@ -464,6 +506,26 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private imageKeys: string[] = []
   /** Registry entries the last load added, taken back out on teardown. */
   private registeredTextures: number[] = []
+
+  /**
+   * Runtime texture replacements in effect, keyed by the cellmap (or external
+   * texture) **name** — the name-side record ForGodot keeps too, so
+   * {@link getCellmapTexture} can answer and a source change can re-key onto the
+   * new pack. The registry holds the hash-side effect; this is what survives the
+   * registry being rebuilt under a new pack, and {@link applyCellmapTextureOverrides}
+   * replays it after each load — the same pattern {@link pendingOverrides} follows.
+   */
+  private readonly cellmapTextureOverrides = new Map<
+    string,
+    { image: SkImage; options?: SsTextureOptions }
+  >()
+  /**
+   * Every texture a replacement can target in the loaded pack — cellmap names
+   * and external-texture file names — captured from the last load so
+   * {@link getReplaceableTextureNames} need not re-marshal the texture table and
+   * {@link setCellmapTexture} can reject a name the pack has no such texture for.
+   */
+  private replaceableTextureNames: string[] = []
 
   /**
    * Atlas cache keys the last load leased — what `ssPreload` retains so its
@@ -1039,6 +1101,98 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     }
   }
 
+  // --- runtime textures --------------------------------------------------
+
+  /**
+   * Replaces the texture bound for a cellmap at runtime, or restores the pack's
+   * own when `image` is `null`. A costume change or a dynamic expression, driven
+   * from code rather than the authoring data (SDK
+   * `40_components/70_external_resources.md`, "Runtime texture replacement").
+   *
+   * `name` is a cellmap name — with no `.ssce` — or an external texture's file
+   * name, whichever {@link getReplaceableTextureNames} lists. The swap is keyed
+   * by the same hash `DrawBatch.texture_hash` carries, so it takes effect on the
+   * next drawn frame with nothing else to do. Returns false, with a dev warning,
+   * for a name the loaded pack has no such texture for; a name set before the
+   * first load is accepted and applied once the pack lands.
+   *
+   * **Unlike ForGodot, the replacement reaches instance children.** The whole
+   * player tree draws through one texture table here, so a child that samples the
+   * same cellmap picks up the swap too — there is no per-child map to set
+   * separately. It also **survives a `source` change**: the override is re-keyed
+   * onto the new pack by name, and drops back out only when you clear it or
+   * dispose the player.
+   *
+   * The `image` stays the caller's to keep alive — the registry references it and
+   * never disposes it, the same rule the `textures` prop follows. Two caveats
+   * carry over from the spec: a part under an authored texture change (`TCHG`)
+   * binds through a *different* hash on the frames it applies to, so replace the
+   * texture file name it points at (also in {@link getReplaceableTextureNames})
+   * rather than the cellmap name to affect those; and a replacement is assumed to
+   * share the original's **size and layout**, since the UVs stay in the original
+   * atlas's pixel space.
+   */
+  setCellmapTexture(
+    name: string,
+    image: SkImage | null,
+    options?: SsTextureOptions
+  ): boolean {
+    const hash = SsRuntimeModule.hashString(name)
+
+    if (image == null) {
+      this.cellmapTextureOverrides.delete(name)
+      this.textures.restore(hash)
+      this.notify()
+      return true
+    }
+
+    // Reject a name the loaded pack cannot bind, so a typo is a warning rather
+    // than a paint nothing ever draws with. Only once a pack is loaded: before
+    // that there is nothing to check against, and the load's replay validates it.
+    if (
+      this.internalPlayer != null &&
+      !this.replaceableTextureNames.includes(name)
+    ) {
+      if (__DEV__) {
+        console.warn(
+          `react-native-spritestudio: '${this.resourceUri ?? 'the loaded pack'}' ` +
+            `has no replaceable texture called '${name}'. ` +
+            `Check getReplaceableTextureNames() for what it has.`
+        )
+      }
+      return false
+    }
+
+    this.cellmapTextureOverrides.set(name, { image, options })
+    this.textures.override(hash, image, options)
+    this.notify()
+    return true
+  }
+
+  /**
+   * The runtime replacement in effect for `name`, or `null` when none is — the
+   * **override value only**, never the pack's own texture (the same contract as
+   * ForGodot's `get_cellmap_texture`). Use it to read back what
+   * {@link setCellmapTexture} set.
+   */
+  getCellmapTexture(name: string): SkImage | null {
+    return this.cellmapTextureOverrides.get(name)?.image ?? null
+  }
+
+  /**
+   * Every texture a {@link setCellmapTexture} can target — cellmap names, without
+   * `.ssce`, followed by the external-texture file names a `TCHG` points at,
+   * deduplicated. Empty before a load completes.
+   *
+   * The external names are here because a `TCHG` binds through them, so they are
+   * legitimately replaceable too — the list a UI would offer as "textures you can
+   * swap". It is a snapshot of the loaded pack, cached from the last load rather
+   * than re-read per call.
+   */
+  getReplaceableTextureNames(): string[] {
+    return [...this.replaceableTextureNames]
+  }
+
   // --- content box -------------------------------------------------------
 
   /**
@@ -1239,6 +1393,17 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.loadToken++
     this.stopClock()
     this.releaseNative()
+    // The runtime overrides go with the player, not the pack: `releaseNative`
+    // keeps them so they can re-key onto a new `source`, but a disposed player
+    // has no next load to replay them onto. A shared registry that outlives it
+    // gets each override taken back off first, since those entries are not the
+    // survivors' to inherit.
+    if (!this.ownsTextures) {
+      for (const name of this.cellmapTextureOverrides.keys()) {
+        this.textures.restore(SsRuntimeModule.hashString(name))
+      }
+    }
+    this.cellmapTextureOverrides.clear()
     if (this.ownsTextures) this.textures.dispose()
     this.listeners.clear()
   }

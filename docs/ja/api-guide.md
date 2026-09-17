@@ -24,6 +24,12 @@ description: 公開されている名前のうち実際に必要なものと、�
 ボックスの読み取りを命令的に行えます。これが interface として規定されているのは意図的で、
 react-native-web のルートが同じ API を別の実装から提供できるようにするためです。
 
+prop を持たない、命令的にしか呼べない操作もここにあります。ランタイムのテクスチャ差し替え
+はその 1 つです。`setCellmapTexture(name, image)` はセルマップが描画に使うアトラスを差し替え
+（`null` でパック本来のものへ復元）、`getCellmapTexture(name)` は差し替え値を読み出し、
+`getReplaceableTextureNames()` は渡せる名前を列挙します。
+[テクスチャ](/ja/usage/textures#from-code-at-runtime)を参照してください。
+
 ## 事前に読み込む
 
 `ssPreload(source)` は使い捨てのプレイヤーを読み込むことでリソースとアトラスのキャッシュを
