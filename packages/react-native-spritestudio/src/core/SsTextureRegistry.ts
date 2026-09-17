@@ -52,6 +52,14 @@ export class SsTextureRegistry {
   private cachedBindings: SsTextureBinding[] | null = null
 
   /**
+   * The paint a hash carried when a runtime {@link override} first displaced it,
+   * so {@link restore} can put back exactly what the pack had loaded. `null`
+   * records that the hash carried nothing at that moment — restoring then simply
+   * drops the entry rather than resurrecting a paint that never existed.
+   */
+  private readonly baseUnderOverride = new Map<number, SkPaint | null>()
+
+  /**
    * Registers `image` under the cellmap called `cellmapName` — the name as the
    * `.ssab` carries it, with no `.ssce` extension.
    */
@@ -90,6 +98,55 @@ export class SsTextureRegistry {
     return this.paints.has(textureHash)
   }
 
+  /**
+   * Replaces the paint for `textureHash` with a runtime `image`, remembering the
+   * paint it displaced so {@link restore} can bring it back.
+   *
+   * This is the runtime texture-replacement seam — a costume change or a dynamic
+   * expression driven from code rather than the authoring data (SDK
+   * `40_components/70_external_resources.md`, "Runtime texture replacement"). It
+   * is keyed by the same hash `DrawBatch.texture_hash` carries, so the swap takes
+   * effect on the next `drawInto` with nothing else to do.
+   *
+   * Distinct from {@link registerByHash} only in that it captures the base: a
+   * plain re-register (what a loader does) is not an override and leaves nothing
+   * to restore to.
+   */
+  override(
+    textureHash: number,
+    image: SkImage,
+    options?: SsTextureOptions
+  ): void {
+    // Only the FIRST override captures the base: a second one before a restore
+    // is displacing another override, not the pack's own paint, and recording it
+    // would make `restore` hand back the intermediate image instead of the
+    // original.
+    if (!this.baseUnderOverride.has(textureHash)) {
+      this.baseUnderOverride.set(textureHash, this.paints.get(textureHash) ?? null)
+    }
+    this.registerByHash(textureHash, image, options)
+  }
+
+  /** Whether `textureHash` currently carries a runtime {@link override}. */
+  isOverridden(textureHash: number): boolean {
+    return this.baseUnderOverride.has(textureHash)
+  }
+
+  /**
+   * Undoes an {@link override}, putting back the paint the pack had loaded — or
+   * dropping the entry when the override went on before any paint was there.
+   * Returns whether an override was actually in effect.
+   */
+  restore(textureHash: number): boolean {
+    if (!this.baseUnderOverride.has(textureHash)) return false
+    const base = this.baseUnderOverride.get(textureHash) ?? null
+    this.baseUnderOverride.delete(textureHash)
+    if (base == null) this.paints.delete(textureHash)
+    else this.paints.set(textureHash, base)
+    this.cachedBindings = null
+    return true
+  }
+
   get size(): number {
     return this.paints.size
   }
@@ -121,6 +178,11 @@ export class SsTextureRegistry {
    * drop.
    */
   unregister(textureHash: number): boolean {
+    // Drop any override bookkeeping alongside the paint: an entry taken out from
+    // under an override has no base left to restore to, and leaving the record
+    // behind would make a later `override` of the same hash treat a stale paint
+    // as the pack's own.
+    this.baseUnderOverride.delete(textureHash)
     if (!this.paints.delete(textureHash)) return false
     this.cachedBindings = null
     return true
@@ -129,6 +191,7 @@ export class SsTextureRegistry {
   /** Drops every paint. The images stay alive — see the class comment. */
   dispose(): void {
     this.paints.clear()
+    this.baseUnderOverride.clear()
     this.cachedBindings = null
   }
 }
