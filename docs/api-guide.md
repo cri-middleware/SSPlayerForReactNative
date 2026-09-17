@@ -24,6 +24,12 @@ through a ref (`ref.current.player`) to seek, switch animation or read the
 content box imperatively. It is stated as an interface on purpose: the
 react-native-web route serves the same API from a different implementation.
 
+It is also where the imperative-only calls live — the ones with no prop. Runtime
+texture replacement is one: `setCellmapTexture(name, image)` swaps the atlas a
+cellmap draws from (and `null` restores the pack's own), `getCellmapTexture(name)`
+reads back the swap, and `getReplaceableTextureNames()` lists what you may pass.
+See [Textures](/usage/textures#from-code-at-runtime).
+
 ## Loading ahead of time
 
 `ssPreload(source)` warms the resource and atlas caches by loading a throwaway

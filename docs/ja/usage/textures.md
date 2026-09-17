@@ -55,6 +55,39 @@ textures={{
 呼び出し側のために公開されています。すべてのテクスチャがデコードされるまで `null` を
 返すので、アトラスが欠けたフレームを一瞬見せる代わりに描画を保留できます。
 
+### コードから、実行時に {#from-code-at-runtime}
+
+`textures` prop は宣言的で、効いているアトラスを記述するものです。そうではなく**命令的に**
+差し替えたいとき — シーン途中で手に入れる衣装、ゲーム状態で切り替える表情など — は、ref
+経由でプレイヤーに到達して `setCellmapTexture` を呼びます。
+
+```tsx
+const ref = useRef<SpriteStudioViewRef>(null)
+// ...
+ref.current?.player?.setCellmapTexture('Ringo', winterAtlas)   // 差し替え
+ref.current?.player?.setCellmapTexture('Ringo', null)          // パック本来のものへ復元
+```
+
+アバターシステムはこれを土台にできます — 衣装ごとに書き出しを分けるのではなく、1 つの
+アニメーションと、切り替えるアトラスの一式を持つだけです。`null` を渡すとパック本来の
+アトラスへ**復元**されます — 自分で読み込みを管理する必要はありません。`getCellmapTexture(name)` は効いている差し替え（上書き値のみで、パック本来の
+ものは返しません）を読み出し、`getReplaceableTextureNames()` は渡せる名前一覧 — セルマップ名
+と、オーサリングされたテクスチャ変更が指すテクスチャ*ファイル*名の両方 — を返します。
+
+知っておく価値のある 3 点。いずれも SDK 自身の
+[Runtime texture replacement](https://github.com/cri-middleware/SpriteStudio-SDK/blob/develop/libs/ssruntime/docs/40_components/70_external_resources.md)
+仕様に由来します。
+
+- **インスタンスの子にも効きます。** ここではプレイヤーツリー全体が 1 つのテクスチャ表を
+  通して描画されるので、同じセルマップを参照する子パートも差し替えを拾います — 子に別途
+  設定するものはありません。（ここが、子が自分の表を持つ Godot 版プレイヤーとの違いです。）
+- **`source` の変更をまたいで残ります。** 名前をキーに新しいパックへ再適用されます。`null`
+  で消すか、`dispose` に任せて落とします。
+- **テクスチャ変更（`TCHG`）が効くフレームでは、そちらが勝ちます。** そのフレームはセルマップ名
+  ではなくテクスチャ*ファイル*名でバインドするので、そこに効かせたいならその名前を差し替えます
+  — `getReplaceableTextureNames()` に出ています。また差し替え先は元と**同じサイズ・同じ
+  レイアウト**が前提です。セル矩形は元アトラスのピクセル空間のまま返ります。
+
 ## レジストリ
 
 `SsTextureRegistry` は、セルマップ名のハッシュを、そのバッチが描画に使うペイントへ
