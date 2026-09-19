@@ -6,6 +6,12 @@
 // The point of going through this object rather than writing the string is that
 // a wrong key is a **type error** — a wrong string is a blank canvas.
 export const SsAssets = {
+  "Doll-embedded/Action01_Body": "ss/Doll-embedded/Action01_Body.ssab",
+  "Doll-embedded/Action02_Body": "ss/Doll-embedded/Action02_Body.ssab",
+  "Doll-embedded/Eye": "ss/Doll-embedded/Eye.ssab",
+  "Doll/Action01_Body": "ss/Doll/Action01_Body.ssab",
+  "Doll/Action02_Body": "ss/Doll/Action02_Body.ssab",
+  "Doll/Eye": "ss/Doll/Eye.ssab",
   "ParticleEffect/e001": "ss/ParticleEffect/e001.ssab",
   "ParticleEffect/e002": "ss/ParticleEffect/e002.ssab",
   "ParticleEffect/e003": "ss/ParticleEffect/e003.ssab",
@@ -57,6 +63,8 @@ export const SsAssets = {
   "overall-embedded/Bounding": "ss/overall-embedded/Bounding.ssab",
   "overall-embedded/Effect": "ss/overall-embedded/Effect.ssab",
   "overall-embedded/Instance": "ss/overall-embedded/Instance.ssab",
+  "overall-embedded/InstancePropagation": "ss/overall-embedded/InstancePropagation.ssab",
+  "overall-embedded/InstancePropagation_Source01": "ss/overall-embedded/InstancePropagation_Source01.ssab",
   "overall-embedded/Instance_SourceAnime": "ss/overall-embedded/Instance_SourceAnime.ssab",
   "overall-embedded/Interpolation": "ss/overall-embedded/Interpolation.ssab",
   "overall-embedded/Interpolation_Easing_v1": "ss/overall-embedded/Interpolation_Easing_v1.ssab",
@@ -77,6 +85,8 @@ export const SsAssets = {
   "overall/Bounding": "ss/overall/Bounding.ssab",
   "overall/Effect": "ss/overall/Effect.ssab",
   "overall/Instance": "ss/overall/Instance.ssab",
+  "overall/InstancePropagation": "ss/overall/InstancePropagation.ssab",
+  "overall/InstancePropagation_Source01": "ss/overall/InstancePropagation_Source01.ssab",
   "overall/Instance_SourceAnime": "ss/overall/Instance_SourceAnime.ssab",
   "overall/Interpolation": "ss/overall/Interpolation.ssab",
   "overall/Interpolation_Easing_v1": "ss/overall/Interpolation_Easing_v1.ssab",
