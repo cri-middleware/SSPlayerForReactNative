@@ -15,10 +15,10 @@
 # is built from source; the prebuilt SDK packages only ship libssconverter).
 # Consumers of the npm package never run this.
 #
-# Usage: scripts/deploy-examples.sh [--embedded]
-#   --embedded  bake textures into the .ssab instead of copying them alongside.
-#               The example exercises the REFERENCE layout by default because
-#               that is the one with a texture-loading path to get wrong.
+# Usage: scripts/deploy-examples.sh [embedded=yes|no]
+#   embedded=yes  bake textures into the .ssab instead of copying them alongside.
+#                 Default no: the example exercises the REFERENCE layout, which
+#                 is the one with a texture-loading path to get wrong.
 #
 # SDK location: $SSSDK, else ./SpriteStudio-SDK, else ../SpriteStudio-SDK.
 set -euo pipefail
@@ -96,10 +96,16 @@ EMBEDDED_PROJECTS=(
 EMBEDDED=""
 for item in "$@"; do
     case "$item" in
-        --embedded|-embedded|embedded) EMBEDDED="--embedded" ;;
+        embedded=*)
+            case "${item#*=}" in
+                yes|true|1) EMBEDDED="--embedded" ;;
+                no|false|0) EMBEDDED="" ;;
+                *) echo "${APP}: embedded= takes yes or no, not '${item#*=}'" >&2; exit 2 ;;
+            esac
+            ;;
         -h|--help|help)
-            echo "Usage: ${APP} [--embedded]"
-            echo "  --embedded  bake textures into the .ssab instead of copying them alongside"
+            echo "Usage: ${APP} [embedded=yes|no]"
+            echo "  embedded=yes  bake textures into the .ssab instead of copying them alongside"
             exit 0
             ;;
         *) echo "${APP}: unknown argument '${item}'" >&2; exit 2 ;;

@@ -17,8 +17,8 @@ param (
 # Requires the SpriteStudio-SDK submodule and a Rust toolchain. Consumers of the
 # npm package never run this.
 #
-# Usage: scripts/deploy-examples.ps1 [--embedded]
-#   --embedded  bake textures into the .ssab instead of copying them alongside
+# Usage: scripts/deploy-examples.ps1 [embedded=yes|no]
+#   embedded=yes  bake textures into the .ssab instead of copying them alongside
 #
 # SDK location: $env:SSSDK, else .\SpriteStudio-SDK, else ..\SpriteStudio-SDK.
 
@@ -86,18 +86,30 @@ $localProjects = @(
 )
 $localSrc = Join-Path $rootDir "example/SpriteStudio_Source"
 
-# Accept both spellings: the .js shim forwards arguments verbatim, so the same
-# `npm run deploy-examples -- --embedded` works on every OS.
+# Plain stderr and an exit code, matching deploy-examples.sh (2 = bad usage).
+# Write-Error throws under $ErrorActionPreference = "Stop", so an `exit 2` after
+# one never runs and the shell sees 1.
+function Fail {
+    param([string] $Message, [int] $Code = 1)
+    [Console]::Error.WriteLine("${app}: $Message")
+    exit $Code
+}
+
+# `key=value`, as every other script here takes its options. The .js shim
+# forwards arguments verbatim, so `npm run deploy-examples -- embedded=yes`
+# works the same on every OS.
 $embedded = $false
 foreach ($arg in $ArgsList) {
     switch -Regex ($arg) {
-        '^(--embedded|-embedded|embedded)$' { $embedded = $true }
+        '^embedded=(yes|true|1)$' { $embedded = $true; break }
+        '^embedded=(no|false|0)$' { $embedded = $false; break }
+        '^embedded=' { Fail "embedded= takes yes or no, not '$($arg -replace '^embedded=')'" 2 }
         '^(-h|--help|help)$' {
-            Write-Host "Usage: $app [--embedded]"
-            Write-Host "  --embedded  bake textures into the .ssab instead of copying them alongside"
+            Write-Host "Usage: $app [embedded=yes|no]"
+            Write-Host "  embedded=yes  bake textures into the .ssab instead of copying them alongside"
             exit 0
         }
-        default { Write-Error "$app`: unknown argument '$arg'"; exit 2 }
+        default { Fail "unknown argument '$arg'" 2 }
     }
 }
 
