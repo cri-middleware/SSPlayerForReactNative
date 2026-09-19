@@ -80,7 +80,10 @@ function Show-Usage {
     Write-Host "                          $verify)."
     Write-Host "  clean=<yes|no>          Delete <out> first (default: yes, or no when skip="
     Write-Host "                          is given, so a partial run keeps the rest)."
-    Write-Host "  -h | --help             Show this help"
+        Write-Host "  in=                     Accepted and ignored here. The family's build-release"
+    Write-Host "                          scripts share out= clean= verify= in= sdk= skip=,"
+    Write-Host "                          so one command line drives all of them."
+Write-Host "  -h | --help             Show this help"
     Write-Host ""
     Write-Host "Stages:"
     Write-Host "  install   npm ci"
@@ -107,6 +110,9 @@ foreach ($arg in $ArgsList) {
         '^clean=(.*)$'  { $clean = $Matches[1].ToLower() }
         '^skip=(.*)$'   { $skip = $Matches[1].ToLower() -split ',' | Where-Object { $_ } }
         '^(-h|--help|help)$' { Show-Usage; exit 0 }
+        # Accepted so one command line drives build-release in every repository
+        # of the family; this one has no use for it.
+        '^in=' { [Console]::Error.WriteLine("${app}: in= does not apply here; ignored") }
         default { Fail "unknown argument '$arg' (options are key=value; see $app --help)" 2 }
     }
 }
