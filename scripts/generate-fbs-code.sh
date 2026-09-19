@@ -48,6 +48,25 @@
 # SDK location: $SSSDK, else ./SpriteStudio-SDK, else ../SpriteStudio-SDK.
 set -euo pipefail
 
+HELP_APP="$(basename "$0")"
+usage () {
+    cat <<USAGE
+Usage: ${HELP_APP} [OUT_DIR][--help]
+  flatc -c over the three schemas this Player reads (ssab, framedata,
+  effect_draw_plan), into packages/react-native-spritestudio/cpp/format/.
+  Needs flatc. The output is committed; run this only when a schema changes.
+  OUT_DIR  where the headers go (default packages/react-native-spritestudio/cpp/format)
+USAGE
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help|help) usage; exit 0 ;;
+    -*) echo "${HELP_APP}: unknown option '${arg}'" >&2; usage >&2; exit 2 ;;
+    *) ;;   # the output directory, read as $1 below
+  esac
+done
+
 BASEDIR=$(dirname "$0")
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 APP=$(basename "$0")
