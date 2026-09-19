@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Convert the SpriteStudio-SDK bundled test projects (tests/overall, tests/Ringo,
-# tests/ParticleEffect) into the .ssab assets the example app loads.
+# tests/ParticleEffect, tests/Doll) into the .ssab assets the example app loads.
 #
 # Unlike the Flutter Player this repo bundles no converter: React Native has no
 # editor to hook an importer into, so `.sspj` -> `.ssab` is a host-side step
@@ -31,7 +31,7 @@ OUT_ROOT="${ROOTDIR}/example/assets/ss"
 
 # "<SDK tests subdir>|<.sspj filename>". The output directory is the .sspj stem.
 #
-# All three are deliberate:
+# All of them are deliberate:
 #   overall         — the SDK's own reference layout, one .ssab per feature
 #                     (Basic, Mesh, Mask, Effect, BlendMode, ...). `Basic.ssab`
 #                     is the plain-Normal-parts case, so it is the asset that
@@ -45,6 +45,7 @@ PROJECTS=(
     "overall|overall.sspj"
     "Ringo|Ringo.sspj"
     "ParticleEffect|ParticleEffect.sspj"
+    "Doll|Doll.sspj"
 )
 
 # Projects supplied **locally** rather than by the SDK, as
@@ -83,12 +84,13 @@ LOCAL_PROJECTS=(
 # `ParticleEffect` is the deliberate exception. Embedding bakes the atlas into
 # every `.ssab` that names it, and its two atlases are 1.9 MB and 2.8 MB across
 # 41 packs — roughly 150 MB of app assets, against 5.2 MB for the reference
-# conversion, to exercise a route the other two subjects already cover. The
+# conversion, to exercise a route the other three subjects already cover. The
 # Player screen disables the toggle for that subject and says why, rather than
 # offering it and pointing at a directory nothing produced.
 EMBEDDED_PROJECTS=(
     "overall|overall.sspj|overall-embedded"
     "Ringo|Ringo.sspj|Ringo-embedded"
+    "Doll|Doll.sspj|Doll-embedded"
 )
 
 EMBEDDED=""

@@ -4,7 +4,7 @@ param (
 )
 
 # Convert the SpriteStudio-SDK bundled test projects (tests/overall, tests/Ringo,
-# tests/ParticleEffect) into the .ssab assets the example app loads.
+# tests/ParticleEffect, tests/Doll) into the .ssab assets the example app loads.
 #
 # Unlike the Flutter Player this repo bundles no converter: React Native has no
 # editor to hook an importer into, so `.sspj` -> `.ssab` is a host-side step
@@ -30,7 +30,7 @@ $app = Split-Path -Leaf $PSCommandPath
 
 $outRoot = Join-Path $rootDir "example/assets/ss"
 
-# The output directory is the .sspj stem. All three are deliberate:
+# The output directory is the .sspj stem. All of them are deliberate:
 #   overall         - the SDK's own reference layout, one .ssab per feature
 #                     (Basic, Mesh, Mask, Effect, BlendMode, ...). Basic.ssab is
 #                     the plain-Normal-parts case, so it is the asset that says
@@ -43,7 +43,8 @@ $outRoot = Join-Path $rootDir "example/assets/ss"
 $projects = @(
     @{ Dir = "overall"; Sspj = "overall.sspj" },
     @{ Dir = "Ringo"; Sspj = "Ringo.sspj" },
-    @{ Dir = "ParticleEffect"; Sspj = "ParticleEffect.sspj" }
+    @{ Dir = "ParticleEffect"; Sspj = "ParticleEffect.sspj" },
+    @{ Dir = "Doll"; Sspj = "Doll.sspj" }
 )
 
 # Always converted with textures baked in, whatever --embedded says for the rest.
@@ -58,11 +59,12 @@ $projects = @(
 # ParticleEffect is the deliberate exception. Embedding bakes the atlas into
 # every .ssab that names it, and its two atlases are 1.9 MB and 2.8 MB across 41
 # packs - roughly 150 MB of app assets, against 5.2 MB for the reference
-# conversion, to exercise a route the other two subjects already cover. The
+# conversion, to exercise a route the other three subjects already cover. The
 # Player screen disables the toggle for that subject and says why.
 $embeddedProjects = @(
     @{ Dir = "overall"; Sspj = "overall.sspj"; Out = "overall-embedded" }
     @{ Dir = "Ringo"; Sspj = "Ringo.sspj"; Out = "Ringo-embedded" }
+    @{ Dir = "Doll"; Sspj = "Doll.sspj"; Out = "Doll-embedded" }
 )
 
 # Projects supplied **locally** rather than by the SDK.
