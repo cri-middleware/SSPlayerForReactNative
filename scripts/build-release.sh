@@ -79,7 +79,10 @@ usage () {
     echo "                          ${VERIFY})."
     echo "  clean=<yes|no>          Delete <out> first (default: yes, or no when skip="
     echo "                          is given, so a partial run keeps the rest)."
-    echo "  -h | --help             Show this help"
+        echo "  in=                     Accepted and ignored here. The family's build-release"
+    echo "                          scripts share out= clean= verify= in= sdk= skip=,"
+    echo "                          so one command line drives all of them."
+echo "  -h | --help             Show this help"
     echo ""
     echo "Stages:"
     echo "  install   npm ci"
@@ -112,6 +115,9 @@ while [ $# -gt 0 ]; do
                 verify) VERIFY=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]') ;;
                 clean)  CLEAN=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]') ;;
                 skip)   SKIP=$(printf '%s' "$value" | tr ',' ' ') ;;
+                # Accepted so one command line drives build-release in every repository
+                # of the family; this one has no use for them (AGENTS.md).
+                in) echo "${APP}: ${key}= does not apply here; ignored" >&2 ;;
                 *) echo "${APP}: unknown option '${key}' (see ${APP} --help)" >&2; exit 2 ;;
             esac
             ;;
