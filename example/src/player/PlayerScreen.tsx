@@ -301,6 +301,24 @@ const SUBJECTS = {
   // all — is drawn nine times through the instance path. All nine sit at the
   // origin, so it is framed like Ringo itself.
   RingoInstances: { pack: 'Ringo', files: { Ringo_tyu: { height: 700, centerY: 300 } } },
+  /**
+   * Instance and effect parts on one rig. Both body packs mount `Eye`'s `Wait`
+   * out of a *different* animation pack, and `Action02_Body` authors `EFCT`
+   * keys against `Effect01` / `Effect02` beside them. `overall` keeps the two
+   * apart, a fixture each, so this is the only asset here where a baked frame
+   * has to carry both at once.
+   *
+   * `ownsPack` because this subject *is* the project: `Eye` belongs on the
+   * dropdown too, being the pack the instance parts reach into.
+   *
+   * `CENTRED` rather than a measured bound — Doll is authored on a 320 canvas
+   * with the pivot at its centre, so 480 can only leave margin, never crop.
+   */
+  Doll: {
+    pack: 'Doll',
+    files: { Action01_Body: CENTRED, Action02_Body: CENTRED },
+    ownsPack: true,
+  },
   ParticleEffect: { pack: 'ParticleEffect', files: PARTICLE_FRAMES },
 } as const satisfies Record<string, Subject>
 
@@ -329,6 +347,7 @@ const SUBJECTS = {
 const PACKS = {
   overall: { reference: 'ss/overall', embedded: 'ss/overall-embedded' },
   Ringo: { reference: 'ss/Ringo', embedded: 'ss/Ringo-embedded' },
+  Doll: { reference: 'ss/Doll', embedded: 'ss/Doll-embedded' },
   // **No embedded conversion, and that is not an oversight.** Embedding bakes
   // the atlas into every `.ssab` that names it, and this project's two atlases
   // are 1.9 MB and 2.8 MB across 41 packs — roughly 150 MB of app assets to
