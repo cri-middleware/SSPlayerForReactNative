@@ -573,10 +573,10 @@ std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
           integer != nullptr ? static_cast<double>(integer->value()) : 0.0, point != nullptr,
           point != nullptr ? static_cast<double>(point->v1()) : 0.0,
           point != nullptr ? static_cast<double>(point->v2()) : 0.0, rect != nullptr,
-          rect != nullptr ? SsBox(static_cast<double>(rect->x1()),
-                                  static_cast<double>(rect->y1()),
-                                  static_cast<double>(rect->x2() - rect->x1()),
-                                  static_cast<double>(rect->y2() - rect->y1()))
+          rect != nullptr ? SsBox(static_cast<double>(rect->left()),
+                                  static_cast<double>(rect->top()),
+                                  static_cast<double>(rect->right() - rect->left()),
+                                  static_cast<double>(rect->bottom() - rect->top()))
                           : SsBox(0.0, 0.0, 0.0, 0.0),
           text != nullptr, text != nullptr ? text->str() : std::string()));
     }
