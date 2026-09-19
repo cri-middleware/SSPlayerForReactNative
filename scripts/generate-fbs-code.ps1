@@ -26,7 +26,7 @@
 # The ~26x figure that argument leaned on is a Unity/C# measurement, where each
 # accessor is a ByteBuffer read; it does not carry to C++.
 #
-# Same shape as SSPlayerForGodot's scripts/generate-runtime-code.sh: flatc -c,
+# Same shape as SSPlayerForGodot's scripts/generate-fbs-code.sh: flatc -c,
 # and the _generated suffix dropped on the way into format/. FlatBuffers is used
 # header-only - the generated header pulls in flatbuffers/flatbuffers.h and its
 # reachable set is all inline, so nothing links against flatc's own translation

@@ -4,9 +4,9 @@
 # packages/react-native-spritestudio/nitrogen/.
 #
 # Named after the tool the way the Flutter Player's generate-ffigen-code.sh is,
-# rather than generate-runtime-code.sh: the sibling Players' script of that name
-# generates bindings *from the SDK* (flatc / csbindgen), while this one runs
-# nitrogen over a spec this repo owns.
+# rather than generate-fbs-code.sh: that script, here and in every sibling
+# Player, runs flatc over the SDK's schemas, while this one runs nitrogen over a
+# spec this repo owns.
 #
 # The generated tree IS committed, the same treatment as the Unity Player's
 # SSRuntimeMethods.g.cs and the Flutter Player's ffigen output: consumers must
