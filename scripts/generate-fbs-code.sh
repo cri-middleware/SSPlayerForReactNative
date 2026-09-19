@@ -51,19 +51,22 @@ set -euo pipefail
 HELP_APP="$(basename "$0")"
 usage () {
     cat <<USAGE
-Usage: ${HELP_APP} [OUT_DIR][--help]
+Usage: ${HELP_APP} [out=<dir>] [--help]
   flatc -c over the three schemas this Player reads (ssab, framedata,
-  effect_draw_plan), into packages/react-native-spritestudio/cpp/format/.
-  Needs flatc. The output is committed; run this only when a schema changes.
-  OUT_DIR  where the headers go (default packages/react-native-spritestudio/cpp/format)
+  effect_draw_plan). Needs flatc. The output is committed; run this only when
+  a schema changes.
+  out=<dir>  where the headers go
+             (default packages/react-native-spritestudio/cpp/format)
 USAGE
 }
 
+OUT_DIR_OPT=""
 for arg in "$@"; do
   case "$arg" in
+    out=?*) OUT_DIR_OPT="${arg#out=}" ;;
+    out=) echo "${HELP_APP}: out= needs a directory" >&2; usage >&2; exit 2 ;;
     -h|--help|help) usage; exit 0 ;;
-    -*) echo "${HELP_APP}: unknown option '${arg}'" >&2; usage >&2; exit 2 ;;
-    *) ;;   # the output directory, read as $1 below
+    *) echo "${HELP_APP}: unknown argument '${arg}'" >&2; usage >&2; exit 2 ;;
   esac
 done
 
@@ -74,7 +77,7 @@ APP=$(basename "$0")
 # `tools/check-framedata.sh` reuses this script with the output pointed at a
 # scratch directory, so the guard and the generator can never disagree about
 # flatc's flags or the `_generated` rename.
-OUT_DIR="${1:-${ROOTDIR}/packages/react-native-spritestudio/cpp/format}"
+OUT_DIR="${OUT_DIR_OPT:-${ROOTDIR}/packages/react-native-spritestudio/cpp/format}"
 
 if ! command -v flatc >/dev/null 2>&1; then
     echo "${APP}: flatc not found — install Google FlatBuffers (brew install flatbuffers)." >&2

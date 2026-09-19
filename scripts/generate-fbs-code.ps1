@@ -54,23 +54,29 @@ $ErrorActionPreference = "Stop"
 
 $HelpApp = Split-Path -Leaf $PSCommandPath
 function Show-Usage {
-    Write-Host "Usage: ${HelpApp} [OUT_DIR][--help]"
+    Write-Host "Usage: ${HelpApp} [out=<dir>] [--help]"
     Write-Host "  flatc -c over the three schemas this Player reads (ssab, framedata,"
-    Write-Host "  effect_draw_plan), into packages/react-native-spritestudio/cpp/format/."
-    Write-Host "  Needs flatc. The output is committed; run this only when a schema changes."
-    Write-Host "  OUT_DIR  where the headers go (default packages/react-native-spritestudio/cpp/format)"
+    Write-Host "  effect_draw_plan). Needs flatc. The output is committed; run this only"
+    Write-Host "  when a schema changes."
+    Write-Host "  out=<dir>  where the headers go"
+    Write-Host "             (default packages/react-native-spritestudio/cpp/format)"
 }
 
 $OutDir = $null
 foreach ($arg in $ArgsList) {
     switch -Regex ($arg) {
-        '^(-h|--help|help)$' { Show-Usage; exit 0 }
-        '^-' {
-            [Console]::Error.WriteLine("${HelpApp}: unknown option '$arg'")
+        '^out=(.+)$' { $OutDir = $Matches[1]; break }
+        '^out=$' {
+            [Console]::Error.WriteLine("${HelpApp}: out= needs a directory")
             Show-Usage
             exit 2
         }
-        default { $OutDir = $arg }
+        '^(-h|--help|help)$' { Show-Usage; exit 0 }
+        default {
+            [Console]::Error.WriteLine("${HelpApp}: unknown argument '$arg'")
+            Show-Usage
+            exit 2
+        }
     }
 }
 

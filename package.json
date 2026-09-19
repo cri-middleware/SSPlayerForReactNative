@@ -22,7 +22,7 @@
     "check-web-barrel is plain node rather than a .sh/.ps1 pair, and needs no",
     "Brain at all: nothing in it is platform-specific, so a shim would only shut",
     "Windows contributors out of the one check they could otherwise run.",
-    "generate-fbs-code takes an optional output dir so check-framedata can",
+    "generate-fbs-code takes out=<dir> so check-framedata can",
     "regenerate into a scratch dir and diff, rather than reimplementing it.",
     "build names the package rather than --workspaces --if-present: docs has a",
     "build too, and it is typedoc + vitepress, already reachable as `docs`.",

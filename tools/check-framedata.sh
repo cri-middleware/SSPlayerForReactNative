@@ -50,7 +50,7 @@ echo "==> checking cpp/format/ is current"
 # Same generator the real one runs, pointed at a scratch dir, so the two can
 # never disagree about flatc's flags or the `_generated` rename.
 rm -rf "$BUILD_DIR/format"
-"$ROOT_DIR/scripts/generate-fbs-code.sh" "$BUILD_DIR/format" >/dev/null
+"$ROOT_DIR/scripts/generate-fbs-code.sh" "out=$BUILD_DIR/format" >/dev/null
 if ! diff -ru "$FORMAT_DIR" "$BUILD_DIR/format"; then
   echo "" >&2
   echo "check-framedata.sh: cpp/format/ is stale — run: npm run generate-fbs-code" >&2
