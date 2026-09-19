@@ -45,9 +45,40 @@
 # Prerequisites: flatc.
 # SDK location: $env:SSSDK, else .\SpriteStudio-SDK, else ..\SpriteStudio-SDK.
 
-param([string]$OutDir)
+param(
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$ArgsList
+)
 
 $ErrorActionPreference = "Stop"
+
+$HelpApp = Split-Path -Leaf $PSCommandPath
+function Show-Usage {
+    Write-Host "Usage: ${HelpApp} [out=<dir>] [--help]"
+    Write-Host "  flatc -c over the three schemas this Player reads (ssab, framedata,"
+    Write-Host "  effect_draw_plan). Needs flatc. The output is committed; run this only"
+    Write-Host "  when a schema changes."
+    Write-Host "  out=<dir>  where the headers go"
+    Write-Host "             (default packages/react-native-spritestudio/cpp/format)"
+}
+
+$OutDir = $null
+foreach ($arg in $ArgsList) {
+    switch -Regex ($arg) {
+        '^out=(.+)$' { $OutDir = $Matches[1]; break }
+        '^out=$' {
+            [Console]::Error.WriteLine("${HelpApp}: out= needs a directory")
+            Show-Usage
+            exit 2
+        }
+        '^(-h|--help|help)$' { Show-Usage; exit 0 }
+        default {
+            [Console]::Error.WriteLine("${HelpApp}: unknown argument '$arg'")
+            Show-Usage
+            exit 2
+        }
+    }
+}
 
 $scriptDir = Split-Path -Parent $PSCommandPath
 $rootDir = Split-Path -Parent $scriptDir
