@@ -1,31 +1,37 @@
 # SSPlayerForReactNative — AI Agent Guide
 
+## Operating rules
+
+*   Keep changes scoped to the requested task. Unrequested hardening is a suggestion, not a commit; a defect
+    you actually hit in the code you touched is not — fix it, or say plainly why you did not.
+*   Do not commit, push, or open PRs unless the user explicitly asks.
+*   Before editing, read enough surrounding context to understand callers and invariants, the ones below
+    included. If the read tool truncated a file, read the remaining ranges first.
+*   Follow the existing style of the file you touch (naming, type usage, control flow, error handling).
+*   **Anything that exists twice changes twice** — a page and its translation, a `.sh` and its `.ps1`. A
+    change that lands in one half is the defect this family produces most.
+*   **Finish by running this repository's checks**: the table in [CONTRIBUTING.md](./CONTRIBUTING.md) —
+    typecheck after editing TypeScript, and `npm run check-framedata` after touching `framedata.fbs` or the
+    FrameData read path. Read what a run says it verified rather than its exit code — several checks here
+    pass, or skip themselves, when a prerequisite is missing.
+*   **Do not restate here what another file owns.** The table below says which file that is; a fact that
+    belongs to none of them goes where it will be seen to go stale.
+*   **Never commit inside the `SpriteStudio-SDK` submodule.** A change the core needs is a pull request in
+    the SDK repository, followed by a submodule bump here.
+*   **Playback and rendering semantics are the SDK's** — see [its AGENTS.md](./SpriteStudio-SDK/AGENTS.md)
+    and `SpriteStudio-SDK/libs/ssruntime/docs/` for the contracts this Player implements.
+*   **Generated code is committed and never hand-edited** — `nitrogen/` and `cpp/format/`. Change the spec
+    or the `.fbs` and re-run the generator.
+*   **Write in the family's words.** Before coining a term, grep the SDK submodule
+    (`SpriteStudio-SDK/libs/*/docs`) and check the other players — a pack is **Reference** or **Embedded**,
+    never "sibling" or "embedded atlas".
+
+## What this repo is
+
 The React Native **Body** for the SpriteStudio-SDK **Brain**: an npm workspace whose package drives
 the Rust `libssruntime` over **Nitro Modules (JSI)** and draws through **React Native Skia**. The
 Brain lives in the `SpriteStudio-SDK/` submodule — see its own
 [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
-
-## Operating rules
-
-*   Keep changes scoped to the requested task.
-*   Do not commit, push, or open PRs unless the user explicitly asks.
-*   Before editing, read enough surrounding context to understand callers and invariants; if the
-    read tool truncated the file, read the remaining ranges first.
-*   Follow existing code style in touched files (naming, type usage, control flow, error handling).
-*   **Generated code is committed and never hand-edited** — `nitrogen/` and `cpp/format/`. Change
-    the spec or the `.fbs` and re-run the generator.
-*   Validate with the table in [CONTRIBUTING.md](./CONTRIBUTING.md): typecheck after editing
-    TypeScript, `npm run check-framedata` after touching `framedata.fbs` or the FrameData read path.
-*   Fix stale docs in the same turn you notice them.
-*   **Each fact has one home, and the others link to it.** What a *consumer* needs goes in `docs/`;
-    what a *contributor* needs goes in `CONTRIBUTING.md` or `docs/development/`. Writing a second
-    copy of a list is how the first one goes stale.
-*   **Write in the family's words.** Before coining a term, grep the SDK submodule
-    (`SpriteStudio-SDK/libs/*/docs`) and check the other players — a pack is **Reference** or
-    **Embedded**, never "sibling" or "embedded atlas".
-*   **Playback and rendering semantics are the SDK's.** See
-    [its AGENTS.md](./SpriteStudio-SDK/AGENTS.md) and `SpriteStudio-SDK/libs/ssruntime/docs/` for
-    the contracts this Player implements; do not restate them here.
 
 ## Where each answer is written
 
@@ -60,32 +66,30 @@ pointer before changing one.
 And these, because no code site could hold them:
 
 *   **Layer 1 owns the drawing, not just the geometry.** JS's per-frame job is one call per player,
-    `drawInto`; nothing per-vertex crosses the JSI boundary. Routing vertices through JS was
-    measured and does not work — `Skia.MakeVertices` unmarshals host objects one vertex at a time.
-*   **L2 must import nothing from `react` or `react-native`**, so headless use, react-native-web
-    and a future renderer stay possible. Skia is fair game: it is the drawing backend, not the UI
-    framework. **Nothing enforces this** — no lint rule, no test.
-*   **Adding a file to `cpp/` needs a step on each platform, and iOS fails silently.** The podspec
-    globs `cpp/**`, but the glob is expanded at `pod install` time; `android/CMakeLists.txt` lists
-    sources explicitly and fails loudly at link time. The same goes for a nitrogen run that adds
-    a file.
-*   **Android autolinking needs a `ReactPackage` implementation even for a C++-only module**, plus
-    the Kotlin plugin and a hand-written `JNI_OnLoad` — nitrogen generates the registration but not
-    its caller. Follow the app's `reactNativeArchitectures` and never hardcode `abiFilters`; the
-    Brain ships no 32-bit `x86`. `SsPlayerPackage.kt` is read by an autolinking **regex over the
-    whole file, first match wins**, so prose naming a type and `ReactPackage` in the wrong order
-    gets instantiated as a class name.
+    `drawInto`; nothing per-vertex crosses the JSI boundary. Routing vertices through JS was measured and
+    does not work — `Skia.MakeVertices` unmarshals host objects one vertex at a time.
+*   **L2 must import nothing from `react` or `react-native`**, so headless use, react-native-web and a
+    future renderer stay possible. Skia is fair game: it is the drawing backend, not the UI framework.
+    **Nothing enforces this** — no lint rule, no test.
+*   **Adding a file to `cpp/` needs a step on each platform, and iOS fails silently.** The podspec globs
+    `cpp/**`, but the glob is expanded at `pod install` time; `android/CMakeLists.txt` lists sources
+    explicitly and fails loudly at link time. The same goes for a nitrogen run that adds a file.
+*   **Android autolinking needs a `ReactPackage` implementation even for a C++-only module**, plus the
+    Kotlin plugin and a hand-written `JNI_OnLoad` — nitrogen generates the registration but not its caller.
+    Follow the app's `reactNativeArchitectures` and never hardcode `abiFilters`; the Brain ships no 32-bit
+    `x86`. `SsPlayerPackage.kt` is read by an autolinking **regex over the whole file, first match wins**,
+    so prose naming a type and `ReactPackage` in the wrong order gets instantiated as a class name.
 *   **Peer dependencies must stay single-copy.** Two copies of a native module is not a duplicated
-    dependency, it is two autolinked pods fighting over one JSI registration; the root `overrides`
-    block pins each onto the version `expo install` chose. Bump them together with the Expo SDK.
-*   **RN Skia coupling is confined to `SsRNSkiaInterop`.** `RNSkia` in a name means the fragile
-    dependency, `Skia` means the stable one, and the two never share a file — so
-    `grep -rl 'RNSkia::' cpp/` lists exactly what a Skia bump can break. The floor is **2.11**.
-*   **npm workspaces, not pnpm**: isolated layouts break Metro, CMake and podspec path resolution.
-    It also settles a recurring question — SSPlayerForWeb cannot be vendored in, its packages being
-    a pnpm workspace npm refuses to install.
-*   **`.gitignore` carries a NuGet rule from the shared gibo template** (`**/[Pp]ackages/*`) that
-    would swallow the whole workspace; the `### SSPlayerForReactNative ###` section at the bottom
-    undoes it. Re-append that if the template is ever regenerated.
-*   **Two Android build caches survive a source fix** and present as "I changed it and nothing
-    changed": `android/build/generated/autolinking/` and `android/app/build/generated/autolinking/`.
+    dependency, it is two autolinked pods fighting over one JSI registration; the root `overrides` block
+    pins each onto the version `expo install` chose. Bump them together with the Expo SDK.
+*   **RN Skia coupling is confined to `SsRNSkiaInterop`.** `RNSkia` in a name means the fragile dependency,
+    `Skia` means the stable one, and the two never share a file — so `grep -rl 'RNSkia::' cpp/` lists
+    exactly what a Skia bump can break. The floor is **2.11**.
+*   **npm workspaces, not pnpm**: isolated layouts break Metro, CMake and podspec path resolution. It also
+    settles a recurring question — SSPlayerForWeb cannot be vendored in, its packages being a pnpm workspace
+    npm refuses to install.
+*   **`.gitignore` carries a NuGet rule from the shared gibo template** (`**/[Pp]ackages/*`) that would
+    swallow the whole workspace; the `### SSPlayerForReactNative ###` section at the bottom undoes it.
+    Re-append that if the template is ever regenerated.
+*   **Two Android build caches survive a source fix** and present as "I changed it and nothing changed":
+    `android/build/generated/autolinking/` and `android/app/build/generated/autolinking/`.
