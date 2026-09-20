@@ -57,12 +57,7 @@ matching version. There are no changesets here; that differs from SSPlayerForWeb
 where packages are versioned independently. The branch model follows the
 versioning model.
 
-`npm run build-release` builds the tarball into `release-dist/` and re-opens it,
-publishing nothing, so the artifact can be looked at while it can still be fixed.
-`npm run release` is the same run with the publish on the end, and is **macOS
-only** — the tarball carries the Brain's iOS xcframework, which only Xcode can
-build, so a release from anywhere else would ship an Android-only package that
-installs and then fails.
+Cutting a release is maintainer work — see [RELEASING.md](./RELEASING.md).
 
 ## Development Environment
 
@@ -83,16 +78,39 @@ Android slice alone.
 
 ### What to run before opening a PR
 
-[AGENTS.md](./AGENTS.md#verification) has the full table, including the host
-checks and what each one proves. The short version:
-
-| | |
+| Task | Command |
 |---|---|
-| `npm run typecheck` | package and example |
-| `npm test` | the unit tests over `core/`, `player/` and `view/` (any OS, no Brain) |
-| `npm run build` | the package compiles to `lib/` |
-| `npm run check-web-barrel` | the web stub barrel still imports clean (any OS, no Brain) |
-| `npm run generate-nitro-code` then `git diff --exit-code packages/*/nitrogen` | the Nitro bindings are current |
+| Typecheck (package + example) | `npm run typecheck` |
+| Unit tests over `core/`, `player/`, `view/` | `npm test` (any OS, no Brain) |
+| The package compiles to `lib/` | `npm run build` — `bob build`, the step `prepack` runs |
+| FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
+| Mask drawing, and a mask crossing into an instance child | `npm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample |
+| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
+| `ss-*` shaders compile, and their arithmetic | `npm run check-shader` (macOS) |
+| The web stub barrel imports clean, matches `index.ts` and throws | `npm run check-web-barrel` (any OS, no Brain) |
+| Nitro codegen is current | `npm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |
+| Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
+| Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures` |
+| Asset manifest | (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts`. **`--check` calls it stale if you deployed the optional `MaskInstance` sample** — the committed manifest is the without-it state, so do not commit that change |
+
+**Two host checks report a clean bill when they did nothing**, and each says so in its own header:
+`ssbake_check`, where zeroes mean the path never ran, and `ssshader_check`, where a broken `ss-*`
+body and an unported one look identical — so port a body and its row in `ssshader_check.cpp`
+together. **Measure in release, and check the animation is actually playing**: `setup_animation`
+leaves the transport stopped.
+
+`npm test` covers all three layers above Layer 1 on any machine. `vitest.config.mts` aliases
+`react-native`, `@shopify/react-native-skia` and `react-native-reanimated` to stubs under
+`test/support/stubs/`, because they are reached transitively and a Layer 3 test that never mentions
+Skia could not otherwise import. The behaviour under test is faked one layer in, at the package's
+own modules, and the rule the files follow is **fake the layer below, keep the layer under test
+real** — `leakCheck.test.ts` leaves `player/source` alone precisely because the leases are what it
+measures. Drawing is not covered by any of it.
+
+Tests live in `test/` rather than beside the source **because `files` ships `src` recursively**, so
+a `src/**/*.test.ts` would land in the tarball. `typecheck` passes them through
+`tsconfig.test.json` with `--project`; widening the base config's `include` instead would break
+`check-web-barrel`, which runs a bare `tsc --rootDir src`.
 
 **A green CI is not a substitute for running these.** CI has no access to the
 private SDK submodule and no macOS libskia, so it runs typecheck, the unit
@@ -108,6 +126,16 @@ proves.
 Every entry point in `scripts/` is a `.js` shim that picks the `.sh` or `.ps1`
 implementation for the host. **Change both halves together** — naming only one
 would shut out contributors on the other platform, and CI checks that both parse.
+
+| Script | Does | When |
+|---|---|---|
+| `download-sdk` | Install the release pinned in `scripts/SDK_VERSION.txt` into `native/`. **No Rust needed**, and skips when what is installed already matches. | Normal setup |
+| `build-runtime` | Build the Brain from the submodule into the same layout. Writes no version, so it is always replaced and never published. Windows: Android slice only. | Changing the Brain |
+| `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts`. Optional third-party art under `example/SpriteStudio_Source/` is reported and skipped when absent. | Refresh example assets |
+| `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
+| `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. | After a schema change |
+| `build-release` / `release` | See [RELEASING.md](./RELEASING.md). | Maintainers |
+| `prepare-docs` / `build-docs` | See [RELEASING.md](./RELEASING.md). | Working on the docs |
 
 ## Coding Standards
 

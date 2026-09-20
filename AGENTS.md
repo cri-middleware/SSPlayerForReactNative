@@ -1,138 +1,91 @@
 # SSPlayerForReactNative — AI Agent Guide
 
-React Native **Body** for the SpriteStudio-SDK **Brain**. An npm workspace whose package drives the Rust `libssruntime` over **Nitro Modules (JSI)** and draws through **React Native Skia**. The Brain lives in the `SpriteStudio-SDK/` submodule — see its own [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
-
-**Status and what lands when live in [ROADMAP.md](ROADMAP.md)**; this file is the working guide. **The reasoning behind an invariant lives in the code, at the site it binds** — this file is the index, saying what the rule is and where its argument is. The exception is the short list under [Hard constraints](#hard-constraints) that no file could hold: facts about the build system, about Nitro, about what happens when something is *absent*.
+The React Native **Body** for the SpriteStudio-SDK **Brain**: an npm workspace whose package drives
+the Rust `libssruntime` over **Nitro Modules (JSI)** and draws through **React Native Skia**. The
+Brain lives in the `SpriteStudio-SDK/` submodule — see its own
+[AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
 
 ## Operating rules
 
 *   Keep changes scoped to the requested task.
-*   Do not commit unless the user explicitly asks.
-*   Before editing, read enough surrounding context to understand callers and invariants; if the read tool truncated the file, read the remaining ranges before making non-trivial changes.
+*   Do not commit, push, or open PRs unless the user explicitly asks.
+*   Before editing, read enough surrounding context to understand callers and invariants; if the
+    read tool truncated the file, read the remaining ranges first.
 *   Follow existing code style in touched files (naming, type usage, control flow, error handling).
-*   **Generated code is committed and never hand-edited** — `nitrogen/` and `cpp/format/`. Change the spec or the `.fbs` and re-run the generator.
-*   After editing TypeScript, typecheck; after touching `framedata.fbs` or the FrameData read path, run `npm run check-framedata`. See [Verification](#verification).
-*   Fix stale docs in the same turn you notice them (architecture/roadmap drift easily).
-*   **Each fact has one home, and the others link to it.** Anything a *consumer* needs goes in `docs/` — `README.md` is a landing page that points there, and `docs/limitations.md` is the single list of what does and does not draw. Anything a *contributor* needs goes here, in `ROADMAP.md`, or in `docs/development/`. Writing a second copy of a list is how the first one goes stale: the feature list lived in three places and the README's copy spent months calling a shipped feature missing.
-*   **Write for the reader, in the family's words.** State who a page is for before what it does, and give the reason from their side (`your app needs a development build`, not `this package contains native code`). Before coining a term, grep the SDK submodule (`SpriteStudio-SDK/libs/*/docs`) and check the other players at [github.com/cri-middleware](https://github.com/cri-middleware) — a pack is **Reference** or **Embedded**, not "sibling" or "embedded atlas".
-*   **SDK Alignment:** when modifying playback or rendering logic, refer to [`SpriteStudio-SDK/AGENTS.md`](./SpriteStudio-SDK/AGENTS.md) for the Rust runtime's constraints and to `SpriteStudio-SDK/libs/ssruntime/docs/` for the contracts this Player implements — the `DrawBatch` plan, `FrameData`, the part kinds, masks and playback control.
+*   **Generated code is committed and never hand-edited** — `nitrogen/` and `cpp/format/`. Change
+    the spec or the `.fbs` and re-run the generator.
+*   Validate with the table in [CONTRIBUTING.md](./CONTRIBUTING.md): typecheck after editing
+    TypeScript, `npm run check-framedata` after touching `framedata.fbs` or the FrameData read path.
+*   Fix stale docs in the same turn you notice them.
+*   **Each fact has one home, and the others link to it.** What a *consumer* needs goes in `docs/`;
+    what a *contributor* needs goes in `CONTRIBUTING.md` or `docs/development/`. Writing a second
+    copy of a list is how the first one goes stale.
+*   **Write in the family's words.** Before coining a term, grep the SDK submodule
+    (`SpriteStudio-SDK/libs/*/docs`) and check the other players — a pack is **Reference** or
+    **Embedded**, never "sibling" or "embedded atlas".
+*   **Playback and rendering semantics are the SDK's.** See
+    [its AGENTS.md](./SpriteStudio-SDK/AGENTS.md) and `SpriteStudio-SDK/libs/ssruntime/docs/` for
+    the contracts this Player implements; do not restate them here.
 
-## Architecture
+## Where each answer is written
 
-The Brain loads a `.ssab`, advances time, and emits per-frame **SoA buffers** plus a FlatBuffers **`FrameData`** carrying a **DrawBatch** plan. The Body is a four-layer downward dependency — **L1** Nitro bindings and the C++ that walks the plan, bakes geometry and draws into `SkCanvas`; **L2** `SsInternalPlayer`, native lifetime; **L3** `SpriteStudioPlayer`, transport, events and clock; **L4** the components. Each layer's own header comment says what it is for; `src/index.ts` lists the four in order.
-
-| Path | What you would not guess from the tree |
+| Question | File |
 |---|---|
-| `src/core/` | **L2, the react-free boundary.** `fit.ts` is the only copy of the placement arithmetic. |
-| `src/index.web.ts`, `src/web/` | The web stub barrel, reached through `package.json` `browser`. **Not web support** — see below. |
-| `cpp/SsRNSkiaInterop.{hpp,cpp}` | **The only place RN Skia's internals are touched.** Everything else uses Skia's public API. |
-| `cpp/format/`, `nitrogen/`, `docs/api/` | Generated. **Committed except `docs/api/`, never hand-edited.** |
-| `native/` | **Gitignored.** The Brain, installed by `download-sdk` or `build-runtime`. |
-| `docs/` | The VitePress site — **user-facing documentation, and where anything a consumer needs belongs.** `.vitepress/config.mts`'s header carries the shelf conventions and the divergences from the sibling players. |
+| What the package does, and how to use it | [README.md](./README.md), the [docs site](./docs/) |
+| What does and does not draw | [docs/limitations.md](./docs/limitations.md), the single list |
+| How to set up, build, test and verify | [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/development/](./docs/development/) |
+| How the site is built and a release is cut | [RELEASING.md](./RELEASING.md), maintainers only |
+| Status, what lands when, and what is out of scope | [ROADMAP.md](./ROADMAP.md) |
+| What a layer is for | that layer's own header comment; `src/index.ts` lists the four in order |
+| The argument behind an invariant below | the code site named beside it |
 
-## Hard constraints
+## Invariants
 
-**These are the rules. The argument for each is in the code**, at the site it binds — follow the pointer before changing one.
+The rules are here; **the argument for each is in the code**, at the site it binds. Follow the
+pointer before changing one.
 
 | Rule | Where the reasoning is |
 |---|---|
 | Every buffer handed to JS is valid only until the next `update()`. `generation` is stamped into every struct; compare before reading. **Nitro's `dispose()` is a virtual no-op unless C++ overrides it.** | `src/specs/SsRuntime.nitro.ts`, "Lifetime rule" · `cpp/HybridSsContext.hpp` |
 | The `.ssab` is **verified**, and `SsAnimeBinaryView` is the only thing that verifies it. Build one per load and keep it. | `cpp/SsAnimeBinary.hpp` · `HybridSsResource::adopt()` |
-| The Brain owns playback state; the transport is passthrough and its semantics are **not** the obvious ones. | `SpriteStudioPlayer.applySettings()` · SDK docs `30_core/20_playback_control.md` |
-| **A pack is a directory, not a file** — so `require()` is not a source, and `assetExts` stays clean of `ssab`/`ssqb`. | `src/player/source.ts`, "Why not `require()`" |
+| The Brain owns playback state; the transport is passthrough, and its semantics are **not** the obvious ones. | `SpriteStudioPlayer.applySettings()` · SDK docs `30_core/20_playback_control.md` |
+| **A pack is a directory, not a file** — so `require()` is not a source, and `assetExts` stays clean of `ssab` / `ssqb`. | `src/player/source.ts`, "Why not `require()`" |
 | **Slots step from the part list, never from `draw_order`** — a hidden part's clock must keep running. | `cpp/SsInstance.hpp` · `npm run check-hidden` |
-| A mask crossing an instance boundary **hands over its coverage**; it is never rebuilt below. | `cpp/SsMask.hpp` · `npm run check-mask`, 4th check |
-| Geometry per kind is the SDK's contract. The gap it leaves is **Effect**: its plan is in simulation space with normalised UVs. | SDK docs `30_core/30_render_loop.md`, `40_components/` · `cpp/SsEffect.hpp` |
+| A mask crossing an instance boundary **hands over its coverage**; it is never rebuilt below. | `cpp/SsMask.hpp` · `npm run check-mask` |
+| Geometry per kind is the SDK's contract. The gap it leaves is **Effect**: its plan is in simulation space with normalised UVs. | SDK docs `30_core/30_render_loop.md` · `cpp/SsEffect.hpp` |
 | **Never re-implement FNV-1a** — `SsRuntime.hashString` exposes the Brain's own. | `src/core/SsTextureRegistry.ts` |
 | The example's subject list is read from the generated manifest, never hand-written. | `example/src/player/PlayerScreen.tsx`, `filesOf()` |
-| The web barrel re-exports **only import-clean modules**; everything else is a throwing stub. Three ways to break it silently, none caught by `typecheck`. | `src/index.web.ts` · `tools/check-web-barrel.mjs` |
-| **Measure in release, and check the animation is playing** — `setup_animation` leaves the transport stopped. | `scripts/build-runtime.*` · `cpp/HybridSsContext.cpp` |
+| The web barrel re-exports **only import-clean modules**; everything else is a throwing stub. | `src/index.web.ts` · `tools/check-web-barrel.mjs` |
 
-**And these live only here, because there is no code that could hold them:**
+And these, because no code site could hold them:
 
-*   **Layer 1 owns the drawing, not just the geometry.** JS's per-frame job is one call per player — `drawInto`. Nothing per-vertex crosses the JSI boundary. Routing vertices through JS was measured and does not work: `Skia.MakeVertices` unmarshals JSI host objects one vertex at a time, so it caps the frame rate wherever the geometry is baked.
-*   **L2 must import nothing from `react`/`react-native`**, so headless use, react-native-web and a future renderer stay possible. Skia is fair game — it is the drawing backend, not the UI framework. **Nothing enforces this**: no lint rule, no test. `npm run check-web-barrel` catches it only for the modules the web barrel re-exports.
-*   **Adding a file to `cpp/` needs a step on each platform, and iOS fails silently.** The podspec globs `cpp/**`, but the glob is expanded at `pod install` time; `android/CMakeLists.txt` lists sources explicitly and fails loudly at link time. Same for a nitrogen run that **adds** a file.
-*   **Android autolinking needs a `ReactPackage` implementation even for a C++-only module**, plus the Kotlin plugin and a hand-written `JNI_OnLoad` (nitrogen generates the registration but not its caller). Follow the app's `reactNativeArchitectures` and never hardcode `abiFilters`; the Brain ships no 32-bit `x86`.
-*   **Peer dependencies must stay single-copy.** Two copies of a native module is not a duplicated dependency, it is two autolinked pods fighting over one JSI registration; the root `overrides` block pins each onto the version `expo install` chose. Bump them together with the Expo SDK.
-*   **RN Skia coupling is confined to `SsRNSkiaInterop`.** `RNSkia` in a name means the fragile dependency, `Skia` means the stable one, and the two never share a file — so `grep -rl 'RNSkia::' cpp/` lists exactly what a Skia bump can break. The floor is **2.11**.
-
-## Toolchain scripts (`scripts/`, `.js` shim → `.sh`+`.ps1`; SDK via `$SSSDK`)
-
-| Script | Does | When |
-|---|---|---|
-| `download-sdk` | Install the release pinned in `scripts/SDK_VERSION.txt` into `native/`. **No Rust needed**, and skips when what is installed already matches. | Normal setup |
-| `build-runtime` | Build the Brain from the submodule into the same layout. Writes no version — that describes the pinned release, which this is not — so it is always replaced, never published, and reports `unknown`. Windows: Android slice only. | Changing the Brain |
-| `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts` to match. Sources come from the SDK's `tests/` and, optionally, `example/SpriteStudio_Source/` — third-party art this repo does not ship, reported and skipped when absent. | Refresh example assets |
-| `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
-| `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. Needs `flatc`. | After a schema change |
-| `build-release` → `release` | The pair: build the tarball into `release-dist/` and re-open it, then the same run with the publish on the end. **`sdk=build` cannot pack** — `prepack` refuses a Brain that is not the pinned release, so that mode rehearses everything and reports the file list instead. `release` is macOS-only; `build-release` is not. | Before a release |
-| `prepare-docs` → `build-docs` | `npm ci`, then TypeDoc + VitePress into `docs/.vitepress/dist`. **No Brain, no Rust** — TypeDoc reads TypeScript and VitePress reads markdown, which is why `pages.yml` checks out without submodules. `scripts/build-pages.sh` is the two together and is what that workflow runs. | Working on the docs |
-
-## Verification
-
-Install the Brain first (`npm run download-sdk`, or `npm run build-runtime -- build=release` when working on it).
-
-| Task | Command |
-|---|---|
-| Typecheck (package + example) | `npm run typecheck` |
-| Unit tests (`core/`, `player/`, `view/`) | `npm test` (any OS, **no Brain needed**, also in CI) — `vitest run` over `packages/react-native-spritestudio/test/`. |
-| The package compiles to `lib/` | `npm run build` (any OS) — `bob build`, the step `prepack` runs before publishing. |
-| FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
-| Mask drawing, and a mask crossing into an instance child | `npm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample. |
-| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
-| `ss-*` shaders compile, and their arithmetic | `npm run check-shader` (macOS) |
-| The web stub barrel still imports clean, matches `index.ts` and throws | `npm run check-web-barrel` (any OS, no Brain needed, also in CI) |
-| The docs site builds, and no page link is dead | `npm run build-docs` (any OS, no Brain needed). **It does not check `#anchors`** — a link to a heading that does not exist still builds green, so verify those by hand. |
-| Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` (also in CI) |
-| Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
-| Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures`. |
-| Asset manifest | `deploy-examples` refreshes it; (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts` to verify. **`--check` calls it stale if you deployed the optional `MaskInstance` sample** — the manifest describes a deployed tree and the committed one is the without-it state. That modification is on purpose; do not commit it. |
-
-**CI runs what it can without SDK access** (`.github/workflows/ci.yml`): typecheck, the unit tests, the Nitro bindings being current, `bob build`, the web stub barrel, both halves of every toolchain script parsing, and the `files` guard. It cannot run the host checks or `prepack` — those need the private SDK submodule, and two of them need the macOS-only libskia — so a green CI is not a substitute for running them before a release.
-
-**What `npm test` covers, and where the fakes are.** All three layers above
-Layer 1, on any machine: `core/` (URI resolution, the fit/align arithmetic, the
-refcounts `SsRuntime.liveHandles` rests on), `player/` (the transport, the lease
-bookkeeping, the event gates, the leak check) and `view/` (the hook's load and
-teardown decisions, the boolean `playing` prop mapped onto four verbs, the
-scene's single clock and draw order).
-
-Two seams, and they are different in kind. **`vitest.config.mts` aliases
-`react-native`, `@shopify/react-native-skia` and `react-native-reanimated` to
-stubs** under `test/support/stubs/` — those are reached transitively (Skia comes
-in through `SsTextureLoader` at module scope), so without them a Layer 3 test
-that never mentions Skia cannot import. They only have to be importable and
-inspectable, which is why the Skia one records what a tick drew. **The behaviour
-under test is faked one layer in, at the package's own modules**: a test
-`vi.mock`s `src/runtime` (the Nitro hybrid object built at module scope, which
-is what actually needs a device), plus whichever of `core/SsInternalPlayer`,
-`core/SsTextureRegistry`, `player/source` and `player/SpriteStudioPlayer` sits
-below what it is about. `test/support/` holds one fake per module and
-`definePack(uri, …)` configures the lot. The rule the files follow: **fake the
-layer below, keep the layer under test real** — `leakCheck.test.ts` leaves
-`player/source` alone precisely because the leases are what it measures.
-
-What this still does not cover is **drawing**, which no fake can judge: that is
-the host checks below and the example's Player screen. The C++ is not compiled
-by anything in this repository either — see ROADMAP.md.
-
-Tests live in `test/` rather than beside the source **because `files` ships `src`
-recursively** — a `src/**/*.test.ts` would land in the tarball. They are
-typechecked through `tsconfig.test.json`, which `typecheck` passes with
-`--project`: widening the base config's `include` instead would break
-`check-web-barrel`, which runs a bare `tsc --rootDir src` and would then be
-handed the `test/` files.
-
-**Rendering is verified on the example's Player screen** — one feature card per capability, a *Textures* toggle between a **Reference** and an **Embedded** pack, and a **Leak check**. What each subject proves, and the optional `MaskInstance` sample, are in [`example/README.md`](./example/README.md). Read `Mask` and `BlendMode` on **both** platforms: the only platform-specific defect this screen has ever caught was iOS-only.
-
-**Two host checks report a clean bill when they did nothing, and each says so in its own header.** `ssbake_check` — zeroes mean the path never ran. `ssshader_check` — a broken `ss-*` body and an unported one look identical on screen, so **port a body and its row in `ssshader_check.cpp` together**.
-
-## Workspace conventions
-
-*   npm workspaces; **not** pnpm — isolated layouts break Metro, CMake and podspec path resolution. It also settles a question that keeps coming back: **SSPlayerForWeb cannot be vendored in**, its packages being a pnpm workspace npm refuses to install — [ROADMAP.md](ROADMAP.md#surroundings).
-*   Every toolchain script is a `.js` shim over a `.sh` + `.ps1` pair, so naming a `.sh` in `package.json` would shut Windows contributors out.
-*   `.gitignore` carries a NuGet rule (`**/[Pp]ackages/*`) from the shared gibo template that would swallow the whole workspace; the `### SSPlayerForReactNative ###` section at the bottom undoes it. Re-append it if the template is ever regenerated.
-*   `SsPlayerPackage.kt` is read by an autolinking **regex over the whole file, first match wins** — prose naming a type and `ReactPackage` in the wrong order gets instantiated as a class name.
-*   Two Android build caches survive a source fix and present as "I changed it and nothing changed": `android/build/generated/autolinking/` and `android/app/build/generated/autolinking/`.
-*   Expo Go cannot run this package; a prebuild (CNG) is required. Windows, tvOS and visionOS are out of scope — see [ROADMAP.md](ROADMAP.md).
+*   **Layer 1 owns the drawing, not just the geometry.** JS's per-frame job is one call per player,
+    `drawInto`; nothing per-vertex crosses the JSI boundary. Routing vertices through JS was
+    measured and does not work — `Skia.MakeVertices` unmarshals host objects one vertex at a time.
+*   **L2 must import nothing from `react` or `react-native`**, so headless use, react-native-web
+    and a future renderer stay possible. Skia is fair game: it is the drawing backend, not the UI
+    framework. **Nothing enforces this** — no lint rule, no test.
+*   **Adding a file to `cpp/` needs a step on each platform, and iOS fails silently.** The podspec
+    globs `cpp/**`, but the glob is expanded at `pod install` time; `android/CMakeLists.txt` lists
+    sources explicitly and fails loudly at link time. The same goes for a nitrogen run that adds
+    a file.
+*   **Android autolinking needs a `ReactPackage` implementation even for a C++-only module**, plus
+    the Kotlin plugin and a hand-written `JNI_OnLoad` — nitrogen generates the registration but not
+    its caller. Follow the app's `reactNativeArchitectures` and never hardcode `abiFilters`; the
+    Brain ships no 32-bit `x86`. `SsPlayerPackage.kt` is read by an autolinking **regex over the
+    whole file, first match wins**, so prose naming a type and `ReactPackage` in the wrong order
+    gets instantiated as a class name.
+*   **Peer dependencies must stay single-copy.** Two copies of a native module is not a duplicated
+    dependency, it is two autolinked pods fighting over one JSI registration; the root `overrides`
+    block pins each onto the version `expo install` chose. Bump them together with the Expo SDK.
+*   **RN Skia coupling is confined to `SsRNSkiaInterop`.** `RNSkia` in a name means the fragile
+    dependency, `Skia` means the stable one, and the two never share a file — so
+    `grep -rl 'RNSkia::' cpp/` lists exactly what a Skia bump can break. The floor is **2.11**.
+*   **npm workspaces, not pnpm**: isolated layouts break Metro, CMake and podspec path resolution.
+    It also settles a recurring question — SSPlayerForWeb cannot be vendored in, its packages being
+    a pnpm workspace npm refuses to install.
+*   **`.gitignore` carries a NuGet rule from the shared gibo template** (`**/[Pp]ackages/*`) that
+    would swallow the whole workspace; the `### SSPlayerForReactNative ###` section at the bottom
+    undoes it. Re-append that if the template is ever regenerated.
+*   **Two Android build caches survive a source fix** and present as "I changed it and nothing
+    changed": `android/build/generated/autolinking/` and `android/app/build/generated/autolinking/`.
