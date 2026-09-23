@@ -129,8 +129,8 @@ Push-Location $rootDir
 try {
     # --- build ------------------------------------------------------------
     if ($api -eq "yes") {
-        # The root's documented entry point, so this script and the Verification
-        # table in AGENTS.md run the same thing: typedoc, then vitepress build.
+        # The root's `docs` script, so the build is defined once, in package.json:
+        # typedoc, then vitepress build.
         Write-Host ""
         Write-Host ">> npm run docs"
         Invoke-Checked "docs build" { & npm run docs }

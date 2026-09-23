@@ -147,8 +147,8 @@ step () {
 
 # --- build ----------------------------------------------------------------
 if [ "$API" = "yes" ]; then
-  # The root's documented entry point, so this script and the Verification table
-  # in AGENTS.md run the same thing: typedoc, then vitepress build.
+  # The root's `docs` script, so the build is defined once, in package.json:
+  # typedoc, then vitepress build.
   step npm run docs
 else
   if [ ! -d "$ROOT_DIR/docs/api" ]; then
