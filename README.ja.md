@@ -27,10 +27,7 @@
 
 ## 🚀 クイックスタート
 
-**アプリで使う場合**はこのまま下へ。入れる → アセットを準備する → 再生する。その先
-（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。
-**プレイヤー自体や、その下の Rust コアを変更する場合**は
-[チェックアウトから動かす](docs/development/from-source.md)、変更前に読む作業ガイドが
+**アプリで使う場合**はこのまま下へ。入れる → アセットを準備する → 再生する。その先（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。**プレイヤー自体や、その下の Rust コアを変更する場合**は[チェックアウトから動かす](docs/development/from-source.md)、変更前に読む作業ガイドが
 [AGENTS.md](AGENTS.md) です（何がいつ入るかは [ROADMAP.md](ROADMAP.md)）。
 
 ### インストール

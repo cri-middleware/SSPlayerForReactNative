@@ -5,11 +5,9 @@ description: リポジトリを動かす — ネイティブコア、サンプ�
 
 # チェックアウトから動かす
 
-**SDK / プレイヤー開発者向け**です。このパッケージを変更する人、その下の Rust コアを
-変更する人、あるいは npm リリース前にプレイヤーを動かして見たい人が対象です。
+**SDK / プレイヤー開発者向け**です。このパッケージを変更する人、その下の Rust コアを変更する人、あるいは npm リリース前にプレイヤーを動かして見たい人が対象です。
 
-自分のアプリでパッケージを*使う*だけなら、必要なのは[インストール](/ja/setup/install)の
-方です。このページの内容はそこには一切含まれません。
+自分のアプリでパッケージを*使う*だけなら、必要なのは[インストール](/ja/setup/install)の方です。このページの内容はそこには一切含まれません。
 
 ## clone する
 
@@ -49,8 +47,7 @@ SSPlayerForReactNative/
 └── docs/                               <- このサイト
 ```
 
-`AGENTS.md` が同じ範囲を表の形で持っており、各パスの役割とそれに伴う不変条件が
-書かれています。
+`AGENTS.md` が同じ範囲を表の形で持っており、各パスの役割とそれに伴う不変条件が書かれています。
 
 ## Brain を用意する
 
@@ -60,9 +57,7 @@ SSPlayerForReactNative/
 npm run download-sdk
 ```
 
-`scripts/SDK_VERSION.txt` で固定されたリリースをインストールします。**Rust ツールチェーン
-は不要**です。既にインストール済みのものが固定内容と一致していれば処理を飛ばすので、
-再実行しても安全です。
+`scripts/SDK_VERSION.txt` で固定されたリリースをインストールします。**Rust ツールチェーンは不要**です。既にインストール済みのものが固定内容と一致していれば処理を飛ばすので、再実行しても安全です。
 
 **Brain 自体を変更するときにだけ**もう一方が必要になります。
 
@@ -72,11 +67,9 @@ npm run build-runtime -- build=release
 
 `build-runtime` は `SpriteStudio-SDK/` submodule から同じレイアウトへビルドし、
 `<tag>+submodule-<sha>` と刻印するので両者が混同されることはありません。Rust が必要です。
-Windows では Android スライスのみを対象とします（iOS の xcframework には Xcode が必要）
-ので、そこでの完全な答えは `download-sdk` です。
+Windows では Android スライスのみを対象とします（iOS の xcframework には Xcode が必要）ので、そこでの完全な答えは `download-sdk` です。
 
-どちらのスクリプトも `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを
-指す `$SSSDK` を尊重します。
+どちらのスクリプトも `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを指す `$SSSDK` を尊重します。
 
 ```bash
 npm run build-runtime -- platform=ios build=release
@@ -84,13 +77,11 @@ npm run download-sdk -- --force
 ```
 
 ::: warning 計測の前に release でビルドしてください
-`build=debug` の Brain は他のすべてのコストを覆い隠し、ベンチマークが見つけようとしている
-差を平坦にします。実際にここで誤った結論を生んだことがあります。
+`build=debug` の Brain は他のすべてのコストを覆い隠し、ベンチマークが見つけようとしている差を平坦にします。実際にここで誤った結論を生んだことがあります。
 
 2 つのインストールは意図的に区別されています。`download-sdk` は `native/VERSION` と
 `native/BUILD_MODE` を書き、`build-runtime` はどちらも書かず後者を削除します。これにより
-`prepack` が、ローカルビルドや debug ビルドの Brain に対して作られた tarball の公開を
-拒否できます。
+`prepack` が、ローカルビルドや debug ビルドの Brain に対して作られた tarball の公開を拒否できます。
 :::
 
 ## サンプルパックを変換する
@@ -99,12 +90,10 @@ npm run download-sdk -- --force
 npm run deploy-examples
 ```
 
-サンプルアプリ向けに `.sspj` → `.ssab` を、`ssconverter-cli` 経由で行います（Rust が必要）。
-併せて `example/src/ss-assets.ts` — サンプルのサブジェクト一覧が読まれる生成マニフェスト —
+サンプルアプリ向けに `.sspj` → `.ssab` を、`ssconverter-cli` 経由で行います（Rust が必要）。併せて `example/src/ss-assets.ts` — サンプルのサブジェクト一覧が読まれる生成マニフェスト —
 も更新します。
 
-素材は SDK 自身の `tests/` と、任意で `example/SpriteStudio_Source/` から取られます。
-後者はこのリポジトリが同梱しないサードパーティ素材で、無い場合は報告のうえスキップされます。
+素材は SDK 自身の `tests/` と、任意で `example/SpriteStudio_Source/` から取られます。後者はこのリポジトリが同梱しないサードパーティ素材で、無い場合は報告のうえスキップされます。
 
 ## サンプルを動かす
 
@@ -114,8 +103,7 @@ npx expo prebuild --platform ios
 npx expo run:ios        # または --platform android && npx expo run:android
 ```
 
-サンプルアプリは描画の検証面です — 1 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが
-何を証明するか、および任意の `MaskInstance` サンプルについては
+サンプルアプリは描画の検証面です — 1 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが何を証明するか、および任意の `MaskInstance` サンプルについては
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example)
 が扱います。
 

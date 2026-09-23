@@ -5,8 +5,7 @@ description: 3 つのコンポーネントと 4 つのフック、それぞれ�
 
 # コンポーネント早見
 
-コンポーネント 3 つとフック 4 つ。ほとんどのアプリはコンポーネント 1 つだけで足り、
-フックは使いません。
+コンポーネント 3 つとフック 4 つ。ほとんどのアプリはコンポーネント 1 つだけで足り、フックは使いません。
 
 | | こういうとき |
 |---|---|
@@ -15,8 +14,7 @@ description: 3 つのコンポーネントと 4 つのフック、それぞれ�
 
 ## `<SpriteStudioView>`
 
-アニメーション 1 つを自身の箱に収めます。Skia のキャンバスとフレームループを内包した、
-ごく普通の React Native ビューです。
+アニメーション 1 つを自身の箱に収めます。Skia のキャンバスとフレームループを内包した、ごく普通の React Native ビューです。
 
 ```tsx
 import { SpriteStudioView } from 'react-native-spritestudio'
@@ -42,14 +40,12 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 シーク、アニメーション切り替え、コンテンツボックスの読み取り。
 
 ::: warning これを 20 個置けばキャンバスが 20 枚
-1 つずつがキャンバス*と* `requestAnimationFrame` ループを所有します。キャスト全体を
-出すならシーンを使ってください。
+1 つずつがキャンバス*と* `requestAnimationFrame` ループを所有します。キャスト全体を出すならシーンを使ってください。
 :::
 
 ## `<SpriteStudioScene>`
 
-複数のアニメーションを、**キャンバス 1 枚とクロック 1 つ**で。スプライトを保持し、
-それらが共有するキャンバス以外は自身では何も描きません。
+複数のアニメーションを、**キャンバス 1 枚とクロック 1 つ**で。スプライトを保持し、それらが共有するキャンバス以外は自身では何も描きません。
 
 ```tsx
 import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio'
@@ -69,8 +65,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 
 ## `<SpriteStudioSprite>`
 
-シーンの中のアニメーション 1 つ — ビューではなく、位置と描画順です。
-**自分では何も描画せず**、シーンのキャンバスが描きます。
+シーンの中のアニメーション 1 つ — ビューではなく、位置と描画順です。**自分では何も描画せず**、シーンのキャンバスが描きます。
 
 ```tsx
 <SpriteStudioSprite
@@ -82,11 +77,9 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 />
 ```
 
-*どのアニメーションをどう再生するか*に関するものは `<SpriteStudioView>` と共通です。
-違うのは配置で、`x`・`y`・`width`・`height`・`align`・`scale`・`flipX`・`flipY`・`z`。
+*どのアニメーションをどう再生するか*に関するものは `<SpriteStudioView>` と共通です。違うのは配置で、`x`・`y`・`width`・`height`・`align`・`scale`・`flipX`・`flipY`・`z`。
 
-シーンの外では警告を出して何も描きません。
-[複数アニメーション: シーン](/ja/usage/scene)を参照してください。
+シーンの外では警告を出して何も描きません。[複数アニメーション: シーン](/ja/usage/scene)を参照してください。
 
 ## フック
 
@@ -94,23 +87,19 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 
 ### `useSsPartTransform`
 
-Reanimated の shared value でパーツに追従します — 頭の上の HP バーなど。普通のアプリが
-欲しがる可能性があるのは、このフックだけです。
+Reanimated の shared value でパーツに追従します — 頭の上の HP バーなど。普通のアプリが欲しがる可能性があるのは、このフックだけです。
 
 ```tsx
 const transform = useSsPartTransform(player, 'head')
 ```
 
 **ビューピクセル・ルートトランスフォーム適用済み**の
-`SharedValue<SsPartScreenTransform>` を返します。
-[パーツの上書きと追従](/ja/usage/parts#following-a-part)と
+`SharedValue<SsPartScreenTransform>` を返します。[パーツの上書きと追従](/ja/usage/parts#following-a-part)と
 [Reanimated](/ja/usage/reanimated)を参照してください。
 
 ### `useSsTextures`
 
-差し替え用アトラスを `SkImage` へデコードします。`textures` prop の背後にあるフックで、
-デコード済み画像そのものが欲しい呼び出し側のために公開されています。すべてのテクスチャが
-デコードされるまで `null` を返します。
+差し替え用アトラスを `SkImage` へデコードします。`textures` prop の背後にあるフックで、デコード済み画像そのものが欲しい呼び出し側のために公開されています。すべてのテクスチャがデコードされるまで `null` を返します。
 
 ```tsx
 const images = useSsTextures({ Ringo: require('./winter.png') })
@@ -128,18 +117,13 @@ prop を反映し続け、描画可能になったら報告します。**意図�
 const { player, measured, ready } = useSpriteStudioPlayer(props)
 ```
 
-`<SpriteStudioView>` と `<SpriteStudioSprite>` が共有している半分がこれです。自前の
-コンポーネントを書いていて、キャンバス抜きでロードと prop 同期だけが欲しい場合に使います。
+`<SpriteStudioView>` と `<SpriteStudioSprite>` が共有している半分がこれです。自前のコンポーネントを書いていて、キャンバス抜きでロードと prop 同期だけが欲しい場合に使います。
 
 ### `useSsScene`
 
-スプライトが登録されるシーンのレジストリを返し、シーンの外では `null` を返します。主に、
-コンポーネントが空の箱を描く代わりに「シーンが必要だ」とはっきり言えるようにするための
-ものです。
+スプライトが登録されるシーンのレジストリを返し、シーンの外では `null` を返します。主に、コンポーネントが空の箱を描く代わりに「シーンが必要だ」とはっきり言えるようにするためのものです。
 
 ## それ以外
 
 ここに挙げた以外の公開 API — `SpriteStudioPlayer`・`SsInternalPlayer`・
-`SsTextureRegistry`・各キャッシュ・`ssPreload`・`ssCheckForLeaks`・オーバーライドの
-語彙・`SsRuntimeModule` — は[どこから見るか](/ja/api-guide)と
-[生成リファレンス](/api/)が扱います。
+`SsTextureRegistry`・各キャッシュ・`ssPreload`・`ssCheckForLeaks`・オーバーライドの語彙・`SsRuntimeModule` — は[どこから見るか](/ja/api-guide)と[生成リファレンス](/api/)が扱います。

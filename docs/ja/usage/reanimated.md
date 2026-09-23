@@ -5,15 +5,11 @@ description: ビューを動かす、パーツに追従する、そして shared
 
 # Reanimated
 
-Reanimated は peer 依存で、`useSsPartTransform` は `SharedValue` を返します。そこから
-「プレイヤーは Reanimated と双方向につながっている」と考えるのは自然です。**つながって
-いません。** 作り込む前にその境界を知っておく価値があります。
+Reanimated は peer 依存で、`useSsPartTransform` は `SharedValue` を返します。そこから「プレイヤーは Reanimated と双方向につながっている」と考えるのは自然です。**つながっていません。** 作り込む前にその境界を知っておく価値があります。
 
 ## ビューを動かす
 
-`<SpriteStudioView>` はごく普通の React Native ビューです。アニメーション全体を移動・
-フェード・拡縮させたいなら、外側を包むだけです。特別なことは何も要らず、再生には一切
-関係しません。
+`<SpriteStudioView>` はごく普通の React Native ビューです。アニメーション全体を移動・フェード・拡縮させたいなら、外側を包むだけです。特別なことは何も要らず、再生には一切関係しません。
 
 ```tsx
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
@@ -28,13 +24,11 @@ const style = useAnimatedStyle(() => ({
 </Animated.View>
 ```
 
-プレイヤーはその下で自身のレートで描き続け、Reanimated は描き込まれる箱の方を動かします。
-これは独立した 2 つのクロックで、一致している必要はありません。
+プレイヤーはその下で自身のレートで描き続け、Reanimated は描き込まれる箱の方を動かします。これは独立した 2 つのクロックで、一致している必要はありません。
 
 ## パーツに追従する
 
-両者が実際に出会う唯一の場所です。`useSsPartTransform` は毎フレーム パーツをサンプリング
-して shared value に公開するので、React のビューが再レンダリングなしにパーツへ乗れます。
+両者が実際に出会う唯一の場所です。`useSsPartTransform` は毎フレーム パーツをサンプリングして shared value に公開するので、React のビューが再レンダリングなしにパーツへ乗れます。
 
 ```tsx
 const transform = useSsPartTransform(player, 'head')
@@ -53,20 +47,15 @@ const barStyle = useAnimatedStyle(() => ({
 </View>
 ```
 
-値は**ビューピクセルで、ルートトランスフォーム適用済み**なので、そのままスタイルに
-入ります。`valid` で判定してください — パーツが解決されるまで false で、存在しない名前は
-永久に true になりません。
+値は**ビューピクセルで、ルートトランスフォーム適用済み**なので、そのままスタイルに入ります。`valid` で判定してください — パーツが解決されるまで false で、存在しない名前は永久に true になりません。
 
-ここで UI スレッドにあるものと無いものを区別しておきます。**サンプリングは JS スレッド**、
-**消費側は UI スレッド**です。shared value 経由で公開していることが、今日その後半を
-成立させており、前半が移ったときにもそれを保ちます。
+ここで UI スレッドにあるものと無いものを区別しておきます。**サンプリングは JS スレッド**、**消費側は UI スレッド**です。shared value 経由で公開していることが、今日その後半を成立させており、前半が移ったときにもそれを保ちます。
 
 ## まだできないこと
 
 ### shared value から再生を駆動する
 
-shared value の**入力はありません**。`speed`・`loop`・再生位置は通常の prop と命令的
-呼び出しであり、`SharedValue<number>` をそれらに渡すことはできません。レンダー中に
+shared value の**入力はありません**。`speed`・`loop`・再生位置は通常の prop と命令的呼び出しであり、`SharedValue<number>` をそれらに渡すことはできません。レンダー中に
 `.value` を読んで模倣するのは本末転倒です。
 
 ```tsx
@@ -79,11 +68,9 @@ JS 側から駆動してください — `player.setSpeedScale(x)`、または `
 ### フレームループが UI スレッドにあると期待する
 
 ティックはビューでもシーンでも、まだ **JS スレッド**の `requestAnimationFrame` です。
-JS スレッドが混雑すれば再生のムラとして現れ、あなたの側でどれだけ Reanimated を使っても
-解決しません。
+JS スレッドが混雑すれば再生のムラとして現れ、あなたの側でどれだけ Reanimated を使っても解決しません。
 
-これを移すには update → bake → draw の連鎖全体が worklet ランタイムから到達可能である
-必要があり、かつ borrow rule により update と draw を別スレッドに置くことはできません —
+これを移すには update → bake → draw の連鎖全体が worklet ランタイムから到達可能である必要があり、かつ borrow rule により update と draw を別スレッドに置くことはできません —
 つまり段階的にではなく一度に移す作業です。
 [ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md)
 で追跡されています。

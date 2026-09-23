@@ -50,8 +50,7 @@ npm run build-docs     # TypeDoc + VitePress を docs/.vitepress/dist へ
 ```
 
 `scripts/build-pages.sh` はこの 2 つをまとめたもので、`pages.yml` が実行するのもこれです。どちらも
-Brain も Rust も必要としません（TypeDoc は TypeScript を、VitePress は Markdown を読むだけです）。
-そのためこのワークフローは submodule 無しでチェックアウトします。リンク切れではビルドが失敗しますが、
+Brain も Rust も必要としません（TypeDoc は TypeScript を、VitePress は Markdown を読むだけです）。そのためこのワークフローは submodule 無しでチェックアウトします。リンク切れではビルドが失敗しますが、
 **`#anchor` は検査しません**。存在しない見出しへのリンクは緑のまま通るので、手で確認してください。
 
 ## リリースの手順
@@ -65,11 +64,9 @@ npm run release         # 同じ実行の最後に publish を付けたもの
 ```
 
 `release` は **macOS 専用**です。tarball には Brain の iOS xcframework が入り、これを作れるのは
-Xcode だけなので、他の環境からのリリースは「インストールできるが動かない Android 専用パッケージ」を
-出荷することになります。`build-release` はどの OS でも動きます。
+Xcode だけなので、他の環境からのリリースは「インストールできるが動かない Android 専用パッケージ」を出荷することになります。`build-release` はどの OS でも動きます。
 
-**`sdk=build` では pack できません。** `prepack` がピンされたリリース以外の Brain を拒否するため、
-このモードは一通りリハーサルしてファイル一覧を報告するだけになります。
+**`sdk=build` では pack できません。** `prepack` がピンされたリリース以外の Brain を拒否するため、このモードは一通りリハーサルしてファイル一覧を報告するだけになります。
 
 CI が緑でも [CONTRIBUTING.md](./CONTRIBUTING.md) のホストチェックの代わりにはなりません。CI は
 SDK submodule にも macOS の libskia にもアクセスできないため、それらも `prepack` も実行できません。
