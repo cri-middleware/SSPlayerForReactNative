@@ -14,12 +14,13 @@ const config = getDefaultConfig(projectRoot)
 // and is addressed by path: `source="ss/overall/Basic.ssab"`.
 
 // Monorepo: the example consumes the package from source, so Metro has to watch
-// the workspace root and resolve out of both node_modules trees.
+// the workspace root and resolve out of both node_modules trees. Hierarchical
+// lookup stays on: a nested copy — Reanimated's semver 7 under the hoisted
+// semver 6 — is reachable no other way.
 config.watchFolders = [workspaceRoot]
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ]
-config.resolver.disableHierarchicalLookup = true
 
 module.exports = config
