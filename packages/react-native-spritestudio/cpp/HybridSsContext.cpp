@@ -563,7 +563,7 @@ std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
       // author can mean, so absence cannot be encoded as a zero.
       const auto* integer = value->integer();
       const ss::format::Vec2* point = value->point();
-      const ss::format::Rect* rect = value->rect();
+      const ss::format::Bounds* rect = value->rect();
       const auto* text = value->str();
 
       out.push_back(SsUserDataEvent(
