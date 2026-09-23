@@ -92,7 +92,7 @@ inline bool SsMakeUvInverse(const float* uv, SsUvInverse* out) {
 
 inline SsPartColorCorner SsReadPartColorCorner(
     const ss::runtime::SsAttributePartColorKeyValueColor& c) {
-  const ss::runtime::U8Rect& u = c.rgba();
+  const ss::runtime::U8Color& u = c.rgba();
   return SsPartColorCorner{u.r() / 255.0f, u.g() / 255.0f, u.b() / 255.0f, u.a() / 255.0f,
                            c.rate()};
 }
