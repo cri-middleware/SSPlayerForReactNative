@@ -1,7 +1,7 @@
 /**
  * SpriteStudio player for React Native.
  *
- * Four layers, top to bottom (see AGENTS.md):
+ * Four layers, top to bottom:
  *
  *  * **L4** `<SpriteStudioView>` — a Skia canvas, props and a ref.
  *  * **L3** `SpriteStudioPlayer` — transport, clock, events.

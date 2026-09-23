@@ -1382,8 +1382,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
-   * Releases every native handle. Explicit, never left to GC — AGENTS.md's
-   * borrow rule. Idempotent.
+   * Releases every native handle. Explicit, never left to GC — the lifetime
+   * rule in `specs/SsRuntime.nitro.ts`. Idempotent.
    */
   dispose(): void {
     if (this.disposed) return

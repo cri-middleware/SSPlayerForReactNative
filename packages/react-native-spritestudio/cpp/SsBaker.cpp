@@ -103,8 +103,9 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
   if (batches == nullptr || drawOrder == nullptr) return;
 
   // The third part count in play, after `soa.partCount` and `batch->count()`.
-  // Guarded separately below rather than trusted against either — see the
-  // `partCount` trap in AGENTS.md.
+  // Guarded separately below rather than trusted against either: `soa.partCount`
+  // is the world-matrix length / 16, this is `FrameData.parts`, and nothing
+  // cross-checks the two (`ssbake_check` reports a disagreement).
   const auto* parts = fd->parts();
   const uint32_t partStateCount = parts != nullptr ? parts->size() : 0;
 

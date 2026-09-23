@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 //
 // Guards the web stub barrel — `src/index.web.ts`, the entry point that lets an
-// app shipping web as well as native build its web bundle (AGENTS.md, hard
-// constraints). Nothing on it draws; what it has to survive is *import*.
+// app shipping web as well as native build its web bundle. Nothing on it draws;
+// what it has to survive is *import*.
 //
 // Three ways it breaks, none of which `npm run typecheck` can see, and all of
 // which surface in somebody else's web build rather than here:

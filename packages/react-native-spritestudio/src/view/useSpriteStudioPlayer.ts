@@ -209,9 +209,9 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       .catch((error: unknown) => callbacks.current.onError?.(error))
     return () => {
       // Explicit teardown, never GC: every buffer Layer 1 handed out is a borrow
-      // of memory this player owns (AGENTS.md's borrow rule). It also hands back the
-      // cache leases, which is what lets the pack be freed when the last user
-      // of it unmounts.
+      // of memory this player owns (the lifetime rule in `specs/SsRuntime.nitro.ts`).
+      // It also hands back the cache leases, which is what lets the pack be freed
+      // when the last user of it unmounts.
       next.dispose()
       setPlayer(null)
     }

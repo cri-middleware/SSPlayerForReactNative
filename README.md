@@ -35,7 +35,7 @@ that (events, part overrides, custom textures) is the same path further in, on t
 [documentation site](https://cri-middleware.github.io/SSPlayerForReactNative/).
 **Working on the player, or the Rust core under it?**
 [Working from a checkout](docs/development/from-source.md), then
-[AGENTS.md](AGENTS.md) before changing anything; [ROADMAP.md](ROADMAP.md) is what
+[CONTRIBUTING.md](CONTRIBUTING.md) before changing anything; [ROADMAP.md](ROADMAP.md) is what
 lands when.
 
 ### Install

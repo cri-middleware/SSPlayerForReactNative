@@ -2,7 +2,7 @@
 
 The **React Native Player** roadmap. It tracks React-Native-specific work for capabilities the Rust runtime exposes (`SpriteStudio-SDK/ROADMAP.md`). This file is **forward-looking only** — already-shipped features (the draw kinds Normal / Mesh / Shape / Instance / Effect, the framebuffer blend table, PartColor, mask and clipping, the thirteen `ss-*` integration shaders, the override layer, user-data / audio / signal events, the animation lifecycle, `fit`/`align` placement, the resource and atlas caches, `<SpriteStudioScene>`, the Expo config plugin and the typed asset manifest) are not repeated here.
 
-[AGENTS.md](AGENTS.md) is the working guide and [README.md](README.md) carries the requirements.
+[CONTRIBUTING.md](CONTRIBUTING.md) is the working guide and [README.md](README.md) carries the requirements.
 
 Legend: ☐ **Ready** (Player-only, can start now) · 🚧 **In progress** · ⛔ **Blocked on the SDK** · 🕒 **Deferred**.
 

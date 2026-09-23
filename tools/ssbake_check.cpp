@@ -433,8 +433,8 @@ int main(int argc, char** argv) {
   }
   // `setup_animation` leaves the transport **stopped**, so without these the
   // loop below re-checks frame 0 as many times as it is asked to and reports the
-  // same clean result it would for a working sweep. AGENTS.md records this as a
-  // trap that has invalidated whole sets of numbers before; this program has had
+  // same clean result it would for a working sweep. It is a trap that has
+  // invalidated whole sets of numbers before; this program has had
   // it too, which is why the effect totals below are the first numbers here that
   // depend on time passing at all.
   //

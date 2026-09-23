@@ -7,7 +7,7 @@
 /// **Included only from `SsSkiaDraw.cpp`** — same rule as `SsBlend.hpp` and
 /// `SsPartColorShader.hpp`, and for the same reason.
 ///
-/// Two references, and the split is deliberate (see AGENTS.md's rule):
+/// Two references, and the split is deliberate:
 /// **SSPlayerForFlutter** for the architecture, because it faces this port's
 /// constraint — no custom per-vertex varyings, so per-part values are rebuilt
 /// per fragment instead of arriving from a vertex stage. **SSPlayerForGodot**
