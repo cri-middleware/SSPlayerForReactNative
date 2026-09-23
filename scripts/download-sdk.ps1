@@ -16,6 +16,8 @@ param (
 #   --force  re-install even when the pinned version is already installed
 
 $ErrorActionPreference = "Stop"
+# Invoke-WebRequest's progress bar slows the download itself in Windows PowerShell 5.1.
+$ProgressPreference = "SilentlyContinue"
 
 $scriptDir = Split-Path -Parent $PSCommandPath
 $rootDir = Split-Path -Parent $scriptDir
@@ -106,7 +108,15 @@ Write-Host "Extracting SDK..."
 $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
 New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
 try {
-    Expand-Archive -Path $zipFile -DestinationPath $tmpDir -Force
+    # Expand-Archive is a script-module function: run from a session, it reads the
+    # global progress preference rather than this script's.
+    $savedProgress = $global:ProgressPreference
+    $global:ProgressPreference = "SilentlyContinue"
+    try {
+        Expand-Archive -Path $zipFile -DestinationPath $tmpDir -Force
+    } finally {
+        $global:ProgressPreference = $savedProgress
+    }
     if (Test-Path $targetDir) {
         Remove-Item -Recurse -Force $targetDir
     }
