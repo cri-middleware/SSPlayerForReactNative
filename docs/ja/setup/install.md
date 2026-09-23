@@ -19,9 +19,9 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 
 | | |
 |---|---|
-| React Native | `0.86.2` 以上、**New Architecture** |
-| React | `19.2.8` 以上 |
-| Expo | SDK 57、または bare React Native |
+| React Native | `0.88.0-rc.1` 以上、**New Architecture** |
+| React | `19.3.0` 以上 |
+| Expo | SDK 58、または bare React Native |
 | iOS | 15.1+ |
 | Android | API 24+ |
 

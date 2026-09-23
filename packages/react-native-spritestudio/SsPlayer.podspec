@@ -50,7 +50,7 @@ Pod::Spec.new do |s|
   s.license      = { :type => package["license"], :file => "LICENSE.md" }
   s.authors      = "CRI Middleware"
 
-  # 15.1 because that is react-native 0.86's own floor
+  # 15.1 because that is react-native 0.88's own floor
   # (scripts/cocoapods/helpers.rb), and nothing that cannot run RN can consume
   # this pod. It read 14.0 while the README said 14+ and neither was reachable.
   s.platforms    = { :ios => "15.1" }
