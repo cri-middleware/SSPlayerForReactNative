@@ -39,7 +39,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       {/*
-        React Native's `SafeAreaView` is iOS-only, and RN 0.86 draws Android
+        React Native's `SafeAreaView` is iOS-only, and RN 0.88 draws Android
         edge-to-edge — so without this the top of the screen sits *under* the
         status bar, and anything tappable up there silently stops responding.
       */}

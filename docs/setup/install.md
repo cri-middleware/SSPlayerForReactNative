@@ -19,9 +19,9 @@ producing a native build of your app that contains it. Both halves are below.
 
 | | |
 |---|---|
-| React Native | `0.86.2` or newer, **New Architecture** |
-| React | `19.2.8` or newer |
-| Expo | SDK 57, or bare React Native |
+| React Native | `0.88.0-rc.1` or newer, **New Architecture** |
+| React | `19.3.0` or newer |
+| Expo | SDK 58, or bare React Native |
 | iOS | 15.1+ |
 | Android | API 24+ |
 

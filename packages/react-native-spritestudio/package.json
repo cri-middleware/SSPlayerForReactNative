@@ -42,15 +42,16 @@
     "compiled the Nitro/Skia side against. Move these with the overrides when",
     "the example's Expo SDK moves, not when the registry does; that is also why",
     "Dependabot is told to leave these five alone.",
-    "The caret does the right thing on both shapes: ^0.86.2 is the 0.86 line",
-    "(npm locks the minor below 1.0.0), ^2.11.0 and ^4.5.3 span their majors."
+    "The caret does the right thing on both shapes: ^0.88.0-rc.1 is the 0.88",
+    "line, its release candidates included (npm locks the minor below 1.0.0),",
+    "^2.11.2 and ^4.6.0 span their majors."
   ],
   "peerDependencies": {
-    "@shopify/react-native-skia": "^2.11.0",
-    "react": "^19.2.8",
-    "react-native": "^0.86.2",
+    "@shopify/react-native-skia": "^2.11.2",
+    "react": "^19.3.0",
+    "react-native": "^0.88.0-rc.1",
     "react-native-nitro-modules": "^0.37.0",
-    "react-native-reanimated": "^4.5.3"
+    "react-native-reanimated": "^4.6.0"
   },
   "//devDependencies": [
     "`react-test-renderer` is pinned to the exact `react` the root `overrides`",
@@ -66,7 +67,7 @@
     "nitrogen": "^0.37.1",
     "react-native-builder-bob": "^0.43.1",
     "react-native-nitro-modules": "^0.37.1",
-    "react-test-renderer": "19.2.8",
+    "react-test-renderer": "19.3.0",
     "typescript": "^7.0.2",
     "vitest": "^5.0.1"
   },

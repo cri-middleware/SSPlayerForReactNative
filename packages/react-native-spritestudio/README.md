@@ -60,9 +60,9 @@ For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw
 
 | | |
 |---|---|
-| React Native | `^0.86.2` — **New Architecture only** |
-| React | `^19.2.8` |
-| Peer deps | `@shopify/react-native-skia` `^2.11.0`, `react-native-nitro-modules` `^0.36.5`, `react-native-reanimated` `^4.5.3` — plus `react-native-worklets` `^0.11.3`, which Reanimated 4 declares as a peer of its own |
+| React Native | `^0.88.0-rc.1` — **New Architecture only** |
+| React | `^19.3.0` |
+| Peer deps | `@shopify/react-native-skia` `^2.11.2`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — plus `react-native-worklets` `^0.12.2`, which Reanimated 4 declares as a peer of its own |
 | iOS | 15.1+ |
 | Android | API 24+ |
 
