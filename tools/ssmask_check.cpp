@@ -21,7 +21,7 @@
 //      the two framebuffers must differ. This is the one that catches "the
 //      coverage silently became null" again.
 //   4. **A mask reaches into an instance child.** The same draw, over a scene
-//      whose mask has to cross an instance boundary (§2-6, §3-2-2). One mount at
+//      whose mask has to cross an instance boundary. One mount at
 //      a time, against the pack's real atlases, with the caller's coverage
 //      withheld / its transform zeroed / its polarity flipped as controls.
 //      **Skipped when its pack is not deployed** — it needs sample art this
@@ -131,7 +131,7 @@ std::vector<uint8_t> ReadFile(const char* path) {
   return bytes;
 }
 
-/// An opaque atlas, so the §2-5 cutout never removes a writer for want of a real
+/// An opaque atlas, so the cutout never removes a writer for want of a real
 /// texture — this program is testing the encoding, not the threshold.
 sk_sp<SkShader> WhiteAtlas() {
   SkBitmap bm;
@@ -541,7 +541,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
 /// The pack's real atlases, keyed by `DrawBatch.texture_hash`.
 ///
 /// Check 3 gets away with one opaque white shader because it only asks whether
-/// *anything* masked. Check 4 cannot: §2-5's cutout reads the writer's texel
+/// *anything* masked. Check 4 cannot: the cutout reads the writer's texel
 /// alpha, so a flat atlas makes every writer cover its whole quad. Here that
 /// turns three arch shapes into three overlapping rectangles, and with the
 /// invert OP their parity comes out as vertical stripes that no authored mask
@@ -577,7 +577,7 @@ struct Atlases {
         return false;
       }
       SkPaint paint;
-      // Nearest and clamp, so a texel's alpha reaches §2-5's threshold as it was
+      // Nearest and clamp, so a texel's alpha reaches the threshold as it was
       // authored rather than blended with its neighbour.
       paint.setShader(image->makeShader(SkTileMode::kClamp, SkTileMode::kClamp,
                                         SkSamplingOptions(SkFilterMode::kNearest)));
@@ -596,7 +596,7 @@ struct Atlases {
 /// — the caller's plan and coverage, this player's own flags.
 ///
 /// **That mirroring is not itself pinned here.** The composition arithmetic
-/// (§2-6's AND and OR, §3-2-2's `M_child`) lives in `SsSkiaDraw.cpp` and is what
+/// (the AND and OR, `M_child`) lives in `SsSkiaDraw.cpp` and is what
 /// the assertions below read; the seven lines that carry it into the child's
 /// `DrawBakedFrame` live in `HybridSsContext.cpp`, which this program cannot
 /// link. The example's `MaskInstance` card is what covers those.
@@ -622,7 +622,7 @@ struct MountRecorder : ::ssplayer::SsInstanceRenderer {
   bool dropSlotXf = false;
   /// Drops the handed-over coverage, leaving the child to rasterise the
   /// caller's plan against its own geometry — which is what this file did before
-  /// §3-2-2's step 1 was implemented.
+  /// that hand-over was implemented.
   bool dropCoverage = false;
 
   struct Seen {
@@ -665,8 +665,6 @@ struct MountRecorder : ::ssplayer::SsInstanceRenderer {
   }
 };
 
-/// §2-6 / §3-2-2 over the one asset that exercises them.
-///
 /// `Walk_Gate` mounts the same character pack twice and marks **one** of the two
 /// as a mask target, so the AND has a positive and a negative case inside a
 /// single frame — which is why this check names that file rather than building a
@@ -829,10 +827,10 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
                 static_cast<int>(name.size()), name.data(), mount.drawRank, isTarget ? 1 : 0,
                 seen->gotPlan ? 1 : 0, seen->gotCoverage ? 1 : 0, seen->drawn, count(b), count(a));
 
-    // §2-6's AND, read off real data rather than a constructed case: these
+    // The AND, read off real data rather than a constructed case: these
     // scenes mark some mounts as mask targets and some not, in the same frame.
     if (seen->gotPlan != isTarget) {
-      Fail("%.*s is%s a mask target but was handed %s — §2-6's AND",
+      Fail("%.*s is%s a mask target but was handed %s — the AND",
            static_cast<int>(name.size()), name.data(), isTarget ? "" : " not",
            seen->gotPlan ? "a plan" : "none");
     }
@@ -869,21 +867,21 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
         break;
       }
     }
-    // A target out of the writers' scope (§2-1) is handed the plan and correctly
+    // A target out of the writers' scope is handed the plan and correctly
     // masked by none of it, so only the *presence* of one crossing is required.
     if (count(a) < count(b)) {
       ++crossed;
       if (differ(a, c) == 0) {
         Fail("%.*s: zeroing `slotXf` changed nothing, so its vertices are not "
-             "being carried into the caller's coverage space (§3-2-2's M_child)",
+             "being carried into the caller's coverage space (M_child)",
              static_cast<int>(name.size()), name.data());
       }
       if (differ(a, d) == 0) {
-        Fail("%.*s: forcing `visible_inside` changed nothing, so §2-6's OR is "
+        Fail("%.*s: forcing `visible_inside` changed nothing, so the OR is "
              "not reaching the replay",
              static_cast<int>(name.size()), name.data());
       }
-      // §3-2-2 step 1, stated as a difference rather than as a rule: a child
+      // The coverage hand-over, stated as a difference rather than as a rule: a child
       // left to rasterise the caller's plan against its own geometry does not
       // arrive at the same answer. It does not merely mask *less* — the writers
       // in that plan are the caller's parts, so the shapes it draws are whatever

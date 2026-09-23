@@ -61,8 +61,8 @@ PROJECTS=(
 # the SDK's samples keep masks and instance parts in separate files —
 # `allPartsV7/mask` has 289 writer-frames and no instances, `allPartsV7/instanse`
 # has an instance and no mask — so **nothing upstream exercises a mask that has
-# to reach into an instance child**, which is what `40_components/40_mask.md`
-# §2-6 specifies. This is the official SpriteStudio basic sample for exactly that.
+# to reach into an instance child**.
+# This is the official SpriteStudio basic sample for exactly that.
 LOCAL_DEPLOYED=()
 LOCAL_PROJECTS=(
     "Mask|Mask.sspj|MaskInstance"

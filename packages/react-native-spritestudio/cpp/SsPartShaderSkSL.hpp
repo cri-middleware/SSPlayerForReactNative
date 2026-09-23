@@ -91,7 +91,7 @@ float4 ssTex(float2 coord) {
 // Flutter's `ssBlend`. The two ports agree on this formula, which is what
 // corroborates `SsPartColor.hpp`'s coefficient row.
 //
-// `col.a` already carries the part's hierarchical alpha (parts_color §1-3), so
+// `col.a` already carries the part's hierarchical alpha, so
 // `PartState.alpha` is deliberately not re-multiplied here.
 half4 ssFinish(float4 pixel, float4 col, float rate) {
     float vx = 1.0 + uCoef.x * rate;

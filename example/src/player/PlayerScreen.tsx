@@ -254,7 +254,7 @@ const SUBJECTS = {
   // nothing in the SDK's own samples exercises, because those keep masks and
   // instance parts in separate files. All three scenes here mask the scene and
   // mount the characters as instances, so what the card asks is whether the
-  // mask crosses that boundary (`40_components/40_mask.md` §2-6).
+  // mask crosses that boundary.
   //
   // **What a failure looks like here is a character drawn unclipped** — walking
   // through the gate rather than behind it, or lit outside the light. The three

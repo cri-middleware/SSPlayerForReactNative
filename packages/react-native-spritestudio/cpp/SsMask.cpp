@@ -42,7 +42,7 @@ bool SsMaskPlan::build(const ss::runtime::FrameData* fd, const SsBaker& baker,
     if (info.partIndex >= partStateCount) continue;
     const ss::runtime::PartState* state = parts->Get(info.partIndex);
 
-    // §2-2, and both halves are needed. `mask == 0` opts the writer out — a rule
+    // Both halves are needed. `mask == 0` opts the writer out — a rule
     // of its own, so it applies even to a writer that has no cutout to threshold.
     // `hide` has to be tested here because the Brain only drops *mask parts* from
     // `draw_order`: a drawn part turned into a mask still gets its batch when
@@ -62,10 +62,10 @@ bool SsMaskPlan::build(const ss::runtime::FrameData* fd, const SsBaker& baker,
     writer.drawRank = info.drawRank;
     writer.bit = static_cast<int32_t>(writers_.size());
     writer.partDrawIndex = static_cast<int32_t>(q);
-    // §2-3, shared by pure masks and clipping — the same field, read as the OP.
+    // Shared by pure masks and clipping — the same field, read as the OP.
     writer.opInvert = f.maskInfluence;
     writer.isClipping = f.isClipping();
-    // §2-5: the threshold narrows which texels contribute. `mask == 255` writes
+    // The threshold narrows which texels contribute. `mask == 255` writes
     // every non-transparent texel; `mask == 0` writes nothing, which is why the
     // opt-out above and this formula agree.
     const float t = (255.0f - mask) / 255.0f;
@@ -133,7 +133,7 @@ void SsMaskPlan::bubbleChildClipWriters(const SsBaker& childBaker, const SsMaskP
 
   for (const SsMaskWriter& cw : childPlan.writers()) {
     if (writers_.size() >= static_cast<size_t>(kSsMaxMaskWriters)) break;
-    // Only clipping writers carry out of the sub-animation (§2-6). A pure mask
+    // Only clipping writers carry out of the sub-animation. A pure mask
     // closes within the child. A writer the child itself bubbled up does not
     // bubble a second level here — this port runs a single carry-over track.
     if (!cw.isClipping || cw.foreignBaker != nullptr) continue;
@@ -172,7 +172,7 @@ void SsMaskPlan::bubbleChildClipWriters(const SsBaker& childBaker, const SsMaskP
     w.drawRank = ownerRank;
     w.bit = static_cast<int32_t>(writers_.size());
     w.partDrawIndex = cw.partDrawIndex;
-    // §2-6: the child writer's OP composed with the influence reaching the mount —
+    // The child writer's OP composed with the influence reaching the mount —
     // a `mask_influence == 0` instance drops it to the increment (union) plane.
     w.opInvert = cw.opInvert && inheritedInfluence;
     w.isClipping = true;
@@ -202,12 +202,12 @@ bool SsMaskPlan::bitsFor(int32_t rank, const SsMaskPartFlags& flags, SsMaskBits*
   *out = SsMaskBits{};
   out->visibleInside = visibleInside;
   for (const SsMaskWriter& w : writers_) {
-    // §2-1: a pure mask reaches the parts drawn *before* it, a clipping writer
+    // A pure mask reaches the parts drawn *before* it, a clipping writer
     // the ones drawn after.
     const bool active = w.isClipping ? rank > w.drawRank : rank < w.drawRank;
     if (!active) continue;
     const uint32_t bit = 1u << w.bit;
-    // §3-1-4: never fold the two OPs into one accumulator — they do not commute,
+    // Never fold the two OPs into one accumulator — they do not commute,
     // so a shared plane would make coverage depend on the order the writers were
     // listed in.
     if (w.opInvert) {

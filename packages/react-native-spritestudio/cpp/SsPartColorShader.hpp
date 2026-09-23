@@ -1,6 +1,6 @@
 #pragma once
 
-/// The PartColor formula (`parts_color` §1-4) as an SkSL runtime effect.
+/// The PartColor formula as an SkSL runtime effect.
 ///
 /// **Included only from `SsSkiaDraw.cpp`, inside its `SSPLAYER_ENABLE_SKIA_DIRECT`
 /// guard** — same rule as `SsBlend.hpp`, and for the same reason.
@@ -34,7 +34,7 @@
 
 namespace ssplayer {
 
-/// `uCoef`/`uRate`/`uCol*` are §1-4's coefficient row and the four corners;
+/// `uCoef`/`uRate`/`uCol*` are the coefficient row and the four corners;
 /// `uUvOrigin`/`uUvInv` are the UV→(s,t) inverse described above.
 inline const char* kPartColorSkSL = R"SKSL(
 uniform shader atlas;
@@ -60,17 +60,17 @@ half4 main(float2 coord) {
     // Sampled at the raw UV: the atlas shader is the very one the batched path
     // uses, so this samples identically.
     half4 tex = atlas.eval(coord);
-    // Skia hands back premultiplied; §1-4 composites straight colours.
+    // Skia hands back premultiplied; the formula composites straight colours.
     float3 pixel = tex.a > 0.0 ? float3(tex.rgb) / float(tex.a) : float3(tex.rgb);
 
     // varg = (1 + fSrc*rate, fDst*rate, mulFlag): one branch-free formula for
-    // Mix / Mul / Add / Sub. rate == 0 collapses it to the texel (§1-2-4).
+    // Mix / Mul / Add / Sub. rate == 0 collapses it to the texel.
     float vx = 1.0 + uCoef.x * rate;
     float vy = uCoef.y * rate;
     float3 rgb = pixel * vx + mix(float3(1.0), pixel, uCoef.z) * col.rgb * vy;
     rgb = clamp(rgb, 0.0, 1.0);
 
-    // col.a already carries the part's hierarchical alpha (§1-3) — the reason
+    // col.a already carries the part's hierarchical alpha — the reason
     // `PartState.alpha` is deliberately absent from this whole path.
     float a = float(tex.a) * col.a;
     return half4(half3(rgb * a), half(a));

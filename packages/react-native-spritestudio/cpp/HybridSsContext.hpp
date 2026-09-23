@@ -179,8 +179,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// carrying the mount point's opacity), so the two cannot drift — a child is
   /// not a special case of drawing, it is the same draw one transform down.
   ///
-  /// `inherited` is the caller's mask, already composed at the mount point
-  /// (§2-6). When it carries a plan this subtree resolves against **that**
+  /// `inherited` is the caller's mask, already composed at the mount point.
+  /// When it carries a plan this subtree resolves against **that**
   /// coverage instead of building its own, so a mask drawn one level up reaches
   /// down here; its `flags` are filled in below from this player's own parts,
   /// because part indices do not cross an instance boundary.
@@ -189,7 +189,7 @@ class HybridSsContext final : public HybridSsContextSpec,
                      const ::ssplayer::SsMaskInput& inherited = {});
 
   /// Bakes this child and builds its own writer plan so a **caller** can carry
-  /// its clipping writers into its own coverage (§2-6 carry-over). Returns true
+  /// its clipping writers into its own coverage (carry-over). Returns true
   /// only when the plan holds at least one clipping writer worth lifting. Baked
   /// at alpha 1 (coverage ignores vertex colour) and re-baked for real when the
   /// child later draws; a caller reads `baker_` / `maskPlan_` right after this,
@@ -239,8 +239,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   ///
   /// `dtMilliseconds` is what `update()` was handed (0 for a seek) and `looped`
   /// the parent's loop edge for this tick. Called from `update()` and from
-  /// `resync()`, never from the draw: `40_components/20_effect.md` is explicit
-  /// that stepping must not be driven off `draw_order`, since the Brain drops a
+  /// `resync()`, never from the draw:
+  /// stepping must not be driven off `draw_order`, since the Brain drops a
   /// hidden effect from it and an independent one would then freeze in mid-air.
   void stepEffects(float dtMilliseconds, bool looped);
 

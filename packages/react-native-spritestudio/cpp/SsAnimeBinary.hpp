@@ -6,7 +6,7 @@
 //
 // The Brain deliberately returns none of the metadata rendering needs — cellmap
 // names, texture paths, animation names — and tells Players to read it out of
-// the ssab themselves (`20_design/20_architecture.md`). This is that reader, and
+// the ssab themselves. This is that reader, and
 // it lives in C++ so the layers above ask typed questions ("what textures does
 // this pack need?") instead of being handed a buffer to parse. No FlatBuffer
 // ever crosses into JS.
@@ -155,7 +155,7 @@ class SsAnimeBinaryView {
 
   /// Cellmaps and external textures, in that order.
   ///
-  /// Both have to be walked (`30_core/10_initialization.md` §3):
+  /// Both have to be walked:
   /// `DrawBatch.texture_hash` is the cellmap name's hash normally, but a part
   /// under an authored texture change (`TCHG`) carries the hash of a texture
   /// *file* name out of `external_textures` instead. Miss those and exactly
@@ -261,7 +261,7 @@ class SsAnimeBinaryView {
   /// a hidden Effect part from the draw order entirely, and a slot registry
   /// built from that would stop stepping an independent effect the moment it
   /// went off screen — its particles would then resume where they froze rather
-  /// than where they should be (`40_components/20_effect.md`).
+  /// than where they should be.
   std::vector<SsEffectPart> effectParts() const {
     std::vector<SsEffectPart> out;
     const auto* v = root_ != nullptr ? root_->parts() : nullptr;
@@ -303,8 +303,8 @@ class SsAnimeBinaryView {
   /// the art at its own node and follows correctly, so those are false.
   ///
   /// The judgement is the cross-player one every sibling shares, keyed off the
-  /// same `.ssab` field so the answers agree (SDK `20_design/40_api_conventions.md`
-  /// §3; SSPlayerForWgpu's `is_part_skinned_mesh`, SSPlayerForWeb's
+  /// same `.ssab` field so the answers agree
+  /// (SSPlayerForWgpu's `is_part_skinned_mesh`, SSPlayerForWeb's
   /// `isPartSkinnedMesh`): a `mesh_binding` is present and its `influence_bone`
   /// list is non-empty. False out of range.
   bool isPartSkinnedMesh(uint32_t index) const noexcept {
@@ -397,10 +397,10 @@ class SsAnimeBinaryView {
 
   /// The mask flags of part `index`, or an all-false set when out of range.
   ///
-  /// These are the **static** half of masking and the doc leads with the split:
+  /// These are the **static** half of masking:
   /// they are read once at load and never re-read, while `mask` / `priority` /
   /// `hide` come from `FrameData` every frame. Reading either from the wrong
-  /// table is the mistake §1-2 exists to prevent.
+  /// table is the mistake the split exists to prevent.
   SsMaskPartFlags maskFlagsAt(uint32_t index) const noexcept {
     SsMaskPartFlags out;
     const auto* v = root_ != nullptr ? root_->parts() : nullptr;
@@ -408,7 +408,7 @@ class SsAnimeBinaryView {
 
     const ss::format::PartData* part = v->Get(index);
     const ss::format::PartType type = part->part_type_type();
-    // §1-2: `draw_as_mask` is the ssab's single consolidated flag for the
+    // `draw_as_mask` is the ssab's single consolidated flag for the
     // per-type authoring settings on Shape / Text / Nines.
     out.pureMask = type == ss::format::PartType_PartTypeMask || part->draw_as_mask();
     out.maskWrite = part->mask_write();
@@ -455,7 +455,7 @@ class SsAnimeBinaryView {
     out.filterMode = cellmap->filter_mode();
     // Embedded assets are keyed by the hash of the *file name*, not of the
     // cellmap name — the two differ, so the lookup goes through
-    // `image_path_hash` (§3 "For Embedded type").
+    // `image_path_hash`.
     out.embedded = findEmbedded(cellmap->image_path_hash(), &out.embeddedLength);
     return out;
   }
@@ -468,7 +468,7 @@ class SsAnimeBinaryView {
     // An external texture's name *is* its file path; there is no separate one.
     out.imagePath = out.name;
     // ...and its own name hash is the embedded key, since the name is the file
-    // name (§3 note: "External textures are embedded too").
+    // name.
     out.embedded = findEmbedded(out.textureHash, &out.embeddedLength);
     return out;
   }

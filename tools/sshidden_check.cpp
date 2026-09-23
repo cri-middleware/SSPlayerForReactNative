@@ -2,7 +2,7 @@
 // from `draw_order`.
 //
 // The Brain drops a `Hide`-ed part from `draw_order` and from the draw batches
-// — documented SDK design, not a gap (`40_components/40_mask.md`). A host that
+// — documented SDK design, not a gap. A host that
 // walked the draw plan to decide what to step would therefore stop stepping a
 // part the moment it is hidden, and an independently-played child would resume
 // late by exactly the time it spent hidden. `SsInstanceSlots::step` avoids that

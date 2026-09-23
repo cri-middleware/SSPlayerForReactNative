@@ -100,7 +100,7 @@ void RebaseQuadIndices(const uint16_t* quadIndices, int vertexBase, uint16_t* ou
 
 // --- the coverage pass -----------------------------------------------------
 
-/// §3-2's "normalise the long edge to an upper bound": enough for pixel parity
+/// Cap the long edge: enough for pixel parity
 /// on a Full HD-class screen, and 4 MiB of RGBA8 at the limit.
 constexpr float kMaxCoverageEdge = 1024.0f;
 
@@ -117,12 +117,12 @@ const sscore::SsBatchDesc* BatchOfPart(const sscore::SsBaker& baker, int32_t par
   return nullptr;
 }
 
-/// Rasterises every writer's shape into the frame's coverage bitmap (§3-2-1).
+/// Rasterises every writer's shape into the frame's coverage bitmap.
 ///
 /// One bit per writer, drawn with `kPlus` so the disjoint bits OR together. The
 /// canvas is set up so its coordinate space *is* player-local, which is what
 /// makes the local → UV map resolution-independent and independent of the root
-/// transform (§3-2-2).
+/// transform.
 ///
 /// Writers past the first eight go into further **planes**, stacked vertically
 /// in the same image and each carrying its byte in alpha — see
@@ -152,7 +152,7 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
 
   for (const sscore::SsMaskWriter& writer : plan.writers()) {
     // A carried-over (foreign) writer's geometry lives in a mounted child's
-    // baker, carried into this player's space by the mount matrix below (§2-6);
+    // baker, carried into this player's space by the mount matrix below;
     // an own writer's is this player's. Everything downstream — the batch, the
     // texture, the rebasing — reads from whichever baker the geometry came from.
     const bool foreign = writer.foreignBaker != nullptr;
@@ -172,7 +172,7 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
 
     // A Shape writes coverage but samples nothing, so there is no atlas to
     // threshold and the whole polygon is covered. `mask`'s texel threshold
-    // (§2-5) is meaningless without a texel, so the bit goes down flat.
+    // is meaningless without a texel, so the bit goes down flat.
     const bool untextured = batch->kind == ss::runtime::DrawBatchKind_Shape;
     const SkPaint* paint =
         untextured ? nullptr : PaintFor(textures, textureCount, batch->textureHash);
@@ -240,7 +240,7 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   // runs on a **recording** canvas — Layer 4 records one `SkPicture` per frame —
   // so there is no `GrDirectContext` here to make a surface from. Skia
   // rasterises this when the outer picture is played back, in the same frame,
-  // which is also why §3-2-3's size classes and its one-frame-delay
+  // which is also why size classes and one-frame-delay
   // countermeasures have nothing to do here: there is no delay to cover for.
   //
   // sRGB, and it no longer matters which: the bits ride in alpha, which Skia
@@ -276,7 +276,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   // coverage of a writer that has not been walked yet.
   //
   // Built here only for a frame that owns its writers. A sub-animation is handed
-  // the caller's instead (§3-2-2) — see `SsMaskInput::coverage`.
+  // the caller's instead — see `SsMaskInput::coverage`.
   SsMaskCoverage built;
   const SsMaskCoverage* coverage = mask.coverage;
   if (coverage == nullptr && mask.active() && !mask.plan->empty()) {
@@ -304,7 +304,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     // quad nor Shape (an Effect) has no single shape to cut and draws unmasked.
     if (!info.quadShaped && !info.untextured && !meshTarget) return false;
 
-    // §2-6, and the composition happens **here** rather than on the flags: on a
+    // The composition happens **here** rather than on the flags: on a
     // writer `maskInfluence` is the OP and on a target it is the opt-in, so
     // ANDing it into the struct would change what a writer inside this
     // sub-animation does to the coverage.
@@ -326,7 +326,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   /// A point in this frame's own space, in the space the coverage is indexed in.
   ///
   /// The identity for a root, and the mount matrix for a sub-animation: the
-  /// coverage belongs to the caller (§3-2-2), so a child's vertices have to be
+  /// coverage belongs to the caller, so a child's vertices have to be
   /// carried into it — `M_child = M_parent · slot_xf`.
   const auto toCoverageSpace = [&](float x, float y, float* outX, float* outY) {
     if (!mask.inherited) {
@@ -339,7 +339,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     *outY = m[1] * x + m[3] * y + m[5];
   };
 
-  /// §3-3: this part writes coverage and draws **no colour**.
+  /// This part writes coverage and draws **no colour**.
   ///
   /// Per part, not per batch, and that is the whole point. A `PartTypeMask` gets
   /// a `Mask` batch and is caught by kind below, but a Shape (or Text, or
@@ -385,14 +385,13 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       SkAutoCanvasRestore restore(canvas, true);
       canvas->concat(m);
 
-      // §2-6 / §3-2-2: hand the child the caller's coverage, the composed
+      // Hand the child the caller's coverage, the composed
       // settings, and the matrix that carries its vertices into that coverage's
       // space. Composed **here**, where both halves are in scope, so the child
       // resolves its own parts against a finished answer and this side never has
-      // to revise the child's result afterwards — which is the arrangement the
-      // spec's implementation note asks for.
+      // to revise the child's result afterwards.
       SsMaskInput childMask;
-      // §2-6's AND-chain rides down on every mount, coverage or not: a
+      // The AND-chain rides down on every mount, coverage or not: a
       // `mask_influence == 0` instance part settles "unmasked" for its whole
       // subtree — its own masks included — and that verdict has to reach the child
       // even on a frame with no coverage to pass, so the child can turn its OWN
@@ -401,11 +400,11 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
         const sscore::SsMaskPartFlags& own = mask.flags[mount.partIndex];
         childMask.influence = mask.influence && own.maskInfluence;
         // The caller's coverage reaches the child only while the AND survives and
-        // this frame actually has one to pass (§3-2-2). `influence` already folds
+        // this frame actually has one to pass. `influence` already folds
         // in `own.maskInfluence`, so for a root this is exactly the old
         // `own.isTarget()` gate, now composed with the chain from above.
         if (childMask.influence && mask.active()) {
-          // The plan — coverage, writers, bits — is the caller's alone (§3-2-2).
+          // The plan — coverage, writers, bits — is the caller's alone.
           // `flags` deliberately stays null: those are indexed by *part index*,
           // and the child's parts are its own. The child fills in its own before
           // it draws, which is what makes "the child parts' own settings take
@@ -422,7 +421,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
           // a root, and the one already handed down when it is not, because the
           // whole subtree sits at that one position in the outermost draw order.
           childMask.callerRank = mask.inherited ? mask.callerRank : mount.drawRank;
-          // §3-2-2's `M_child = M_parent · slot_xf` — the same order the canvas
+          // `M_child = M_parent · slot_xf` — the same order the canvas
           // above concatenates them in, and for the same reason.
           if (mask.inherited) {
             SkMatrix parent;
@@ -443,12 +442,12 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   for (const sscore::SsBatchDesc& batch : baker.batches()) {
     drawMountsBefore(batch.startRank);
     if (batch.vertexCount == 0 || batch.indexCount == 0) continue;
-    // §3-3: a pure mask writes coverage and draws no colour. Its geometry was
+    // A pure mask writes coverage and draws no colour. Its geometry was
     // baked for the pass above and must not reach the framebuffer.
     if (batch.kind == ss::runtime::DrawBatchKind_Mask) continue;
 
     // A Shape samples nothing: its colour is entirely in the baked vertex
-    // colours (§1-2-3 bypasses the composite formula), and its `texture_hash` is
+    // colours (a Shape bypasses the composite formula), and its `texture_hash` is
     // 0 because it resolves no cell. So it must **not** go through `PaintFor` —
     // the single-entry rule matches unconditionally and would hand it the
     // atlas, texturing a polygon that was never meant to sample one.
@@ -574,7 +573,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       }
       if (tint == nullptr && info.needsPartColorShader) {
         // A mesh reaches this with its four corners already equalised to `lt`
-        // (§1-2, whole-only), so the shader's gradient collapses to a constant
+        // (whole-only), so the shader's gradient collapses to a constant
         // and the UV inverse it is handed never has to be meaningful.
         tint = MakePartColorShader(info.partColor, partUv, paint->refShader());
       }
@@ -586,7 +585,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // in its texcoord channel — the atlas already owns that — and its triangle
       // soup has no affine UV to invert, so neither the quad nor the Shape path
       // fits. Instead it is drawn into an isolated layer and the layer is cut by
-      // the coverage test (§3-2, the covering-texture form): the mesh goes down
+      // the coverage test (the covering-texture form): the mesh goes down
       // once with its atlas, then the same triangles go down again carrying the
       // per-vertex coverage UV, through the replay shader, with `kDstIn` — so a
       // fragment the mask rejects has its layer alpha multiplied to zero. The

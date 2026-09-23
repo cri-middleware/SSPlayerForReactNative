@@ -21,8 +21,8 @@ struct SsMaskCoverage;
 /// The frame's masking, or all-null when nothing writes coverage.
 ///
 /// The plan is built by the caller because it needs the *static* half of the
-/// mask flags, which come from the `.ssab` and are read once at load — the split
-/// §1-2 opens by insisting on. Passing them in also keeps this file free of the
+/// mask flags, which come from the `.ssab` and are read once at load.
+/// Passing them in also keeps this file free of the
 /// `.ssab` reader.
 struct SsMaskInput {
   const sscore::SsMaskPlan* plan = nullptr;
@@ -30,14 +30,14 @@ struct SsMaskInput {
   const sscore::SsMaskPartFlags* flags = nullptr;
   size_t flagCount = 0;
 
-  /// §2-6: the coverage belongs to a **caller** and this frame is the
+  /// The coverage belongs to a **caller** and this frame is the
   /// sub-animation mounted on one of its instance parts.
   ///
   /// The fields below are the caller's composed state, and they are identity
   /// values for a root — so a top-level animation evaluates every part by its
-  /// own settings, which is what the spec asks for.
+  /// own settings.
   ///
-  /// §2-6's `mask_influence` AND-chain, composed down the instance hierarchy. The
+  /// The `mask_influence` AND-chain, composed down the instance hierarchy. The
   /// identity is `true` (a root evaluates each part by its own settings). Once it
   /// reaches `false` it never returns, and the **whole subtree is then unmasked —
   /// its own masks included**, not only the caller's. A mounted sub-animation
@@ -53,7 +53,7 @@ struct SsMaskInput {
   /// survived the AND above **and** the caller had a mask to pass.
   bool inherited = false;
   /// The instance part's own rank in the **caller's** draw order. Scope does not
-  /// compose (§2-6): the sub-animation sits where the instance part sits, so
+  /// compose: the sub-animation sits where the instance part sits, so
   /// every part inside it asks "which writers reach *that* rank".
   int32_t callerRank = -1;
   /// `caller's visible_inside || own` — OR, so once any level asks for "inside",
@@ -63,7 +63,7 @@ struct SsMaskInput {
   /// coverage and its metadata are the caller's alone, so a child's vertices have
   /// to be mapped into that space before they can be looked up in it.
   float slotXf[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
-  /// §3-2-2 step 1: **the caller's rasterised coverage**, borrowed for the
+  /// **The caller's rasterised coverage**, borrowed for the
   /// duration of its draw call.
   ///
   /// Handed over rather than rebuilt, because it cannot be rebuilt here: the
@@ -87,7 +87,7 @@ struct SsInstanceRenderer {
   /// `canvas` is already transformed into the child's space. `alphaScale` is the
   /// mount point's opacity, folded into the child's *bake* rather than applied
   /// as a layer, because SpriteStudio modulates a sub-animation per part.
-  /// `mask` is what the caller composed for this mount (§2-6) — inactive when
+  /// `mask` is what the caller composed for this mount — inactive when
   /// the frame has no mask, or when the instance part is not a mask target and
   /// the AND has therefore settled "unmasked" for everything below it.
   ///

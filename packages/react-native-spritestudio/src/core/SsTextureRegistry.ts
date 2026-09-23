@@ -103,8 +103,7 @@ export class SsTextureRegistry {
    * paint it displaced so {@link restore} can bring it back.
    *
    * This is the runtime texture-replacement seam — a costume change or a dynamic
-   * expression driven from code rather than the authoring data (SDK
-   * `40_components/70_external_resources.md`, "Runtime texture replacement"). It
+   * expression driven from code rather than the authoring data. It
    * is keyed by the same hash `DrawBatch.texture_hash` carries, so the swap takes
    * effect on the next `drawInto` with nothing else to do.
    *

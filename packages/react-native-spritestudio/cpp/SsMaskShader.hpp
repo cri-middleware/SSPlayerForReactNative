@@ -1,7 +1,7 @@
 #pragma once
 
 /// The two SkSL halves of masking: writing the coverage bitmap, and replaying it
-/// at the masked target (`40_components/40_mask.md` §3-2).
+/// at the masked target.
 ///
 /// **Included only from `SsSkiaDraw.cpp`, inside its `SSPLAYER_ENABLE_SKIA_DIRECT`
 /// guard** — the same rule as `SsBlend.hpp` and `SsPartColorShader.hpp`.
@@ -64,7 +64,7 @@ namespace ssplayer {
 /// One writer's contribution to the coverage bitmap.
 ///
 /// `uBit.x` is the writer's bit as an 8-bit alpha within its own plane, and
-/// `uBit.y` is §2-5's cutout threshold (negative = no cutout). The quad goes in
+/// `uBit.y` is the cutout threshold (negative = no cutout). The quad goes in
 /// with `SkBlendMode::kPlus` so the disjoint per-writer bits OR together
 /// losslessly. RGB stays 0, which keeps the returned colour a valid
 /// premultiplied one whatever the bit is.
@@ -73,7 +73,7 @@ uniform shader atlas;
 uniform float2 uBit;
 
 half4 main(float2 coord) {
-    // §2-5: only texels above the threshold contribute. threshold == 0 writes
+    // Only texels above the threshold contribute. threshold == 0 writes
     // every non-transparent texel; a negative one is the textureless case, where
     // the geometry itself is the mask.
     if (uBit.y >= 0.0 && float(atlas.eval(coord).a) <= uBit.y) {
@@ -99,7 +99,7 @@ uniform float4 uCovA;          // coverage uv at (lt, rt)
 uniform float4 uCovB;          // coverage uv at (lb, rb)
 uniform float3 uInc;           // increment-plane writer set, 3 bytes
 uniform float3 uInv;           // invert-plane writer set, 3 bytes
-uniform float  uVisibleInside; // §2-4 polarity: 1 = draw inside the mask
+uniform float  uVisibleInside; // polarity: 1 = draw inside the mask
 
 // Plane `plane`'s byte at the coverage uv `cuv`. The planes are stacked
 // vertically in the one image, so the band offset is a whole plane height.
@@ -139,7 +139,7 @@ half4 main(float2 coord) {
     float2 cuv = mix(mix(uCovA.xy, uCovA.zw, s), mix(uCovB.xy, uCovB.zw, s), t);
 
     bool masked = false;
-    // §3-3: outside the box counts as "no writer". Without this, sampling at the
+    // Outside the box counts as "no writer". Without this, sampling at the
     // edge would let a writer's coverage bleed across the rest of the scene.
     //
     // The upper bound is **exclusive**, and with stacked planes that is
@@ -155,12 +155,12 @@ half4 main(float2 coord) {
         if (uInc.x != 0.0 || uInv.x != 0.0) acc += ss_plane(ss_byte(cuv, 0.0), uInc.x, uInv.x);
         if (uInc.y != 0.0 || uInv.y != 0.0) acc += ss_plane(ss_byte(cuv, 1.0), uInc.y, uInv.y);
         if (uInc.z != 0.0 || uInv.z != 0.0) acc += ss_plane(ss_byte(cuv, 2.0), uInc.z, uInv.z);
-        // §3-1-4: the two planes stay apart to the very end — "any" on the
+        // The two planes stay apart to the very end — "any" on the
         // counter, odd/even on the invert side — and then union.
         masked = acc.x > 0.5 || mod(acc.y, 2.0) >= 0.5;
     }
 
-    // §2-4: draw where `masked == visible_inside`. A runtime effect cannot
+    // Draw where `masked == visible_inside`. A runtime effect cannot
     // discard, and returning transparent is what a discard would have achieved
     // under every blend mode this path draws with.
     if (masked != (uVisibleInside > 0.5)) return half4(0.0);
@@ -217,7 +217,7 @@ struct SsMaskCoverage {
   bool valid() const { return image != nullptr && width > 0 && height > 0 && planeCount > 0; }
 };
 
-/// The shader that writes `writer`'s bit, sampling `atlas` for the §2-5 cutout.
+/// The shader that writes `writer`'s bit, sampling `atlas` for the cutout.
 inline sk_sp<SkShader> MakeMaskWriteShader(const sscore::SsMaskWriter& writer,
                                            sk_sp<SkShader> atlas) {
   SkRuntimeEffect* effect = SsMaskWriteEffect();
@@ -246,7 +246,7 @@ inline sk_sp<SkShader> MakeMaskReplayShader(sk_sp<SkShader> inner, const SsMaskC
   sscore::SsMakeUvInverse(uv, &inv);
 
   // Nearest is required, not a preference: with linear filtering adjacent bits
-  // blend and decode as writers that never covered the pixel (§3-2 note) — and
+  // blend and decode as writers that never covered the pixel — and
   // with the planes stacked it would blend across a plane boundary too.
   // kDecal keeps a sample that escapes the bounds check transparent rather than
   // repeating the edge.
