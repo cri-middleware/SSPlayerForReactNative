@@ -98,17 +98,23 @@ else
 fi
 echo "Checksum OK: ${ASSET}"
 
-# The release archive is a flat tree (libs/, include/, bindings/, VERSION,
-# LICENSE.md, …) with no wrapper directory, so it extracts straight into
-# native/ — exactly the layout the podspec and the Android CMake read, and the
-# one build-runtime.sh also writes.
+# The release archive is a flat tree shared by every Player: libs/<platform>/
+# for all seven platforms, include/, bindings/, the notices. Extract only what
+# this package links — the iOS and Android slices, the C-API header and the two
+# notices — which is the layout the podspec and the Android CMake read, and the
+# one build-runtime.sh writes. `files` publishes native/libs whole, so a desktop
+# or web library extracted here would ship in the npm tarball. A pattern that
+# matches nothing makes unzip exit non-zero, so a layout change stops here.
 echo "Extracting SDK..."
 rm -rf "$TARGET_DIR"
 mkdir -p "$TARGET_DIR"
-unzip -q -o "$ZIP_FILE" -d "$TARGET_DIR"
+unzip -q -o "$ZIP_FILE" \
+    'libs/ios/*' 'libs/android/*' include/ssruntime.h \
+    LICENSE.md THIRD-PARTY-LICENSES.ssruntime.md \
+    -d "$TARGET_DIR"
 
-# The archive's own VERSION holds the SDK commit hash; overwrite it with the tag
-# so the skip check above compares like with like.
+# The pinned tag: the skip check above compares against it, and the podspec and
+# build.gradle report it as the SDK version.
 echo "$TARGET_VERSION" > "$CURRENT_VERSION_FILE"
 # A release asset is a release build by construction; prepack reads this.
 echo "release" > "${TARGET_DIR}/BUILD_MODE"

@@ -95,17 +95,37 @@ if ((Test-Path $zipFile) -and ((Get-Sha256 $zipFile) -eq $expected)) {
 }
 Write-Host "Checksum OK: $asset"
 
-# The release archive is a flat tree (libs/, include/, bindings/, VERSION,
-# LICENSE.md, …) with no wrapper directory, so it extracts straight into
-# native/ — exactly the layout the podspec and the Android CMake read.
+# The release archive is a flat tree shared by every Player: libs/<platform>/
+# for all seven platforms, include/, bindings/, the notices. Install only what
+# this package links — the iOS and Android slices, the C-API header and the two
+# notices — which is the layout the podspec and the Android CMake read, and the
+# one build-runtime.ps1 writes. `files` publishes native/libs whole, so a desktop
+# or web library copied here would ship in the npm tarball. A path missing from
+# the archive stops the install, so a layout change surfaces here.
 Write-Host "Extracting SDK..."
-if (Test-Path $targetDir) {
-    Remove-Item -Recurse -Force $targetDir
+$tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+try {
+    Expand-Archive -Path $zipFile -DestinationPath $tmpDir -Force
+    if (Test-Path $targetDir) {
+        Remove-Item -Recurse -Force $targetDir
+    }
+    foreach ($rel in @("libs/ios", "libs/android", "include/ssruntime.h", "LICENSE.md", "THIRD-PARTY-LICENSES.ssruntime.md")) {
+        $src = Join-Path $tmpDir $rel
+        if (-not (Test-Path $src)) {
+            Write-Error "$app`: $rel is not in $asset -- the SDK release layout changed"
+            exit 1
+        }
+        $dest = Join-Path $targetDir $rel
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+        Copy-Item -Path $src -Destination $dest -Recurse -Force
+    }
+} finally {
+    Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
 }
-Expand-Archive -Path $zipFile -DestinationPath $targetDir -Force
 
-# The archive's own VERSION holds the SDK commit hash; overwrite it with the tag
-# so the skip check above compares like with like.
+# The pinned tag: the skip check above compares against it, and the podspec and
+# build.gradle report it as the SDK version.
 Set-Content -Path $currentVersionFile -Value $targetVersion
 # A release asset is a release build by construction; prepack reads this.
 Set-Content -Path (Join-Path $targetDir "BUILD_MODE") -Value "release"
