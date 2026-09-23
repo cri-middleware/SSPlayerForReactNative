@@ -14,11 +14,10 @@ official player, so a change here usually touches TypeScript, C++, or both.
 
 ### Technical Constraints & Guiding Principles
 
-The rules that are not negotiable, and the reasoning behind each, are in
-[AGENTS.md](./AGENTS.md#hard-constraints). Read that table before changing
-anything in `cpp/` or in the buffer handling — most of its entries exist because
-the obvious implementation was tried and did not work. Four are worth knowing
-before you start:
+Most of this player's rules exist because the obvious implementation was tried
+and did not work, and the reasoning behind each is written in the code, at the
+site the rule binds — read it there before changing anything in `cpp/` or in the
+buffer handling. Four are worth knowing before you start:
 
 - **Every buffer handed to JS is valid only until the next `update()`.** Structs
   carry a `generation`; compare it before reading.
@@ -179,7 +178,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 ### 技術的制約と設計原則
 
-変更してはいけない規則と、その根拠は [AGENTS.md](./AGENTS.md#hard-constraints) の表にあります。`cpp/` やバッファの扱いに手を入れる前に必ず目を通してください。表の項目の多くは「素直な実装を試した結果うまくいかなかった」ことの記録です。着手前に知っておきたいものを 4 つ挙げます。
+この Player の規則の多くは「素直な実装を試した結果うまくいかなかった」ことの記録で、それぞれの根拠はその規則が縛るコードの箇所に書いてあります。`cpp/` やバッファの扱いに手を入れる前に、そこを読んでください。着手前に知っておきたいものを 4 つ挙げます。
 
 - **JS に渡されるバッファは次の `update()` までしか有効ではありません。** 各構造体は
   `generation` を持つので、読む前に比較してください。
@@ -232,7 +231,7 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
 
 ### PR を出す前に実行するもの
 
-全体の表は [AGENTS.md](./AGENTS.md#verification) にあります（各チェックが何を保証するかもそこに書いてあります）。最低限は次の 5 つです。
+全体の表は英語版の [What to run before opening a PR](#what-to-run-before-opening-a-pr) にあります（各チェックが何を保証するかもそこに書いてあります）。最低限は次の 5 つです。
 
 | | |
 |---|---|
