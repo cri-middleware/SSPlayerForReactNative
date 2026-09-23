@@ -132,7 +132,7 @@ void CheckMaskPlan(const ss::runtime::FrameData* fd, const sscore::SsBaker& bake
 
   // Every target's resolved test, which is also the walk the draw path makes.
   // The two sets must stay disjoint: a writer's OP puts it in exactly one plane,
-  // and folding them would make coverage depend on writer order (§3-1-4).
+  // and folding them would make coverage depend on writer order.
   for (const sscore::SsPartDraw& info : baker.parts()) {
     if (info.partIndex >= flags.size()) continue;
     sscore::SsMaskBits bits;

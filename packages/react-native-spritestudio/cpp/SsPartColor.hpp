@@ -1,8 +1,8 @@
 #pragma once
 
-// PartColor (`parts_color` §1): the **shader-side** blend, on a different axis
+// PartColor: the **shader-side** blend, on a different axis
 // from `SsBlend.hpp`'s framebuffer one. Four modes only — anything else clamps
-// to Mix (§1-1).
+// to Mix.
 //
 // Skia-free, like the rest of `SsBaker`'s inputs, so the host harness links it.
 
@@ -16,7 +16,7 @@ namespace sscore {
 /// `rate`.
 ///
 /// `a` already carries the part's hierarchical alpha, **pre-folded by the
-/// Brain** — never re-multiply `PartState.alpha` on this path (§1-3).
+/// Brain** — never re-multiply `PartState.alpha` on this path.
 struct SsPartColorCorner {
   float r = 1.0f;
   float g = 1.0f;
@@ -25,23 +25,23 @@ struct SsPartColorCorner {
   float rate = 0.0f;
 };
 
-/// A part's resolved PartColor: §1-4's coefficient row plus the four corners.
+/// A part's resolved PartColor: the coefficient row plus the four corners.
 struct SsPartColor {
   /// `(fSrc, fDst, mulFlag, _)`.
   float coef[4] = {-1.0f, 1.0f, 0.0f, 0.0f};
   SsPartColorCorner lt, rt, lb, rb;
 
   /// Whether the formula changes RGB at all. Every `rate == 0` collapses it to
-  /// the texel passing straight through (§1-2-4), which the vertex-colour path
+  /// the texel passing straight through, which the vertex-colour path
   /// reproduces exactly — so only a true tint needs peeling out for the shader.
   bool tintsRgb() const {
     return lt.rate != 0.0f || rt.rate != 0.0f || lb.rate != 0.0f || rb.rate != 0.0f;
   }
 };
 
-/// §1-4's `_PartColorCoef` table. `blend_type` is the full 12-value `BlendType`,
+/// The `_PartColorCoef` table. `blend_type` is the full 12-value `BlendType`,
 /// but only its first four entries name PartColor modes, so anything at or above
-/// 4 is clamped to Mix (§1-1).
+/// 4 is clamped to Mix.
 inline const float* SsPartColorCoef(int32_t blendType) {
   static const float kCoef[4][4] = {
       {-1.0f, 1.0f, 0.0f, 0.0f},  // Mix
@@ -98,7 +98,7 @@ inline SsPartColorCorner SsReadPartColorCorner(
 }
 
 /// Resolves `part`'s PartColor out of the frame, or returns false when it has
-/// none (`part_color < 0` — §1-2, the sibling ports' `hasPc` test).
+/// none (`part_color < 0` — the sibling ports' `hasPc` test).
 inline bool SsReadPartColor(const ss::runtime::FrameData* fd, const ss::runtime::PartState* part,
                             SsPartColor* out) {
   if (fd == nullptr || part == nullptr || out == nullptr) return false;

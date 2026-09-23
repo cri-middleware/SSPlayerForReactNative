@@ -9,8 +9,8 @@
  *
  * `PartAttributePartColor.blend_type` is typed as the same enum as
  * `DrawBatch.blend_type` and only its first four values are valid — anything
- * higher clamps to Mix. The two live on different axes (`parts_color` §1-0
- * opens by warning against conflating them), so this enum is deliberately
+ * higher clamps to Mix. The two live on different axes,
+ * so this enum is deliberately
  * separate from the framebuffer one rather than shared with it.
  */
 export const SsBlendOp = { mix: 0, mul: 1, add: 2, sub: 3 } as const

@@ -175,14 +175,14 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
         const bool hasPartColor = SsReadPartColor(fd, state, &info.partColor);
         // Alpha alone never needs the shader: a vertex colour reproduces
         // `a = texel.a * col.a` exactly, and at rate 0 the RGB formula is a
-        // texel passthrough (§1-2-4). Only a real tint is peeled out.
+        // texel passthrough. Only a real tint is peeled out.
         info.needsPartColorShader = hasPartColor && info.partColor.tintsRgb();
         // `SHDR` peels for the same reason a tint does and independently of one:
         // the effect's parameters speak for a single part. When both are present
         // the effect is what runs, since it applies the PartColor tail itself.
         info.needsShader = SsReadPartShader(fd, state, &info.partShader);
 
-        // §1-3: with a PartColor the hierarchical alpha is already folded into
+        // With a PartColor the hierarchical alpha is already folded into
         // the corner alphas, so `PartState.alpha` must NOT be applied again.
         const float partAlpha = state != nullptr ? state->alpha() : 1.0f;
         const SsPartColorCorner* corners[4] = {&info.partColor.lt, &info.partColor.rt,
@@ -281,7 +281,7 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
     // nothing downstream may invert its UV to recover a `(s,t)` square.
     info.quadShaped = false;
 
-    // §1-2: a mesh's PartColor is **whole-only** — `lt`'s colour and rate go to
+    // A mesh's PartColor is **whole-only** — `lt`'s colour and rate go to
     // every vertex. Copying it into all four corners is what lets the existing
     // shader serve a mesh: with the corners equal its bilinear collapses to a
     // constant, so the UV reconstruction it would otherwise need drops out.
@@ -384,7 +384,7 @@ void SsBaker::bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPoint
         continue;
       }
 
-      // §"Effect コマンドの動的バッチング": merge the maximal run of adjacent
+      // Merge the maximal run of adjacent
       // commands that share a cellmap and a blend, so a multi-emitter effect
       // costs one draw call rather than one per emitter.
       uint32_t quads = 0;
@@ -491,7 +491,7 @@ void SsBaker::bakeShapeBatch(const ss::runtime::FrameData* fd, const SsSoAPointe
     // an opportunity: see `SsPartDraw::untextured`.
     info.quadShaped = false;
     info.untextured = true;
-    // §1-2-3: a Shape **bypasses the composite formula** outright. Its PartColor
+    // A Shape **bypasses the composite formula** outright. Its PartColor
     // is the colour, at forced Mix with the rate pinned to 1, so it never
     // reaches the shader the Normal path peels a tint out for.
     info.needsPartColorShader = false;
@@ -585,9 +585,8 @@ void SsBaker::bakeInstanceBatch(const ss::runtime::FrameData* fd, const SsSoAPoi
     draw.m[5] = m[13];
     // Compounds down the chain: a child three instances deep is dimmed by all
     // three. Not read from a PartColor: an instance part can carry one, but what
-    // that should mean for the child is unspecified — the SDK's porting guide
-    // does not cover instance parts here, its part-type table is Normal / Mesh /
-    // Shape, and no fixture in the SDK's test projects authors one. Of the v7
+    // that should mean for the child is unspecified — no fixture in the SDK's
+    // test projects authors one. Of the v7
     // Players only SSPlayerForFlutter does anything with it. Out of scope here
     // by decision, not pending: settle it SDK-side first.
     draw.alpha = (state != nullptr ? state->alpha() : 1.0f) * alphaScale;

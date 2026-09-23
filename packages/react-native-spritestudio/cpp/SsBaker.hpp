@@ -37,7 +37,7 @@ struct SsPartDraw {
   /// Which part this is, and where it sits in `draw_order`.
   ///
   /// The rank is carried rather than recomputed because it is the pivot the mask
-  /// scope turns on (`SsMask.hpp` §2-1), and bake order only *happens* to equal
+  /// scope turns on (`SsMask.hpp`), and bake order only *happens* to equal
   /// draw order — it is the batch walk that makes it so, and a kind this bake
   /// skips would silently shift it.
   uint32_t partIndex = 0;
@@ -56,7 +56,7 @@ struct SsPartDraw {
   /// False for Mesh and for Effect, and everything that reconstructs a corner
   /// gradient from the UV depends on it: the PartColor shader and the mask replay
   /// both invert an affine quad, which neither a triangle soup nor a cloud of
-  /// particle quads is. A Mesh's PartColor is whole-only (§1-2), which is why it
+  /// particle quads is. A Mesh's PartColor is whole-only, which is why it
   /// can still use that shader — with four equal corners the reconstruction
   /// collapses to a constant and the inverse stops mattering.
   bool quadShaped = true;
@@ -76,7 +76,7 @@ struct SsPartDraw {
 
   /// True when this part has to leave its batch and go through the PartColor
   /// shader: a PartColor that actually tints RGB. Alpha alone never sets this —
-  /// a vertex colour carries that exactly (§1-2-4).
+  /// a vertex colour carries that exactly.
   bool needsPartColorShader = false;
   /// Meaningful when `needsPartColorShader` **or** `needsShader`: twelve of the
   /// thirteen built-ins fold the PartColor composite as their own output tail,
@@ -124,7 +124,7 @@ struct SsSoAPointers {
   const float* cellMeta = nullptr;       ///< 6 floats per part
   size_t partCount = 0;
 
-  /// Mesh, in the CSR layout `40_components/30_mesh.md` describes: the vertex
+  /// Mesh, in the CSR layout: the vertex
   /// and index arrays are concatenated across every part, and the two `offsets`
   /// arrays (length `partCount + 1`) slice them. A non-Mesh part contributes an
   /// empty range, so the offsets double as the "is this a mesh" test.
@@ -165,8 +165,7 @@ struct SsSoAPointers {
 /// Bakes one frame into flat vertex/index/batch arrays.
 ///
 /// Buffers are members and are only ever `resize`d down to the frame's needs, so
-/// after the first few frames the bake allocates nothing — the zero-allocation
-/// shape `30_core/30_render_loop.md` §3 asks for.
+/// after the first few frames the bake allocates nothing.
 class SsBaker {
  public:
   /// Rebuilds every output array from `fd` + `soa`, plus `effects` for the one
@@ -192,7 +191,7 @@ class SsBaker {
   /// One unpremultiplied `SkColor`-shaped `0xAARRGGBB` per vertex.
   ///
   /// White with the part's alpha in most cases — the whole of what a part's
-  /// opacity is, and the §1-2-4 passthrough for a PartColor that only sets
+  /// opacity is, and the passthrough for a PartColor that only sets
   /// alpha. A quad flagged `needsPartColorShader` gets its colour from the
   /// shader instead, and the draw path passes no colours for it at all, so its
   /// entries here are never read.

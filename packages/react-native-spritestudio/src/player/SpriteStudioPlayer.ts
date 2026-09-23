@@ -59,8 +59,7 @@ export interface SpriteStudioPlayerApi {
    * **Head-out.** Rewinds to the start of the section and re-arms the loop
    * count — it is not a resume, and using it to lift a `pause()` sends the
    * playhead back to the start. That is the Brain's contract, and these four
-   * verbs are kept distinct here because the SDK's porting guide asks Players
-   * not to fold them (`30_core/20_playback_control.md`).
+   * verbs are kept distinct here.
    */
   play(startFrame?: number): void
   /** Holds playback where it stands. Idempotent, ignored while nothing plays. */
@@ -88,7 +87,7 @@ export interface SpriteStudioPlayerApi {
    * Multiplier on the authored frame rate. `0` and negatives **stop** the
    * playhead where it stands rather than turning it around — reversing is
    * `setPlaybackDirection`'s job, not the speed's, and the Brain clamps both to
-   * the same stop (`30_core/20_playback_control.md`).
+   * the same stop.
    */
   setSpeedScale(rate: number): void
   /** 0 = infinite. */
@@ -267,8 +266,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * itself through `onAnimationStarted`.
    *
    * The conventions do not require this event, on the grounds that a host that
-   * called `setAnimation` already knows (SDK `20_design/40_api_conventions.md`,
-   * §4). Here it earns its place: `animation` is a **prop**, so a re-render can
+   * called `setAnimation` already knows.
+   * Here it earns its place: `animation` is a **prop**, so a re-render can
    * mount a different clip without anything in the host calling `setAnimation`
    * at all — the switch happens in `applySettings`, below Layer 4. Without this
    * there is no way to observe it.
@@ -694,7 +693,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private reportedMissingAnimation: string | null = null
 
   /**
-   * Say which pack was asked for what (SDK: `20_design/40_api_conventions`, §7).
+   * Say which pack was asked for what.
    *
    * Once per wrong name, because {@link setAnimation}'s early return cannot
    * absorb the repeat: it compares against what the runtime HAS, and a failed
@@ -918,7 +917,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    *
    * The order matters and is not decorative: `setup_animation` resets the loop
    * count to its default, and `play` arms the counter with whatever is in effect
-   * at that moment (`30_core/20_playback_control.md`). So `setLoopCount` has to come
+   * at that moment. So `setLoopCount` has to come
    * before `play`, not after.
    */
   private applySettings(): void {
@@ -1106,8 +1105,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /**
    * Replaces the texture bound for a cellmap at runtime, or restores the pack's
    * own when `image` is `null`. A costume change or a dynamic expression, driven
-   * from code rather than the authoring data (SDK
-   * `40_components/70_external_resources.md`, "Runtime texture replacement").
+   * from code rather than the authoring data.
    *
    * `name` is a cellmap name — with no `.ssce` — or an external texture's file
    * name, whichever {@link getReplaceableTextureNames} lists. The swap is keyed
@@ -1124,8 +1122,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * dispose the player.
    *
    * The `image` stays the caller's to keep alive — the registry references it and
-   * never disposes it, the same rule the `textures` prop follows. Two caveats
-   * carry over from the spec: a part under an authored texture change (`TCHG`)
+   * never disposes it, the same rule the `textures` prop follows. Two caveats:
+   * a part under an authored texture change (`TCHG`)
    * binds through a *different* hash on the frames it applies to, so replace the
    * texture file name it points at (also in {@link getReplaceableTextureNames})
    * rather than the cellmap name to affect those; and a replacement is assumed to

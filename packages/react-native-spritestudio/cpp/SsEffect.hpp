@@ -70,7 +70,7 @@ struct SsEffectFrame {
 /// The Brain drops a hidden Effect part from the draw order, so a registry built
 /// by walking batches would stop stepping an independent effect the moment it
 /// was hidden: its clock would freeze and the particles would resume where they
-/// stopped instead of where they belong (`40_components/20_effect.md`). Which
+/// stopped instead of where they belong. Which
 /// slots get *drawn* is a separate question, answered by the batch walk.
 class SsEffectSlots {
  public:

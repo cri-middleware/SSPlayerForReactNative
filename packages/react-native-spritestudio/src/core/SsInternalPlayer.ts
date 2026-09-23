@@ -44,9 +44,7 @@ import {
  * *indices* and name *hashes*, and its override methods keep the C API's argument
  * order (`blendOp` before the colour) — so `setSection` and `setPartColor` are
  * the right names here even though `setAnimationSection` and
- * `setPartColorOverride` are the right names one layer up (SDK
- * `20_design/40_api_conventions.md`, which says outright that a Player copying
- * the C API's order puts itself outside the convention).
+ * `setPartColorOverride` are the right names one layer up.
  *
  * That list used to be longer. `isLooped` and `fps` were on it, because the C
  * API spelled them that way; it now says `ss_runtime_just_looped` and

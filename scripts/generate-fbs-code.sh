@@ -11,9 +11,8 @@
 #
 # Why the Player parses the `.ssab` at all: libssruntime deliberately returns
 # none of the metadata rendering needs — cellmap names, texture paths, animation
-# names — and tells Players to read it out of the ssab themselves
-# (`20_design/20_architecture.md`). Texture loading is the first thing that
-# needs it.
+# names — and tells Players to read it out of the ssab themselves.
+# Texture loading is the first thing that needs it.
 #
 # `effect_draw_plan` is the same thing one kind at a time: an Effect part's
 # geometry does not ride the per-frame SoA at all, it comes back from
@@ -23,8 +22,8 @@
 # accessors are the right tool there too, contrary to what this script used to
 # say: flatc's C++ struct fields are direct member reads through `EndianScalar`
 # (a no-op on little-endian), and `Vector<const T*>::Data()` hands back the
-# contiguous pointer, so `30_core/30_render_loop.md` §2's "read the struct
-# vectors raw" is satisfied *through* the generated code rather than around it.
+# contiguous pointer, so the struct
+# vectors are read raw *through* the generated code rather than around it.
 # The ~26x figure that argument leaned on is a Unity/C# measurement, where each
 # accessor is a ByteBuffer read; it does not carry to C++.
 #

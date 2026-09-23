@@ -21,6 +21,9 @@
     the SDK repository, followed by a submodule bump here.
 *   **Playback and rendering semantics are the SDK's** — see [its AGENTS.md](./SpriteStudio-SDK/AGENTS.md)
     and `SpriteStudio-SDK/libs/ssruntime/docs/` for the contracts this Player implements.
+*   **Code comments do not cite the SDK's porting guide** — no section numbers, page paths or quotes.
+    Its sections move as it is revised and nothing checks a citation inside a comment; say what breaks
+    if the code changes, and leave the rule to the guide.
 *   **Generated code is committed and never hand-edited** — `nitrogen/` and `cpp/format/`. Change the spec
     or the `.fbs` and re-run the generator.
 *   **Write in the family's words.** Before coining a term, grep the SDK submodule
@@ -59,7 +62,7 @@ pointer before changing one.
 | **A pack is a directory, not a file** — so `require()` is not a source, and `assetExts` stays clean of `ssab` / `ssqb`. | `src/player/source.ts`, "Why not `require()`" |
 | **Slots step from the part list, never from `draw_order`** — a hidden part's clock must keep running. | `cpp/SsInstance.hpp` · `npm run check-hidden` |
 | A mask crossing an instance boundary **hands over its coverage**; it is never rebuilt below. | `cpp/SsMask.hpp` · `npm run check-mask` |
-| Geometry per kind is the SDK's contract. The gap it leaves is **Effect**: its plan is in simulation space with normalised UVs. | SDK docs `30_core/30_render_loop.md` · `cpp/SsEffect.hpp` |
+| Geometry per kind is the SDK's contract. The gap it leaves is **Effect**: its plan is in simulation space with normalised UVs. | SDK docs `30_core/40_render_loop.md` · `cpp/SsEffect.hpp` |
 | **Never re-implement FNV-1a** — `SsRuntime.hashString` exposes the Brain's own. | `src/core/SsTextureRegistry.ts` |
 | The example's subject list is read from the generated manifest, never hand-written. | `example/src/player/PlayerScreen.tsx`, `filesOf()` |
 | The web barrel re-exports **only import-clean modules**; everything else is a throwing stub. | `src/index.web.ts` · `tools/check-web-barrel.mjs` |

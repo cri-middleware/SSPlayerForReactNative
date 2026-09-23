@@ -78,7 +78,7 @@ every name you may pass — the cellmap names plus the texture *file* names an
 authored texture change points at.
 
 Three things worth knowing, all from the SDK's own
-[Runtime texture replacement](https://github.com/cri-middleware/SpriteStudio-SDK/blob/develop/libs/ssruntime/docs/40_components/70_external_resources.md)
+[Runtime texture replacement](https://github.com/cri-middleware/SpriteStudio-SDK/blob/develop/libs/ssruntime/docs/50_features/30_external_resources.md#3-replacing-textures-at-runtime)
 spec:
 
 - **It reaches instance children.** The whole player tree draws through one

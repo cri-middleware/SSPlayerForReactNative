@@ -362,8 +362,8 @@ export interface SsContext
    * Advances by `dtMilliseconds` and returns the new frame number. Invalidates
    * every previously issued buffer.
    *
-   * **Milliseconds**, which is what `ss_runtime_update` takes
-   * (`30_core/20_playback_control.md` §"update"), and the unit every layer above
+   * **Milliseconds**, which is what `ss_runtime_update` takes,
+   * and the unit every layer above
    * uses too — a seconds-shaped API here would put a `* 1000` at the seam and a
    * silent 1000x slowdown one forgotten conversion away. It is the same unit as
    * `ss_runtime_crossfade`'s duration.
@@ -589,7 +589,7 @@ export interface SsContext
    *
    * A static `.ssab` read, keyed off the same field every sibling Player uses so
    * the answers agree (`mesh_binding` present with a non-empty `influence_bone`
-   * list) — see `20_design/40_api_conventions.md` §3. False for an out-of-range
+   * list). False for an out-of-range
    * index. Available before the first `update()`, like `partNames`.
    */
   isPartSkinnedMesh(partIndex: number): boolean
@@ -668,8 +668,7 @@ export interface SsContext
   /**
    * `rgba` is `0xRRGGBBAA` and fills all four corners. `blendOp` is the
    * **PartColor** blend — `0=Mix 1=Mul 2=Add 3=Sub`, and only those four —
-   * *not* `DrawBatch.blend_type`'s twelve. Conflating the two is the mistake
-   * the SDK's own PartColor doc opens by warning against.
+   * *not* `DrawBatch.blend_type`'s twelve. Conflating the two is a mistake.
    *
    * `priority`: `0` until the next keyframe, `1` until the next animation,
    * `2` permanent.
@@ -704,7 +703,7 @@ export interface SsContext
   //
   // The Brain returns none of the metadata rendering needs — cellmap names,
   // texture paths, animation names — and tells Players to read it out of the
-  // ssab themselves (`20_design/20_architecture.md`). That reading happens in
+  // ssab themselves. That reading happens in
   // C++ (`cpp/SsAnimeBinary.hpp`), against the Brain's own copy of the bytes,
   // and the layers above ask **typed questions** rather than being handed a
   // buffer to parse. No FlatBuffer ever crosses into JS.
@@ -716,7 +715,7 @@ export interface SsContext
    * is the cellmap name's hash normally, but a part under an authored texture
    * change (`TCHG`) carries the hash of a texture *file* name out of
    * `external_textures` instead; miss those and exactly those parts silently
-   * stop drawing (`30_core/10_initialization.md` §3).
+   * stop drawing.
    *
    * **Includes every bound instance pack's textures**, deduplicated by hash, so
    * one table covers the whole player tree — which is what `drawInto` needs,

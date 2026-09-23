@@ -28,7 +28,7 @@ const ABSENT_TRANSFORM: SsPartTransform = {
  * Stands in for Layer 2.
  *
  * Two things it does rather than merely record. **Playback state follows the
- * SDK's table** (`30_core/20_playback_control.md`): a pause is a hold, so
+ * SDK's table**: a pause is a hold, so
  * `isPlaying` stays true and `isPausing` is what tells the two apart — get that
  * wrong and the `playing` prop's resume-vs-restart branch cannot be tested at
  * all. And **`setupAnimation` answers from the pack**, so a name that is not in
