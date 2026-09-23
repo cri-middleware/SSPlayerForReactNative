@@ -7,7 +7,7 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
  * per frame, with nothing per-vertex crossing into JS.
  *
  * Lifetime rule: **every ArrayBuffer handed out here is a borrow of native
- * memory that stays valid only until the next `update()`** — AGENTS.md's borrow rule.
+ * memory that stays valid only until the next `update()`**.
  * Nothing may retain one across frames. `SsContext.generation` is the
  * enforcement handle — read it when you take a buffer, and compare it again
  * before you read through one.

@@ -50,9 +50,6 @@ SSPlayerForReactNative/
 └── docs/                               <- this site
 ```
 
-`AGENTS.md` has the same ground as a table, with each path's role and the
-invariants that go with it.
-
 ## Get the Brain
 
 `native/` is gitignored, so a fresh checkout has no native core at all.

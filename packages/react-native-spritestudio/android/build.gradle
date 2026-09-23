@@ -30,8 +30,8 @@ def sdkVersion = sdkVersionFile.exists() ? sdkVersionFile.text.trim() : "unknown
  * SDK deliberately does not build: emulator-only, no meaningful device share,
  * and `x86_64` already covers the emulator. Asking for it can only end at the
  * `libssruntime.a is missing` check below. An app that names the property is
- * still followed exactly (never widened — see the `abiFilters` trap in
- * AGENTS.md); the Expo plugin narrows that list before it gets here, and a bare
+ * still followed exactly (never widened, and never replaced by a hardcoded
+ * `abiFilters`); the Expo plugin narrows that list before it gets here, and a bare
  * app without the plugin gets the check's error instead.
  */
 def reactNativeArchitectures() {
@@ -81,7 +81,7 @@ android {
 
   packagingOptions {
     // libssruntime is linked statically into libSsPlayer.so — nothing of the
-    // Brain ships as its own .so — see AGENTS.md's toolchain scripts.
+    // Brain ships as its own .so.
     excludes += ["**/libc++_shared.so", "**/libfbjni.so", "**/libjsi.so"]
   }
 }

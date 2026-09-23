@@ -47,8 +47,6 @@ SSPlayerForReactNative/
 └── docs/                               <- このサイト
 ```
 
-`AGENTS.md` が同じ範囲を表の形で持っており、各パスの役割とそれに伴う不変条件が書かれています。
-
 ## Brain を用意する
 
 `native/` は gitignore 対象なので、clone 直後にはネイティブコアが一切ありません。

@@ -155,7 +155,7 @@ export default withMermaid({
             text: 'Development',
             items: [
               { text: 'Working from a checkout', link: '/development/from-source' },
-              { text: 'Working on this repository', link: `${GITHUB}/blob/main/AGENTS.md` },
+              { text: 'Working on this repository', link: `${GITHUB}/blob/main/CONTRIBUTING.md` },
             ],
           },
         ],
@@ -236,7 +236,7 @@ export default withMermaid({
             text: '開発',
             items: [
               { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
-              { text: 'このリポジトリで作業する', link: `${GITHUB}/blob/main/AGENTS.md` },
+              { text: 'このリポジトリで作業する', link: `${GITHUB}/blob/main/CONTRIBUTING.md` },
             ],
           },
         ],

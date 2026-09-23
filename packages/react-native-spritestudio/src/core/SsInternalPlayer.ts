@@ -191,8 +191,9 @@ export class SsInternalPlayer {
   /**
    * Releases the native context.
    *
-   * Explicit rather than left to GC (AGENTS.md's borrow rule): every ArrayBuffer L1
-   * ever handed out is a borrow of memory this context owns. Idempotent.
+   * Explicit rather than left to GC (the lifetime rule in `specs/SsRuntime.nitro.ts`):
+   * every ArrayBuffer L1 ever handed out is a borrow of memory this context owns.
+   * Idempotent.
    */
   dispose(): void {
     if (this.disposed) return
