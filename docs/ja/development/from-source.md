@@ -91,7 +91,7 @@ npm run deploy-examples
 サンプルアプリ向けに `.sspj` → `.ssab` を、`ssconverter-cli` 経由で行います（Rust が必要）。併せて `example/src/ss-assets.ts` — サンプルのサブジェクト一覧が読まれる生成マニフェスト —
 も更新します。
 
-素材は SDK 自身の `tests/` と、任意で `example/SpriteStudio_Source/` から取られます。後者はこのリポジトリが同梱しないサードパーティ素材で、無い場合は報告のうえスキップされます。
+素材は SDK 自身の `tests/` と、`example/SpriteStudio_Source/` に置かれたものから取られます。後者はこのリポジトリが同梱しない置き場所で、実機で見たいプロジェクトを置けばそれが 1 つのサブジェクトとして現れます。任意のサードパーティ素材 `MaskInstance` もここに置きます。
 
 ## サンプルを動かす
 
@@ -101,7 +101,7 @@ npx expo prebuild --platform ios
 npx expo run:ios        # または --platform android && npx expo run:android
 ```
 
-サンプルアプリは描画の検証面です — 1 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが何を証明するか、および任意の `MaskInstance` サンプルについては
+サンプルアプリは描画の検証面です — 1 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが何を証明するか、自分のプロジェクトを見る方法、および任意の `MaskInstance` サンプルについては
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example)
 が扱います。
 

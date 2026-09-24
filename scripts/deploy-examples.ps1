@@ -4,7 +4,8 @@ param (
 )
 
 # Convert the SpriteStudio-SDK bundled test projects (tests/overall, tests/Ringo,
-# tests/ParticleEffect, tests/Doll) into the .ssab assets the example app loads.
+# tests/ParticleEffect, tests/Doll), and any project put under
+# example\SpriteStudio_Source\, into the .ssab assets the example app loads.
 #
 # Unlike the Flutter Player this repo bundles no converter: React Native has no
 # editor to hook an importer into, so `.sspj` -> `.ssab` is a host-side step
@@ -67,22 +68,24 @@ $embeddedProjects = @(
     @{ Dir = "Doll"; Sspj = "Doll.sspj"; Out = "Doll-embedded" }
 )
 
-# Projects supplied **locally** rather than by the SDK.
+# Projects supplied **locally** rather than by the SDK: every directory under
+# example\SpriteStudio_Source\ that holds one .sspj, converted into
+# example\assets\ss\<directory name>\.
 #
-# example\SpriteStudio_Source\ is not in this repository - it is third-party
-# sample art, and the licence to redistribute it is not ours to give. Everything
-# here is therefore optional: a project whose directory is absent is reported
-# and skipped, and the example, the asset manifest and check-mask all work
-# without it. See README.md for where to get them.
+# example\SpriteStudio_Source\ is not in this repository, and everything in it
+# is optional: the example, the asset manifest and check-mask all work without
+# it. It is where a project goes to be looked at on a device - put its folder
+# there, run this, and the Player screen offers it as local/<directory name>
+# with every .ssab it converted to. Nothing in the app names it.
 #
-# Only one so far, and the reason it is not in the SDK's tests is worth stating:
-# the SDK's samples keep masks and instance parts in separate files, so nothing
-# upstream exercises a mask that has to reach into an instance child.
-# This is the official SpriteStudio basic sample for exactly that.
+# One of them is named here, as directory -> output dir name, because a card and
+# a check read it by a name of their own: SpriteStudio's basic sample Mask,
+# third-party art whose licence to redistribute is not ours to give (README.md
+# says where to get it). It is not in the SDK's tests because the SDK's samples
+# keep masks and instance parts in separate files, so nothing upstream exercises
+# a mask that has to reach into an instance child.
+$localRenames = @{ "Mask" = "MaskInstance" }
 $localDeployed = @()
-$localProjects = @(
-    @{ Dir = "Mask"; Sspj = "Mask.sspj"; Out = "MaskInstance" }
-)
 $localSrc = Join-Path $rootDir "example/SpriteStudio_Source"
 
 # Plain stderr and an exit code, matching deploy-examples.sh (2 = bad usage).
@@ -161,6 +164,45 @@ function Deploy-Project($dir, $sspj, $outName, $bake, $srcRoot) {
     Write-Host "   -> example/assets/ss/$outName/"
 }
 
+# The local projects are found before anything is converted, so a name clash
+# stops the run with the tree untouched rather than half-rebuilt.
+#
+# An SDK project's output name is reserved: two projects writing one directory
+# would leave whichever ran second, under the other one's card.
+$reserved = @($projects | ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Sspj) }) +
+    @($embeddedProjects | ForEach-Object { $_.Out })
+
+$localProjects = @()
+if (Test-Path $localSrc) {
+    foreach ($dir in (Get-ChildItem -Path $localSrc -Directory | Sort-Object Name)) {
+        $sspjs = @(Get-ChildItem -Path $dir.FullName -Filter "*.sspj" -File)
+        if ($sspjs.Count -ne 1) {
+            Write-Host "== $($dir.Name): skipped, a project directory holds one .sspj and this one holds $($sspjs.Count)"
+            continue
+        }
+        $outName = if ($localRenames.ContainsKey($dir.Name)) { $localRenames[$dir.Name] } else { $dir.Name }
+        if ($reserved -contains $outName) {
+            Fail ("example\SpriteStudio_Source\$($dir.Name)\ would be converted into example\assets\ss\$outName\, " +
+                "which an SDK project already writes. Rename the directory.")
+        }
+        $localProjects += @{ Dir = $dir.Name; Sspj = $sspjs[0].Name; Out = $outName }
+    }
+}
+
+foreach ($dirName in $localRenames.Keys) {
+    $dir = Join-Path $localSrc $dirName
+    if (-not (Test-Path $dir)) {
+        Write-Host "== $($localRenames[$dirName]): skipped, $dir is not here"
+        Write-Host "   That project is third-party sample art this repository does not"
+        Write-Host "   ship. Everything else is unaffected; see README.md to add it."
+    }
+}
+
+# Every output is rebuilt, so the tree starts empty. A local project taken back
+# out of SpriteStudio_Source\ would otherwise leave its directory here, and the
+# manifest - which describes this tree, not the sources - would keep offering it.
+if (Test-Path $outRoot) { Remove-Item -Recurse -Force $outRoot }
+
 foreach ($project in $projects) {
     $stem = [System.IO.Path]::GetFileNameWithoutExtension($project.Sspj)
     Deploy-Project $project.Dir $project.Sspj $stem $embedded
@@ -171,13 +213,6 @@ foreach ($project in $embeddedProjects) {
 }
 
 foreach ($project in $localProjects) {
-    $dir = Join-Path $localSrc $project.Dir
-    if (-not (Test-Path $dir)) {
-        Write-Host "== $($project.Out): skipped, $dir is not here"
-        Write-Host "   That project is third-party sample art this repository does not"
-        Write-Host "   ship. Everything else is unaffected; see README.md to add it."
-        continue
-    }
     Deploy-Project $project.Dir $project.Sspj $project.Out $embedded $localSrc
     $localDeployed += $project.Out
 }

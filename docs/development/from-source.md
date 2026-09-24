@@ -101,9 +101,10 @@ npm run deploy-examples
 also refreshes `example/src/ss-assets.ts`, the generated manifest the example's
 subject list is read from.
 
-Sources come from the SDK's own `tests/` and, optionally, from
-`example/SpriteStudio_Source/` — third-party art this repository does not ship,
-reported and skipped when absent.
+Sources come from the SDK's own `tests/` and from whatever is under
+`example/SpriteStudio_Source/`, which this repository does not ship: a project
+you put there to look at on a device shows up as its own subject, and the
+optional third-party `MaskInstance` sample goes there too.
 
 ## Run the example
 
@@ -114,8 +115,8 @@ npx expo run:ios        # or --platform android && npx expo run:android
 ```
 
 The example app is the rendering verification surface — one screen, one feature
-card per capability. What each subject proves, and the optional `MaskInstance`
-sample, are covered in
+card per capability. What each subject proves, how to look at a project of your
+own, and the optional `MaskInstance` sample are covered in
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example).
 
 ## Checks

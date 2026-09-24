@@ -156,8 +156,13 @@ const PARTICLE_FRAMES = {
  * vertex ceiling belongs on effects rather than on characters.
  */
 interface Subject {
-  /** Which pack family; the *Textures* toggle picks the conversion within it. */
-  pack: PackName
+  /**
+   * Which pack family; the *Textures* toggle picks the conversion within it.
+   *
+   * A key of `PACKS` for a card, and the deployed directory's own name for a
+   * local subject, which `PACKS` does not list — see `LOCAL_SUBJECTS`.
+   */
+  pack: string
   /**
    * The `.ssab` this subject shows, each with its own measured frame.
    *
@@ -320,7 +325,7 @@ const SUBJECTS = {
     ownsPack: true,
   },
   ParticleEffect: { pack: 'ParticleEffect', files: PARTICLE_FRAMES },
-} as const satisfies Record<string, Subject>
+} as const satisfies Record<string, Subject & { pack: PackName }>
 
 /**
  * The same animation converted two ways, so both texture routes are visible.
@@ -367,8 +372,11 @@ type Mode = 'embedded' | 'reference'
 const MODES = ['embedded', 'reference'] as const satisfies readonly Mode[]
 
 /** The pack directory for a mode, or null when that conversion does not exist. */
-function packDir(pack: PackName, mode: Mode): string | null {
-  const dirs: { reference: string; embedded?: string } = PACKS[pack]
+function packDir(pack: string, mode: Mode): string | null {
+  // A local subject's pack is not in the table: reference only, under its own
+  // name, which is where `deploy-examples` puts it.
+  const dirs: { reference: string; embedded?: string } =
+    pack in PACKS ? PACKS[pack as PackName] : { reference: `ss/${pack}` }
   return mode === 'embedded' ? (dirs.embedded ?? null) : dirs.reference
 }
 
@@ -395,8 +403,36 @@ function filesOf(subject: Subject): string[] {
   return [...measured, ...present.filter((name) => !(name in subject.files)).sort()]
 }
 
-const SUBJECT_NAMES = (Object.keys(SUBJECTS) as SubjectName[]).filter(
-  (name) => filesOf(SUBJECTS[name]).length > 0
+/**
+ * A subject for every deployed pack directory no card claims — a project put
+ * under `example/SpriteStudio_Source/` to be looked at, which `deploy-examples`
+ * converts under its directory's name without anything here being told.
+ *
+ * Read out of the manifest like every file list on this screen, so there is no
+ * table to keep: `ownsPack` offers every `.ssab` in the directory, and with no
+ * measured frames the view measures each file at load. Reference only, like
+ * `MaskInstance`. Named `local/<directory>` so that a project called `Mask` or
+ * `Effect` — both are SpriteStudio basic samples — cannot shadow the card.
+ */
+const LOCAL_SUBJECTS: Readonly<Record<string, Subject>> = (() => {
+  const claimed = new Set(
+    Object.values(PACKS).flatMap((dirs: { reference: string; embedded?: string }) =>
+      [dirs.reference, dirs.embedded ?? ''].map((dir) => dir.replace(/^ss\//, ''))
+    )
+  )
+  const dirs = new Set(Object.keys(SsAssets).map((key) => key.split('/')[0]))
+  return Object.fromEntries(
+    Array.from(dirs)
+      .filter((dir) => !claimed.has(dir))
+      .sort()
+      .map((dir): [string, Subject] => [`local/${dir}`, { pack: dir, files: {}, ownsPack: true }])
+  )
+})()
+
+const ALL_SUBJECTS: Readonly<Record<string, Subject>> = { ...SUBJECTS, ...LOCAL_SUBJECTS }
+
+const SUBJECT_NAMES = Object.keys(ALL_SUBJECTS).filter(
+  (name) => filesOf(ALL_SUBJECTS[name]).length > 0
 )
 
 /**
@@ -425,8 +461,6 @@ function formatSignalParam(param: SsSignalParam): string {
   }
 }
 
-type SubjectName = keyof typeof SUBJECTS
-
 /**
  * The reference case: the SDK's own sample animation, through the real API.
  *
@@ -454,7 +488,7 @@ export function PlayerScreen() {
   // mean the screen only exercised the fragile route when someone remembered to
   // ask for it.
   const [mode, setMode] = useState<Mode>('reference')
-  const [subjectName, setSubjectName] = useState<SubjectName>('Basic')
+  const [subjectName, setSubjectName] = useState('Basic')
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(1)
   const [flipX, setFlipX] = useState(false)
@@ -478,7 +512,7 @@ export function PlayerScreen() {
   // file picker has the same hazard one level up, where the wrong pairing is not
   // a missing animation but a missing file.
   const [pickedFile, setPickedFile] = useState<{
-    subject: SubjectName
+    subject: string
     name: string
   } | null>(null)
   const [picked, setPicked] = useState<{ file: string; name: string } | null>(null)
@@ -488,13 +522,18 @@ export function PlayerScreen() {
     current: string
   } | null>(null)
 
-  const subject: Subject = SUBJECTS[subjectName]
+  const subject = ALL_SUBJECTS[subjectName]
   const fileNames = filesOf(subject)
+  // Checked against what the picker offered, not against the measured table:
+  // an `ownsPack` subject offers files that table does not have.
   const file =
-    pickedFile?.subject === subjectName && pickedFile.name in subject.files
+    pickedFile?.subject === subjectName && fileNames.includes(pickedFile.name)
       ? pickedFile.name
       : fileNames[0]
-  const frame: Frame = subject.files[file] ?? CENTRED
+  // Undefined for a local subject, so the view measures the file itself: a
+  // fixed box would be a guess about a pack nobody here has framed.
+  const frame: Frame | undefined =
+    subject.files[file] ?? (subject.pack in PACKS ? CENTRED : undefined)
   // Falls back to `reference` for a pack with no embedded conversion, so the
   // toggle can never point at a directory that was not deployed.
   const embeddedDir = packDir(subject.pack, 'embedded')
@@ -704,12 +743,15 @@ export function PlayerScreen() {
   // `height`/`centerY` are what was measured, so the box is reconstructed from
   // them. Its width is left at the height: `fit="contain"` takes the tighter
   // axis, and the vertical one is the one every entry here was measured on.
-  const box = {
-    x: -frame.height / 2,
-    y: frame.centerY - frame.height / 2,
-    width: frame.height,
-    height: frame.height,
-  }
+  const box =
+    frame == null
+      ? undefined
+      : {
+          x: -frame.height / 2,
+          y: frame.centerY - frame.height / 2,
+          width: frame.height,
+          height: frame.height,
+        }
 
   return (
     <View style={styles.root}>
@@ -752,7 +794,7 @@ export function PlayerScreen() {
         <Dropdown
           value={subjectName}
           options={SUBJECT_NAMES}
-          onSelect={(name) => setSubjectName(name as SubjectName)}
+          onSelect={setSubjectName}
         />
         {/* Only where there is a choice to make. Every subject but
             `ParticleEffect` holds one `.ssab`, and a one-entry picker would be

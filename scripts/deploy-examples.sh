@@ -1,7 +1,8 @@
 #!/bin/bash
 #
 # Convert the SpriteStudio-SDK bundled test projects (tests/overall, tests/Ringo,
-# tests/ParticleEffect, tests/Doll) into the .ssab assets the example app loads.
+# tests/ParticleEffect, tests/Doll), and any project put under
+# example/SpriteStudio_Source/, into the .ssab assets the example app loads.
 #
 # Unlike the Flutter Player this repo bundles no converter: React Native has no
 # editor to hook an importer into, so `.sspj` -> `.ssab` is a host-side step
@@ -48,25 +49,28 @@ PROJECTS=(
     "Doll|Doll.sspj"
 )
 
-# Projects supplied **locally** rather than by the SDK, as
-# "<dir under example/SpriteStudio_Source>|<.sspj filename>|<output dir name>".
+# Projects supplied **locally** rather than by the SDK: every directory under
+# `example/SpriteStudio_Source/` that holds one `.sspj`, converted into
+# `example/assets/ss/<directory name>/`.
 #
-# `example/SpriteStudio_Source/` is not in this repository — it is third-party
-# sample art, and the licence to redistribute it is not ours to give. Everything
-# here is therefore **optional**: a project whose directory is absent is
-# reported and skipped, and the example, the asset manifest and `check-mask`
-# all work without it. See README.md for where to get them.
+# `example/SpriteStudio_Source/` is not in this repository, and everything in it
+# is **optional**: the example, the asset manifest and `check-mask` all work
+# without it. It is where a project goes to be looked at on a device — put its
+# folder there, run this, and the Player screen offers it as `local/<directory
+# name>` with every `.ssab` it converted to. Nothing in the app names it.
 #
-# Only one so far, and the reason it is not in the SDK's tests is worth stating:
-# the SDK's samples keep masks and instance parts in separate files —
+# One of them is named here, as "<directory>|<output dir name>", because a card
+# and a check read it by a name of their own: SpriteStudio's basic sample `Mask`,
+# third-party art whose licence to redistribute is not ours to give (README.md
+# says where to get it). The reason it is not in the SDK's tests is worth
+# stating: the SDK's samples keep masks and instance parts in separate files —
 # `allPartsV7/mask` has 289 writer-frames and no instances, `allPartsV7/instanse`
 # has an instance and no mask — so **nothing upstream exercises a mask that has
 # to reach into an instance child**.
-# This is the official SpriteStudio basic sample for exactly that.
-LOCAL_DEPLOYED=()
-LOCAL_PROJECTS=(
-    "Mask|Mask.sspj|MaskInstance"
+LOCAL_RENAMES=(
+    "Mask|MaskInstance"
 )
+LOCAL_DEPLOYED=()
 
 # "<SDK tests subdir>|<.sspj filename>|<output dir name>", always converted with
 # textures baked in, whatever `--embedded` says for the rest.
@@ -156,19 +160,69 @@ deploy_project() {
 SDK_TESTS="${SDK_DIR}/tests"
 LOCAL_SRC="${ROOTDIR}/example/SpriteStudio_Source"
 
+# The local projects are found before anything is converted, so a name clash
+# stops the run with the tree untouched rather than half-rebuilt.
+#
+# An SDK project's output name is reserved: two projects writing one directory
+# would leave whichever ran second, under the other one's card.
+RESERVED=()
+for entry in "${PROJECTS[@]}"; do
+    IFS='|' read -r _ sspj <<< "$entry"
+    RESERVED+=("${sspj%.sspj}")
+done
+for entry in "${EMBEDDED_PROJECTS[@]}"; do
+    RESERVED+=("${entry##*|}")
+done
+
+LOCAL_PROJECTS=()
+for dir in "$LOCAL_SRC"/*/; do
+    [ -d "$dir" ] || continue
+    sub=$(basename "$dir")
+    sspjs=()
+    for file in "$dir"*.sspj; do
+        [ -f "$file" ] && sspjs+=("$(basename "$file")")
+    done
+    if [ ${#sspjs[@]} -ne 1 ]; then
+        echo "== ${sub}: skipped, a project directory holds one .sspj and this one holds ${#sspjs[@]}"
+        continue
+    fi
+    out_name="$sub"
+    for entry in "${LOCAL_RENAMES[@]}"; do
+        if [ "${entry%%|*}" = "$sub" ]; then out_name="${entry#*|}"; fi
+    done
+    for reserved in "${RESERVED[@]}"; do
+        if [ "$out_name" = "$reserved" ]; then
+            echo "${APP}: example/SpriteStudio_Source/${sub}/ would be converted into" >&2
+            echo "  example/assets/ss/${out_name}/, which an SDK project already writes. Rename the directory." >&2
+            exit 1
+        fi
+    done
+    LOCAL_PROJECTS+=("${sub}|${sspjs[0]}|${out_name}")
+done
+
+for entry in "${LOCAL_RENAMES[@]}"; do
+    sub="${entry%%|*}"
+    if [ ! -d "${LOCAL_SRC}/${sub}" ]; then
+        echo "== ${entry#*|}: skipped, ${LOCAL_SRC}/${sub} is not here"
+        echo "   That project is third-party sample art this repository does not"
+        echo "   ship. Everything else is unaffected; see README.md to add it."
+    fi
+done
+
+# Every output is rebuilt, so the tree starts empty. A local project taken back
+# out of SpriteStudio_Source/ would otherwise leave its directory here, and the
+# manifest — which describes this tree, not the sources — would keep offering it.
+rm -rf "$OUT_ROOT"
+
 for entry in "${PROJECTS[@]}"; do
     IFS='|' read -r sdk_sub sspj <<< "$entry"
     deploy_project "$SDK_TESTS" "$sdk_sub" "$sspj"
 done
 
-for entry in "${LOCAL_PROJECTS[@]}"; do
+# `${a[@]+"${a[@]}"}` because an empty array is unbound under `set -u` in the
+# bash 3.2 that macOS ships.
+for entry in ${LOCAL_PROJECTS[@]+"${LOCAL_PROJECTS[@]}"}; do
     IFS='|' read -r sub sspj out_name <<< "$entry"
-    if [ ! -d "${LOCAL_SRC}/${sub}" ]; then
-        echo "== ${out_name}: skipped, ${LOCAL_SRC}/${sub} is not here"
-        echo "   That project is third-party sample art this repository does not"
-        echo "   ship. Everything else is unaffected; see README.md to add it."
-        continue
-    fi
     deploy_project "$LOCAL_SRC" "$sub" "$sspj" "$out_name"
     LOCAL_DEPLOYED+=("$out_name")
 done
