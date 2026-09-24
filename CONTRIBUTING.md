@@ -90,7 +90,7 @@ Android slice alone.
 | Nitro codegen is current | `npm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures` |
-| Asset manifest | (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts`. **`--check` calls it stale if you deployed the optional `MaskInstance` sample** — the committed manifest is the without-it state, so do not commit that change |
+| Asset manifest | (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts`. **`--check` calls it stale if you deployed anything from `example/SpriteStudio_Source/`** (the optional `MaskInstance` sample, or a project of your own) — the committed manifest is the without-them state, so do not commit that change |
 
 **Two host checks report a clean bill when they did nothing**, and each says so in its own header:
 `ssbake_check`, where zeroes mean the path never ran, and `ssshader_check`, where a broken `ss-*`
@@ -130,7 +130,7 @@ would shut out contributors on the other platform, and CI checks that both parse
 |---|---|---|
 | `download-sdk` | Install the release pinned in `scripts/SDK_VERSION.txt` into `native/`. **No Rust needed**, and skips when what is installed already matches. | Normal setup |
 | `build-runtime` | Build the Brain from the submodule into the same layout. Writes no version, so it is always replaced and never published. Windows: Android slice only. | Changing the Brain |
-| `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts`. Optional third-party art under `example/SpriteStudio_Source/` is reported and skipped when absent. | Refresh example assets |
+| `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts`. Every project under `example/SpriteStudio_Source/` is converted too and shows up as a `local/<folder>` subject ([example/README.md](./example/README.md#looking-at-a-project-of-your-own)); the optional `MaskInstance` sample is reported and skipped when absent. | Refresh example assets |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. | After a schema change |
 | `build-release` / `release` | See [RELEASING.md](./RELEASING.md). | Maintainers |

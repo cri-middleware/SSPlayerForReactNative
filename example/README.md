@@ -37,7 +37,7 @@ slice, so use an `x86_64` or `arm64-v8a` emulator image.
 
 | Control | What it does |
 |---|---|
-| **Subject** | Picks a feature card. Each is built so a failure names itself. |
+| **Subject** | Picks a feature card, each built so a failure names itself — or a [project of your own](#looking-at-a-project-of-your-own). |
 | **Pack file** | Appears when the subject has more than one `.ssab`. |
 | **Animation** | Read out of the loaded pack. |
 | **Textures** | Switches between an **Embedded** pack and a **Reference** one — both texture routes, in one place. |
@@ -49,7 +49,8 @@ handle counts.
 Subjects are the feature cards `Basic`, `BlendMode`, `PartsColor`, `Mask`,
 `Mesh`, `Shape`, `Shader`, `Effect`, `Instance`, `UserData`, `Sound` and
 `Signal`; the real character `Ringo` and `RingoInstances` (that same cast
-mounted as instance parts); and `ParticleEffect`, the heaviest packs.
+mounted as instance parts); `Doll`, instance and effect parts on one rig; and
+`ParticleEffect`, the heaviest packs.
 
 **Read `Mask` and `BlendMode` on both platforms.** The only platform-specific
 defect this screen has ever caught was iOS-only.
@@ -66,6 +67,29 @@ deployed leaves the screen rather than loading nothing and blaming the renderer.
 ```bash
 npx react-native-spritestudio assets --check --out src/ss-assets.ts
 ```
+
+## Looking at a project of your own
+
+Put the project's folder under `example/SpriteStudio_Source/` — one `.sspj` per
+folder, with everything it references beside it — and run
+`npm run deploy-examples` from the repository root:
+
+```
+example/SpriteStudio_Source/MyChar/      <- MyChar.sspj and everything beside it
+```
+
+It appears on **Subject** as `local/MyChar`, offering every `.ssab` it converted
+to, and the view measures each one to frame it. The packs ship as app assets, so
+**run the app again** (`npx expo run:ios`): a Metro reload brings the subject
+but not the files behind it. Take the folder out and deploy again to remove it.
+
+A folder whose name an SDK project's output already uses is refused rather than
+overwriting it — the script stops before converting anything and says which.
+
+> [!WARNING]
+> The committed manifest is the **without-local-projects** state, so deploying
+> one leaves `src/ss-assets.ts` modified on purpose — **do not commit it**, and
+> `assets --check` will call it stale for the same reason.
 
 ## The optional `MaskInstance` subject
 
@@ -84,12 +108,9 @@ give. Download **SpriteStudio Basic Samples** from
 example/SpriteStudio_Source/Mask/        <- Mask.sspj and everything beside it
 ```
 
-Then `npm run deploy-examples` picks it up and refreshes the manifest itself.
-
-> [!WARNING]
-> The committed manifest is the **without-optional-packs** state, so adding this
-> leaves `src/ss-assets.ts` modified on purpose — **do not commit it**, and
-> `assets --check` will call it stale for the same reason.
+It is a local project like any other, except for its name: `deploy-examples`
+converts this one folder as `MaskInstance`, which is what the card and
+`check-mask` read, so it shows up as that card rather than as `local/Mask`.
 
 ## Audio
 
