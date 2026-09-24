@@ -490,8 +490,10 @@ export function PlayerScreen() {
 
   const subject: Subject = SUBJECTS[subjectName]
   const fileNames = filesOf(subject)
+  // Checked against what the picker offered, not against the measured table:
+  // an `ownsPack` subject offers files that table does not have.
   const file =
-    pickedFile?.subject === subjectName && pickedFile.name in subject.files
+    pickedFile?.subject === subjectName && fileNames.includes(pickedFile.name)
       ? pickedFile.name
       : fileNames[0]
   const frame: Frame = subject.files[file] ?? CENTRED
