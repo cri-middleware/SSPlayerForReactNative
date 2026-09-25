@@ -41,9 +41,8 @@ publicly.
 
 Playback is driven by a native Rust runtime shared with the other SpriteStudio
 players. If the same problem reproduces on a different SpriteStudio player, it is
-most likely in that shared core — see
-[SpriteStudio-SDK](https://github.com/cri-middleware/SpriteStudio-SDK). Reporting
-here is still fine; we will route it.
+most likely in that shared core, which lives in
+SpriteStudio-SDK. Report it here all the same and say so; we will route it.
 
 ## Scope Notes
 
@@ -103,8 +102,7 @@ SSPlayerForReactNative はリリース前です。npm への公開はまだ行�
 
 ### どのリポジトリに報告するか
 
-再生は、他の SpriteStudio プレイヤーと共通のネイティブ Rust ランタイムが担っています。同じ問題が別のプレイヤーでも再現する場合、原因は共通コア側である可能性が高いため
-[SpriteStudio-SDK](https://github.com/cri-middleware/SpriteStudio-SDK) をご覧ください。こちらにご報告いただいても構いません。適切な側へ回送します。
+再生は、他の SpriteStudio プレイヤーと共通のネイティブ Rust ランタイムが担っています。同じ問題が別のプレイヤーでも再現する場合、原因は SpriteStudio-SDK にある共通コア側である可能性が高いため、その旨を添えてこちらへご報告ください。適切な側へ回送します。
 
 ## 適用範囲について
 
