@@ -208,7 +208,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 2. 変更するファイルの既存のスタイルに合わせてください。
 3. CI が回せない検証を手元で実行してください（[開発環境](#開発環境のセットアップ)）。
 4. 変更は 1 つの目的に絞ってください。
-5. **何を、どのプラットフォームで確認したか**を書いてください。iOS と Android は挙動が分かれます。example の Player 画面がこれまでに捕まえたプラットフォーム固有の不具合は、いずれも iOS のみで発生するものでした。
+5. **何を、どのプラットフォームで確認したか**を書いてください。iOS と Android は挙動が分かれます。example の Player 画面がこれまでに捕まえたプラットフォーム固有の不具合は 1 件だけで、それは iOS のみで発生するものでした。
 
 ### ブランチとリリース
 
@@ -217,9 +217,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 パッケージのバージョンは **SDK とロックステップ**です。`scripts/SDK_VERSION.txt` がビルド対象の Brain のリリースを固定し、パッケージ側も同じバージョンを名乗ります。
 changesets は使いません — パッケージを個別にバージョニングする SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
 
-`npm run build-release` は tarball を `release-dist/` に作って開き直すところまでを行い、何も publish しません。修正がまだ効く段階で成果物を確認するためです。`npm run release`
-はその最後に publish を足したもので、**macOS 専用**です。tarball には Xcode でしかビルドできない iOS 用 xcframework が含まれるため、他の環境から publish すると
-Android でしか動かないパッケージが出てしまいます。
+リリース作業はメンテナーが行います（[RELEASING.md](./RELEASING.md) を参照）。
 
 ## 開発環境のセットアップ
 
@@ -259,6 +257,16 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
 
 `scripts/` の各エントリポイントは `.js` の shim で、ホストに応じて `.sh` か `.ps1` の実装を選びます。**必ず両方を揃えて変更してください** — 片方だけにすると、もう一方のプラットフォームの貢献者を締め出すことになります。CI は両方が構文として通ることを確認しています。
 
+| スクリプト | 内容 | 使う場面 |
+|---|---|---|
+| `download-sdk` | `scripts/SDK_VERSION.txt` で固定したリリースを `native/` に導入します。**Rust は不要**で、導入済みのものが一致していれば何もしません。 | 通常のセットアップ |
+| `build-runtime` | submodule から Brain をビルドし、同じ配置に置きます。バージョンを書き込まないため、常に置き換えられ、publish されることもありません。Windows では Android 向けのみです。 | Brain を変更するとき |
+| `deploy-examples` | `ssconverter-cli`（Rust が必要）で `example/` 用に `.sspj` を `.ssab` へ変換し、`example/src/ss-assets.ts` を更新します。`example/SpriteStudio_Source/` 以下のプロジェクトもすべて変換され、`local/<folder>` の Subject として表示されます（[example/README.md](./example/README.md#looking-at-a-project-of-your-own)）。任意の `MaskInstance` サンプルは、無ければその旨を表示して飛ばします。 | example のアセットを更新するとき |
+| `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`。生成物はコミットしてください。 | spec を変更した後 |
+| `generate-fbs-code` | 3 つのスキーマに `flatc -c` → `cpp/format/`。生成物はコミットしてください。 | スキーマを変更した後 |
+| `build-release` / `release` | [RELEASING.md](./RELEASING.md) を参照してください。 | メンテナー |
+| `prepare-docs` / `build-docs` | [RELEASING.md](./RELEASING.md) を参照してください。 | docs を編集するとき |
+
 ## コーディング規約
 
 ### TypeScript
@@ -274,5 +282,4 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
   **他の SpriteStudio Player でも同じ問題が再現するなら、それはこのリポジトリの問題ではありません。**
 
 ---
-本プロジェクトへの貢献は、プロジェクトの [LICENSE.md](./LICENSE.md)（参考訳:
-[LICENSE.ja.md](./LICENSE.ja.md)）に同意したものとみなされます。
+本プロジェクトに貢献することで、あなたの貢献がプロジェクトの [LICENSE.md](./LICENSE.md)（参考訳: [LICENSE.ja.md](./LICENSE.ja.md)）の下でライセンスされることに同意したものとみなされます。
