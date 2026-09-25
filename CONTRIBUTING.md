@@ -282,5 +282,4 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
   **他の SpriteStudio Player でも同じ問題が再現するなら、それはこのリポジトリの問題ではありません。**
 
 ---
-本プロジェクトへの貢献は、プロジェクトの [LICENSE.md](./LICENSE.md)（参考訳:
-[LICENSE.ja.md](./LICENSE.ja.md)）に同意したものとみなされます。
+本プロジェクトに貢献することで、あなたの貢献がプロジェクトの [LICENSE.md](./LICENSE.md)（参考訳: [LICENSE.ja.md](./LICENSE.ja.md)）の下でライセンスされることに同意したものとみなされます。
