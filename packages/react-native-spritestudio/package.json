@@ -69,7 +69,7 @@
     "react-native-nitro-modules": "^0.37.1",
     "react-test-renderer": "19.3.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.2"
   },
   "repository": {
     "type": "git",
