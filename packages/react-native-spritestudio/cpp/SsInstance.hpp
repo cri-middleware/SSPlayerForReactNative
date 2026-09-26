@@ -63,9 +63,6 @@ struct SsInstanceChild {
   /// the `EventInstance` is resolved against the *parent's*.
   virtual void* instanceContext() const = 0;
 
-  /// The child's playhead, read back after `instancePlay` has snapped it.
-  virtual float instanceFrameNo() const = 0;
-
   /// Starts the child from its just-configured start frame.
   ///
   /// Not a courtesy. The two reference ports disagree about whether `step`

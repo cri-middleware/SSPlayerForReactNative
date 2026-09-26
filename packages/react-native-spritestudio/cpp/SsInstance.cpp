@@ -37,12 +37,12 @@ void SsInstanceSlots::step(void* parentContext, float parentFrame, float dtMilli
     state.visible = r.visible;
     if (!r.visible) continue;
 
-    // On a transition tick `step` reports the child's frame from *before*
-    // `play()` snapped it to the new start — it says so itself, and steps no
-    // further so the child's first frame is not skipped. Taking that value would
-    // show one frame of the previous playthrough. Every other tick it is the
-    // freshly stepped one.
-    state.childFrame = r.transitioned ? state.child->instanceFrameNo() : r.child_frame_no;
+    // The step's frame, the transition tick included. The section change has
+    // already put an independent child on its first frame for the direction —
+    // where `play()` snaps it — and a synced child's frame follows the parent.
+    // Reading the clock back after `play()` would put a synced child at its
+    // section start for that tick instead.
+    state.childFrame = r.child_frame_no;
 
     // The child's *animation* clock is the Brain's, but its effects and its own
     // nested instances still need a tick, at the frame it was just moved to.

@@ -151,7 +151,6 @@ class HybridSsContext final : public HybridSsContextSpec,
   // `ss_instance_slot_step` seek it and then only refreshes.
 
   void* instanceContext() const override { return ctx_; }
-  float instanceFrameNo() const override;
   void instancePlay() override;
   void instanceStop() override;
   void instanceResetSlots() override;
