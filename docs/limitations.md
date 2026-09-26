@@ -27,7 +27,7 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
   mesh needs its texcoord channel for its atlas, so it fits neither the quad path
   nor the Shape path, and is instead drawn into an isolated layer whose alpha the
   same triangles then cut with `kDstIn`, carrying the coverage UV per vertex —
-  the same range SSPlayerForWeb covers.
+  the same range SpriteStudio Player for Web covers.
 - **A child's own mask writers while a caller's mask reaches into it.** The
   caller's coverage is handed down and the child references it; its own writers
   then write nothing for that frame. The SDK calls the two "a separate track",
