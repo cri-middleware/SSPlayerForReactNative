@@ -26,16 +26,19 @@ import { playAudioEvent, releaseAudioPlayers } from './audio'
 /**
  * How a pack's art sits relative to its origin, in **player-local units**.
  *
- * A SpriteStudio origin is wherever the author put it, so this cannot be
- * derived from the authored canvas size — `Basic` straddles its origin while
- * `Ringo` stands on it, feet at y = 0 and head 600 units up. Both numbers are
- * *measured* off the baked vertices rather than guessed; drawing a pack that
- * has never been framed shows a corner of it at best.
+ * The view would fit the authored canvas without it, which frames the art only
+ * as well as the artist's canvas does: `Shader` sweeps its parts past its 480
+ * canvas, and the `ParticleEffect` files span anything from 463 to 4198 units.
+ * The numbers are *measured* off the baked vertices rather than guessed.
  */
 interface Frame {
   /** Player-local height to fit into the view's shorter axis. */
   height: number
-  /** Player-local y of the art's centre. +Y is up, as the root transform flips. */
+  /**
+   * Player-local y of the art's centre, **+Y up** as it was measured — `Ringo`
+   * stands on its origin, so its centre is positive. The box is Y-down, so
+   * building it negates this.
+   */
   centerY: number
 }
 
@@ -410,7 +413,7 @@ function filesOf(subject: Subject): string[] {
  *
  * Read out of the manifest like every file list on this screen, so there is no
  * table to keep: `ownsPack` offers every `.ssab` in the directory, and with no
- * measured frames the view measures each file at load. Reference only, like
+ * frames the view fits each file's authored canvas. Reference only, like
  * `MaskInstance`. Named `local/<directory>` so that a project called `Mask` or
  * `Effect` — both are SpriteStudio basic samples — cannot shadow the card.
  */
@@ -530,8 +533,8 @@ export function PlayerScreen() {
     pickedFile?.subject === subjectName && fileNames.includes(pickedFile.name)
       ? pickedFile.name
       : fileNames[0]
-  // Undefined for a local subject, so the view measures the file itself: a
-  // fixed box would be a guess about a pack nobody here has framed.
+  // Undefined for a local subject, so the view fits the file's authored canvas:
+  // a fixed box would be a guess about a pack nobody here has framed.
   const frame: Frame | undefined =
     subject.files[file] ?? (subject.pack in PACKS ? CENTRED : undefined)
   // Falls back to `reference` for a pack with no embedded conversion, so the
@@ -734,21 +737,18 @@ export function PlayerScreen() {
     setSize(event.nativeEvent.layout)
   }
 
-  // The measured table is now a *`frame` prop*, not arithmetic this screen has
-  // to do: `fit` takes the box and lands it in the view. The numbers stayed
-  // because supplying the box is the documented way to skip the measurement,
-  // and this screen switches packs often enough to care — `measureFrames` on
-  // `ParticleEffect` alone would be 240 bakes per switch.
+  // The table goes in as the `frame` prop, and `fit` lands it in the view.
   //
-  // `height`/`centerY` are what was measured, so the box is reconstructed from
-  // them. Its width is left at the height: `fit="contain"` takes the tighter
-  // axis, and the vertical one is the one every entry here was measured on.
+  // `height`/`centerY` are what was measured, so the box is rebuilt from them,
+  // `centerY` negated into the box's Y-down space. Its width is left at the
+  // height: `fit="contain"` takes the tighter axis, and the vertical one is the
+  // one every entry here was measured on.
   const box =
     frame == null
       ? undefined
       : {
           x: -frame.height / 2,
-          y: frame.centerY - frame.height / 2,
+          y: -frame.centerY - frame.height / 2,
           width: frame.height,
           height: frame.height,
         }
