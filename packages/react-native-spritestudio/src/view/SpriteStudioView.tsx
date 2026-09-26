@@ -99,7 +99,7 @@ export const SpriteStudioView = forwardRef<
   const fit = props.fit ?? 'contain'
 
   const [size, setSize] = useState({ width: 0, height: 0 })
-  const { player, measured, ready } = useSpriteStudioPlayer(props)
+  const { player, measured, canvas, ready } = useSpriteStudioPlayer(props)
 
   // `<Picture>` has no null state, so seed it with an empty recording rather
   // than letting the first frame render before the loop has run once.
@@ -116,7 +116,7 @@ export const SpriteStudioView = forwardRef<
   useImperativeHandle(ref, () => ({ player }), [player])
 
   // --- placement ----------------------------------------------------------
-  const box = props.frame ?? measured
+  const box = props.frame ?? measured ?? canvas
   useEffect(() => {
     if (player == null) return
     player.setRootTransform(

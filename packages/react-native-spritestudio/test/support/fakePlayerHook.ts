@@ -13,12 +13,14 @@ import { SpriteStudioPlayer } from './fakePlayer'
  */
 export const fakePlayerHookState = {
   measured: null as SsBox | null,
+  canvas: null as SsBox | null,
   ready: true,
 }
 
 export function useSpriteStudioPlayer(_props: unknown): {
   player: SpriteStudioPlayer
   measured: SsBox | null
+  canvas: SsBox | null
   ready: boolean
 } {
   const player = useMemo(() => new SpriteStudioPlayer(), [])
@@ -26,6 +28,7 @@ export function useSpriteStudioPlayer(_props: unknown): {
   return {
     player,
     measured: fakePlayerHookState.measured,
+    canvas: fakePlayerHookState.canvas,
     ready: fakePlayerHookState.ready,
   }
 }

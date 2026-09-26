@@ -158,14 +158,10 @@ export function PartFollowScreen() {
           animation={motion}
           playing
           fit="contain"
-          // No hand-supplied frame: Ringo's origin (the root part) sits at the
-          // character's feet, so placing that origin at the view's centre throws
-          // the art upward and off the top. Letting the view **measure** the
-          // baked content box and fit that instead centres whatever the motion
-          // actually draws, wherever its origin happens to be. `frameScope="pack"`
-          // measures once over every animation, so the framing does not jump when
-          // the motion changes under a fish that is meant to stay put.
-          frameScope="pack"
+          // No frame and nothing measured: the view fits Ringo's authored canvas,
+          // which its pivot already puts above the feet. The motions offered here
+          // share one 800x600 canvas, so the framing does not jump when the
+          // motion changes under a fish that is meant to stay put.
           onLoad={() => setLoadSeq((n) => n + 1)}
         />
         {/*

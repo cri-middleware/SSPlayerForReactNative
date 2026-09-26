@@ -478,6 +478,12 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
                static_cast<double>(box[2] - box[0]), static_cast<double>(box[3] - box[1]));
 }
 
+SsBox HybridSsContext::canvasBox() {
+  const std::array<float, 4> box = ssab().canvasBox(animationIndex_);
+  return SsBox(static_cast<double>(box[0]), static_cast<double>(box[1]),
+               static_cast<double>(box[2]), static_cast<double>(box[3]));
+}
+
 SsPartTransform HybridSsContext::getPartTransform(double partIndex) {
   const auto index = static_cast<size_t>(partIndex);
   if (ctx_ == nullptr || soa_.worldMatrices == nullptr || partIndex < 0 ||

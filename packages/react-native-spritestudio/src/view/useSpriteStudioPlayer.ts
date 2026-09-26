@@ -40,9 +40,12 @@ export interface SsPlayerProps {
 
   /** How the content box is scaled to the view. Default `'contain'`. */
   fit?: SsFit
-  /** The content box, in player-local units — supply it to skip measuring. */
+  /** The content box, in player-local units. Omitted, the animation's authored canvas. */
   frame?: SsBox
-  /** Whether an unsupplied box covers this animation or the whole pack. */
+  /**
+   * Measure the box instead of using the authored canvas — over this animation
+   * or the whole pack. Omitted, nothing is measured.
+   */
   frameScope?: SsFrameScope
   /** Caps the measuring walk. Default `0`, which is one authored cycle. */
   measureFrames?: number
@@ -86,6 +89,8 @@ export interface SsPlayerState {
   player: SpriteStudioPlayer | null
   /** The measured content box, or null before one lands (or when none was asked for). */
   measured: SsBox | null
+  /** The authored canvas of the animation playing, or null before one is set up. */
+  canvas: SsBox | null
   /** Loaded **and** carrying at least one texture — the first drawable frame. */
   ready: boolean
 }
@@ -99,6 +104,11 @@ export interface SsPlayerState {
  * components: a `<SpriteStudioView>` runs its own frame loop, while every
  * `<SpriteStudioSprite>` in a scene is advanced by the one loop the scene owns.
  */
+function sameBox(a: SsBox | null, b: SsBox | null): boolean {
+  if (a == null || b == null) return a === b
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
+
 export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   const {
     source,
@@ -109,7 +119,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     loop = 0,
     fit = 'contain',
     frame,
-    frameScope = 'animation',
+    frameScope,
     measureFrames = 0,
     parts,
     onLoad,
@@ -150,7 +160,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // new object every render, and reloading the pack on each one would be an
   // expensive way to draw the same frame.
   const sourceUri = sourceUriOf(source)
-  const measureScope = fit === 'none' || frame != null ? null : frameScope
+  const measureScope = fit === 'none' || frame != null ? null : (frameScope ?? null)
 
   // What the player has been *asked* to play, which is not always what the
   // `animation` prop says: a change arriving mid-load reaches a player with no
@@ -354,20 +364,26 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // the load has to finish first — and the textures later still, so neither can
   // be read during render and expected to re-render when it changes.
   const [measured, setMeasured] = useState<SsBox | null>(null)
+  const [canvas, setCanvas] = useState<SsBox | null>(null)
   const [ready, setReady] = useState(false)
   useEffect(() => {
     if (player == null) {
       setMeasured(null)
+      setCanvas(null)
       setReady(false)
       return
     }
     const read = (): void => {
       setMeasured(player.contentBox)
+      // Kept when unchanged: the canvas is re-read on every notify — a play, a
+      // pause, a seek — and only an animation switch moves it.
+      const nextCanvas = player.canvasBox
+      setCanvas((previous) => (sameBox(previous, nextCanvas) ? previous : nextCanvas))
       setReady(player.isLoaded && player.textures.size > 0)
     }
     read()
     return player.addListener(read)
   }, [player])
 
-  return { player, measured, ready }
+  return { player, measured, canvas, ready }
 }

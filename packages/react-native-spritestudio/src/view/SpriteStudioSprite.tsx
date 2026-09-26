@@ -68,7 +68,7 @@ export const SpriteStudioSprite = forwardRef<
   const fit = props.fit ?? 'contain'
 
   const scene = useSsScene()
-  const { player, measured } = useSpriteStudioPlayer(props)
+  const { player, measured, canvas } = useSpriteStudioPlayer(props)
 
   useEffect(() => {
     if (scene == null) {
@@ -90,13 +90,13 @@ export const SpriteStudioSprite = forwardRef<
 
   // --- placement ----------------------------------------------------------
   //
-  // The same solver the view uses, with two substitutions: the box is `width` x
-  // `height` rather than the whole canvas, and `offset` carries `x`/`y`, which
-  // translates that box's placement into scene coordinates. With no width and
+  // The same solver the view uses, with two substitutions: the view is `width` x
+  // `height` rather than the whole scene, and `offset` carries `x`/`y`, which
+  // translates that placement into scene coordinates. With no width and
   // height the solver falls through to its unfitted case — origin at (0,0) plus
   // the offset — so `x`/`y` then place the animation's origin directly, which
   // is exactly what "no box to fit" should mean.
-  const box = props.frame ?? measured
+  const box = props.frame ?? measured ?? canvas
   useEffect(() => {
     if (player == null) return
     player.setRootTransform(

@@ -527,15 +527,11 @@ export interface SsContext
    * The box `animations` actually draw into, measured by baking each of them
    * and unioning every vertex — the subtrees Instance parts mount included.
    *
-   * **The authored canvas cannot answer this**, which is the whole reason this
-   * costs a bake. `AnimationData.canvas` carries a size and no origin, and a
-   * SpriteStudio origin is wherever the author put it, so the canvas says
-   * nothing about where the art sits relative to it. Measured on this repo's own
-   * packs, every one overflows a canvas centred on its origin: `Basic` 480x480
-   * against art `x[-250.5, 232.0]`, `Shape` 320x320 against `x[-248.0, 131.9]`,
-   * and `Ringo` 800x600 against `y[0.7, 528.1]` — it stands on its origin, so
-   * the character is entirely above a box centred on it. A `fit` reading the
-   * canvas would clip all three.
+   * This is the box a caller asks for when the authored canvas (`canvasBox`)
+   * is not the one it wants: the canvas is where the artist composed, and art
+   * can overflow it. Measured on this repo's own packs, `Basic` (480 wide)
+   * draws into `x[-250.5, 232.0]` and `Shape` (320 wide) into
+   * `x[-248.0, 131.9]`.
    *
    * **Moves the playhead and leaves the last of `animations` set up**, so it
    * runs *before* `setupAnimation` — the same ordering rule `bindInstancePack`
@@ -550,6 +546,16 @@ export interface SsContext
    * placing at scale 1 rather than dividing by it.
    */
   measureContentBox(animations: string[], maxFrames: number): SsBox
+
+  /**
+   * The authored canvas of the animation set up — its size, placed against the
+   * origin by its pivot — in player-local units. What `fit` places against when
+   * the caller supplies no `frame` and asks for no measurement.
+   *
+   * Read from the `.ssab`, no bake, so it costs nothing and does not move with
+   * the playhead. Zero-sized before an animation is set up.
+   */
+  canvasBox(): SsBox
 
   /**
    * Where part `partIndex` is this frame — see `SsPartTransform`.

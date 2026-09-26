@@ -351,6 +351,11 @@ export class SsInternalPlayer {
     return this.require().measureContentBox(animations, maxFrames)
   }
 
+  /** The authored canvas of the animation set up, in player-local units — see the spec. */
+  canvasBox(): SsBox {
+    return this.require().canvasBox()
+  }
+
   /**
    * Every texture this pack needs, read out of the `.ssab` in C++.
    *

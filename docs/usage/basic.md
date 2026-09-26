@@ -68,24 +68,25 @@ box lands in the view.
 
 `align` takes `center`, `top`, `bottom`, `left`, `right` and the four corners.
 
-### Measuring, and skipping it
+### Where the box comes from
 
-The content box is not free: measuring walks the animation, baking a frame at a
-time. Three props control it.
+With nothing supplied, the box is the animation's **authored canvas**: its size,
+placed against the origin by its pivot. It costs nothing, and it does not change
+when the animation does. It is where the artist composed, not where the art goes,
+so a pack whose art overflows its canvas overflows the view too.
 
 | Prop | Means |
 |---|---|
-| `frame` | The box, supplied by you. **Skips measuring entirely.** |
-| `frameScope` | `'animation'` (default) measures the one playing; `'pack'` unions every animation in the file. |
+| `frame` | The box, supplied by you. |
+| `frameScope` | Measure the box instead: `'animation'` walks the one playing, `'pack'` unions every animation in the file. Omitted, nothing is measured. |
 | `measureFrames` | Caps the walk. Default `0`, which is one authored cycle. |
 
-`frameScope: 'pack'` costs a walk per animation and draws smaller, and buys the
-one thing the default cannot: a **stable** scale, so a character does not resize
-itself when its animation changes. The gap can be large — `Ringo`'s `attack1`
-spans 383×527 player-local units while the pack's union spans about 1030×878,
-because its `dead` animation slides the character most of a screen to the right.
-
-Supply `frame` when you already know the box and want neither cost.
+Measuring is not free: it walks the animation, baking a frame at a time. It is
+for art that does not sit inside its canvas — this repository's own `Shape`
+(320 wide) draws into `x[-248, 132]`. `frameScope: 'pack'` costs a walk per
+animation and draws smaller: `Ringo`'s `attack1` spans 383×527 player-local units
+while the pack's union spans about 1030×878, because its `dead` animation slides
+the character most of a screen to the right.
 
 ## The first frame
 

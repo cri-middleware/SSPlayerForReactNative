@@ -1195,13 +1195,23 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   /**
    * The box the art occupies, in player-local units, or null when nothing has
-   * been measured. What `fit` places against.
+   * been measured. What `fit` places against when present.
    *
    * Null is not a failure — it is what a player loaded without a `measure`
-   * request reports, and Layer 4 falls back to the unfitted placement.
+   * request reports, and Layer 4 falls back to `canvasBox`.
    */
   get contentBox(): SsBox | null {
     return this.contentBoxValue
+  }
+
+  /**
+   * The animation's authored canvas, placed against the origin by its pivot, in
+   * player-local units: what `fit` places against when the caller supplies no
+   * `frame` and asked for no measurement. Null until an animation is set up.
+   */
+  get canvasBox(): SsBox | null {
+    const box = this.internalPlayer?.canvasBox()
+    return box != null && box.width > 0 && box.height > 0 ? box : null
   }
 
   /**
