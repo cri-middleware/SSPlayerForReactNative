@@ -101,9 +101,6 @@ class HostChild final : public sscore::SsInstanceChild {
     ++steps_;
     return ctx_;
   }
-  float instanceFrameNo() const override {
-    return ctx_ == nullptr ? 0.0f : ss_runtime_get_frame_no(ctx_);
-  }
   void instancePlay() override {
     if (ctx_ != nullptr) ss_runtime_play(ctx_);
   }

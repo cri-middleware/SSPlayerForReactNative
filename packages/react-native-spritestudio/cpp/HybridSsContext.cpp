@@ -919,10 +919,6 @@ void HybridSsContext::refreshFrame() {
 
 // --- this player, driven as somebody else's instance child -------------------
 
-float HybridSsContext::instanceFrameNo() const {
-  return ctx_ == nullptr ? 0.0f : ss_runtime_get_frame_no(ctx_);
-}
-
 void HybridSsContext::instancePlay() {
   if (ctx_ == nullptr) return;
   // Deliberately *not* this class's `play()`: that one also rewinds the slots,
