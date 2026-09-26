@@ -20,6 +20,7 @@ const PLACEHOLDER = createElement('Placeholder')
 beforeEach(() => {
   SpriteStudioPlayer.reset()
   fakePlayerHookState.measured = null
+  fakePlayerHookState.canvas = null
   fakePlayerHookState.ready = true
 })
 
@@ -98,6 +99,31 @@ describe('placement', () => {
 
     // contain takes the tighter axis (200/50), and centre puts what is left over
     // on both sides of x.
+    expect(SpriteStudioPlayer.last().argsOf('setRootTransform').at(-1)).toEqual([
+      { x: 50, y: 0, scale: 4, flipX: false, flipY: false },
+    ])
+  })
+
+  // With nothing supplied and nothing measured, the box is the authored canvas.
+  it('fits the authored canvas when nothing was measured', async () => {
+    fakePlayerHookState.canvas = { x: 0, y: 0, width: 50, height: 50 }
+
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    await layout(renderer, 300, 200)
+
+    expect(SpriteStudioPlayer.last().argsOf('setRootTransform').at(-1)).toEqual([
+      { x: 50, y: 0, scale: 4, flipX: false, flipY: false },
+    ])
+  })
+
+  // A measured box, when one was asked for, wins over the canvas.
+  it('prefers the measured box to the canvas', async () => {
+    fakePlayerHookState.canvas = { x: 0, y: 0, width: 100, height: 100 }
+    fakePlayerHookState.measured = { x: 0, y: 0, width: 50, height: 50 }
+
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    await layout(renderer, 300, 200)
+
     expect(SpriteStudioPlayer.last().argsOf('setRootTransform').at(-1)).toEqual([
       { x: 50, y: 0, scale: 4, flipX: false, flipY: false },
     ])

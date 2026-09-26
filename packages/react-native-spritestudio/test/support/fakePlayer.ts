@@ -51,6 +51,7 @@ export class SpriteStudioPlayer {
   isPlaying = false
   isLoaded = false
   contentBox: SsBox | null = null
+  canvasBox: SsBox | null = null
   disposed = false
 
   /** Animations the loaded pack has. `setAnimation` answers from it. */

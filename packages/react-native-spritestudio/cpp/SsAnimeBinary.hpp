@@ -24,6 +24,7 @@
 //
 // Schema: SpriteStudio-SDK/libs/ssab/fbs/ssab.fbs
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -115,6 +116,24 @@ class SsAnimeBinaryView {
     const auto* animations = root_ != nullptr ? root_->animations() : nullptr;
     if (animations == nullptr || index >= animations->size()) return {};
     return toView(animations->Get(index)->name());
+  }
+
+  /// Animation `index`'s authored canvas — its size, placed against the origin
+  /// by its pivot — as `{x, y, width, height}` in the Brain's Y-down
+  /// player-local space. The pivot is normalised from the canvas centre in the
+  /// editor's Y-up terms, which is the one flip. All zero out of range.
+  std::array<float, 4> canvasBox(int32_t index) const noexcept {
+    const auto* animations = root_ != nullptr ? root_->animations() : nullptr;
+    if (animations == nullptr || index < 0 || static_cast<uint32_t>(index) >= animations->size()) {
+      return {};
+    }
+    const auto* animation = animations->Get(static_cast<uint32_t>(index));
+    const auto* size = animation->canvas_size();
+    const auto* pivot = animation->pivot();
+    if (size == nullptr || pivot == nullptr) return {};
+    const float width = size->v1();
+    const float height = size->v2();
+    return {-pivot->v1() * width - width / 2.0f, pivot->v2() * height - height / 2.0f, width, height};
   }
 
   // --- cellmaps -----------------------------------------------------------

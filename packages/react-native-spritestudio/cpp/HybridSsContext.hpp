@@ -117,6 +117,7 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   SsBox measureContentBox(const std::vector<std::string>& animations,
                           double maxFrames) override;
+  SsBox canvasBox() override;
 
   SsPartTransform getPartTransform(double partIndex) override;
   bool isPartHidden(double partIndex) override;

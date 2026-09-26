@@ -215,20 +215,29 @@ describe('the event forwarders', () => {
 })
 
 describe('what the caller renders against', () => {
-  it('measures by default, and not once there is nothing to measure for', async () => {
+  // The authored canvas is the default box, so measuring — a bake of every
+  // frame — happens only when `frameScope` asks for it, and never when there is
+  // nothing to fit or a `frame` already answers.
+  it('measures only when asked, and never with nothing to measure for', async () => {
     await mount({ source: PACK })
-    expect(SpriteStudioPlayer.last().argsOf('load')[0]?.[1]).toMatchObject({
-      measure: { scope: 'animation', maxFrames: 0 },
-    })
-
-    SpriteStudioPlayer.reset()
-    await mount({ source: PACK, fit: 'none' })
     expect(SpriteStudioPlayer.last().argsOf('load')[0]?.[1]).toMatchObject({
       measure: undefined,
     })
 
     SpriteStudioPlayer.reset()
-    await mount({ source: PACK, frame: { x: 0, y: 0, width: 4, height: 4 } })
+    await mount({ source: PACK, frameScope: 'animation' })
+    expect(SpriteStudioPlayer.last().argsOf('load')[0]?.[1]).toMatchObject({
+      measure: { scope: 'animation', maxFrames: 0 },
+    })
+
+    SpriteStudioPlayer.reset()
+    await mount({ source: PACK, frameScope: 'pack', fit: 'none' })
+    expect(SpriteStudioPlayer.last().argsOf('load')[0]?.[1]).toMatchObject({
+      measure: undefined,
+    })
+
+    SpriteStudioPlayer.reset()
+    await mount({ source: PACK, frameScope: 'pack', frame: { x: 0, y: 0, width: 4, height: 4 } })
     expect(SpriteStudioPlayer.last().argsOf('load')[0]?.[1]).toMatchObject({
       measure: undefined,
     })
@@ -260,5 +269,18 @@ describe('what the caller renders against', () => {
     })
 
     expect(harness.result.current.measured).toEqual({ x: 0, y: 0, width: 32, height: 48 })
+  })
+
+  it('publishes the authored canvas off the same subscription', async () => {
+    const harness = await mount({ source: PACK })
+    const player = SpriteStudioPlayer.last()
+    expect(harness.result.current.canvas).toBeNull()
+
+    await act(async () => {
+      player.canvasBox = { x: -400, y: -600, width: 800, height: 600 }
+      player.notify()
+    })
+
+    expect(harness.result.current.canvas).toEqual({ x: -400, y: -600, width: 800, height: 600 })
   })
 })

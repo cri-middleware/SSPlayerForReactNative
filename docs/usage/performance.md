@@ -69,7 +69,6 @@ and that is the slow half. A view mounting against a cold cache shows its
 
 ## Measuring the box is not free either
 
-Fitting the art walks the animation, baking a frame at a time. `frame` supplies
-the box and skips the walk entirely; `frameScope: 'pack'` buys a stable scale
-across animations and costs a walk per animation. Both are in
-[Basic playback](/usage/basic).
+Fitting against the authored canvas, the default, costs nothing. Measuring the
+box instead (`frameScope`) walks the animation, baking a frame at a time, and
+`'pack'` pays that walk per animation. Both are in [Basic playback](/usage/basic).

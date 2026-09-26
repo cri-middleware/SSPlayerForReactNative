@@ -335,6 +335,13 @@ export class SsInternalPlayer {
     return this.contentBox
   }
 
+  /** What `canvasBox` hands back. Zero-sized — no animation set up — until a test says otherwise. */
+  canvas: SsBox = { x: 0, y: 0, width: 0, height: 0 }
+
+  canvasBox(): SsBox {
+    return this.canvas
+  }
+
   getTextures(): SsTextureInfo[] {
     return [...this.textureInfos]
   }

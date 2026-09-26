@@ -23,15 +23,14 @@ export type SsAlign =
   | 'bottom-right'
 
 /**
- * Which animations the content box is measured over.
+ * Which animations the content box is measured over, for a caller that asks
+ * for a measured box instead of the authored canvas.
  *
- * `animation` is the default and the tighter picture: the box of the one
- * animation playing. `pack` unions every animation in the file, which costs more
- * to measure and draws smaller, and buys the one thing the default cannot — a
- * **stable** scale, so a character does not resize when its animation changes.
- * On `Ringo` the difference is large and worth knowing about: `attack1` spans
- * 383x527 player-local units while the pack's union spans about 1030x878,
- * because `dead` slides the character most of a screen to the right.
+ * `animation` is the box of the one animation playing. `pack` unions every
+ * animation in the file, which costs a walk per animation and draws smaller:
+ * on `Ringo`, `attack1` spans 383x527 player-local units while the pack's
+ * union spans about 1030x878, because `dead` slides the character most of a
+ * screen to the right.
  */
 export type SsFrameScope = 'animation' | 'pack'
 
@@ -40,12 +39,11 @@ export interface SsPlacement {
   fit?: SsFit
   align?: SsAlign
   /**
-   * The box to fit, in player-local units — supply it and nothing is measured.
-   *
-   * The fast path, and the one a build-time manifest fills in: measuring means
-   * baking every frame of the animation at load.
+   * The box to fit, in player-local units. Omitted, the animation's authored
+   * canvas, or the measured box when `frameScope` asks for one.
    */
   frame?: SsBox
+  /** Measure the box instead of using the authored canvas. Omitted, nothing is measured. */
   frameScope?: SsFrameScope
   /** Pixels from the aligned position. Applied *after* the fit. */
   offset?: { x: number; y: number }
@@ -98,7 +96,7 @@ function solveAxis(
  * React-free and Skia-free so both Layer 4 components share exactly one copy of
  * this arithmetic, and so it can be checked without a renderer.
  *
- * A zero-sized or absent box means "nothing measured": the fit is skipped and
+ * A zero-sized or absent box means "nothing to fit": the fit is skipped and
  * the result is the pre-fit behaviour — scale 1, origin at the view's centre —
  * rather than a division by zero.
  */

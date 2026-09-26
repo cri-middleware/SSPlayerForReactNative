@@ -52,6 +52,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridMethod("setSubFrame", &HybridSsContextSpec::setSubFrame);
       prototype.registerHybridMethod("findPartIndex", &HybridSsContextSpec::findPartIndex);
       prototype.registerHybridMethod("measureContentBox", &HybridSsContextSpec::measureContentBox);
+      prototype.registerHybridMethod("canvasBox", &HybridSsContextSpec::canvasBox);
       prototype.registerHybridMethod("getPartTransform", &HybridSsContextSpec::getPartTransform);
       prototype.registerHybridMethod("isPartHidden", &HybridSsContextSpec::isPartHidden);
       prototype.registerHybridMethod("isPartSkinnedMesh", &HybridSsContextSpec::isPartSkinnedMesh);
