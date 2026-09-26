@@ -1,6 +1,6 @@
 ---
 layout: home
-title: SSPlayerForReactNative
+title: SpriteStudio Player for React Native
 description: SpriteStudio animation in React Native — one component, no animation code.
 
 hero:

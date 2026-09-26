@@ -2,8 +2,9 @@
 
 ## Supported Versions
 
-SSPlayerForReactNative is pre-release: nothing is published to npm yet, and fixes
-are issued against `main`. Once there are releases, this becomes "the latest one".
+SpriteStudio Player for React Native is pre-release: nothing is published to
+npm yet, and fixes are issued against `main`. Once there are releases, this
+becomes "the latest one".
 
 | Version | Supported |
 |---|---|
@@ -75,7 +76,7 @@ over a channel you control and treat it as content you vouch for.
 
 ## サポート対象バージョン
 
-SSPlayerForReactNative はリリース前です。npm への公開はまだ行われておらず、修正は
+SpriteStudio Player for React Native はリリース前です。npm への公開はまだ行われておらず、修正は
 `main` に対して提供されます。リリースが始まった時点で「最新リリース」に切り替わります。
 
 | バージョン | サポート |

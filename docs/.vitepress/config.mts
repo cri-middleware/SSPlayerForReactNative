@@ -37,7 +37,7 @@ const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 // playing, then the things a real app needs, then the reference to look names up
 // in, then what to do when it breaks and what this port cannot do at all.
 export default withMermaid({
-  title: 'SSPlayerForReactNative',
+  title: 'SpriteStudio Player for React Native',
   description: 'SpriteStudio player for React Native (Nitro Modules + React Native Skia)',
   lastUpdated: true,
   cleanUrls: true,
@@ -45,7 +45,7 @@ export default withMermaid({
   base: '/SSPlayerForReactNative/',
 
 
-  head: [['meta', { property: 'og:site_name', content: 'SSPlayerForReactNative' }]],
+  head: [['meta', { property: 'og:site_name', content: 'SpriteStudio Player for React Native' }]],
 
   // mermaid 11.17 pulls in fastdom, which is CommonJS and is not on VitePress's
   // own pre-bundle list. Left out, the dev server hands the browser the raw file
@@ -63,7 +63,7 @@ export default withMermaid({
   },
 
   transformPageData(pageData) {
-    const title = pageData.frontmatter.title ?? pageData.title ?? 'SSPlayerForReactNative'
+    const title = pageData.frontmatter.title ?? pageData.title ?? 'SpriteStudio Player for React Native'
     const description = pageData.frontmatter.description ?? pageData.description ?? ''
     pageData.frontmatter.head ??= []
     pageData.frontmatter.head.push(
