@@ -19,16 +19,17 @@ $app = Split-Path -Leaf $PSCommandPath
 
 $packageDir = Join-Path $rootDir "packages/react-native-spritestudio"
 
-if (-not (Test-Path (Join-Path $rootDir "node_modules/nitrogen"))) {
-    Write-Error "$app`: nitrogen is not installed - run 'npm install' first."
-    exit 1
-}
-
-# npm writes both a .cmd shim and an extensionless one; prefer the .cmd on
+# A devDependency of the package, so its bin is the package's, not the root's.
+# pnpm writes both a .cmd shim and an extensionless one; prefer the .cmd on
 # Windows and fall back for pwsh on a POSIX host.
-$nitrogen = Join-Path $rootDir "node_modules/.bin/nitrogen.cmd"
+$binDir = Join-Path $packageDir "node_modules/.bin"
+$nitrogen = Join-Path $binDir "nitrogen.cmd"
 if (-not (Test-Path $nitrogen)) {
-    $nitrogen = Join-Path $rootDir "node_modules/.bin/nitrogen"
+    $nitrogen = Join-Path $binDir "nitrogen"
+}
+if (-not (Test-Path $nitrogen)) {
+    Write-Error "$app`: nitrogen is not installed - run 'pnpm install' first."
+    exit 1
 }
 
 Push-Location $packageDir

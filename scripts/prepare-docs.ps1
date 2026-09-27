@@ -15,12 +15,13 @@ param (
 # also why pages.yml checks out without submodules and still publishes a
 # complete site.
 #
-# npm workspaces hoist into the ROOT node_modules, docs/ included, so the root
-# is both what to install and what to probe.
+# pnpm installs every workspace from the root, docs/ included, so the root is
+# both what to install and what to probe.
 #
 # Usage: scripts/prepare-docs.ps1 [frozen=<yes|no>]
-#   frozen : yes  npm ci, failing rather than updating package-lock.json (default)
-#            no   npm install, which is what adding a dependency needs
+#   frozen : yes  pnpm install --frozen-lockfile, failing rather than updating
+#                 pnpm-lock.yaml (default)
+#            no   pnpm install, which is what adding a dependency needs
 #
 # Then: scripts/build-docs.ps1, which runs TypeDoc and VitePress.
 
@@ -44,12 +45,12 @@ $frozen = "yes"
 function Show-Usage {
     Write-Host "Usage: $app [options]"
     Write-Host "$app options:"
-    Write-Host "  frozen=<yes|no>         Install with 'npm ci', i.e. fail rather than update"
-    Write-Host "                          package-lock.json (default: yes). frozen=no runs"
-    Write-Host "                          'npm install', which is what adding a dependency needs."
+    Write-Host "  frozen=<yes|no>         Install from pnpm-lock.yaml as it stands, failing rather"
+    Write-Host "                          than updating it (default: yes). frozen=no lets it"
+    Write-Host "                          move, which is what adding a dependency needs."
     Write-Host "  -h | --help             Show this help"
     Write-Host ""
-    Write-Host "Installs into the *root* node_modules -- npm workspaces hoist, docs/ included."
+    Write-Host "Installs every workspace from the root, docs/ included."
     Write-Host ""
     Write-Host "No Brain, no Rust, no platform toolchain: TypeDoc reads TypeScript sources and"
     Write-Host "VitePress renders markdown, so neither ever loads the native runtime."
@@ -76,9 +77,9 @@ if (!(Test-Path (Join-Path $rootDir "docs/package.json"))) {
     Fail "docs/package.json not found -- is this the SSPlayerForReactNative repo?"
 }
 
-if (!(Get-Command npm -ErrorAction SilentlyContinue)) {
-    [Console]::Error.WriteLine("${app}: npm not found -- install Node 20 or newer (package.json engines; CI uses 22)")
-    Fail "https://nodejs.org"
+if (!(Get-Command pnpm -ErrorAction SilentlyContinue)) {
+    [Console]::Error.WriteLine("${app}: pnpm not found (this repo pins it in package.json's packageManager)")
+    Fail "enable it with 'corepack enable', or install it from https://pnpm.io"
 }
 
 function Invoke-Checked {
@@ -92,11 +93,11 @@ function Invoke-Checked {
 Push-Location $rootDir
 try {
     if ($frozen -eq "yes") {
-        Write-Host ">> npm ci"
-        Invoke-Checked "npm ci" { & npm ci }
+        Write-Host ">> pnpm install --frozen-lockfile"
+        Invoke-Checked "pnpm install --frozen-lockfile" { & pnpm install --frozen-lockfile }
     } else {
-        Write-Host ">> npm install"
-        Invoke-Checked "npm install" { & npm install }
+        Write-Host ">> pnpm install"
+        Invoke-Checked "pnpm install" { & pnpm install }
     }
 } finally {
     Pop-Location
@@ -105,4 +106,4 @@ try {
 Write-Host ""
 Write-Host "${app}: done"
 Write-Host "${app}: build the site:  scripts/build-docs.ps1"
-Write-Host "${app}: live preview:    npm run docs:dev"
+Write-Host "${app}: live preview:    pnpm run docs:dev"

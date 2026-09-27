@@ -26,7 +26,7 @@ TICKS="${3:-130}"
 
 NATIVE_INCLUDE="$PKG_DIR/native/include"
 [ -f "$NATIVE_INCLUDE/ssruntime.h" ] || {
-  echo "check-hidden.sh: $NATIVE_INCLUDE/ssruntime.h not found — run: npm run download-sdk" >&2
+  echo "check-hidden.sh: $NATIVE_INCLUDE/ssruntime.h not found — run: pnpm run download-sdk" >&2
   exit 1
 }
 

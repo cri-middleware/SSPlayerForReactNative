@@ -31,7 +31,7 @@ $currentVersionFile = Join-Path $targetDir "VERSION"
 $cacheDir = Join-Path $scriptDir ".sdk-cache"
 
 # Accept both spellings: the .js shim forwards arguments verbatim, so the same
-# `npm run download-sdk -- --force` works on every OS.
+# `pnpm run download-sdk --force` works on every OS.
 $force = $false
 foreach ($arg in $ArgsList) {
     switch -Regex ($arg) {

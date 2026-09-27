@@ -1,13 +1,13 @@
 version: 2
 updates:
-  # The npm tree. One entry at the root and no more: this is a single-lockfile
-  # workspace, so a per-directory entry would have Dependabot fighting itself
-  # over `package-lock.json`.
+  # The JS tree: the `npm` ecosystem is also the one that reads pnpm-lock.yaml.
+  # One entry at the root and no more: this is a single-lockfile workspace, so a
+  # per-directory entry would have Dependabot fighting itself over the lockfile.
   #
-  # The peer dependencies are pinned in the root `overrides` onto whatever
-  # `expo install` chose, so a bump here that moves one of them is a bump that
-  # has to be read rather than merged — two copies of a native module is two
-  # autolinked pods fighting over one JSI registration.
+  # The peer dependencies are pinned in pnpm-workspace.yaml's `overrides` onto
+  # whatever `expo install` chose, so a bump here that moves one of them is a
+  # bump that has to be read rather than merged — two copies of a native module
+  # is two autolinked pods fighting over one JSI registration.
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -15,14 +15,10 @@ updates:
     groups:
       npm:
         patterns: ['*']
-    # The five the root `overrides` pin are not the registry's to move. Their
-    # version comes from the Expo compatibility table `example/` installs
-    # against, so a registry bump raises a declared range that the overrides
-    # then contradict -- and npm stops resolving the workspace at all rather
-    # than installing something old. #65 did exactly that (peer
-    # `react-native@^0.87.1` against an override pinning 0.86.2) and `npm ci`
-    # has been red ever since. Move them by hand, together, when the example's
-    # Expo SDK moves.
+    # The five the workspace `overrides` pin are not the registry's to move.
+    # Their version comes from the Expo compatibility table `example/` installs
+    # against, so a registry bump raises a declared range the overrides then
+    # contradict. Move them by hand, together, when the example's Expo SDK moves.
     ignore:
       - dependency-name: react
       - dependency-name: react-native

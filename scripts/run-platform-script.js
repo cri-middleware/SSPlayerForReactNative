@@ -6,7 +6,7 @@ const path = require('path')
 /**
  * Runs `scripts/<name>.sh` or `scripts/<name>.ps1` depending on the host OS.
  *
- * npm scripts must not name a `.sh` directly — that breaks every Windows
+ * package.json scripts must not name a `.sh` directly — that breaks every Windows
  * contributor. Same shape as SSPlayerForWeb's shims, with the spawn logic in
  * one place so the four entry points beside this file stay one-liners.
  *

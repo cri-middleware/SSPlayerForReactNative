@@ -101,7 +101,7 @@ if(DEFINED RNSKIA_TARGET)
   # The source tree keeps the structure, and these are the same three paths the
   # podspec uses on iOS, so both platforms resolve `#include "JsiSkCanvas.h"`
   # the same way. Derived from the prefab's include dir rather than guessed,
-  # because npm may hoist the package to the workspace root.
+  # because where the package sits depends on the package manager.
   get_target_property(RNSKIA_INCLUDE ${RNSKIA_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
   string(REGEX REPLACE "/android/build/headers/rnskia/?$" "" RNSKIA_ROOT "${RNSKIA_INCLUDE}")
   if(NOT EXISTS "${RNSKIA_ROOT}/cpp/api")
@@ -131,6 +131,8 @@ if(DEFINED RNSKIA_TARGET)
   #
   # Order matters: the archive has to come after the prefab target below, or the
   # linker satisfies everything from the archive and there really are two Skias.
+  # RN Skia's own dependency, so it sits in the node_modules that holds RN Skia:
+  # the hoisted tree under npm, RN Skia's store entry under pnpm.
   get_filename_component(RNSKIA_NODE_MODULES "${RNSKIA_ROOT}/../.." ABSOLUTE)
   set(SKIA_ARCHIVE "${RNSKIA_NODE_MODULES}/react-native-skia-android/libs/${ANDROID_ABI}/libskia.a")
   if(NOT EXISTS "${SKIA_ARCHIVE}")

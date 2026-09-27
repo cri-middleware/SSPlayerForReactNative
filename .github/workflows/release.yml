@@ -66,6 +66,11 @@ jobs:
           echo "::error::a publish must be dispatched from main (this ref: ${GITHUB_REF}) — re-run with dry_run to verify a branch"
           exit 1
 
+      - name: Setup pnpm
+        # Before setup-node, whose pnpm cache needs the binary. The version is
+        # package.json's packageManager.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -73,10 +78,10 @@ jobs:
           # Writes the .npmrc that NODE_AUTH_TOKEN is read through. Without it
           # the token is set and ignored, and the publish fails as anonymous.
           registry-url: 'https://registry.npmjs.org'
-          cache: npm
+          cache: pnpm
 
       - name: Install
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install flatc
         # `check-framedata` is the only check that needs it, and it compiles its

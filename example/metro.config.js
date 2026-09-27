@@ -15,8 +15,8 @@ const config = getDefaultConfig(projectRoot)
 
 // Monorepo: the example consumes the package from source, so Metro has to watch
 // the workspace root and resolve out of both node_modules trees. Hierarchical
-// lookup stays on: a nested copy — Reanimated's semver 7 under the hoisted
-// semver 6 — is reachable no other way.
+// lookup stays on: pnpm keeps each package's dependencies beside it in the store,
+// reachable only by walking up from where the package really is.
 config.watchFolders = [workspaceRoot]
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),

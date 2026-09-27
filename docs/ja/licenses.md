@@ -30,7 +30,7 @@ description: このパッケージが、あなたの公開するアプリの中�
 
 ::: tip npm ではなくチェックアウトから作業している場合
 `native/` の 2 ファイルは**リポジトリには入っていません**。ランタイムと一緒に届くので、
-`npm run download-sdk` か `npm run build-runtime` を実行した後にはじめて存在します。見落としやすいのはこの一点です。[チェックアウトから動かす](/ja/development/from-source)を参照してください。
+`pnpm run download-sdk` か `pnpm run build-runtime` を実行した後にはじめて存在します。見落としやすいのはこの一点です。[チェックアウトから動かす](/ja/development/from-source)を参照してください。
 :::
 
 ## このページが代弁しないもの

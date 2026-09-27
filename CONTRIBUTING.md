@@ -66,15 +66,16 @@ Cutting a release is maintainer work — see [RELEASING.md](./RELEASING.md).
 
 Prerequisites and the full first-run steps are in the
 **[Quick Start](./README.md#-quick-start)** section of the README. Node 20 or
-newer, and npm workspaces.
+newer, and pnpm at the version `packageManager` in `package.json` names
+(`corepack enable` picks it up).
 
 ```bash
-npm ci
-npm run download-sdk    # installs the pinned Brain into native/ -- no Rust needed
-npm run build           # bob build, the same step prepack runs
+pnpm install
+pnpm run download-sdk    # installs the pinned Brain into native/ -- no Rust needed
+pnpm run build           # bob build, the same step prepack runs
 ```
 
-`download-sdk` is the normal path. `npm run build-runtime -- build=release` builds
+`download-sdk` is the normal path. `pnpm run build-runtime build=release` builds
 the Brain from the `SpriteStudio-SDK` submodule instead, which is what you want
 only when changing the Brain itself; it needs Rust, and on Windows produces the
 Android slice alone.
@@ -83,18 +84,18 @@ Android slice alone.
 
 | Task | Command |
 |---|---|
-| Typecheck (package + example) | `npm run typecheck` |
-| Unit tests over `core/`, `player/`, `view/` | `npm test` (any OS, no Brain) |
-| The package compiles to `lib/` | `npm run build` — `bob build`, the step `prepack` runs |
-| FlatBuffers accessors current + read path sound | `npm run check-framedata` (needs `flatc`) |
-| Mask drawing, and a mask crossing into an instance child | `npm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample |
-| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
-| `ss-*` shaders compile, and their arithmetic | `npm run check-shader` (macOS) |
-| The web stub barrel imports clean, matches `index.ts` and throws | `npm run check-web-barrel` (any OS, no Brain) |
-| Nitro codegen is current | `npm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |
+| Typecheck (package + example) | `pnpm run typecheck` |
+| Unit tests over `core/`, `player/`, `view/` | `pnpm test` (any OS, no Brain) |
+| The package compiles to `lib/` | `pnpm run build` — `bob build`, the step `prepack` runs |
+| FlatBuffers accessors current + read path sound | `pnpm run check-framedata` (needs `flatc`) |
+| Mask drawing, and a mask crossing into an instance child | `pnpm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample |
+| Instance slots keep stepping while out of the draw plan | `pnpm run check-hidden` |
+| `ss-*` shaders compile, and their arithmetic | `pnpm run check-shader` (macOS) |
+| The web stub barrel imports clean, matches `index.ts` and throws | `pnpm run check-web-barrel` (any OS, no Brain) |
+| Nitro codegen is current | `pnpm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
-| Native build | `npm run run-ios` / `npm run run-android` — prebuild, a Release build and a launch on a simulator or device. The Android prebuild must log `dropped x86 from reactNativeArchitectures` |
-| Asset manifest | (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts`. **`--check` calls it stale if you deployed anything from `example/SpriteStudio_Source/`** (the optional `MaskInstance` sample, or a project of your own) — the committed manifest is the without-them state, so do not commit that change |
+| Native build | `pnpm run run-ios` / `pnpm run run-android` — prebuild, a Release build and a launch on a simulator or device. The Android prebuild must log `dropped x86 from reactNativeArchitectures` |
+| Asset manifest | (in `example/`) `pnpm exec react-native-spritestudio assets --check --out src/ss-assets.ts`. **`--check` calls it stale if you deployed anything from `example/SpriteStudio_Source/`** (the optional `MaskInstance` sample, or a project of your own) — the committed manifest is the without-them state, so do not commit that change |
 
 **Two host checks report a clean bill when they did nothing**, and each says so in its own header:
 `ssbake_check`, where zeroes mean the path never ran, and `ssshader_check`, where a broken `ss-*`
@@ -102,7 +103,7 @@ body and an unported one look identical — so port a body and its row in `sssha
 together. **Measure in release, and check the animation is actually playing**: `setup_animation`
 leaves the transport stopped.
 
-`npm test` covers all three layers above Layer 1 on any machine. `vitest.config.mts` aliases
+`pnpm test` covers all three layers above Layer 1 on any machine. `vitest.config.mts` aliases
 `react-native`, `@shopify/react-native-skia` and `react-native-reanimated` to stubs under
 `test/support/stubs/`, because they are reached transitively and a Layer 3 test that never mentions
 Skia could not otherwise import. The behaviour under test is faked one layer in, at the package's
@@ -224,16 +225,15 @@ changesets は使いません — パッケージを個別にバージョニン�
 ## 開発環境のセットアップ
 
 前提条件と初回の手順は README の
-**[クイックスタート](./README.ja.md#-クイックスタート)** にあります。Node 20 以上と
-npm workspaces を使用します。
+**[クイックスタート](./README.ja.md#-クイックスタート)** にあります。Node 20 以上と、`package.json` の `packageManager` が指す版の pnpm を使用します（`corepack enable` で入ります）。
 
 ```bash
-npm ci
-npm run download-sdk    # 固定された Brain を native/ へ導入。Rust は不要
-npm run build           # bob build。publish 時に prepack が走らせるのと同じ手順
+pnpm install
+pnpm run download-sdk    # 固定された Brain を native/ へ導入。Rust は不要
+pnpm run build           # bob build。publish 時に prepack が走らせるのと同じ手順
 ```
 
-通常は `download-sdk` を使ってください。`npm run build-runtime -- build=release` は
+通常は `download-sdk` を使ってください。`pnpm run build-runtime build=release` は
 `SpriteStudio-SDK` サブモジュールから Brain をビルドしますが、これが必要なのは Brain
 自体を変更するときだけです。Rust が必要で、Windows では Android 用のみが生成されます。
 
@@ -243,11 +243,11 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
 
 | | |
 |---|---|
-| `npm run typecheck` | パッケージと example |
-| `npm test` | `core/`・`player/`・`view/` のユニットテスト（OS 不問・Brain 不要） |
-| `npm run build` | パッケージが `lib/` にコンパイルされること |
-| `npm run check-web-barrel` | web スタブの barrel が import 可能なこと（OS 不問・Brain 不要） |
-| `npm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
+| `pnpm run typecheck` | パッケージと example |
+| `pnpm test` | `core/`・`player/`・`view/` のユニットテスト（OS 不問・Brain 不要） |
+| `pnpm run build` | パッケージが `lib/` にコンパイルされること |
+| `pnpm run check-web-barrel` | web スタブの barrel が import 可能なこと（OS 不問・Brain 不要） |
+| `pnpm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
 
 **CI が緑であることは、これらを実行した代わりにはなりません。** CI は private な SDK
 サブモジュールにも macOS の libskia にもアクセスできないため、typecheck・ユニットテスト・Nitro

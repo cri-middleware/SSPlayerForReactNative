@@ -106,13 +106,13 @@ if (!(Test-Path (Join-Path $rootDir "docs/package.json"))) {
     Fail "docs/package.json not found -- is this the SSPlayerForReactNative repo?"
 }
 
-if (!(Get-Command npm -ErrorAction SilentlyContinue)) {
-    [Console]::Error.WriteLine("${app}: npm not found -- install Node 20 or newer (package.json engines; CI uses 22)")
-    Fail "https://nodejs.org"
+if (!(Get-Command pnpm -ErrorAction SilentlyContinue)) {
+    [Console]::Error.WriteLine("${app}: pnpm not found (this repo pins it in package.json's packageManager)")
+    Fail "enable it with 'corepack enable', or install it from https://pnpm.io"
 }
 
-# npm workspaces hoist into the root node_modules, docs/ included -- so the root
-# is what to probe, and prepare-docs.ps1 is what fills it.
+# pnpm installs every workspace from the root, docs/ included -- so the root's
+# node_modules is what to probe, and prepare-docs.ps1 is what fills it.
 if (!(Test-Path (Join-Path $rootDir "node_modules"))) {
     Fail "node_modules is missing -- run 'scripts/prepare-docs.ps1' first"
 }
@@ -132,16 +132,16 @@ try {
         # The root's `docs` script, so the build is defined once, in package.json:
         # typedoc, then vitepress build.
         Write-Host ""
-        Write-Host ">> npm run docs"
-        Invoke-Checked "docs build" { & npm run docs }
+        Write-Host ">> pnpm run docs"
+        Invoke-Checked "docs build" { & pnpm run docs }
     } else {
         if (!(Test-Path (Join-Path $rootDir "docs/api"))) {
             [Console]::Error.WriteLine("${app}: api=no, but docs/api does not exist -- it is generated and git-ignored,")
             Fail "so the first build in a clone has to be api=yes"
         }
         Write-Host ""
-        Write-Host ">> npm exec --workspace docs -- vitepress build"
-        Invoke-Checked "docs build" { & npm exec --workspace docs -- vitepress build }
+        Write-Host ">> pnpm --filter docs exec vitepress build"
+        Invoke-Checked "docs build" { & pnpm --filter docs exec vitepress build }
     }
 
     # --- what landed ------------------------------------------------------
@@ -165,12 +165,12 @@ try {
         Write-Host "${app}: 'vitepress preview' serves under the site's base path -- open the URL it"
         Write-Host "${app}: prints, not the bare host. Ctrl-C to stop."
         Write-Host ""
-        & npm exec --workspace docs -- vitepress preview --port $port
+        & pnpm --filter docs exec vitepress preview --port $port
         exit $LASTEXITCODE
     } else {
         Write-Host "${app}: serve it (under the base path, which a plain static server will not do):"
         Write-Host "${app}:   $app serve=yes"
-        Write-Host "${app}:   npm exec --workspace docs -- vitepress preview"
+        Write-Host "${app}:   pnpm --filter docs exec vitepress preview"
     }
 } finally {
     Pop-Location

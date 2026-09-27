@@ -12,7 +12,7 @@
     change that lands in one half is the defect this family produces most.
 *   **Never break a line between two Japanese characters**: Chrome draws that break as a visible space.
 *   **Finish by running this repository's checks**: the table in [CONTRIBUTING.md](./CONTRIBUTING.md) —
-    typecheck after editing TypeScript, and `npm run check-framedata` after touching `framedata.fbs` or the
+    typecheck after editing TypeScript, and `pnpm run check-framedata` after touching `framedata.fbs` or the
     FrameData read path. Read what a run says it verified rather than its exit code — several checks here
     pass, or skip themselves, when a prerequisite is missing.
 *   **Do not restate here what another file owns.** The table below says which file that is; a fact that
@@ -32,7 +32,7 @@
 
 ## What this repo is
 
-The React Native **Body** for the SpriteStudio-SDK **Brain**: an npm workspace whose package drives
+The React Native **Body** for the SpriteStudio-SDK **Brain**: a pnpm workspace whose package drives
 the Rust `libssruntime` over **Nitro Modules (JSI)** and draws through **React Native Skia**. The
 Brain lives in the `SpriteStudio-SDK/` submodule — see its own
 [AGENTS.md](./SpriteStudio-SDK/AGENTS.md).
@@ -60,8 +60,8 @@ pointer before changing one.
 | The `.ssab` is **verified**, and `SsAnimeBinaryView` is the only thing that verifies it. Build one per load and keep it. | `cpp/SsAnimeBinary.hpp` · `HybridSsResource::adopt()` |
 | The Brain owns playback state; the transport is passthrough, and its semantics are **not** the obvious ones. | `SpriteStudioPlayer.applySettings()` · SDK docs `30_core/20_playback_control.md` |
 | **A pack is a directory, not a file** — so `require()` is not a source, and `assetExts` stays clean of `ssab` / `ssqb`. | `src/player/source.ts`, "Why not `require()`" |
-| **Slots step from the part list, never from `draw_order`** — a hidden part's clock must keep running. | `cpp/SsInstance.hpp` · `npm run check-hidden` |
-| A mask crossing an instance boundary **hands over its coverage**; it is never rebuilt below. | `cpp/SsMask.hpp` · `npm run check-mask` |
+| **Slots step from the part list, never from `draw_order`** — a hidden part's clock must keep running. | `cpp/SsInstance.hpp` · `pnpm run check-hidden` |
+| A mask crossing an instance boundary **hands over its coverage**; it is never rebuilt below. | `cpp/SsMask.hpp` · `pnpm run check-mask` |
 | Geometry per kind is the SDK's contract. The gap it leaves is **Effect**: its plan is in simulation space with normalised UVs. | SDK docs `30_core/40_render_loop.md` · `cpp/SsEffect.hpp` |
 | **Never re-implement FNV-1a** — `SsRuntime.hashString` exposes the Brain's own. | `src/core/SsTextureRegistry.ts` |
 | The example's subject list is read from the generated manifest, never hand-written. | `example/src/player/PlayerScreen.tsx`, `filesOf()` |
@@ -84,14 +84,14 @@ And these, because no code site could hold them:
     `x86`. `SsPlayerPackage.kt` is read by an autolinking **regex over the whole file, first match wins**,
     so prose naming a type and `ReactPackage` in the wrong order gets instantiated as a class name.
 *   **Peer dependencies must stay single-copy.** Two copies of a native module is not a duplicated
-    dependency, it is two autolinked pods fighting over one JSI registration; the root `overrides` block
-    pins each onto the version `expo install` chose. Bump them together with the Expo SDK.
+    dependency, it is two autolinked pods fighting over one JSI registration; the `overrides` in
+    `pnpm-workspace.yaml` pin each onto the version `expo install` chose. Bump them together with the Expo SDK.
 *   **RN Skia coupling is confined to `SsRNSkiaInterop`.** `RNSkia` in a name means the fragile dependency,
     `Skia` means the stable one, and the two never share a file — so `grep -rl 'RNSkia::' cpp/` lists
     exactly what a Skia bump can break. The floor is **2.11**.
-*   **npm workspaces, not pnpm**: isolated layouts break Metro, CMake and podspec path resolution. It also
-    settles a recurring question — SSPlayerForWeb cannot be vendored in, its packages being a pnpm workspace
-    npm refuses to install.
+*   **pnpm, in its isolated layout: nothing is hoisted to borrow.** A module the code loads is declared by
+    the workspace that loads it — the example's Babel preset, the config plugin's `expo`. The native build
+    finds RN Skia through the layout, not a fixed path; both probes are commented where they run.
 *   **`.gitignore` carries a NuGet rule from the shared gibo template** (`**/[Pp]ackages/*`) that would
     swallow the whole workspace; the `### SSPlayerForReactNative ###` section at the bottom undoes it.
     Re-append that if the template is ever regenerated.

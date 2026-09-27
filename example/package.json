@@ -3,15 +3,13 @@
   "version": "1.0.0",
   "main": "index.ts",
   "//dependencies": [
-    "Five of these are pinned by the root `overrides` and are NOT the registry's",
-    "to move: react, react-native, @shopify/react-native-skia,",
+    "Five of these are pinned by the `overrides` in pnpm-workspace.yaml and are",
+    "NOT the registry's to move: react, react-native, @shopify/react-native-skia,",
     "react-native-reanimated, react-native-worklets. Their version comes from the",
-    "Expo compatibility table this app installs against, so raising a range here",
-    "past the pin makes the two contradict and `npm ci` stops resolving the",
-    "workspace -- which is what #65 did, and what a plain `npm update` does again",
-    "(Dependabot is told to skip them; `npm update` is not). Move them by hand,",
-    "with the overrides and the package's peerDependencies, when the Expo SDK",
-    "moves. The rest are ordinary."
+    "Expo compatibility table this app installs against, so a range raised here",
+    "past the pin claims a version the install never gives it. Dependabot is told",
+    "to skip them; `pnpm update` is not. Move them by hand, with the overrides and",
+    "the package's peerDependencies, when the Expo SDK moves. The rest are ordinary."
   ],
   "dependencies": {
     "@shopify/react-native-skia": "^2.11.2",
@@ -24,7 +22,7 @@
     "react-native": "^0.88.0-rc.1",
     "react-native-nitro-modules": "^0.37.1",
     "react-native-reanimated": "^4.6.0",
-    "react-native-spritestudio": "*",
+    "react-native-spritestudio": "workspace:*",
     "react-native-worklets": "^0.12.2"
   },
   "devDependencies": {

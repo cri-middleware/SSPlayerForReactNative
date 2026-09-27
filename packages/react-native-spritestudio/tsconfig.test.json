@@ -1,5 +1,5 @@
 {
-  // What `npm run typecheck` runs: the source *and* the tests.
+  // What `pnpm run typecheck` runs: the source *and* the tests.
   //
   // The tests cannot simply be added to the base config's `include`. Nothing
   // else here passes `--project`, so a bare `tsc` picks that file up — and

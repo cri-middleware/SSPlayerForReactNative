@@ -53,7 +53,7 @@ rm -rf "$BUILD_DIR/format"
 "$ROOT_DIR/scripts/generate-fbs-code.sh" "out=$BUILD_DIR/format" >/dev/null
 if ! diff -ru "$FORMAT_DIR" "$BUILD_DIR/format"; then
   echo "" >&2
-  echo "check-framedata.sh: cpp/format/ is stale — run: npm run generate-fbs-code" >&2
+  echo "check-framedata.sh: cpp/format/ is stale — run: pnpm run generate-fbs-code" >&2
   exit 1
 fi
 echo "    up to date with $(basename "$SDK_DIR")'s schemas"
@@ -70,7 +70,7 @@ echo "==> compiling ssbake_check"
 # `download-sdk` / `build-runtime` having run — which linking already did.
 NATIVE_INCLUDE="$ROOT_DIR/packages/react-native-spritestudio/native/include"
 [ -f "$NATIVE_INCLUDE/ssruntime.h" ] || {
-  echo "check-framedata.sh: $NATIVE_INCLUDE/ssruntime.h not found — run: npm run download-sdk" >&2
+  echo "check-framedata.sh: $NATIVE_INCLUDE/ssruntime.h not found — run: pnpm run download-sdk" >&2
   exit 1
 }
 clang++ -std=c++17 -O1 -g -fsanitize=address,undefined \

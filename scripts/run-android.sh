@@ -2,7 +2,7 @@
 #
 # Build the example app and run it on an Android device or emulator.
 #
-# A wrapper over `npx expo prebuild` + `npx expo run:android`, the documented
+# A wrapper over `expo prebuild` + `expo run:android`, the documented
 # pair, adding:
 #   * The release variant by default: the JS bundle is embedded, so no Metro has
 #     to be running.
@@ -49,16 +49,16 @@ case "$CONFIG" in
 esac
 
 if [ ! -d "${ROOTDIR}/node_modules" ]; then
-    echo "${APP}: node_modules is missing -- run 'npm ci' first" >&2
+    echo "${APP}: node_modules is missing -- run 'pnpm install --frozen-lockfile' first" >&2
     exit 1
 fi
 if ! ls "${NATIVE_DIR}"/libs/android/*/libssruntime.a > /dev/null 2>&1; then
-    echo "${APP}: the Brain for Android is missing -- run 'npm run download-sdk'" >&2
-    echo "  (or 'npm run build-runtime -- platform=android' when changing the Brain)" >&2
+    echo "${APP}: the Brain for Android is missing -- run 'pnpm run download-sdk'" >&2
+    echo "  (or 'pnpm run build-runtime platform=android' when changing the Brain)" >&2
     exit 1
 fi
 if [ -z "$(ls -A "${EXAMPLE_DIR}/assets/ss" 2>/dev/null)" ]; then
-    echo "${APP}: example/assets/ss is empty -- run 'npm run deploy-examples'" >&2
+    echo "${APP}: example/assets/ss is empty -- run 'pnpm run deploy-examples'" >&2
     exit 1
 fi
 
@@ -73,7 +73,7 @@ if [ -n "$DEVICE" ]; then
 fi
 
 cd "$EXAMPLE_DIR"
-echo ">> npx expo prebuild --platform android"
-npx expo prebuild --platform android --no-install
-echo ">> npx expo run:android ${RUN_ARGS[*]}"
-exec npx expo run:android "${RUN_ARGS[@]}"
+echo ">> pnpm exec expo prebuild --platform android"
+pnpm exec expo prebuild --platform android --no-install
+echo ">> pnpm exec expo run:android ${RUN_ARGS[*]}"
+exec pnpm exec expo run:android "${RUN_ARGS[@]}"

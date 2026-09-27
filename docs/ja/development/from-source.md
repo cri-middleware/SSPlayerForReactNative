@@ -15,12 +15,11 @@ description: リポジトリを動かす — ネイティブコア、サンプ�
 git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
 cd SSPlayerForReactNative
 git submodule update --init --recursive
-npm install
+pnpm install
 ```
 
 submodule は `SpriteStudio-SDK/` — リポジトリ全体で **Brain** と呼んでいる Rust コアです。
-npm workspaces を使っており、pnpm は意図的に避けています。isolated な node_modules 配置は
-Metro・CMake・podspec のパス解決を壊すためです。
+ワークスペースは pnpm で、版は `package.json` の `packageManager` が決めます（`corepack enable` で入ります）。
 
 ## clone した中身
 
@@ -52,7 +51,7 @@ SSPlayerForReactNative/
 `native/` は gitignore 対象なので、clone 直後にはネイティブコアが一切ありません。
 
 ```bash
-npm run download-sdk
+pnpm run download-sdk
 ```
 
 `scripts/SDK_VERSION.txt` で固定されたリリースをインストールします。**Rust ツールチェーンは不要**です。既にインストール済みのものが固定内容と一致していれば処理を飛ばすので、再実行しても安全です。
@@ -60,7 +59,7 @@ npm run download-sdk
 **Brain 自体を変更するときにだけ**もう一方が必要になります。
 
 ```bash
-npm run build-runtime -- build=release
+pnpm run build-runtime build=release
 ```
 
 `build-runtime` は `SpriteStudio-SDK/` submodule から同じレイアウトへビルドし、
@@ -70,8 +69,8 @@ Windows では Android スライスのみを対象とします（iOS の xcframe
 どちらのスクリプトも `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを指す `$SSSDK` を尊重します。
 
 ```bash
-npm run build-runtime -- platform=ios build=release
-npm run download-sdk -- --force
+pnpm run build-runtime platform=ios build=release
+pnpm run download-sdk --force
 ```
 
 ::: warning 計測の前に release でビルドしてください
@@ -85,7 +84,7 @@ npm run download-sdk -- --force
 ## サンプルパックを変換する
 
 ```bash
-npm run deploy-examples
+pnpm run deploy-examples
 ```
 
 サンプルアプリ向けに `.sspj` → `.ssab` を、`ssconverter-cli` 経由で行います（Rust が必要）。併せて `example/src/ss-assets.ts` — サンプルのサブジェクト一覧が読まれる生成マニフェスト —
@@ -96,10 +95,10 @@ npm run deploy-examples
 ## サンプルを動かす
 
 ```bash
-npm run run-ios         # または: npm run run-android
+pnpm run run-ios         # または: pnpm run run-android
 ```
 
-どちらも `example/` を prebuild し、Release でビルドして（JS バンドルを埋め込むので Metro は不要）、シミュレータか接続した端末で起動します。`device=<名前>` で端末を選び、`config=debug` にすると JS を Metro から配信します。中身は `example/` での `npx expo prebuild` と `npx expo run:ios|android` です。
+どちらも `example/` を prebuild し、Release でビルドして（JS バンドルを埋め込むので Metro は不要）、シミュレータか接続した端末で起動します。`device=<名前>` で端末を選び、`config=debug` にすると JS を Metro から配信します。中身は `example/` での `expo prebuild` と `expo run:ios|android` です。
 
 サンプルアプリは描画の検証面です — 1 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが何を証明するか、自分のプロジェクトを見る方法、および任意の `MaskInstance` サンプルについては
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example)
@@ -109,10 +108,10 @@ npm run run-ios         # または: npm run run-android
 
 | 対象 | コマンド |
 |---|---|
-| 型チェック（パッケージ + サンプル） | `npm run typecheck` |
-| FlatBuffers アクセサが最新かつ読み取りパスが健全（`flatc` が必要） | `npm run check-framedata` |
-| マスク描画、およびインスタンスの子へまたがるマスク（macOS） | `npm run check-mask` |
-| 描画プランから外れている間もインスタンススロットが進み続けること | `npm run check-hidden` |
-| `ss-*` シェーダーがコンパイルでき、その演算が正しいこと（macOS） | `npm run check-shader` |
-| web スタブバレルが import 可能で throw すること（OS 不問、Brain 不要） | `npm run check-web-barrel` |
-| Nitro のコード生成が最新であること | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
+| 型チェック（パッケージ + サンプル） | `pnpm run typecheck` |
+| FlatBuffers アクセサが最新かつ読み取りパスが健全（`flatc` が必要） | `pnpm run check-framedata` |
+| マスク描画、およびインスタンスの子へまたがるマスク（macOS） | `pnpm run check-mask` |
+| 描画プランから外れている間もインスタンススロットが進み続けること | `pnpm run check-hidden` |
+| `ss-*` シェーダーがコンパイルでき、その演算が正しいこと（macOS） | `pnpm run check-shader` |
+| web スタブバレルが import 可能で throw すること（OS 不問、Brain 不要） | `pnpm run check-web-barrel` |
+| Nitro のコード生成が最新であること | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |

@@ -83,9 +83,17 @@ if (-not (Test-Path $clang)) {
     exit 1
 }
 
-$rnskia = Join-Path $rootDir "node_modules/@shopify/react-native-skia/cpp/skia"
-if (-not (Test-Path (Join-Path $rnskia "include/core/SkCanvas.h"))) {
-    Write-Error "$app`: RN Skia headers not found under $rnskia — run npm install"
+# Resolved as Node would from the package: under pnpm RN Skia does not sit in
+# the root node_modules.
+Push-Location (Join-Path $rootDir "packages/react-native-spritestudio")
+try {
+    $rnskiaRoot = & node -p "require('path').dirname(require.resolve('@shopify/react-native-skia/package.json'))" 2> $null
+} finally {
+    Pop-Location
+}
+$rnskia = Join-Path "$rnskiaRoot" "cpp/skia"
+if (-not $rnskiaRoot -or -not (Test-Path (Join-Path $rnskia "include/core/SkCanvas.h"))) {
+    Write-Error "$app`: RN Skia headers not found under $rnskia — run pnpm install"
     exit 1
 }
 

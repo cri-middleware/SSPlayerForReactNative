@@ -2,7 +2,7 @@
 #
 # Build the example app and run it on an iOS simulator or a connected iPhone.
 #
-# A wrapper over `npx expo prebuild` + `npx expo run:ios`, the documented pair,
+# A wrapper over `expo prebuild` + `expo run:ios`, the documented pair,
 # adding what those leave to you:
 #   * Release by default: the JS bundle is embedded, so no Metro has to be
 #     running.
@@ -59,16 +59,16 @@ if [ "$(uname -s)" != "Darwin" ]; then
     exit 1
 fi
 if [ ! -d "${ROOTDIR}/node_modules" ]; then
-    echo "${APP}: node_modules is missing -- run 'npm ci' first" >&2
+    echo "${APP}: node_modules is missing -- run 'pnpm install --frozen-lockfile' first" >&2
     exit 1
 fi
 if [ ! -d "${NATIVE_DIR}/libs/ios/libssruntime.xcframework" ]; then
-    echo "${APP}: the Brain for iOS is missing -- run 'npm run download-sdk'" >&2
-    echo "  (or 'npm run build-runtime -- platform=ios' when changing the Brain)" >&2
+    echo "${APP}: the Brain for iOS is missing -- run 'pnpm run download-sdk'" >&2
+    echo "  (or 'pnpm run build-runtime platform=ios' when changing the Brain)" >&2
     exit 1
 fi
 if [ -z "$(ls -A "${EXAMPLE_DIR}/assets/ss" 2>/dev/null)" ]; then
-    echo "${APP}: example/assets/ss is empty -- run 'npm run deploy-examples'" >&2
+    echo "${APP}: example/assets/ss is empty -- run 'pnpm run deploy-examples'" >&2
     exit 1
 fi
 
@@ -102,7 +102,7 @@ if [ "$CONFIG" = "release" ]; then
 fi
 
 cd "$EXAMPLE_DIR"
-echo ">> npx expo prebuild --platform ios"
-npx expo prebuild --platform ios --no-install
-echo ">> npx expo run:ios ${RUN_ARGS[*]}"
-exec npx expo run:ios "${RUN_ARGS[@]}"
+echo ">> pnpm exec expo prebuild --platform ios"
+pnpm exec expo prebuild --platform ios --no-install
+echo ">> pnpm exec expo run:ios ${RUN_ARGS[*]}"
+exec pnpm exec expo run:ios "${RUN_ARGS[@]}"

@@ -13,20 +13,20 @@ From the **repository root**, not from here:
 
 ```bash
 git submodule update --init --recursive
-npm install
-npm run download-sdk        # the native core, from the pinned SDK release
-npm run deploy-examples     # .sspj -> .ssab for this app
-npm run run-ios             # or: npm run run-android
+pnpm install
+pnpm run download-sdk        # the native core, from the pinned SDK release
+pnpm run deploy-examples     # .sspj -> .ssab for this app
+pnpm run run-ios             # or: pnpm run run-android
 ```
 
-`download-sdk` needs **no Rust toolchain**. Use `npm run build-runtime -- build=release`
+`download-sdk` needs **no Rust toolchain**. Use `pnpm run build-runtime build=release`
 instead only when you are changing the Rust core itself.
 
 `run-ios` and `run-android` prebuild this app, build it in Release — the JS bundle
 embedded, so no Metro — and launch it on a simulator or a connected device.
-`device=<name>` picks one (`npm run run-ios -- device=<name>`) and
+`device=<name>` picks one (`pnpm run run-ios device=<name>`) and
 `config=debug` serves the JS from Metro instead. Underneath they are
-`npx expo prebuild` and `npx expo run:ios|android`, run from here.
+`expo prebuild` and `expo run:ios|android`, run from here.
 
 **Expo Go cannot run this app** — the package contains native code, so the
 prebuild is required. On Android the prebuild should log
@@ -57,7 +57,7 @@ defect this screen has ever caught was iOS-only.
 
 ## The subject list is generated
 
-`src/ss-assets.ts` is written by `npm run deploy-examples`, and the screen reads
+`src/ss-assets.ts` is written by `pnpm run deploy-examples`, and the screen reads
 its subject list out of it. Nothing in the app can list a directory at runtime,
 so this manifest is the only enumeration there is — a subject with nothing
 deployed leaves the screen rather than loading nothing and blaming the renderer.
@@ -65,14 +65,14 @@ deployed leaves the screen rather than loading nothing and blaming the renderer.
 **Do not hand-edit it.** To verify it matches what is deployed:
 
 ```bash
-npx react-native-spritestudio assets --check --out src/ss-assets.ts
+pnpm exec react-native-spritestudio assets --check --out src/ss-assets.ts
 ```
 
 ## Looking at a project of your own
 
 Put the project's folder under `example/SpriteStudio_Source/` — one `.sspj` per
 folder, with everything it references beside it — and run
-`npm run deploy-examples` from the repository root:
+`pnpm run deploy-examples` from the repository root:
 
 ```
 example/SpriteStudio_Source/MyChar/      <- MyChar.sspj and everything beside it
@@ -80,7 +80,7 @@ example/SpriteStudio_Source/MyChar/      <- MyChar.sspj and everything beside it
 
 It appears on **Subject** as `local/MyChar`, offering every `.ssab` it converted
 to, and the view measures each one to frame it. The packs ship as app assets, so
-**run the app again** (`npm run run-ios`): a Metro reload brings the subject
+**run the app again** (`pnpm run run-ios`): a Metro reload brings the subject
 but not the files behind it. Take the folder out and deploy again to remove it.
 
 A folder whose name an SDK project's output already uses is refused rather than
@@ -96,7 +96,7 @@ overwriting it — the script stops before converting anything and says which.
 One subject's source is **not in this repository**: `MaskInstance`, three scenes
 that mask the stage and mount their characters as instance parts. It is the only
 asset anywhere that exercises a mask crossing into an instance child, which is
-what `npm run check-mask`'s fourth check runs against — and that check reports
+what `pnpm run check-mask`'s fourth check runs against — and that check reports
 itself skipped without it.
 
 It is third-party sample art and the licence to redistribute it is not ours to

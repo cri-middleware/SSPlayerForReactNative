@@ -85,7 +85,7 @@ usage () {
 echo "  -h | --help             Show this help"
     echo ""
     echo "Stages:"
-    echo "  install   npm ci"
+    echo "  install   pnpm install --frozen-lockfile"
     echo "  sdk       the Brain in packages/*/native (not in git), per sdk="
     echo "  codegen   re-run nitrogen and flatc, and require no diff"
     echo "  checks    typecheck and the host checks that need no device"
@@ -193,7 +193,7 @@ fail () {
     exit 1
 }
 
-for tool in node npm tar git; do
+for tool in node pnpm npm tar git; do
     command -v "$tool" >/dev/null 2>&1 || { echo "${APP}: ${tool} not found" >&2; exit 1; }
 done
 
@@ -252,8 +252,8 @@ mkdir -p "$OUT"
 cd "$ROOTDIR"
 
 # --- install ----------------------------------------------------------------
-if stage install "npm ci"; then
-    npm ci
+if stage install "pnpm install --frozen-lockfile"; then
+    pnpm install --frozen-lockfile
 fi
 
 # --- the Brain --------------------------------------------------------------
@@ -352,21 +352,21 @@ fi
 # The ones that run without a device: the difference between "it compiles" and
 # "it draws what it drew last time".
 if stage checks "typecheck and the host checks"; then
-    npm run typecheck
-    npm run check-web-barrel
+    pnpm run typecheck
+    pnpm run check-web-barrel
 
     if command -v flatc >/dev/null 2>&1; then
-        npm run check-framedata
+        pnpm run check-framedata
     else
         echo "   check-framedata SKIPPED (no flatc)"
     fi
 
-    npm run check-hidden
+    pnpm run check-hidden
 
     # Both link the host libskia RN Skia ships, which has no Linux slice.
     if [ "$HOST" = "Darwin" ]; then
-        npm run check-mask
-        npm run check-shader
+        pnpm run check-mask
+        pnpm run check-shader
     else
         echo "   check-mask / check-shader SKIPPED (macOS only)"
     fi
@@ -392,7 +392,7 @@ if stage pack "pack ${TGZ}"; then
         echo "   npm/${TGZ}"
     else
         mkdir -p "${OUT}/rehearsal"
-        npm run build --workspace "$PKG_NAME"
+        pnpm --filter "$PKG_NAME" run build
 
         # prepack's own report, kept: its refusal is the interesting half. Only
         # the missing BUILD_MODE is expected — anything else it finds would have
@@ -598,7 +598,7 @@ echo ""
 done )
 echo ""
 if [ "$SHIPPABLE" = "yes" ]; then
-    echo "${APP}: nothing was published. 'npm run release' is the same run with the publish on the end."
+    echo "${APP}: nothing was published. 'pnpm run release' is the same run with the publish on the end."
     if [ -n "$PACKED" ]; then
         echo ""
         echo "${APP}: try it before shipping it — install the tarball into a scratch app:"

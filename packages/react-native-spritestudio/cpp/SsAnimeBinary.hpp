@@ -12,7 +12,7 @@
 // ever crosses into JS.
 //
 // It goes through **flatc's generated accessors** (`cpp/format/ssab.h`,
-// committed; regenerate with `npm run generate-fbs-code`), the same arrangement
+// committed; regenerate with `pnpm run generate-fbs-code`), the same arrangement
 // as SSPlayerForGodot — as does the frame path now. This wrapper exists for a
 // reason that does not apply there: the `.ssab`'s metadata needs real decoding
 // (two texture lists presented as one, hash-keyed embedded assets), whereas

@@ -93,7 +93,7 @@ if command -v flatc >/dev/null 2>&1; then
         || die "cpp/format/ is stale — commit the regenerated output"
     echo "    cpp/format/ current"
 else
-    echo "    cpp/format/ SKIPPED (no flatc) — run 'npm run check-framedata' before releasing"
+    echo "    cpp/format/ SKIPPED (no flatc) — run 'pnpm run check-framedata' before releasing"
 fi
 
 # --- 4. the checks ----------------------------------------------------------
@@ -101,10 +101,10 @@ fi
 # The ones that run without a device. They are the difference between "it
 # compiles" and "it draws what it drew last time".
 step "typecheck"
-( cd "$ROOTDIR" && npm run typecheck )
+( cd "$ROOTDIR" && pnpm run typecheck )
 
 step "host checks"
-( cd "$ROOTDIR" && npm run check-framedata && npm run check-mask && npm run check-shader && npm run check-hidden )
+( cd "$ROOTDIR" && pnpm run check-framedata && pnpm run check-mask && pnpm run check-shader && pnpm run check-hidden )
 
 # --- 5. the tarball ---------------------------------------------------------
 #

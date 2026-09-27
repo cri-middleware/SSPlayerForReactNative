@@ -6,7 +6,7 @@
 #   scripts/build-pages.ps1              # the tree pages.yml uploads
 #   scripts/build-pages.ps1 serve=yes    # ... and serve it, base and all
 #   scripts/build-pages.ps1 api=no       # prose only; keep the docs/api already there
-#   scripts/build-pages.ps1 prepare=yes  # npm ci first, as CI does
+#   scripts/build-pages.ps1 prepare=yes  # the install first, as CI does
 #
 # **This script implements nothing.** It is prepare-docs then build-docs, which
 # are the pair every repository in the SpriteStudio family spells the same way,
@@ -47,10 +47,10 @@ $opts = [ordered]@{
 function Show-Usage {
     Write-Host "Usage: $APP [options]"
     Write-Host "$APP options:"
-    Write-Host "  prepare=<auto|yes|no>   Run scripts/prepare-docs.ps1 -- 'npm ci' -- first"
+    Write-Host "  prepare=<auto|yes|no>   Run scripts/prepare-docs.ps1 -- the install -- first"
     Write-Host "                          (default: auto). auto = only when node_modules is"
     Write-Host "                          missing. yes forces it, which is what a changed"
-    Write-Host "                          package-lock.json needs; no is for CI, where the"
+    Write-Host "                          pnpm-lock.yaml needs; no is for CI, where the"
     Write-Host "                          install is a step of its own."
     Write-Host "  api=<yes|no>            Regenerate the API reference with TypeDoc first"
     Write-Host "                          (default: yes). See scripts/build-docs.ps1 --help."
@@ -63,7 +63,7 @@ function Show-Usage {
     Write-Host "build."
     Write-Host ""
     Write-Host "This is prepare-docs then build-docs, and nothing else. Run either on its"
-    Write-Host "own with 'npm run prepare-docs' / 'npm run build-docs'."
+    Write-Host "own with 'pnpm run prepare-docs' / 'pnpm run build-docs'."
     Write-Host ""
     Write-Host "Neither the Brain nor a platform toolchain is needed. TypeDoc reads TypeScript"
     Write-Host "sources and VitePress renders markdown, so this runs on any OS with Node."
@@ -111,8 +111,8 @@ try {
     $buildScript = Join-Path $ROOT_DIR "scripts/build-docs.ps1"
 
     # --- prepare ----------------------------------------------------------
-    # npm workspaces hoist into the root node_modules, docs/node_modules
-    # included -- so the root is what to probe.
+    # pnpm installs every workspace from the root, docs/ included -- so the
+    # root's node_modules is what to probe.
     $runPrepare = switch ($opts.prepare) {
         "yes"  { $true }
         "no"   { $false }

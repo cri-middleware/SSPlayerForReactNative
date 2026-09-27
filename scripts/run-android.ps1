@@ -6,7 +6,7 @@ param (
 # Build the example app and run it on an Android device or emulator.
 # PowerShell twin of run-android.sh.
 #
-# A wrapper over `npx expo prebuild` + `npx expo run:android`, the documented
+# A wrapper over `expo prebuild` + `expo run:android`, the documented
 # pair, adding:
 #   * The release variant by default: the JS bundle is embedded, so no Metro has
 #     to be running.
@@ -60,13 +60,13 @@ foreach ($arg in $ArgsList) {
 if ($config -notin "release", "debug") { Fail "config must be release or debug (got '$config')" 2 }
 
 if (!(Test-Path (Join-Path $rootDir "node_modules"))) {
-    Fail "node_modules is missing -- run 'npm ci' first"
+    Fail "node_modules is missing -- run 'pnpm install --frozen-lockfile' first"
 }
 if (!(Get-ChildItem -Path (Join-Path $nativeDir "libs/android/*/libssruntime.a") -ErrorAction SilentlyContinue)) {
-    Fail "the Brain for Android is missing -- run 'npm run download-sdk'`n  (or 'npm run build-runtime -- platform=android' when changing the Brain)"
+    Fail "the Brain for Android is missing -- run 'pnpm run download-sdk'`n  (or 'pnpm run build-runtime platform=android' when changing the Brain)"
 }
 if (!(Get-ChildItem -Path (Join-Path $exampleDir "assets/ss") -ErrorAction SilentlyContinue)) {
-    Fail "example/assets/ss is empty -- run 'npm run deploy-examples'"
+    Fail "example/assets/ss is empty -- run 'pnpm run deploy-examples'"
 }
 
 # Release embeds the bundle, so no Metro: Expo would start one anyway and stay
@@ -76,9 +76,9 @@ if ($config -eq "release") { $runArgs += "--no-bundler" }
 if ($device) { $runArgs += @("--device", $device) }
 
 Set-Location $exampleDir
-Write-Host ">> npx expo prebuild --platform android"
-& npx expo prebuild --platform android --no-install
+Write-Host ">> pnpm exec expo prebuild --platform android"
+& pnpm exec expo prebuild --platform android --no-install
 if ($LASTEXITCODE -ne 0) { Fail "expo prebuild failed ($LASTEXITCODE)" $LASTEXITCODE }
-Write-Host ">> npx expo run:android $($runArgs -join ' ')"
-& npx expo run:android @runArgs
+Write-Host ">> pnpm exec expo run:android $($runArgs -join ' ')"
+& pnpm exec expo run:android @runArgs
 exit $LASTEXITCODE
