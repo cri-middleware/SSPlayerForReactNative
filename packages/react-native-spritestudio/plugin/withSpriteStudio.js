@@ -1,8 +1,9 @@
 // Expo config plugin: ships SpriteStudio pack *directories* into the app.
 //
 // Plain CommonJS with no build step, because Expo requires this file directly
-// during `prebuild`. `@expo/config-plugins` is not a dependency of the package:
-// it comes with `expo`, and an app that is not an Expo app never loads this.
+// during `prebuild`. The API comes through `expo/config-plugins`, an optional
+// peer, as Expo's own packages take it: `@expo/config-plugins` by name resolves
+// only where npm happened to hoist it, and an isolated install does not.
 //
 // ## Why a plugin at all
 //
@@ -33,7 +34,7 @@ const {
   withDangerousMod,
   withGradleProperties,
   withXcodeProject,
-} = require('@expo/config-plugins')
+} = require('expo/config-plugins')
 
 /** Where the packs live when the app does not say otherwise. */
 const DEFAULT_ASSETS = ['./assets/ss']

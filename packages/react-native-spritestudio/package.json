@@ -44,14 +44,21 @@
     "Dependabot is told to leave these five alone.",
     "The caret does the right thing on both shapes: ^0.88.0-rc.1 is the 0.88",
     "line, its release candidates included (npm locks the minor below 1.0.0),",
-    "^2.11.2 and ^4.6.0 span their majors."
+    "^2.11.2 and ^4.6.0 span their majors.",
+    "`expo` is the exception: optional, and only the config plugin loads it."
   ],
   "peerDependencies": {
     "@shopify/react-native-skia": "^2.11.2",
+    "expo": "*",
     "react": "^19.3.0",
     "react-native": "^0.88.0-rc.1",
     "react-native-nitro-modules": "^0.37.0",
     "react-native-reanimated": "^4.6.0"
+  },
+  "peerDependenciesMeta": {
+    "expo": {
+      "optional": true
+    }
   },
   "//devDependencies": [
     "`react-test-renderer` is pinned to the exact `react` the root `overrides`",
