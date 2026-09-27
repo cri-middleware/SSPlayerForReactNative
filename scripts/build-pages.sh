@@ -6,7 +6,7 @@
 #   scripts/build-pages.sh              # the tree pages.yml uploads
 #   scripts/build-pages.sh serve=yes    # ... and serve it, base and all
 #   scripts/build-pages.sh api=no       # prose only; keep the docs/api already there
-#   scripts/build-pages.sh prepare=yes  # npm ci first, as CI does
+#   scripts/build-pages.sh prepare=yes  # the install first, as CI does
 #
 # **This script implements nothing.** It is prepare-docs.sh then build-docs.sh,
 # which are the pair every repository in the SpriteStudio family spells the same
@@ -24,11 +24,11 @@
 # What this does NOT reproduce is the deploy job (actions/deploy-pages) -- there
 # is no local equivalent of publishing.
 #
-# Not an npm script: the entries in package.json are `.js` shims over a `.sh` +
+# Not a package.json script: the entries there are `.js` shims over a `.sh` +
 # `.ps1` pair, because naming a `.sh` there shuts Windows contributors out. This
 # script has no `.ps1` twin, so it stays out of package.json and pages.yml calls
 # it by path -- but both halves have one, so a Windows contributor runs them
-# directly (`npm run prepare-docs`, `npm run build-docs`).
+# directly (`pnpm run prepare-docs`, `pnpm run build-docs`).
 set -euo pipefail
 
 APP="$(basename "$0")"
@@ -45,10 +45,10 @@ PORT="4173"
 usage () {
   echo "Usage: $APP [options]"
   echo "$APP options:"
-  echo "  prepare=<auto|yes|no>   Run scripts/prepare-docs.sh -- 'npm ci' -- first"
+  echo "  prepare=<auto|yes|no>   Run scripts/prepare-docs.sh -- the install -- first"
   echo "                          (default: $PREPARE). auto = only when node_modules is"
   echo "                          missing. yes forces it, which is what a changed"
-  echo "                          package-lock.json needs; no is for CI, where the"
+  echo "                          pnpm-lock.yaml needs; no is for CI, where the"
   echo "                          install is a step of its own."
   echo "  api=<yes|no>            Regenerate the API reference with TypeDoc first"
   echo "                          (default: $API). See scripts/build-docs.sh --help."
@@ -61,7 +61,7 @@ usage () {
   echo "build."
   echo ""
   echo "This is prepare-docs.sh then build-docs.sh, and nothing else. Run either on its"
-  echo "own with 'npm run prepare-docs' / 'npm run build-docs'."
+  echo "own with 'pnpm run prepare-docs' / 'pnpm run build-docs'."
   echo ""
   echo "Neither the Brain nor a platform toolchain is needed. TypeDoc reads TypeScript"
   echo "sources and VitePress renders markdown, so this runs on any OS with Node."
@@ -123,8 +123,8 @@ fi
 cd "$ROOT_DIR"
 
 # --- prepare --------------------------------------------------------------
-# npm workspaces hoist into the root node_modules, docs/node_modules included --
-# so the root is what to probe.
+# pnpm installs every workspace from the root, docs/ included -- so the root's
+# node_modules is what to probe.
 case "$PREPARE" in
   yes)
     echo ">> scripts/prepare-docs.sh"

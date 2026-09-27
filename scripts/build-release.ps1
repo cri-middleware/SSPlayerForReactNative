@@ -86,7 +86,7 @@ function Show-Usage {
 Write-Host "  -h | --help             Show this help"
     Write-Host ""
     Write-Host "Stages:"
-    Write-Host "  install   npm ci"
+    Write-Host "  install   pnpm install --frozen-lockfile"
     Write-Host "  sdk       the Brain in packages\*\native (not in git), per sdk="
     Write-Host "  codegen   re-run nitrogen and flatc, and require no diff"
     Write-Host "  checks    typecheck and the checks that run on Windows"
@@ -98,7 +98,7 @@ Write-Host "  -h | --help             Show this help"
     Write-Host "the lot."
     Write-Host ""
     Write-Host "This builds a release; it does not make one. Nothing here publishes, tags,"
-    Write-Host "commits or bumps a version -- and 'npm run release' is macOS only besides."
+    Write-Host "commits or bumps a version -- and 'pnpm run release' is macOS only besides."
 }
 
 foreach ($arg in $ArgsList) {
@@ -162,7 +162,7 @@ function Add-Failure { param([string] $Message) $script:failed += $Message }
 if (!(Test-Path (Join-Path $pkgDir "package.json"))) {
     Fail "packages\react-native-spritestudio\package.json not found -- is this the SSPlayerForReactNative repo?"
 }
-foreach ($tool in @("node", "npm", "git")) {
+foreach ($tool in @("node", "pnpm", "npm", "git")) {
     if (!(Get-Command $tool -ErrorAction SilentlyContinue)) { Fail "$tool not found" }
 }
 # bsdtar, which is how the finished archive is read back (Windows 10 1803+).
@@ -225,8 +225,8 @@ Push-Location $rootDir
 try {
 
 # --- install ---------------------------------------------------------------
-if (Invoke-Stage "install" "npm ci") {
-    Invoke-Checked "npm ci" { & npm ci }
+if (Invoke-Stage "install" "pnpm install --frozen-lockfile") {
+    Invoke-Checked "pnpm install --frozen-lockfile" { & pnpm install --frozen-lockfile }
 }
 
 # --- the Brain -------------------------------------------------------------
@@ -311,8 +311,8 @@ if (Invoke-Stage "codegen" "re-run the generators and require no diff") {
 
 # --- the checks ------------------------------------------------------------
 if (Invoke-Stage "checks" "typecheck and the checks that run here") {
-    Invoke-Checked "npm run typecheck" { & npm run typecheck }
-    Invoke-Checked "npm run check-web-barrel" { & npm run check-web-barrel }
+    Invoke-Checked "pnpm run typecheck" { & pnpm run typecheck }
+    Invoke-Checked "pnpm run check-web-barrel" { & pnpm run check-web-barrel }
     # The other four are bash, and two of them link a host libskia RN Skia
     # ships for macOS alone. Run them there before releasing.
     Write-Host "   check-framedata / check-mask / check-shader / check-hidden SKIPPED (macOS or Linux only)"
@@ -344,7 +344,7 @@ if (Invoke-Stage "pack" "pack $tgz") {
         Write-Host "   npm\$tgz"
     } else {
         New-Item -ItemType Directory -Path (Join-Path $out "rehearsal") -Force | Out-Null
-        Invoke-Checked "npm run build" { & npm run build --workspace $pkgName }
+        Invoke-Checked "pnpm run build" { & pnpm --filter $pkgName run build }
 
         # prepack's own report, kept: its refusal is the interesting half. Only
         # the missing BUILD_MODE is expected -- anything else it finds would
@@ -557,7 +557,7 @@ foreach ($rel in $listing) {
 }
 Write-Host ""
 if ($shippable -eq "yes") {
-    Write-Host "${app}: nothing was published, and nothing can be from here -- 'npm run release'"
+    Write-Host "${app}: nothing was published, and nothing can be from here -- 'pnpm run release'"
     Write-Host "${app}: is macOS only (release.ps1 says why). This tarball is for looking at:"
     if ($packed) {
         Write-Host "  npx create-expo-app scratch; cd scratch"

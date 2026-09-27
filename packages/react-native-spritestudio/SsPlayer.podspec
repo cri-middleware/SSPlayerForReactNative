@@ -12,7 +12,8 @@ sdk_version = File.exist?(version_file) ? File.read(version_file).strip : "unkno
 # flattened Public dir, which cannot satisfy those nested includes — so resolve
 # the package directory and put its real roots on the search path. Walk upwards
 # rather than assuming a path: npm may hoist it to the workspace root or keep it
-# next to the consuming app.
+# next to the consuming app, and pnpm links it into this package's own
+# node_modules.
 skia_dir = nil
 probe = __dir__
 while probe != "/" && skia_dir.nil?

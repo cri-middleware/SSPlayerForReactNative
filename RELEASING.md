@@ -5,8 +5,8 @@ Maintainers only. Contributors do not run any of this — see [CONTRIBUTING.md](
 ## Building the documentation site
 
 ```bash
-npm run prepare-docs   # npm ci
-npm run build-docs     # TypeDoc + VitePress into docs/.vitepress/dist
+pnpm run prepare-docs   # pnpm install
+pnpm run build-docs     # TypeDoc + VitePress into docs/.vitepress/dist
 ```
 
 `scripts/build-pages.sh` is the two together, and is what `pages.yml` runs. Neither needs the
@@ -20,8 +20,8 @@ The package version is **lockstep with the SDK**: `scripts/SDK_VERSION.txt` pins
 the package is built against, and the package carries the matching version.
 
 ```bash
-npm run build-release   # the tarball into release-dist/, re-opened and checked. Publishes nothing.
-npm run release         # the same run with the publish on the end
+pnpm run build-release   # the tarball into release-dist/, re-opened and checked. Publishes nothing.
+pnpm run release         # the same run with the publish on the end
 ```
 
 `release` is **macOS only** — the tarball carries the Brain's iOS xcframework, which only Xcode can
@@ -45,8 +45,8 @@ no access to the SDK submodule and no macOS libskia, so it cannot run them or `p
 ## ドキュメントサイトのビルド
 
 ```bash
-npm run prepare-docs   # npm ci
-npm run build-docs     # TypeDoc + VitePress を docs/.vitepress/dist へ
+pnpm run prepare-docs   # pnpm install
+pnpm run build-docs     # TypeDoc + VitePress を docs/.vitepress/dist へ
 ```
 
 `scripts/build-pages.sh` はこの 2 つをまとめたもので、`pages.yml` が実行するのもこれです。どちらも
@@ -59,8 +59,8 @@ Brain も Rust も必要としません（TypeDoc は TypeScript を、VitePress
 Brain リリースをピンし、パッケージはそれに対応するバージョンを持ちます。
 
 ```bash
-npm run build-release   # tarball を release-dist/ に作り、開き直して検査。publish はしません。
-npm run release         # 同じ実行の最後に publish を付けたもの
+pnpm run build-release   # tarball を release-dist/ に作り、開き直して検査。publish はしません。
+pnpm run release         # 同じ実行の最後に publish を付けたもの
 ```
 
 `release` は **macOS 専用**です。tarball には Brain の iOS xcframework が入り、これを作れるのは

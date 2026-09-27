@@ -245,7 +245,7 @@ const SUBJECTS = {
   // A shader that fails to compile degrades to the plain textured draw rather
   // than vanishing, so a sprite with no effect on it is now a *failure* rather
   // than the expected look — but the two are the same picture, which is why
-  // `npm run check-shader` exists and this card cannot be the only evidence.
+  // `pnpm run check-shader` exists and this card cannot be the only evidence.
   Shader: { pack: 'overall', files: { Shader: SHADER_GRID } },
   // Measured y ∈ [-184, 237], so the authored 480 canvas frames it.
   Effect: { pack: 'overall', files: { Effect: CENTRED } },
@@ -552,7 +552,7 @@ export function PlayerScreen() {
   if (__DEV__ && !(source.replace(/^ss\/|\.ssab$/g, '') in SsAssets)) {
     console.warn(
       `PlayerScreen: '${source}' is not in ss-assets.ts. Re-run ` +
-        '`npm run deploy-examples`, then `npm run generate-assets`.'
+        '`pnpm run deploy-examples`, then `pnpm run generate-assets`.'
     )
   }
 
@@ -723,7 +723,7 @@ export function PlayerScreen() {
         `paints ${result.texturesAfterFirstLoad}→${result.texturesAfterReloads}`
       setLeak(line)
       // Also to the log, because on a real device reading a line off the screen
-      // is the awkward part of running this — `npx react-native log-ios` /
+      // is the awkward part of running this — `pnpm exec react-native log-ios` /
       // `adb logcat` will carry it off the handset.
       console.log(`[leak check] ${line}`)
     } catch (e) {

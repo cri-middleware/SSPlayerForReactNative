@@ -24,7 +24,7 @@ const has = (...parts) => existsSync(join(pkgDir, ...parts))
 // A clean checkout has no `native/` at all, so this is the failure a release
 // from CI hits first: a tarball that installs and then cannot link.
 if (!has('native', 'libs')) {
-  fail('native/libs is missing', 'run `npm run build-runtime -- build=release` (or download-sdk) before packing')
+  fail('native/libs is missing', 'run `pnpm run build-runtime build=release` (or download-sdk) before packing')
 } else {
   if (!has('native', 'libs', 'ios', 'libssruntime.xcframework')) {
     fail('native/libs/ios has no xcframework', 'the iOS slices are built on macOS only — pack there')
@@ -43,11 +43,11 @@ if (!has('native', 'libs')) {
 // so `download-sdk` writes the mode down. A local build leaves none.
 const modeFile = join(pkgDir, 'native', 'BUILD_MODE')
 if (!existsSync(modeFile)) {
-  fail('native/BUILD_MODE is missing', 'the Brain in native/ was built locally, or predates this check — install the pinned release with `npm run download-sdk`')
+  fail('native/BUILD_MODE is missing', 'the Brain in native/ was built locally, or predates this check — install the pinned release with `pnpm run download-sdk`')
 } else {
   const mode = readFileSync(modeFile, 'utf8').trim()
   if (mode !== 'release') {
-    fail(`the Brain is a ${mode} build`, 'run `npm run build-runtime -- build=release`; a debug build ships as a slow player with nothing to say why')
+    fail(`the Brain is a ${mode} build`, 'run `pnpm run build-runtime build=release`; a debug build ships as a slow player with nothing to say why')
   }
 }
 

@@ -1,0 +1,22 @@
+packages:
+  - "packages/*"
+  - "example"
+  - "docs"
+
+# One copy of each native module, at the version Expo's compatibility table
+# chose for example/. The package names these as peers, and a peer resolved on
+# its own can land a second copy beside the app's: two autolinked pods/prefabs
+# fighting over one JSI registration, not a duplicated dependency. Bump them
+# together when the example's Expo SDK moves.
+overrides:
+  "@shopify/react-native-skia": "2.11.2"
+  react-native-reanimated: "4.6.0"
+  react-native-worklets: "0.12.2"
+  react-native: "0.88.0-rc.1"
+  react: "19.3.0"
+
+# Install scripts run only when listed here, and pnpm stops on one it has not
+# been told about. esbuild's only checks the binary its optional dependency
+# already placed; nothing here needs it.
+allowBuilds:
+  esbuild: false

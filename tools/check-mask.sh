@@ -4,7 +4,7 @@
 # reach. See tools/ssmask_check.cpp for what it checks and why each check exists.
 #
 # macOS only: it links the host `libskia.a` that RN Skia ships, which has a macOS
-# slice and no Linux one. Needs `npm install` (for that library) and a Rust
+# slice and no Linux one. Needs `pnpm install` (for that library) and a Rust
 # toolchain (for the host libssruntime, same as check-framedata.sh).
 #
 # Usage: tools/check-mask.sh [ssab] [animation] [frame]
@@ -19,7 +19,10 @@ ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd -P)
 SDK_DIR="$ROOT_DIR/SpriteStudio-SDK"
 BUILD_DIR="$ROOT_DIR/tools/.build"
 PKG_DIR="$ROOT_DIR/packages/react-native-spritestudio"
-RNSKIA="$ROOT_DIR/node_modules/@shopify/react-native-skia"
+# Resolved as Node would from the package: under pnpm neither RN Skia nor its
+# macOS binaries sit in the root node_modules.
+resolve_pkg() { (cd "$2" && node -p "require('path').dirname(require.resolve('$1/package.json'))" 2> /dev/null) || true; }
+RNSKIA=$(resolve_pkg @shopify/react-native-skia "$PKG_DIR")
 
 SSAB="${1:-$ROOT_DIR/example/assets/ss/overall/Mask.ssab}"
 ANIMATION="${2:-anime_1}"
@@ -27,14 +30,16 @@ FRAME="${3:-30}"
 
 [ "$(uname)" = "Darwin" ] || { echo "check-mask.sh: macOS only (RN Skia ships no host libskia for this platform)" >&2; exit 1; }
 
+[ -n "$RNSKIA" ] || { echo "check-mask.sh: @shopify/react-native-skia is not installed — run pnpm install" >&2; exit 1; }
+
 # Two places, because RN Skia 2.11 moved the binaries out of the main package:
-# `react-native-skia-apple-macos` is what npm installs, and the podspec copies it
+# `react-native-skia-apple-macos` is RN Skia's own dependency, and the podspec copies it
 # into `@shopify/react-native-skia/libs/macos/` — so that copy exists only once a
 # `pod install` has run. Prefer it anyway, so the check links what the app links.
 SKIA_LIB="$RNSKIA/libs/macos/libskia.xcframework/macos-arm64_x86_64/libskia.a"
-SKIA_PKG="$ROOT_DIR/node_modules/react-native-skia-apple-macos/libs/libskia.xcframework/macos-arm64_x86_64/libskia.a"
+SKIA_PKG="$(resolve_pkg react-native-skia-apple-macos "$RNSKIA")/libs/libskia.xcframework/macos-arm64_x86_64/libskia.a"
 [ -f "$SKIA_LIB" ] || SKIA_LIB="$SKIA_PKG"
-[ -f "$SKIA_LIB" ] || { echo "check-mask.sh: no host libskia at $SKIA_PKG — run npm install" >&2; exit 1; }
+[ -f "$SKIA_LIB" ] || { echo "check-mask.sh: no host libskia at $SKIA_PKG — run pnpm install" >&2; exit 1; }
 
 mkdir -p "$BUILD_DIR"
 

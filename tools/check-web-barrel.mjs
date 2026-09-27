@@ -4,7 +4,7 @@
 // app shipping web as well as native build its web bundle. Nothing on it draws;
 // what it has to survive is *import*.
 //
-// Three ways it breaks, none of which `npm run typecheck` can see, and all of
+// Three ways it breaks, none of which `pnpm run typecheck` can see, and all of
 // which surface in somebody else's web build rather than here:
 //
 //   1. A module the barrel re-exports gains a runtime import that reaches Skia,

@@ -5,7 +5,7 @@
 # reason.
 #
 # The `.js` shim next to this file picks between the two by host OS, so this
-# exists to make the refusal explicit — without it, `npm run release` on Windows
+# exists to make the refusal explicit — without it, `pnpm run release` on Windows
 # would fail with "script not found", which reads as a broken repository rather
 # than a deliberate limit.
 
@@ -16,7 +16,7 @@ The published tarball bundles the Brain's iOS xcframework, and only Xcode can
 build one. Releasing from Windows would ship a package that installs and then
 fails to link on iOS, with nothing in it to say why.
 
-Run `npm run release` on macOS. Everything else in this repository — including
+Run `pnpm run release` on macOS. Everything else in this repository — including
 `build-runtime` for the Android slices — works here.
 "@
 exit 1

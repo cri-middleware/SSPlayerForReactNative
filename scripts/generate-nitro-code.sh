@@ -22,12 +22,14 @@ APP=$(basename "$0")
 
 PKG_DIR="${ROOTDIR}/packages/react-native-spritestudio"
 
-if [ ! -d "${ROOTDIR}/node_modules/nitrogen" ]; then
-    echo "${APP}: nitrogen is not installed — run 'npm install' first." >&2
+# A devDependency of the package, so its bin is the package's, not the root's.
+NITROGEN="${PKG_DIR}/node_modules/.bin/nitrogen"
+if [ ! -x "$NITROGEN" ]; then
+    echo "${APP}: nitrogen is not installed — run 'pnpm install' first." >&2
     exit 1
 fi
 
-( cd "$PKG_DIR" && "${ROOTDIR}/node_modules/.bin/nitrogen" --logLevel info )
+( cd "$PKG_DIR" && "$NITROGEN" --logLevel info )
 
 echo "Generated into packages/react-native-spritestudio/nitrogen/"
 echo "Done."

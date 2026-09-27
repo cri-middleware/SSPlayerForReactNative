@@ -13,7 +13,7 @@ name: CI
 #   * `cpp/format/` being current — regenerating needs a `flatc` whose version
 #     matches the vendored headers, which `static_assert` on it. An
 #     apt-installed flatc would report a diff that means "wrong flatc", not
-#     "stale output". `npm run check-framedata` is where that check lives.
+#     "stale output". `pnpm run check-framedata` is where that check lives.
 #   * anything that needs the Brain — `prepack`, and therefore `npm pack`.
 #
 # Add a macOS job with `secrets.SDK_SUBMODULE_TOKEN` when there is one; the
@@ -49,26 +49,31 @@ jobs:
         # *compile* the C++, which happens in the consumer's build, and the SDK
         # is private. Nothing below opens either.
 
+      - name: Setup pnpm
+        # Before setup-node, whose pnpm cache needs the binary. The version is
+        # package.json's packageManager.
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
         # Passes with no submodules, no `native/` and no SDK access — the
         # property this whole workflow is built on.
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Unit tests
         # `core/`, `player/` and `view/`. Nitro, Skia and Reanimated are aliased
         # to stubs and the Brain is faked at the package's own module boundary,
         # so none of it needs a device — what is left to the host checks and the
         # example's Player screen is the drawing, which a fake cannot judge.
-        run: npm test
+        run: pnpm test
 
       - name: The Nitro bindings are current
         # `nitrogen/` is generated output that is committed and never hand-edited,
@@ -76,15 +81,15 @@ jobs:
         # edits `SsRuntime.nitro.ts` and forgets to regenerate produces bindings
         # that disagree with it, and nothing else would notice.
         run: |
-          npm run generate-nitro-code
+          pnpm run generate-nitro-code
           git diff --exit-code -- packages/react-native-spritestudio/nitrogen \
-            || { echo "::error::nitrogen/ is stale — run 'npm run generate-nitro-code' and commit the result"; exit 1; }
+            || { echo "::error::nitrogen/ is stale — run 'pnpm run generate-nitro-code' and commit the result"; exit 1; }
 
       - name: The package builds
         # What `prepack` runs before publishing, minus the parts that need the
         # Brain. A TypeScript error that only `bob` sees would otherwise surface
         # at release time.
-        run: npm run build --workspace packages/react-native-spritestudio
+        run: pnpm --filter react-native-spritestudio run build
 
       - name: The web stub barrel still imports clean
         # The one check here that runs the code rather than reading it: it
@@ -94,10 +99,10 @@ jobs:
         # (both throw at module scope on web), an export missing from the web
         # barrel, a stub that stopped throwing. Needs no Brain and no SDK: being
         # import-clean is the whole property.
-        run: npm run check-web-barrel
+        run: pnpm run check-web-barrel
 
       - name: Both halves of every toolchain script parse
-        # Each npm script is a `.js` shim over a `.sh` + `.ps1` pair so Windows
+        # Each package.json script is a `.js` shim over a `.sh` + `.ps1` pair so Windows
         # contributors are not shut out — which only holds if the `.ps1` half is
         # also kept working, and it is the half nobody runs by accident.
         run: |

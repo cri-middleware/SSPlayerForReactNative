@@ -3,12 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "description": "SpriteStudio player for React Native — workspace root",
+  "packageManager": "pnpm@12.6.0",
   "license": "BSD-3-Clause",
-  "workspaces": [
-    "packages/*",
-    "example",
-    "docs"
-  ],
   "//scripts": [
     "Every entry point is a .js shim that picks the .sh or .ps1 implementation",
     "for the host OS (scripts/run-platform-script.js) — naming a .sh here would",
@@ -24,7 +20,7 @@
     "Windows contributors out of the one check they could otherwise run.",
     "generate-fbs-code takes out=<dir> so check-framedata can",
     "regenerate into a scratch dir and diff, rather than reimplementing it.",
-    "build names the package rather than --workspaces --if-present: docs has a",
+    "build names the package rather than `pnpm -r`: docs has a",
     "build too, and it is typedoc + vitepress, already reachable as `docs`.",
     "build-release is `release` minus the publish: it writes the tarball into",
     "release-dist/ and re-opens it, and uploads nothing. It runs anywhere; the",
@@ -48,36 +44,17 @@
     "check-hidden": "bash tools/check-hidden.sh",
     "check-shader": "bash tools/check-shader.sh",
     "check-web-barrel": "node tools/check-web-barrel.mjs",
-    "build": "npm run build --workspace react-native-spritestudio",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "build": "pnpm --filter react-native-spritestudio run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
     "generate-fbs-code": "node scripts/generate-fbs-code.js",
     "generate-assets": "node packages/react-native-spritestudio/bin/spritestudio.js assets",
-    "docs": "npm run build --workspace docs",
-    "docs:dev": "npm run dev --workspace docs",
+    "docs": "pnpm --filter docs run build",
+    "docs:dev": "pnpm --filter docs run dev",
     "prepare-docs": "node scripts/prepare-docs.js",
     "build-docs": "node scripts/build-docs.js"
   },
   "engines": {
     "node": ">=20"
-  },
-  "//overrides": [
-    "npm auto-installs the package's peerDependencies at the workspace root,",
-    "which lands a second copy of each native module next to the one `expo",
-    "install` picked for example/. Two copies of a native module is not a",
-    "duplicated dependency, it is two autolinked pods/prefabs fighting over one",
-    "JSI registration. These pins collapse each one onto the version Expo's",
-    "compatibility table chose — bump them together when the example's Expo SDK",
-    "moves."
-  ],
-  "overrides": {
-    "@shopify/react-native-skia": "2.11.2",
-    "react-native-reanimated": "4.6.0",
-    "react-native-worklets": "0.12.2",
-    "react-native": "0.88.0-rc.1",
-    "react": "19.3.0"
-  },
-  "allowScripts": {
-    "@shopify/react-native-skia@2.11.2": true
   }
 }

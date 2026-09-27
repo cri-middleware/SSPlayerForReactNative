@@ -687,7 +687,7 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
     std::printf("    SKIPPED: %s is not deployed.\n", parentPath);
     std::printf("    This one needs the SpriteStudio `Mask` sample in\n");
     std::printf("    example/SpriteStudio_Source/Mask/ — see README.md — and then\n");
-    std::printf("    `npm run deploy-examples`. Nothing else here depends on it.\n");
+    std::printf("    `pnpm run deploy-examples`. Nothing else here depends on it.\n");
     return;
   }
   Baked parent;

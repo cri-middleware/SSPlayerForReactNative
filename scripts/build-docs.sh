@@ -28,10 +28,10 @@
 # the built tree 404s.
 #
 # What this does NOT build: the package. The site does not consume it -- TypeDoc
-# reads packages/*/src, not lib/ -- so `npm run build` is not part of this path.
+# reads packages/*/src, not lib/ -- so `pnpm run build` is not part of this path.
 #
 # `vitepress dev` is deliberately not wrapped: it validates nothing and is a
-# foreground process with no arguments worth defaulting. `npm run docs:dev`.
+# foreground process with no arguments worth defaulting. `pnpm run docs:dev`.
 #
 # Install the toolchain first with scripts/prepare-docs.sh; the whole Pages tree,
 # install included, is scripts/build-pages.sh.
@@ -122,14 +122,14 @@ if [ ! -f "$ROOT_DIR/docs/package.json" ]; then
   exit 1
 fi
 
-if ! command -v npm > /dev/null 2>&1; then
-  echo "$APP: npm not found -- install Node 20 or newer (package.json engines; CI uses 22)" >&2
-  echo "$APP: https://nodejs.org" >&2
+if ! command -v pnpm > /dev/null 2>&1; then
+  echo "$APP: pnpm not found (this repo pins it in package.json's packageManager)" >&2
+  echo "$APP: enable it with 'corepack enable', or install it from https://pnpm.io" >&2
   exit 1
 fi
 
-# npm workspaces hoist into the root node_modules, docs/ included -- so the root
-# is what to probe, and prepare-docs.sh is what fills it.
+# pnpm installs every workspace from the root, docs/ included -- so the root's
+# node_modules is what to probe, and prepare-docs.sh is what fills it.
 if [ ! -d "$ROOT_DIR/node_modules" ]; then
   echo "$APP: node_modules is missing -- run 'scripts/prepare-docs.sh' first" >&2
   exit 1
@@ -149,14 +149,14 @@ step () {
 if [ "$API" = "yes" ]; then
   # The root's `docs` script, so the build is defined once, in package.json:
   # typedoc, then vitepress build.
-  step npm run docs
+  step pnpm run docs
 else
   if [ ! -d "$ROOT_DIR/docs/api" ]; then
     echo "$APP: api=no, but docs/api does not exist -- it is generated and git-ignored," >&2
     echo "$APP: so the first build in a clone has to be api=yes" >&2
     exit 1
   fi
-  step npm exec --workspace docs -- vitepress build
+  step pnpm --filter docs exec vitepress build
 fi
 
 # --- what landed ----------------------------------------------------------
@@ -179,9 +179,9 @@ if [ "$SERVE" = "yes" ]; then
   echo "$APP: 'vitepress preview' serves under the site's base path -- open the URL it"
   echo "$APP: prints, not the bare host. Ctrl-C to stop."
   echo ""
-  exec npm exec --workspace docs -- vitepress preview --port "$PORT"
+  exec pnpm --filter docs exec vitepress preview --port "$PORT"
 else
   echo "$APP: serve it (under the base path, which a plain static server will not do):"
   echo "$APP:   $APP serve=yes"
-  echo "$APP:   npm exec --workspace docs -- vitepress preview"
+  echo "$APP:   pnpm --filter docs exec vitepress preview"
 fi

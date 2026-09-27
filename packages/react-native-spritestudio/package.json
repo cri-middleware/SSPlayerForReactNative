@@ -35,7 +35,7 @@
     "build": "bob build"
   },
   "//peerDependencies": [
-    "One line, and it is the line the root `overrides` pin: whatever Expo's",
+    "One line, and it is the line the workspace `overrides` pin: whatever Expo's",
     "compatibility table chose for example/. Everything that has ever built or",
     "run here -- typecheck, the unit tests, the example app, the host checks --",
     "ran against that line, so a wider range would claim a version nobody has",
@@ -43,7 +43,7 @@
     "the example's Expo SDK moves, not when the registry does; that is also why",
     "Dependabot is told to leave these five alone.",
     "The caret does the right thing on both shapes: ^0.88.0-rc.1 is the 0.88",
-    "line, its release candidates included (npm locks the minor below 1.0.0),",
+    "line, its release candidates included (a caret locks the minor below 1.0.0),",
     "^2.11.2 and ^4.6.0 span their majors.",
     "`expo` is the exception: optional, and only the config plugin loads it."
   ],
@@ -61,7 +61,7 @@
     }
   },
   "//devDependencies": [
-    "`react-test-renderer` is pinned to the exact `react` the root `overrides`",
+    "`react-test-renderer` is pinned to the exact `react` the workspace `overrides`",
     "chose, not a caret: React refuses to run against a renderer from a",
     "different build, so the two move together. It is deprecated in React 19 and",
     "is still the only renderer that does not need a DOM, which is what the",
@@ -71,6 +71,7 @@
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-test-renderer": "^19.3.0",
+    "expo": "^58.0.0-preview.5",
     "nitrogen": "^0.37.1",
     "react-native-builder-bob": "^0.43.1",
     "react-native-nitro-modules": "^0.37.1",

@@ -18,12 +18,12 @@ If you only want to *use* the package in your own app, you want
 git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
 cd SSPlayerForReactNative
 git submodule update --init --recursive
-npm install
+pnpm install
 ```
 
 The submodule is `SpriteStudio-SDK/` — the Rust core, referred to throughout the
-repository as **the Brain**. npm workspaces, deliberately not pnpm: an isolated
-node_modules layout breaks Metro, CMake and podspec path resolution.
+repository as **the Brain**. The workspace is pnpm's, at the version
+`packageManager` in `package.json` names (`corepack enable` picks it up).
 
 ## What you just cloned
 
@@ -55,7 +55,7 @@ SSPlayerForReactNative/
 `native/` is gitignored, so a fresh checkout has no native core at all.
 
 ```bash
-npm run download-sdk
+pnpm run download-sdk
 ```
 
 That installs the release pinned in `scripts/SDK_VERSION.txt` and **needs no
@@ -65,7 +65,7 @@ pin, so it is safe to re-run.
 **Only when you are changing the Brain itself** do you need the other one:
 
 ```bash
-npm run build-runtime -- build=release
+pnpm run build-runtime build=release
 ```
 
 `build-runtime` builds from the `SpriteStudio-SDK/` submodule into the same
@@ -77,8 +77,8 @@ Both scripts take `key=value` arguments and honour `$SSSDK`, which points at an
 SDK checkout other than the submodule:
 
 ```bash
-npm run build-runtime -- platform=ios build=release
-npm run download-sdk -- --force
+pnpm run build-runtime platform=ios build=release
+pnpm run download-sdk --force
 ```
 
 ::: warning Build release before measuring anything
@@ -94,7 +94,7 @@ built against a locally-built or debug Brain.
 ## Convert the sample packs
 
 ```bash
-npm run deploy-examples
+pnpm run deploy-examples
 ```
 
 `.sspj` → `.ssab` for the example app, via `ssconverter-cli` (needs Rust). It
@@ -109,13 +109,13 @@ optional third-party `MaskInstance` sample goes there too.
 ## Run the example
 
 ```bash
-npm run run-ios         # or: npm run run-android
+pnpm run run-ios         # or: pnpm run run-android
 ```
 
 Each prebuilds `example/`, builds it in Release — the JS bundle embedded, so no
 Metro — and launches it on a simulator or a connected device. `device=<name>`
 picks one and `config=debug` serves the JS from Metro instead. Underneath they are
-`npx expo prebuild` and `npx expo run:ios|android`, run in `example/`.
+`expo prebuild` and `expo run:ios|android`, run in `example/`.
 
 The example app is the rendering verification surface — one screen, one feature
 card per capability. What each subject proves, how to look at a project of your
@@ -126,10 +126,10 @@ own, and the optional `MaskInstance` sample are covered in
 
 | Task | Command |
 |---|---|
-| Typecheck (package + example) | `npm run typecheck` |
-| FlatBuffers accessors current + read path sound (needs `flatc`) | `npm run check-framedata` |
-| Mask drawing, and a mask crossing into an instance child (macOS) | `npm run check-mask` |
-| Instance slots keep stepping while out of the draw plan | `npm run check-hidden` |
-| `ss-*` shaders compile, and their arithmetic (macOS) | `npm run check-shader` |
-| Web stub barrel imports clean and throws (any OS, no Brain) | `npm run check-web-barrel` |
-| Nitro codegen is current | `npm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
+| Typecheck (package + example) | `pnpm run typecheck` |
+| FlatBuffers accessors current + read path sound (needs `flatc`) | `pnpm run check-framedata` |
+| Mask drawing, and a mask crossing into an instance child (macOS) | `pnpm run check-mask` |
+| Instance slots keep stepping while out of the draw plan | `pnpm run check-hidden` |
+| `ss-*` shaders compile, and their arithmetic (macOS) | `pnpm run check-shader` |
+| Web stub barrel imports clean and throws (any OS, no Brain) | `pnpm run check-web-barrel` |
+| Nitro codegen is current | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |

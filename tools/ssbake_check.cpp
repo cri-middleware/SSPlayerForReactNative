@@ -498,7 +498,7 @@ int main(int argc, char** argv) {
 
     // The structural check the device path skips. If this rejects a buffer the
     // Brain just wrote, the committed `format/framedata.h` is out of step with
-    // `native/libssruntime` — regenerate it (`npm run generate-fbs-code`).
+    // `native/libssruntime` — regenerate it (`pnpm run generate-fbs-code`).
     ::flatbuffers::Verifier verifier(fdPtr, fdLen);
     if (!ss::runtime::VerifyFrameDataBuffer(verifier)) {
       std::fprintf(stderr, "frame %d: VerifyFrameDataBuffer rejected a %zu byte buffer\n", frame,

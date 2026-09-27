@@ -98,7 +98,7 @@ function Fail {
 }
 
 # `key=value`, as every other script here takes its options. The .js shim
-# forwards arguments verbatim, so `npm run deploy-examples -- embedded=yes`
+# forwards arguments verbatim, so `pnpm run deploy-examples embedded=yes`
 # works the same on every OS.
 $embedded = $false
 foreach ($arg in $ArgsList) {

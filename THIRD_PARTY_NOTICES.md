@@ -58,7 +58,7 @@ open-source crates — 20 under Apache-2.0, 3 under BSD-3-Clause, 1 under MIT an
 **License Location:**
 Because the runtime binaries are generated artifacts and are not checked into
 this repository, the corresponding license documents arrive with the runtime
-during setup. After running `npm run download-sdk` (or `npm run build-runtime`),
+during setup. After running `pnpm run download-sdk` (or `pnpm run build-runtime`),
 you will find them in `packages/react-native-spritestudio/native/`:
 
 * `THIRD-PARTY-LICENSES.ssruntime.md` — the Rust crates

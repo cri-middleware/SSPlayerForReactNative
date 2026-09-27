@@ -36,8 +36,8 @@ already ships. Nothing generates that screen for you.
 
 ::: tip Working from a checkout rather than npm
 The two `native/` files are **not in the repository**. They arrive with the
-runtime, so they exist only after `npm run download-sdk` or
-`npm run build-runtime` has run — which is the one thing that makes them easy to
+runtime, so they exist only after `pnpm run download-sdk` or
+`pnpm run build-runtime` has run — which is the one thing that makes them easy to
 miss. See [Working from a checkout](/development/from-source).
 :::
 
