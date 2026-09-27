@@ -93,7 +93,7 @@ Android slice alone.
 | The web stub barrel imports clean, matches `index.ts` and throws | `npm run check-web-barrel` (any OS, no Brain) |
 | Nitro codegen is current | `npm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
-| Native build | (in `example/`) `npx expo prebuild --platform ios\|android && npx expo run:ios\|android`. The Android prebuild must log `dropped x86 from reactNativeArchitectures` |
+| Native build | `npm run run-ios` / `npm run run-android` — prebuild, a Release build and a launch on a simulator or device. The Android prebuild must log `dropped x86 from reactNativeArchitectures` |
 | Asset manifest | (in `example/`) `npx react-native-spritestudio assets --check --out src/ss-assets.ts`. **`--check` calls it stale if you deployed anything from `example/SpriteStudio_Source/`** (the optional `MaskInstance` sample, or a project of your own) — the committed manifest is the without-them state, so do not commit that change |
 
 **Two host checks report a clean bill when they did nothing**, and each says so in its own header:
@@ -135,6 +135,8 @@ would shut out contributors on the other platform, and CI checks that both parse
 | `download-sdk` | Install the release pinned in `scripts/SDK_VERSION.txt` into `native/`. **No Rust needed**, and skips when what is installed already matches. | Normal setup |
 | `build-runtime` | Build the Brain from the submodule into the same layout. Writes no version, so it is always replaced and never published. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts`. Every project under `example/SpriteStudio_Source/` is converted too and shows up as a `local/<folder>` subject ([example/README.md](./example/README.md#looking-at-a-project-of-your-own)); the optional `MaskInstance` sample is reported and skipped when absent. | Refresh example assets |
+| `run-ios` | Prebuild the example, build it in Release (the JS bundle embedded, so no Metro) and launch it on a simulator or a connected iPhone, picked with `device=<name\|udid>`; a simulator is booted when none is named. `config=debug` serves the JS from Metro instead. macOS only, so there is no `.ps1`. | Looking at drawing on a device |
+| `run-android` | The same for an Android device or emulator, picked with `device=<name>`. | Looking at drawing on a device |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. | After a schema change |
 | `build-release` / `release` | See [RELEASING.md](./RELEASING.md). | Maintainers |
@@ -262,6 +264,8 @@ npm run build           # bob build。publish 時に prepack が走らせるの�
 | `download-sdk` | `scripts/SDK_VERSION.txt` で固定したリリースを `native/` に導入します。**Rust は不要**で、導入済みのものが一致していれば何もしません。 | 通常のセットアップ |
 | `build-runtime` | submodule から Brain をビルドし、同じ配置に置きます。バージョンを書き込まないため、常に置き換えられ、publish されることもありません。Windows では Android 向けのみです。 | Brain を変更するとき |
 | `deploy-examples` | `ssconverter-cli`（Rust が必要）で `example/` 用に `.sspj` を `.ssab` へ変換し、`example/src/ss-assets.ts` を更新します。`example/SpriteStudio_Source/` 以下のプロジェクトもすべて変換され、`local/<folder>` の Subject として表示されます（[example/README.md](./example/README.md#looking-at-a-project-of-your-own)）。任意の `MaskInstance` サンプルは、無ければその旨を表示して飛ばします。 | example のアセットを更新するとき |
+| `run-ios` | example を prebuild し、Release でビルドして（JS バンドルを埋め込むので Metro は不要）、シミュレータか接続した iPhone で起動します。端末は `device=<名前\|UDID>` で選び、指定がなければシミュレータを起動します。`config=debug` にすると JS を Metro から配信します。macOS 専用のため `.ps1` はありません。 | 端末で描画を確かめるとき |
+| `run-android` | 同じことを Android の端末かエミュレータで行います。端末は `device=<名前>` で選びます。 | 端末で描画を確かめるとき |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`。生成物はコミットしてください。 | spec を変更した後 |
 | `generate-fbs-code` | 3 つのスキーマに `flatc -c` → `cpp/format/`。生成物はコミットしてください。 | スキーマを変更した後 |
 | `build-release` / `release` | [RELEASING.md](./RELEASING.md) を参照してください。 | メンテナー |

@@ -109,10 +109,13 @@ optional third-party `MaskInstance` sample goes there too.
 ## Run the example
 
 ```bash
-cd example
-npx expo prebuild --platform ios
-npx expo run:ios        # or --platform android && npx expo run:android
+npm run run-ios         # or: npm run run-android
 ```
+
+Each prebuilds `example/`, builds it in Release — the JS bundle embedded, so no
+Metro — and launches it on a simulator or a connected device. `device=<name>`
+picks one and `config=debug` serves the JS from Metro instead. Underneath they are
+`npx expo prebuild` and `npx expo run:ios|android`, run in `example/`.
 
 The example app is the rendering verification surface — one screen, one feature
 card per capability. What each subject proves, how to look at a project of your

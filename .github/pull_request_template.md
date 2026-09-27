@@ -19,7 +19,7 @@ that is useful information, not a problem.
 - [ ] `npm run typecheck`, `npm test`, `npm run build`
 - [ ] `npm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen`
 - [ ] The `check-*` scripts CONTRIBUTING lists for what you touched
-- [ ] Ran the example on iOS and Android (`npx expo run:ios` / `run:android`) — no test covers drawing
+- [ ] Ran the example on iOS and Android (`npm run run-ios` / `run-android`) — no test covers drawing
 - [ ] Not run — see notes below / 未実行（理由は下記）
 
 **Environment / 環境:** iOS / Android, device or simulator and OS version, React Native version, host OS

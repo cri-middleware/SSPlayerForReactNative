@@ -16,17 +16,17 @@ git submodule update --init --recursive
 npm install
 npm run download-sdk        # the native core, from the pinned SDK release
 npm run deploy-examples     # .sspj -> .ssab for this app
+npm run run-ios             # or: npm run run-android
 ```
 
 `download-sdk` needs **no Rust toolchain**. Use `npm run build-runtime -- build=release`
 instead only when you are changing the Rust core itself.
 
-Then from here:
-
-```bash
-npx expo prebuild --platform ios
-npx expo run:ios            # or: npx expo prebuild --platform android && npx expo run:android
-```
+`run-ios` and `run-android` prebuild this app, build it in Release — the JS bundle
+embedded, so no Metro — and launch it on a simulator or a connected device.
+`device=<name>` picks one (`npm run run-ios -- device=<name>`) and
+`config=debug` serves the JS from Metro instead. Underneath they are
+`npx expo prebuild` and `npx expo run:ios|android`, run from here.
 
 **Expo Go cannot run this app** — the package contains native code, so the
 prebuild is required. On Android the prebuild should log
@@ -80,7 +80,7 @@ example/SpriteStudio_Source/MyChar/      <- MyChar.sspj and everything beside it
 
 It appears on **Subject** as `local/MyChar`, offering every `.ssab` it converted
 to, and the view measures each one to frame it. The packs ship as app assets, so
-**run the app again** (`npx expo run:ios`): a Metro reload brings the subject
+**run the app again** (`npm run run-ios`): a Metro reload brings the subject
 but not the files behind it. Take the folder out and deploy again to remove it.
 
 A folder whose name an SDK project's output already uses is refused rather than
