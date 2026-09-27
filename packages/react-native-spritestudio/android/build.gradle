@@ -41,7 +41,10 @@ def reactNativeArchitectures() {
 
 android {
   namespace "com.margelo.nitro.ssplayer"
-  compileSdk 35
+  // The app's, as Nitro and RN Skia take it. Their AAR metadata sets a floor a
+  // number fixed here falls behind, and the check that catches it fails this
+  // module's release build, not the app's.
+  compileSdk rootProject.ext.has("compileSdkVersion") ? rootProject.ext.compileSdkVersion : 37
 
   defaultConfig {
     // 24, not 21: React Native 0.79+ ships its own prefabs built for 24
