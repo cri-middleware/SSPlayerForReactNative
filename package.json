@@ -31,12 +31,15 @@
     "publish beside it is macOS-only.",
     "prepare-docs and build-docs are the family-standard docs pair; docs and",
     "docs:dev stay as the raw workspace passthrough build-docs itself calls.",
-    "The docs need no Brain: typedoc reads TypeScript, vitepress reads markdown."
+    "The docs need no Brain: typedoc reads TypeScript, vitepress reads markdown.",
+    "run-ios has no .ps1: it needs macOS and Xcode anyway."
   ],
   "scripts": {
     "download-sdk": "node scripts/download-sdk.js",
     "build-runtime": "node scripts/build-runtime.js",
     "deploy-examples": "node scripts/deploy-examples.js",
+    "run-ios": "node scripts/run-ios.js",
+    "run-android": "node scripts/run-android.js",
     "build-release": "node scripts/build-release.js",
     "release": "node scripts/release.js",
     "generate-nitro-code": "node scripts/generate-nitro-code.js",
