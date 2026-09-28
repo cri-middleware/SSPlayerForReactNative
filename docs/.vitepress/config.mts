@@ -47,18 +47,19 @@ export default withMermaid({
 
   head: [['meta', { property: 'og:site_name', content: 'SpriteStudio Player for React Native' }]],
 
-  // mermaid 11.17 pulls in fastdom, which is CommonJS and is not on VitePress's
-  // own pre-bundle list. Left out, the dev server hands the browser the raw file
-  // and the import of its default export throws at module scope — the whole site
-  // renders blank, not just the diagrams. `vitepress build` is unaffected, since
-  // Rollup handles CJS: this is one of the few faults a green build cannot see.
+  // mermaid imports CommonJS packages (dayjs among them), and nothing pre-bundles it:
+  // the plugin imports it from inside node_modules, where Vite's scan does not look.
+  // Left out, the dev server hands the browser the raw CJS file and the import of
+  // its default export throws at module scope — the whole site renders blank, not
+  // just the diagrams. `vitepress build` is unaffected, since Rollup handles CJS:
+  // this is one of the few faults a green build cannot see.
   //
-  // Both specifiers are needed. mermaid imports the package *and* the subpath,
-  // and pre-bundling one leaves the other served raw — the second failure looks
-  // identical to the first, so fixing only `fastdom` reads as no fix at all.
+  // Name mermaid, not its dependencies: pnpm does not hoist them, so they do not
+  // resolve from docs/. The plugin names them anyway, which is the "Failed to
+  // resolve dependency" the dev server prints at startup.
   vite: {
     optimizeDeps: {
-      include: ['fastdom', 'fastdom/extensions/fastdom-promised.js'],
+      include: ['mermaid'],
     },
   },
 
