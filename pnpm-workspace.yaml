@@ -15,6 +15,13 @@ overrides:
   react-native: "0.88.0-rc.1"
   react: "19.3.0"
 
+# vitepress-plugin-mermaid 2.0.17 is the latest and its peer range stops at 11,
+# but the three calls it makes into mermaid (initialize, render,
+# registerExternalDiagrams) are the same in 12. Drop this once its range widens.
+peerDependencyRules:
+  allowedVersions:
+    "vitepress-plugin-mermaid>mermaid": "12"
+
 # Install scripts run only when listed here, and pnpm stops on one it has not
 # been told about. esbuild's only checks the binary its optional dependency
 # already placed; nothing here needs it.

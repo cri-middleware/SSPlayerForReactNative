@@ -47,6 +47,11 @@ export default withMermaid({
 
   head: [['meta', { property: 'og:site_name', content: 'SpriteStudio Player for React Native' }]],
 
+  // mermaid 12 defaults to the ELK layout and the redux-color theme, which draws
+  // the diagram on setup/assets as a thin strip too small to read, and wraps
+  // flowchart labels at 120px, which splits ネイティブビルド mid-word.
+  mermaid: { layout: 'dagre', theme: 'default', flowchart: { wrappingWidth: 200 } },
+
   // mermaid imports CommonJS packages (dayjs among them), and nothing pre-bundles it:
   // the plugin imports it from inside node_modules, where Vite's scan does not look.
   // Left out, the dev server hands the browser the raw CJS file and the import of
