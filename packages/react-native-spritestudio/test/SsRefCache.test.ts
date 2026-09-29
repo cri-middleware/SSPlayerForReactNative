@@ -152,18 +152,21 @@ describe('SsRefCache — retain', () => {
     expect(cache.size).toBe(0)
   })
 
-  // Idempotent, so preloading the same pack from several screens does not leak
-  // a count per call.
-  it('is idempotent', async () => {
+  // Two packs sharing an atlas each retain it: unloading one must leave it for
+  // the other.
+  it('counts, one releaseRetained each', async () => {
     const { cache, destroy } = cacheOf()
-    await cache.acquire('a.ssab', async () => 'pack')
-    cache.retain('a.ssab')
-    cache.retain('a.ssab')
-    cache.retain('a.ssab')
-    cache.release('a.ssab')
+    await cache.acquire('atlas.png', async () => 'atlas')
+    cache.retain('atlas.png')
+    cache.retain('atlas.png')
+    cache.release('atlas.png')
 
-    cache.releaseRetained('a.ssab')
-    expect(destroy).toHaveBeenCalledTimes(1)
+    cache.releaseRetained('atlas.png')
+    expect(destroy).not.toHaveBeenCalled()
+    expect(cache.size).toBe(1)
+
+    cache.releaseRetained('atlas.png')
+    expect(destroy).toHaveBeenCalledExactlyOnceWith('atlas')
     expect(cache.size).toBe(0)
   })
 

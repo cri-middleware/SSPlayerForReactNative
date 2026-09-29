@@ -95,6 +95,23 @@ describe('ssUnload', () => {
     expect(unloadResource).toHaveBeenCalledWith(PACK)
   })
 
+  // Two packs naming one sibling image lease one atlas entry, and each retains it.
+  it('leaves an atlas another preloaded pack shares', async () => {
+    const OTHER = 'ss/overall/Other.ssab'
+    const sibling: SsTextureInfo = { ...embedded('common'), imagePath: 'common.png', embedded: new ArrayBuffer(0) }
+    definePack(PACK, { animations: ['Idle'], textures: [sibling] })
+    definePack(OTHER, { animations: ['Idle'], textures: [sibling] })
+    await ssPreload(PACK)
+    await ssPreload(OTHER)
+    expect(ssImageCache.size).toBe(1)
+
+    ssUnload(PACK)
+    expect(ssImageCache.size).toBe(1)
+
+    ssUnload(OTHER)
+    expect(ssImageCache.size).toBe(0)
+  })
+
   it('is a no-op for a source nothing preloaded', () => {
     ssUnload('ss/never.ssab')
     expect(unloadResource).not.toHaveBeenCalled()
