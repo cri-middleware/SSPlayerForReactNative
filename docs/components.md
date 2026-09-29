@@ -1,16 +1,17 @@
 ---
 title: Components at a glance
-description: The three components and four hooks, what each is for, and the smallest thing that works.
+description: The four components and five hooks, what each is for, and the smallest thing that works.
 ---
 
 # Components at a glance
 
-Three components and four hooks. Most apps use one component and no hooks.
+Four components and five hooks. Most apps use one component and no hooks.
 
 | | Use it when |
 |---|---|
 | [`<SpriteStudioView>`](#spritestudioview) | You have **one** animation. The default. |
 | [`<SpriteStudioScene>`](#spritestudioscene) + [`<SpriteStudioSprite>`](#spritestudiosprite) | You have **many**, and want one canvas and one clock for the lot. |
+| [`<SpriteStudioPartAnchor>`](#spritestudiopartanchor) | A view should ride on a part — a health bar over a head. |
 
 ## `<SpriteStudioView>`
 
@@ -36,6 +37,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | Reacting | `onUserData`, `onAudio`, `onSignal`, `onLoad`, `onError`, `onAnimationFinished`, `onAnimationLooped`, `onAnimationStarted`, `onAnimationChanged` |
 | Overriding | `parts`, `textures` |
 | While loading | `placeholder` |
+| Over it | `children`, laid over the animation's box |
 | A `<View>`'s own | `testID`, the accessibility props, `pointerEvents`, `onLayout` |
 
 Given no size, it lays out like an `<Image>` of the authored canvas — see
@@ -92,6 +94,28 @@ Everything about *which animation and how it plays* is shared with
 Outside a scene it warns and draws nothing. See
 [Many animations: a scene](/usage/scene).
 
+## `<SpriteStudioPartAnchor>`
+
+Pins its children to a part. In a `<SpriteStudioView>`'s `children` it finds
+that view's player; anywhere else, pass one as `player`.
+
+```tsx
+<SpriteStudioView source={SsAssets['Ringo/Ringo']}>
+  <SpriteStudioPartAnchor partName="head">
+    <HealthBar />
+  </SpriteStudioPartAnchor>
+</SpriteStudioView>
+```
+
+| Prop | Default | |
+|---|---|---|
+| `partName` | | The part to follow. |
+| `player` | the enclosing view's | |
+| `rotation` | `true` | Turn with the part. |
+| `scale` | `false` | Scale with the part. |
+
+See [Part overrides & following](/usage/parts#following-a-part).
+
 ## Hooks
 
 You can build everything above without these. Reach for them when the
@@ -109,6 +133,11 @@ const transform = useSsPartTransform(player, 'head')
 Returns `SharedValue<SsPartScreenTransform>` in **view pixels, root transform
 applied**. See [Part overrides & following](/usage/parts#following-a-part)
 and [Reanimated](/usage/reanimated).
+
+### `useSsViewPlayer`
+
+The player of the `<SpriteStudioView>` whose `children` the caller is in, or
+`null` outside one — what a follower of your own passes to `useSsPartTransform`.
 
 ### `useSsTextures`
 

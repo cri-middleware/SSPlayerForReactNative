@@ -22,6 +22,8 @@ import { unavailableOnWeb } from './web/unavailable'
 // --- Layer 4 ---------------------------------------------------------------
 export const SpriteStudioView: typeof import('./view/SpriteStudioView').SpriteStudioView =
   unavailableOnWeb('SpriteStudioView')
+export const useSsViewPlayer: typeof import('./view/SpriteStudioView').useSsViewPlayer =
+  unavailableOnWeb('useSsViewPlayer')
 export type {
   SpriteStudioViewProps,
   SpriteStudioViewRef,
@@ -62,6 +64,10 @@ export type {
 export const useSsPartTransform: typeof import('./view/useSsPartTransform').useSsPartTransform =
   unavailableOnWeb('useSsPartTransform')
 export type { SsPartScreenTransform } from './view/useSsPartTransform'
+
+export const SpriteStudioPartAnchor: typeof import('./view/SpriteStudioPartAnchor').SpriteStudioPartAnchor =
+  unavailableOnWeb('SpriteStudioPartAnchor')
+export type { SpriteStudioPartAnchorProps } from './view/SpriteStudioPartAnchor'
 
 // --- Layer 3 ---------------------------------------------------------------
 export const SpriteStudioPlayer: typeof import('./player/SpriteStudioPlayer').SpriteStudioPlayer =

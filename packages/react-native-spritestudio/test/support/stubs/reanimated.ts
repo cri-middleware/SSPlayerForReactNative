@@ -1,7 +1,16 @@
-import { useRef } from 'react'
+import { useRef, type ComponentType } from 'react'
+
+/** A host element, so a test finds it by name, as with the `react-native` stub. */
+const AnimatedView = 'Animated.View' as unknown as ComponentType<Record<string, unknown>>
+export default { View: AnimatedView }
+
+/** Evaluated in render: there is no UI thread here to run it on. */
+export function useAnimatedStyle<T>(worklet: () => T): T {
+  return worklet()
+}
 
 /**
- * The one thing `view/` uses: a stable mutable box, not a React state cell.
+ * The shared value: a stable mutable box, not a React state cell.
  *
  * An accessor rather than a plain field, like the real one — and it counts its
  * writes, because "only write when it changes" is a claim `useSsPartTransform`

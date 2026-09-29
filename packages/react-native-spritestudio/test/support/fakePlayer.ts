@@ -163,6 +163,16 @@ export class SpriteStudioPlayer {
     this.record('setRootTransform', value)
   }
 
+  /** What a follower reads. Nothing resolves here; `useSsPartTransform` has its own test. */
+  rootTransform: SsRootTransform | null = null
+  getPartTransform(part: string | number): null {
+    this.record('getPartTransform', part)
+    return null
+  }
+  isPartSkinnedMesh(): boolean {
+    return false
+  }
+
   addListener(listener: () => void): () => void {
     this.listeners.add(listener)
     return () => void this.listeners.delete(listener)

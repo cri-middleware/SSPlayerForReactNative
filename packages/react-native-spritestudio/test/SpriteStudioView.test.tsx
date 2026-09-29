@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   SpriteStudioView,
+  useSsViewPlayer,
   type SpriteStudioViewRef,
 } from '../src/view/SpriteStudioView'
+import { SpriteStudioPartAnchor } from '../src/view/SpriteStudioPartAnchor'
 import { pendingFrames, stepFrame } from './support/frameClock'
 import { SpriteStudioPlayer } from './support/fakePlayer'
 import { fakePlayerHookState } from './support/fakePlayerHook'
@@ -263,5 +265,55 @@ describe('the view’s own size', () => {
     await layout(renderer, 300, 0)
 
     expect(pendingFrames()).toBe(0)
+  })
+})
+
+describe('children', () => {
+  function Probe(): null {
+    probed.push(useSsViewPlayer())
+    return null
+  }
+  const probed: unknown[] = []
+  beforeEach(() => {
+    probed.length = 0
+  })
+
+  it('are laid over the view once it is drawable, and reach its player', async () => {
+    fakePlayerHookState.ready = false
+    const { renderer, update } = await render(
+      <SpriteStudioView source={PACK}>
+        <Probe />
+      </SpriteStudioView>
+    )
+    expect(probed).toEqual([])
+
+    fakePlayerHookState.ready = true
+    await update(
+      <SpriteStudioView source={PACK}>
+        <Probe />
+      </SpriteStudioView>
+    )
+
+    expect(probed.at(-1)).toBe(SpriteStudioPlayer.last())
+    expect(findHosts(renderer, 'View')[1]?.props).toMatchObject({ pointerEvents: 'box-none' })
+  })
+
+  it('give an anchor the view’s player when it names none', async () => {
+    await render(
+      <SpriteStudioView source={PACK}>
+        <SpriteStudioPartAnchor partName="hand" />
+      </SpriteStudioView>
+    )
+    await act(async () => stepFrame(16))
+
+    expect(SpriteStudioPlayer.last().argsOf('getPartTransform')).toContainEqual(['hand'])
+  })
+
+  it('warn about an anchor with no player to follow', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await render(<SpriteStudioPartAnchor partName="hand" />)
+
+    expect(warn).toHaveBeenCalledOnce()
   })
 })

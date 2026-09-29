@@ -14,6 +14,7 @@
 // --- Layer 4 ---------------------------------------------------------------
 export {
   SpriteStudioView,
+  useSsViewPlayer,
   type SpriteStudioViewProps,
   type SpriteStudioViewRef,
 } from './view/SpriteStudioView'
@@ -52,6 +53,10 @@ export {
   useSsPartTransform,
   type SsPartScreenTransform,
 } from './view/useSsPartTransform'
+export {
+  SpriteStudioPartAnchor,
+  type SpriteStudioPartAnchorProps,
+} from './view/SpriteStudioPartAnchor'
 
 // --- Layer 3 ---------------------------------------------------------------
 export {

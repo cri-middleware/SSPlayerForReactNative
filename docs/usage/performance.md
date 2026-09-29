@@ -40,8 +40,8 @@ wiring to your app going to the background.
 
 ## The one API that adds a frame loop
 
-`useSsPartTransform` is the exception to everything above. Each hook instance
-starts a **second `requestAnimationFrame` beside the view's**, and reads through
+`useSsPartTransform` is the exception to everything above, and every
+`<SpriteStudioPartAnchor>` is one of it. Each hook instance starts a **second `requestAnimationFrame` beside the view's**, and reads through
 `getPartTransform(partName)` — a string across the JSI boundary, every frame,
 per part. It is the one consumer-facing API that reintroduces exactly the
 per-frame JS work the rest of the design removes.

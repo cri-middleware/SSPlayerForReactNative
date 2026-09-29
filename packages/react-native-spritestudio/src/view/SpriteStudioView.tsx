@@ -1,5 +1,7 @@
 import {
+  createContext,
   forwardRef,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -64,6 +66,12 @@ export interface SpriteStudioViewProps
    */
   style?: StyleProp<ViewStyle>
   /**
+   * Laid over the animation, covering the view's box — where a
+   * `<SpriteStudioPartAnchor>` finds its player. Mounted with the first
+   * drawable frame, not over the placeholder.
+   */
+  children?: ReactNode
+  /**
    * Shown until the first frame is drawable — the pack loaded and at least one
    * texture registered.
    *
@@ -93,7 +101,8 @@ const OWN_PROPS: Record<
   | 'offset'
   | 'scale'
   | 'style'
-  | 'placeholder',
+  | 'placeholder'
+  | 'children',
   true
 > = {
   source: true,
@@ -123,6 +132,7 @@ const OWN_PROPS: Record<
   scale: true,
   style: true,
   placeholder: true,
+  children: true,
 }
 
 function viewPropsOf(props: SpriteStudioViewProps): Omit<ViewProps, 'style' | 'children'> {
@@ -131,6 +141,16 @@ function viewPropsOf(props: SpriteStudioViewProps): Omit<ViewProps, 'style' | 'c
     if (!(key in OWN_PROPS)) rest[key] = value
   }
   return rest
+}
+
+const ViewPlayerContext = createContext<SpriteStudioPlayer | null>(null)
+
+/**
+ * The player of the `<SpriteStudioView>` whose `children` this is rendered in,
+ * or null outside one.
+ */
+export function useSsViewPlayer(): SpriteStudioPlayer | null {
+  return useContext(ViewPlayerContext)
 }
 
 /**
@@ -162,6 +182,7 @@ export const SpriteStudioView = forwardRef<
     scale = 1,
     style,
     placeholder,
+    children,
   } = props
   const fit = props.fit ?? 'contain'
   const viewProps = viewPropsOf(props)
@@ -267,6 +288,11 @@ export const SpriteStudioView = forwardRef<
       {!ready && placeholder != null && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {placeholder}
+        </View>
+      )}
+      {ready && children != null && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <ViewPlayerContext.Provider value={player}>{children}</ViewPlayerContext.Provider>
         </View>
       )}
     </View>

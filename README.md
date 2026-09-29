@@ -137,7 +137,7 @@ error** rather than a blank canvas.
 | Know when an animation started, changed, looped or finished | `onAnimationStarted`, `onAnimationChanged`, `onAnimationLooped`, `onAnimationFinished` |
 | Recolour, hide or swap a part at runtime | the `parts` prop — declarative, so removing an entry reverts it |
 | Draw a whole cast on one canvas and one clock | `<SpriteStudioScene>` + `<SpriteStudioSprite>` |
-| Attach a React view to a part (a health bar over a head) | `useSsPartTransform` — publishes through a Reanimated shared value |
+| Attach a React view to a part (a health bar over a head) | `<SpriteStudioPartAnchor>` in the view's children — or `useSsPartTransform` for a style of your own |
 | Pay the load cost before the mount | `ssPreload` / `ssUnload` |
 | Drive the transport imperatively | the ref's `player` — a `SpriteStudioPlayer` |
 
