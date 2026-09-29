@@ -37,6 +37,8 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | ロード中 | `placeholder` |
 | `<View>` 自身のもの | `testID`・アクセシビリティ系の prop・`pointerEvents`・`onLayout` |
 
+サイズを指定しなければ、作者のキャンバスを表示する `<Image>` と同じように並びます。[基本的な再生](/ja/usage/basic#size)を参照してください。
+
 `ref.current.player` がレイヤー 3 の [`SpriteStudioPlayer`](/ja/usage/transport) です —
 シーク、アニメーション切り替え、コンテンツボックスの読み取り。
 

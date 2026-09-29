@@ -20,6 +20,7 @@ import { useSharedValue } from 'react-native-reanimated'
 
 import { resolveRootTransform, type SsAlign } from '../core/fit'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { intrinsicSize } from './intrinsicSize'
 import { reportError } from './reportError'
 import {
   useSpriteStudioPlayer,
@@ -56,6 +57,11 @@ export interface SpriteStudioViewProps
   /** Multiplier **on top of** the fit's scale. */
   scale?: number
 
+  /**
+   * Sized like an `<Image>` of the authored canvas where this leaves it open:
+   * with no width or height the view is the canvas, one unit to a point, and
+   * with one of them the canvas's aspect ratio sets the other.
+   */
   style?: StyleProp<ViewStyle>
   /**
    * Shown until the first frame is drawable — the pack loaded and at least one
@@ -212,7 +218,7 @@ export const SpriteStudioView = forwardRef<
   // `draw()` simply draws nothing, which is the same empty frame waiting would
   // have produced — and this way the clock is already running when they land.
   useEffect(() => {
-    if (player == null || size.width === 0) return
+    if (player == null || size.width === 0 || size.height === 0) return
 
     let raf = 0
     let last = performance.now()
@@ -250,8 +256,11 @@ export const SpriteStudioView = forwardRef<
     viewProps.onLayout?.(event)
   }
 
+  // Under the caller's style, so whatever it does say wins.
+  const intrinsic = intrinsicSize(style, box)
+
   return (
-    <View {...viewProps} style={style} onLayout={onLayout}>
+    <View {...viewProps} style={[intrinsic, style]} onLayout={onLayout}>
       <Canvas style={{ flex: 1 }}>
         <Picture picture={picture} />
       </Canvas>

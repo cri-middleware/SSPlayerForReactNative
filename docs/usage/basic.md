@@ -54,6 +54,21 @@ The player owns the playback state and nothing above it mirrors that — the pro
 are passthrough. [Transport](/usage/transport) covers seeking, direction,
 ping-pong and the semantics that are not the obvious ones.
 
+## Size
+
+Given no size, the view is the size of its box — the authored canvas, one unit
+to a point — as an `<Image>` of a bundled file is. Given one of `width` and
+`height`, the box's aspect ratio sets the other. Given both, or a `flex`, the
+style decides alone.
+
+```tsx
+<SpriteStudioView source={SsAssets['Ringo/Ringo']} />                          // 800×600
+<SpriteStudioView source={SsAssets['Ringo/Ringo']} style={{ width: '100%' }} /> // full width, 4:3
+```
+
+The box is known once the pack loads. Until then an unsized view is 0 high, and
+a `placeholder` in it shows nothing — size the view if the placeholder matters.
+
 ## Placement
 
 The art has a **content box** in its own units, and placement decides where that

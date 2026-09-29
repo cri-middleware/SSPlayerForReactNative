@@ -38,6 +38,9 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | While loading | `placeholder` |
 | A `<View>`'s own | `testID`, the accessibility props, `pointerEvents`, `onLayout` |
 
+Given no size, it lays out like an `<Image>` of the authored canvas — see
+[Basic playback](/usage/basic#size).
+
 `ref.current.player` is the Layer 3 [`SpriteStudioPlayer`](/usage/transport) —
 seek, switch animation, read the content box.
 

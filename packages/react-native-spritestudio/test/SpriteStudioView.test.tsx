@@ -225,3 +225,43 @@ describe('a view’s own props', () => {
     expect(pendingFrames()).toBe(1)
   })
 })
+
+/** The style the outer `<View>` was rendered with, flattened. */
+function outerStyle(renderer: ReactTestRenderer): Record<string, unknown> {
+  const style = findHosts(renderer, 'View')[0]?.props.style as unknown[]
+  return Object.assign({}, ...style.filter((entry) => entry != null))
+}
+
+describe('the view’s own size', () => {
+  const CANVAS = { x: -400, y: -600, width: 800, height: 600 }
+
+  // `<Image>`'s rule for a bundled image. Without it a view with no style lays
+  // out 0 high in a column and draws nothing.
+  it('is the canvas when the style sizes neither axis', async () => {
+    fakePlayerHookState.canvas = CANVAS
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+
+    expect(outerStyle(renderer)).toEqual({ width: 800, height: 600 })
+  })
+
+  it('keeps the canvas’s aspect ratio when the style sizes one axis', async () => {
+    fakePlayerHookState.canvas = CANVAS
+    const { renderer } = await render(<SpriteStudioView source={PACK} style={{ width: 200 }} />)
+
+    expect(outerStyle(renderer)).toEqual({ width: 200, aspectRatio: 800 / 600 })
+  })
+
+  it('leaves a flexed view alone', async () => {
+    fakePlayerHookState.canvas = CANVAS
+    const { renderer } = await render(<SpriteStudioView source={PACK} style={{ flex: 1 }} />)
+
+    expect(outerStyle(renderer)).toEqual({ flex: 1 })
+  })
+
+  it('does not run the frame loop for a view laid out with no height', async () => {
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    await layout(renderer, 300, 0)
+
+    expect(pendingFrames()).toBe(0)
+  })
+})
