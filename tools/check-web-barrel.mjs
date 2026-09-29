@@ -24,6 +24,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -49,9 +50,14 @@ const report = () => {
 console.log('==> transpiling src/')
 rmSync(BUILD, { recursive: true, force: true })
 mkdirSync(BUILD, { recursive: true })
+// The compiler is reached through node and its resolved entry rather than
+// through `npx`: on Windows `npx` is a `.cmd`, which execFileSync cannot spawn
+// at all (ENOENT for the extensionless name, EINVAL for the shim since Node
+// 20's command-injection fix) — and Windows is exactly who this check is for.
+const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc')
 execFileSync(
-  'npx',
-  ['tsc', '--noEmit', 'false', '--declaration', 'false',
+  process.execPath,
+  [tsc, '--noEmit', 'false', '--declaration', 'false',
    '--rootDir', 'src', '--outDir', BUILD],
   { cwd: PKG, stdio: 'inherit' }
 )
