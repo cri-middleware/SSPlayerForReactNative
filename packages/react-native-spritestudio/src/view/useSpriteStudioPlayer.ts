@@ -89,7 +89,10 @@ export interface SsPlayerState {
   player: SpriteStudioPlayer | null
   /** The measured content box, or null before one lands (or when none was asked for). */
   measured: SsBox | null
-  /** The authored canvas of the animation playing, or null before one is set up. */
+  /**
+   * The authored canvas of the animation the load started on, or null before
+   * one is set up. Not moved by an animation switch.
+   */
   canvas: SsBox | null
   /** Loaded **and** carrying at least one texture — the first drawable frame. */
   ready: boolean
@@ -373,11 +376,20 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       setReady(false)
       return
     }
+    // The canvas of the animation a load starts on, kept across switches:
+    // canvases differ within a pack (Ringo's `dead` is 1300 wide against 800),
+    // and following them would shrink the character as it dies. A load builds
+    // a new internal player, which is what takes the canvas again.
+    let keptFor: unknown = null
+    let kept: SsBox | null = null
     const read = (): void => {
       setMeasured(player.contentBox)
-      // Kept when unchanged: the canvas is re-read on every notify — a play, a
-      // pause, a seek — and only an animation switch moves it.
-      const nextCanvas = player.canvasBox
+      if (player.internal !== keptFor) {
+        keptFor = player.internal
+        kept = null
+      }
+      kept ??= player.canvasBox
+      const nextCanvas = kept
       setCanvas((previous) => (sameBox(previous, nextCanvas) ? previous : nextCanvas))
       setReady(player.isLoaded && player.textures.size > 0)
     }

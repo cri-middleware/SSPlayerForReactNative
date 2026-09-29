@@ -70,10 +70,13 @@ box lands in the view.
 
 ### Where the box comes from
 
-With nothing supplied, the box is the animation's **authored canvas**: its size,
-placed against the origin by its pivot. It costs nothing, and it does not change
-when the animation does. It is where the artist composed, not where the art goes,
-so a pack whose art overflows its canvas overflows the view too.
+With nothing supplied, the box is the **authored canvas of the animation the
+view loaded on**: its size, placed against the origin by its pivot. It costs
+nothing, and switching animations does not move it — canvases differ within a
+pack (`Ringo`'s `dead` is 1300 wide against 800), and a box that followed them
+would shrink the character as it dies. A new `source` takes it again. It is where
+the artist composed, not where the art goes, so a pack whose art overflows its
+canvas overflows the view too.
 
 | Prop | Means |
 |---|---|

@@ -283,4 +283,27 @@ describe('what the caller renders against', () => {
 
     expect(harness.result.current.canvas).toEqual({ x: -400, y: -600, width: 800, height: 600 })
   })
+
+  // Canvases differ within a pack — Ringo's `dead` is 1300 wide against 800 —
+  // and a box that followed them would shrink the character as it dies.
+  it('keeps the canvas the load started on across a switch, and takes it again on a load', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle' })
+    const player = SpriteStudioPlayer.last()
+    const idle = { x: -400, y: -600, width: 800, height: 600 }
+    const dead = { x: -650, y: -600, width: 1300, height: 600 }
+
+    await act(async () => {
+      player.canvasBox = idle
+      player.notify()
+    })
+    await harness.rerender({ source: PACK, animation: 'Walk' })
+    await act(async () => {
+      player.canvasBox = dead
+      player.notify()
+    })
+    expect(harness.result.current.canvas).toEqual(idle)
+
+    await act(async () => player.load(PACK, { animation: 'Walk' }))
+    expect(harness.result.current.canvas).toEqual(dead)
+  })
 })
