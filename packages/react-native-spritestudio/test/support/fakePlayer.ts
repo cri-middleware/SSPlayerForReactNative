@@ -52,6 +52,8 @@ export class SpriteStudioPlayer {
   isLoaded = false
   contentBox: SsBox | null = null
   canvasBox: SsBox | null = null
+  /** A new object per load, as the real one builds a new Layer 2 player. */
+  internal: object | null = null
   disposed = false
 
   /** Animations the loaded pack has. `setAnimation` answers from it. */
@@ -104,6 +106,7 @@ export class SpriteStudioPlayer {
       await new Promise<void>((resolve) => (this.settleLoad = resolve))
     }
     this.isLoaded = true
+    this.internal = {}
     this.currentAnimation = options?.animation ?? this.animations[0] ?? null
     this.notify()
   }
@@ -158,6 +161,16 @@ export class SpriteStudioPlayer {
 
   setRootTransform(value: SsRootTransform): void {
     this.record('setRootTransform', value)
+  }
+
+  /** What a follower reads. Nothing resolves here; `useSsPartTransform` has its own test. */
+  rootTransform: SsRootTransform | null = null
+  getPartTransform(part: string | number): null {
+    this.record('getPartTransform', part)
+    return null
+  }
+  isPartSkinnedMesh(): boolean {
+    return false
   }
 
   addListener(listener: () => void): () => void {

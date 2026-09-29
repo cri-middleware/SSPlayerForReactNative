@@ -26,7 +26,7 @@ description: 1 フレームの実際のコストと、「プレイヤー 1 つ�
 
 ## フレームループを増やす唯一の API
 
-`useSsPartTransform` だけは、ここまでの話の例外です。このフックはインスタンスごとに**ビューのものとは別の `requestAnimationFrame` を起こし**、`getPartTransform(partName)`
+`useSsPartTransform` だけは、ここまでの話の例外です。`<SpriteStudioPartAnchor>` も 1 つずつがこのフックです。このフックはインスタンスごとに**ビューのものとは別の `requestAnimationFrame` を起こし**、`getPartTransform(partName)`
 経由で読み出します — フレームごとに、パーツごとに、文字列が JSI 境界を越えます。設計の他の部分が取り除いたはずの「毎フレームの JS 処理」を、唯一再導入している公開 API です。
 
 キャラクターの頭上に体力バーを 1 つ固定するには、妥当な対価です。パーツ 20 個には妥当ではありません。2 度目に手を伸ばす前に知っておく価値があります。[パーツのオーバーライドと追従](/ja/usage/parts)を参照してください。

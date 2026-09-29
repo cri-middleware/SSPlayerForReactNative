@@ -14,11 +14,12 @@ files it could not find.
 
 ### The pack never loaded
 
-Pass `onError` and look. A `source` that names nothing throws there rather than
-silently drawing an empty canvas:
+Look in the log. A `source` that names nothing fails the load, and with no
+`onError` the error goes to `console.error` — in a dev build, the LogBox — naming
+the pack. Pass `onError` to handle it yourself:
 
 ```tsx
-<SpriteStudioView source={…} onError={(e) => console.error(e)} onLoad={() => …} />
+<SpriteStudioView source={…} onError={(e) => setError(String(e))} />
 ```
 
 The most common cause is a path that is right relative to your source file and

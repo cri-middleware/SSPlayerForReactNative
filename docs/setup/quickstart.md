@@ -59,8 +59,8 @@ Playback starts on load and loops forever by default. `playing`, `speed` and
 
 ## Typed pack names
 
-A wrong path is a blank canvas rather than an error, so generate a manifest of
-the packs your app ships and let the compiler check the names:
+A wrong path shows up only when the pack fails to load, so generate a manifest
+of the packs your app ships and let the compiler check the names:
 
 ```bash
 npx react-native-spritestudio assets --out src/ss-assets.ts

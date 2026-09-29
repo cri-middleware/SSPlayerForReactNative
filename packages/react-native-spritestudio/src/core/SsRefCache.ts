@@ -33,8 +33,8 @@ interface Entry<T> {
   promise: Promise<T>
   /** Set once `promise` settles; null while a first load is still in flight. */
   value: T | null
-  /** An extra lease `retain()` took, which only `release`/`clear` gives back. */
-  retained: boolean
+  /** Leases `retain()` took, which only `releaseRetained`/`clear` give back. */
+  retained: number
 }
 
 export class SsRefCache<T> {
@@ -59,7 +59,7 @@ export class SsRefCache<T> {
   async acquire(key: string, create: () => Promise<T>): Promise<T> {
     let entry = this.entries.get(key)
     if (entry == null) {
-      entry = { refs: 0, promise: create(), value: null, retained: false }
+      entry = { refs: 0, promise: create(), value: null, retained: 0 }
       this.entries.set(key, entry)
     }
     entry.refs++
@@ -94,21 +94,22 @@ export class SsRefCache<T> {
   /**
    * Takes a lease that no `release` will ever balance — what `preload` holds.
    *
-   * Idempotent: retaining twice still leaves one, so a caller may preload the
-   * same pack from several screens without leaking a count per call.
+   * Counted, one `releaseRetained` each: two packs that share an atlas each
+   * retain it, and unloading one must leave it for the other. Preloading the
+   * same pack twice is `ssPreload`'s to fold, and it does.
    */
   retain(key: string): void {
     const entry = this.entries.get(key)
-    if (entry == null || entry.retained) return
-    entry.retained = true
+    if (entry == null) return
+    entry.retained++
     entry.refs++
   }
 
-  /** Gives back the `retain()` lease, if one is held. */
+  /** Gives back one `retain()` lease, if one is held. */
   releaseRetained(key: string): void {
     const entry = this.entries.get(key)
-    if (entry == null || !entry.retained) return
-    entry.retained = false
+    if (entry == null || entry.retained === 0) return
+    entry.retained--
     entry.refs--
     if (entry.refs <= 0) this.evict(key, entry)
   }

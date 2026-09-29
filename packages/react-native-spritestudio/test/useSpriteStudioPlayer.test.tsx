@@ -283,4 +283,62 @@ describe('what the caller renders against', () => {
 
     expect(harness.result.current.canvas).toEqual({ x: -400, y: -600, width: 800, height: 600 })
   })
+
+  // Canvases differ within a pack — Ringo's `dead` is 1300 wide against 800 —
+  // and a box that followed them would shrink the character as it dies.
+  it('keeps the canvas the load started on across a switch, and takes it again on a load', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle' })
+    const player = SpriteStudioPlayer.last()
+    const idle = { x: -400, y: -600, width: 800, height: 600 }
+    const dead = { x: -650, y: -600, width: 1300, height: 600 }
+
+    await act(async () => {
+      player.canvasBox = idle
+      player.notify()
+    })
+    await harness.rerender({ source: PACK, animation: 'Walk' })
+    await act(async () => {
+      player.canvasBox = dead
+      player.notify()
+    })
+    expect(harness.result.current.canvas).toEqual(idle)
+
+    await act(async () => player.load(PACK, { animation: 'Walk' }))
+    expect(harness.result.current.canvas).toEqual(dead)
+  })
+})
+
+describe('the load’s outcome', () => {
+  // The player was only reachable through the ref, which a cached load can
+  // outrun: `onLoad` fired before React committed the render that set it.
+  it('hands the player to onLoad', async () => {
+    const onLoad = vi.fn()
+    await mount({ source: PACK, onLoad })
+
+    expect(onLoad).toHaveBeenCalledWith(SpriteStudioPlayer.last())
+  })
+
+  it('goes to onError when there is one', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'load').mockRejectedValue(new Error('404'))
+    const onError = vi.fn()
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const harness = await mount({ source: PACK, onError })
+    await harness.flush()
+
+    expect(onError).toHaveBeenCalledWith(new Error('404'))
+    expect(error).not.toHaveBeenCalled()
+  })
+
+  // A wrong path is otherwise a blank rectangle with nothing in the log.
+  it('says which pack did not load when there is no onError', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'load').mockRejectedValue(new Error('404'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const harness = await mount({ source: PACK })
+    await harness.flush()
+
+    expect(error).toHaveBeenCalledOnce()
+    expect(String(error.mock.calls[0]?.[0])).toContain(`'${PACK}' did not load`)
+  })
 })

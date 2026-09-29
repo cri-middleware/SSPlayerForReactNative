@@ -16,7 +16,8 @@ description: The props on SpriteStudioView, what a source may be, and how the ar
 
 `<SpriteStudioView>` is an ordinary React Native view that happens to contain a
 Skia canvas and a frame loop. Position, size, clip and animate it like any
-other. For **many** animations at once, reach for
+other; `testID`, the accessibility props, `pointerEvents` and `onLayout` reach
+the view as they would a `<View>`. For **many** animations at once, reach for
 [a scene](/usage/scene) instead — twenty views is twenty canvases and twenty
 clocks.
 
@@ -53,6 +54,21 @@ The player owns the playback state and nothing above it mirrors that — the pro
 are passthrough. [Transport](/usage/transport) covers seeking, direction,
 ping-pong and the semantics that are not the obvious ones.
 
+## Size
+
+Given no size, the view is the size of its box — the authored canvas, one unit
+to a point — as an `<Image>` of a bundled file is. Given one of `width` and
+`height`, the box's aspect ratio sets the other. Given both, or a `flex`, the
+style decides alone.
+
+```tsx
+<SpriteStudioView source={SsAssets['Ringo/Ringo']} />                          // 800×600
+<SpriteStudioView source={SsAssets['Ringo/Ringo']} style={{ width: '100%' }} /> // full width, 4:3
+```
+
+The box is known once the pack loads. Until then an unsized view is 0 high, and
+a `placeholder` in it shows nothing — size the view if the placeholder matters.
+
 ## Placement
 
 The art has a **content box** in its own units, and placement decides where that
@@ -70,10 +86,13 @@ box lands in the view.
 
 ### Where the box comes from
 
-With nothing supplied, the box is the animation's **authored canvas**: its size,
-placed against the origin by its pivot. It costs nothing, and it does not change
-when the animation does. It is where the artist composed, not where the art goes,
-so a pack whose art overflows its canvas overflows the view too.
+With nothing supplied, the box is the **authored canvas of the animation the
+view loaded on**: its size, placed against the origin by its pivot. It costs
+nothing, and switching animations does not move it — canvases differ within a
+pack (`Ringo`'s `dead` is 1300 wide against 800), and a box that followed them
+would shrink the character as it dies. A new `source` takes it again. It is where
+the artist composed, not where the art goes, so a pack whose art overflows its
+canvas overflows the view too.
 
 | Prop | Means |
 |---|---|
@@ -98,6 +117,7 @@ not a blank rectangle:
 <SpriteStudioView source={…} placeholder={<ActivityIndicator />} />
 ```
 
-`onLoad` fires when the pack is ready and `onError` when it is not. The way to
-make that window short enough not to matter is
-[`ssPreload`](/usage/textures#preloading).
+`onLoad` fires when the pack is ready and hands over the player, so
+`getAnimationNames()` can be read there with no ref. `onError` fires when it is
+not; without one, the error goes to `console.error`. The way to make that window
+short enough not to matter is [`ssPreload`](/usage/textures#preloading).

@@ -1,5 +1,7 @@
 import {
+  createContext,
   forwardRef,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -12,6 +14,7 @@ import {
   View,
   type LayoutChangeEvent,
   type StyleProp,
+  type ViewProps,
   type ViewStyle,
 } from 'react-native'
 import { Canvas, Picture, Skia, type SkPicture } from '@shopify/react-native-skia'
@@ -19,12 +22,20 @@ import { useSharedValue } from 'react-native-reanimated'
 
 import { resolveRootTransform, type SsAlign } from '../core/fit'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { intrinsicSize } from './intrinsicSize'
+import { reportError } from './reportError'
 import {
   useSpriteStudioPlayer,
   type SsPlayerProps,
 } from './useSpriteStudioPlayer'
 
-export interface SpriteStudioViewProps extends SsPlayerProps {
+/**
+ * The rest are a `<View>`'s own — `testID`, the accessibility props,
+ * `pointerEvents`, `onLayout` — and reach the view unchanged.
+ */
+export interface SpriteStudioViewProps
+  extends SsPlayerProps,
+    Omit<ViewProps, 'style' | 'children'> {
   /**
    * The `.ssab` — a path into the app's asset directory
    * (`'ss/overall/Basic.ssab'`), a filesystem path, or a URL. Never a
@@ -48,7 +59,18 @@ export interface SpriteStudioViewProps extends SsPlayerProps {
   /** Multiplier **on top of** the fit's scale. */
   scale?: number
 
+  /**
+   * Sized like an `<Image>` of the authored canvas where this leaves it open:
+   * with no width or height the view is the canvas, one unit to a point, and
+   * with one of them the canvas's aspect ratio sets the other.
+   */
   style?: StyleProp<ViewStyle>
+  /**
+   * Laid over the animation, covering the view's box — where a
+   * `<SpriteStudioPartAnchor>` finds its player. Mounted with the first
+   * drawable frame, not over the placeholder.
+   */
+  children?: ReactNode
   /**
    * Shown until the first frame is drawable — the pack loaded and at least one
    * texture registered.
@@ -64,6 +86,71 @@ export interface SpriteStudioViewProps extends SsPlayerProps {
 export interface SpriteStudioViewRef {
   /** The Layer 3 player, for everything the props do not cover. */
   readonly player: SpriteStudioPlayer | null
+}
+
+/**
+ * Every prop this component or the hook reads. A `Record` over `SsPlayerProps`,
+ * so a prop added there does not compile until it is listed — and so never
+ * reaches the `<View>` as an unknown attribute.
+ */
+const OWN_PROPS: Record<
+  | keyof SsPlayerProps
+  | 'align'
+  | 'flipX'
+  | 'flipY'
+  | 'offset'
+  | 'scale'
+  | 'style'
+  | 'placeholder'
+  | 'children',
+  true
+> = {
+  source: true,
+  textures: true,
+  animation: true,
+  playing: true,
+  speed: true,
+  loop: true,
+  fit: true,
+  frame: true,
+  frameScope: true,
+  measureFrames: true,
+  parts: true,
+  onUserData: true,
+  onAudio: true,
+  onSignal: true,
+  onLoad: true,
+  onError: true,
+  onAnimationFinished: true,
+  onAnimationLooped: true,
+  onAnimationStarted: true,
+  onAnimationChanged: true,
+  align: true,
+  flipX: true,
+  flipY: true,
+  offset: true,
+  scale: true,
+  style: true,
+  placeholder: true,
+  children: true,
+}
+
+function viewPropsOf(props: SpriteStudioViewProps): Omit<ViewProps, 'style' | 'children'> {
+  const rest: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(props)) {
+    if (!(key in OWN_PROPS)) rest[key] = value
+  }
+  return rest
+}
+
+const ViewPlayerContext = createContext<SpriteStudioPlayer | null>(null)
+
+/**
+ * The player of the `<SpriteStudioView>` whose `children` this is rendered in,
+ * or null outside one.
+ */
+export function useSsViewPlayer(): SpriteStudioPlayer | null {
+  return useContext(ViewPlayerContext)
 }
 
 /**
@@ -95,8 +182,10 @@ export const SpriteStudioView = forwardRef<
     scale = 1,
     style,
     placeholder,
+    children,
   } = props
   const fit = props.fit ?? 'contain'
+  const viewProps = viewPropsOf(props)
 
   const [size, setSize] = useState({ width: 0, height: 0 })
   const { player, measured, canvas, ready } = useSpriteStudioPlayer(props)
@@ -150,7 +239,7 @@ export const SpriteStudioView = forwardRef<
   // `draw()` simply draws nothing, which is the same empty frame waiting would
   // have produced — and this way the clock is already running when they land.
   useEffect(() => {
-    if (player == null || size.width === 0) return
+    if (player == null || size.width === 0 || size.height === 0) return
 
     let raf = 0
     let last = performance.now()
@@ -172,7 +261,7 @@ export const SpriteStudioView = forwardRef<
         picture.value = recorder.finishRecordingAsPicture()
       } catch (error) {
         cancelAnimationFrame(raf)
-        errorRef.current?.(error)
+        reportError(errorRef.current, error, 'the frame loop stopped')
       }
     }
 
@@ -185,16 +274,25 @@ export const SpriteStudioView = forwardRef<
     setSize((prev) =>
       prev.width === width && prev.height === height ? prev : { width, height }
     )
+    viewProps.onLayout?.(event)
   }
 
+  // Under the caller's style, so whatever it does say wins.
+  const intrinsic = intrinsicSize(style, box)
+
   return (
-    <View style={style} onLayout={onLayout}>
+    <View {...viewProps} style={[intrinsic, style]} onLayout={onLayout}>
       <Canvas style={{ flex: 1 }}>
         <Picture picture={picture} />
       </Canvas>
       {!ready && placeholder != null && (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {placeholder}
+        </View>
+      )}
+      {ready && children != null && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <ViewPlayerContext.Provider value={player}>{children}</ViewPlayerContext.Provider>
         </View>
       )}
     </View>

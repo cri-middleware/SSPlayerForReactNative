@@ -91,9 +91,27 @@ see [Transport](/usage/transport#what-setup-animation-resets).
 
 ## Following a part
 
-`useSsPartTransform` publishes a part's placement through a Reanimated shared
-value, so a React view can ride on a part — a health bar over a head, a
-targeting reticle on a hand — without a re-render per frame.
+`<SpriteStudioPartAnchor>` rides a React view on a part — a health bar over a
+head, a targeting reticle on a hand — without a re-render per frame. In a
+`<SpriteStudioView>`'s `children` it finds that view's player:
+
+```tsx
+<SpriteStudioView source={SsAssets['Ringo/Ringo']}>
+  <SpriteStudioPartAnchor partName="head">
+    <HealthBar />
+  </SpriteStudioPartAnchor>
+</SpriteStudioView>
+```
+
+The children's top-left corner sits on the part's origin and turns about it;
+offset them to attach another point. They turn with the part (`rotation`,
+default `true`) and keep their own size (`scale`, default `false`) — a name plate
+should not breathe with the chest. The children mount with the first drawable
+frame and are hidden until the part resolves.
+
+For a style of your own, `useSsPartTransform` is what the anchor reads: it
+publishes the placement through a Reanimated shared value. Inside the view's
+`children`, `useSsViewPlayer()` is the player to pass it.
 
 ```tsx
 const transform = useSsPartTransform(player, 'head')
@@ -108,8 +126,7 @@ const style = useAnimatedStyle(() => ({
 ```
 
 What it reports is **view pixels, with the root transform already applied** —
-the space an `Animated.View` sitting on top of the canvas lives in. There is
-nothing left to project.
+the space the view's `children` live in. There is nothing left to project.
 
 `valid` is false until the part has been located, and an unknown name never
 becomes true. Check it rather than assuming the first frame has a position: the

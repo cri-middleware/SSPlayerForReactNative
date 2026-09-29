@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   SpriteStudioView,
+  useSsViewPlayer,
   type SpriteStudioViewRef,
 } from '../src/view/SpriteStudioView'
+import { SpriteStudioPartAnchor } from '../src/view/SpriteStudioPartAnchor'
 import { pendingFrames, stepFrame } from './support/frameClock'
 import { SpriteStudioPlayer } from './support/fakePlayer'
 import { fakePlayerHookState } from './support/fakePlayerHook'
@@ -177,5 +179,141 @@ describe('the ref', () => {
     await render(<SpriteStudioView ref={ref} source={PACK} />)
 
     expect(ref.current?.player).toBe(SpriteStudioPlayer.last())
+  })
+})
+
+describe('an error nobody handles', () => {
+  // A blank rectangle with nothing in the log reads as a renderer fault.
+  it('goes to console.error rather than nowhere', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'draw').mockImplementation(() => {
+      throw new Error('boom')
+    })
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    await layout(renderer, 300, 200)
+
+    await act(async () => stepFrame(16))
+
+    expect(error).toHaveBeenCalledOnce()
+    expect(String(error.mock.calls[0]?.[0])).toContain('frame loop stopped')
+  })
+})
+
+describe('a view’s own props', () => {
+  it('reach the view, and the player’s props do not', async () => {
+    const onLayout = vi.fn()
+    const { renderer } = await render(
+      <SpriteStudioView
+        source={PACK}
+        animation="Walk"
+        testID="hero"
+        accessibilityLabel="Ringo waving"
+        pointerEvents="none"
+        onLayout={onLayout}
+      />
+    )
+    const props = findHosts(renderer, 'View')[0]?.props ?? {}
+
+    expect(props).toMatchObject({
+      testID: 'hero',
+      accessibilityLabel: 'Ringo waving',
+      pointerEvents: 'none',
+    })
+    expect(props).not.toHaveProperty('source')
+    expect(props).not.toHaveProperty('animation')
+
+    await layout(renderer, 300, 200)
+    expect(onLayout).toHaveBeenCalledOnce()
+    expect(pendingFrames()).toBe(1)
+  })
+})
+
+/** The style the outer `<View>` was rendered with, flattened. */
+function outerStyle(renderer: ReactTestRenderer): Record<string, unknown> {
+  const style = findHosts(renderer, 'View')[0]?.props.style as unknown[]
+  return Object.assign({}, ...style.filter((entry) => entry != null))
+}
+
+describe('the view’s own size', () => {
+  const CANVAS = { x: -400, y: -600, width: 800, height: 600 }
+
+  // `<Image>`'s rule for a bundled image. Without it a view with no style lays
+  // out 0 high in a column and draws nothing.
+  it('is the canvas when the style sizes neither axis', async () => {
+    fakePlayerHookState.canvas = CANVAS
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+
+    expect(outerStyle(renderer)).toEqual({ width: 800, height: 600 })
+  })
+
+  it('keeps the canvas’s aspect ratio when the style sizes one axis', async () => {
+    fakePlayerHookState.canvas = CANVAS
+    const { renderer } = await render(<SpriteStudioView source={PACK} style={{ width: 200 }} />)
+
+    expect(outerStyle(renderer)).toEqual({ width: 200, aspectRatio: 800 / 600 })
+  })
+
+  it('leaves a flexed view alone', async () => {
+    fakePlayerHookState.canvas = CANVAS
+    const { renderer } = await render(<SpriteStudioView source={PACK} style={{ flex: 1 }} />)
+
+    expect(outerStyle(renderer)).toEqual({ flex: 1 })
+  })
+
+  it('does not run the frame loop for a view laid out with no height', async () => {
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    await layout(renderer, 300, 0)
+
+    expect(pendingFrames()).toBe(0)
+  })
+})
+
+describe('children', () => {
+  function Probe(): null {
+    probed.push(useSsViewPlayer())
+    return null
+  }
+  const probed: unknown[] = []
+  beforeEach(() => {
+    probed.length = 0
+  })
+
+  it('are laid over the view once it is drawable, and reach its player', async () => {
+    fakePlayerHookState.ready = false
+    const { renderer, update } = await render(
+      <SpriteStudioView source={PACK}>
+        <Probe />
+      </SpriteStudioView>
+    )
+    expect(probed).toEqual([])
+
+    fakePlayerHookState.ready = true
+    await update(
+      <SpriteStudioView source={PACK}>
+        <Probe />
+      </SpriteStudioView>
+    )
+
+    expect(probed.at(-1)).toBe(SpriteStudioPlayer.last())
+    expect(findHosts(renderer, 'View')[1]?.props).toMatchObject({ pointerEvents: 'box-none' })
+  })
+
+  it('give an anchor the view’s player when it names none', async () => {
+    await render(
+      <SpriteStudioView source={PACK}>
+        <SpriteStudioPartAnchor partName="hand" />
+      </SpriteStudioView>
+    )
+    await act(async () => stepFrame(16))
+
+    expect(SpriteStudioPlayer.last().argsOf('getPartTransform')).toContainEqual(['hand'])
+  })
+
+  it('warn about an anchor with no player to follow', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await render(<SpriteStudioPartAnchor partName="hand" />)
+
+    expect(warn).toHaveBeenCalledOnce()
   })
 })

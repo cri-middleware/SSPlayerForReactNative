@@ -1,16 +1,17 @@
 ---
 title: コンポーネント早見
-description: 3 つのコンポーネントと 4 つのフック、それぞれの役割と、動く最小の形。
+description: 4 つのコンポーネントと 5 つのフック、それぞれの役割と、動く最小の形。
 ---
 
 # コンポーネント早見
 
-コンポーネント 3 つとフック 4 つ。ほとんどのアプリはコンポーネント 1 つだけで足り、フックは使いません。
+コンポーネント 4 つとフック 5 つ。ほとんどのアプリはコンポーネント 1 つだけで足り、フックは使いません。
 
 | | こういうとき |
 |---|---|
 | [`<SpriteStudioView>`](#spritestudioview) | アニメーションが**1 つ**。既定の選択肢。 |
 | [`<SpriteStudioScene>`](#spritestudioscene) + [`<SpriteStudioSprite>`](#spritestudiosprite) | **複数**あり、まとめてキャンバス 1 枚・クロック 1 つで済ませたい。 |
+| [`<SpriteStudioPartAnchor>`](#spritestudiopartanchor) | ビューをパーツに乗せたい — 頭の上の HP バーなど。 |
 
 ## `<SpriteStudioView>`
 
@@ -35,6 +36,10 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | 反応する | `onUserData`・`onAudio`・`onSignal`・`onLoad`・`onError`・`onAnimationFinished`・`onAnimationLooped`・`onAnimationStarted`・`onAnimationChanged` |
 | 上書き | `parts`・`textures` |
 | ロード中 | `placeholder` |
+| 上に重ねる | `children`（アニメーションの箱に重なります） |
+| `<View>` 自身のもの | `testID`・アクセシビリティ系の prop・`pointerEvents`・`onLayout` |
+
+サイズを指定しなければ、作者のキャンバスを表示する `<Image>` と同じように並びます。[基本的な再生](/ja/usage/basic#size)を参照してください。
 
 `ref.current.player` がレイヤー 3 の [`SpriteStudioPlayer`](/ja/usage/transport) です —
 シーク、アニメーション切り替え、コンテンツボックスの読み取り。
@@ -81,6 +86,27 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 
 シーンの外では警告を出して何も描きません。[複数アニメーション: シーン](/ja/usage/scene)を参照してください。
 
+## `<SpriteStudioPartAnchor>`
+
+子をパーツに留めます。`<SpriteStudioView>` の `children` の中ではそのビューのプレイヤーを見つけ、それ以外の場所では `player` に渡します。
+
+```tsx
+<SpriteStudioView source={SsAssets['Ringo/Ringo']}>
+  <SpriteStudioPartAnchor partName="head">
+    <HealthBar />
+  </SpriteStudioPartAnchor>
+</SpriteStudioView>
+```
+
+| prop | 既定値 | |
+|---|---|---|
+| `partName` | | 追従するパーツ。 |
+| `player` | 囲んでいるビューのもの | |
+| `rotation` | `true` | パーツと一緒に回ります。 |
+| `scale` | `false` | パーツと一緒に拡縮します。 |
+
+[パーツの上書きと追従](/ja/usage/parts#following-a-part)を参照してください。
+
 ## フック
 
 上記はすべてフックなしで作れます。コンポーネントで足りないときに手を伸ばしてください。
@@ -96,6 +122,10 @@ const transform = useSsPartTransform(player, 'head')
 **ビューピクセル・ルートトランスフォーム適用済み**の
 `SharedValue<SsPartScreenTransform>` を返します。[パーツの上書きと追従](/ja/usage/parts#following-a-part)と
 [Reanimated](/ja/usage/reanimated)を参照してください。
+
+### `useSsViewPlayer`
+
+呼び出し側がいる `children` の持ち主である `<SpriteStudioView>` のプレイヤーを返し、その外では `null` を返します。自前の追従で `useSsPartTransform` に渡すのがこれです。
 
 ### `useSsTextures`
 

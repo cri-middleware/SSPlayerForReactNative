@@ -97,7 +97,7 @@ export function Character() {
 | アニメーションの開始・変更・ループ・終了を知る | `onAnimationStarted`、`onAnimationChanged`、`onAnimationLooped`、`onAnimationFinished` |
 | 実行時にパーツを色変え・非表示・差し替えする | `parts` prop — 宣言的なので、エントリを外せば元に戻ります |
 | キャスト全体をキャンバス 1 枚・クロック 1 つで描く | `<SpriteStudioScene>` + `<SpriteStudioSprite>` |
-| React のビューをパーツに追従させる（頭の上の HP バーなど） | `useSsPartTransform` — Reanimated の shared value 経由で公開されます |
+| React のビューをパーツに追従させる（頭の上の HP バーなど） | ビューの children に置いた `<SpriteStudioPartAnchor>` — 自前のスタイルなら `useSsPartTransform` |
 | ロードのコストをマウント前に払う | `ssPreload` / `ssUnload` |
 | トランスポートを命令的に操作する | ref の `player`（`SpriteStudioPlayer`） |
 

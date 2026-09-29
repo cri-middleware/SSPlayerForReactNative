@@ -11,10 +11,10 @@ description: 何も描かれない、パーツが欠ける、再生が止まっ�
 
 ### パックが読み込まれていない
 
-`onError` を渡して確認してください。何も指していない `source` は、空のキャンバスを黙って描くのではなく、そこで throw します。
+ログを確認してください。何も指していない `source` はロードに失敗し、`onError` を渡していなければ、そのエラーはパックの名前付きで `console.error` に出ます（開発ビルドでは LogBox）。自分で扱うなら `onError` を渡します。
 
 ```tsx
-<SpriteStudioView source={…} onError={(e) => console.error(e)} onLoad={() => …} />
+<SpriteStudioView source={…} onError={(e) => setError(String(e))} />
 ```
 
 最も多い原因は、ソースファイルからの相対パスとしては正しく、**アセットルート**からの相対パスとしては誤っているパスです。パックは、config plugin が同梱するディレクトリ内のパスで指定するものであって、プロジェクトツリー上の位置で指定するものではありません。

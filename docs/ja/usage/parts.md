@@ -72,8 +72,19 @@ parts={{
 
 ## パーツに追従する {#following-a-part}
 
-`useSsPartTransform` はパーツの配置を Reanimated の shared value 経由で公開するので、
-React のビューがパーツに乗ることができます — 頭の上の HP バー、手に添えた照準レティクル — フレームごとの再レンダリングなしに。
+`<SpriteStudioPartAnchor>` は React のビューをパーツに乗せます — 頭の上の HP バー、手に添えた照準レティクル — フレームごとの再レンダリングなしに。`<SpriteStudioView>` の `children` の中では、そのビューのプレイヤーを見つけます。
+
+```tsx
+<SpriteStudioView source={SsAssets['Ringo/Ringo']}>
+  <SpriteStudioPartAnchor partName="head">
+    <HealthBar />
+  </SpriteStudioPartAnchor>
+</SpriteStudioView>
+```
+
+子の左上の角がパーツの原点に乗り、そこを中心に回ります。別の点で留めたいなら子をずらしてください。子はパーツと一緒に回り（`rotation`、既定 `true`）、大きさは変えません（`scale`、既定 `false`） — 名札が胸と一緒に呼吸しては困るからです。子は最初に描画できるフレームでマウントされ、パーツが解決されるまで隠れています。
+
+自前のスタイルで追従させるなら、anchor が読んでいる `useSsPartTransform` を使います。パーツの配置を Reanimated の shared value 経由で公開します。ビューの `children` の中では、渡すプレイヤーは `useSsViewPlayer()` です。
 
 ```tsx
 const transform = useSsPartTransform(player, 'head')
@@ -87,7 +98,7 @@ const style = useAnimatedStyle(() => ({
 }))
 ```
 
-返ってくるのは**ビューピクセルで、ルートトランスフォームが適用済み**のもの — キャンバスの上に置かれた `Animated.View` が存在する空間です。射影すべきものは残っていません。
+返ってくるのは**ビューピクセルで、ルートトランスフォームが適用済み**のもの — ビューの `children` が存在する空間です。射影すべきものは残っていません。
 
 `valid` はパーツが特定されるまで false で、存在しない名前は永久に true になりません。最初のフレームから位置があると仮定せず、これを確認してください。shared value は原点から始まるので、確認を省いた追従表示はパーツが解決されるまで隅に座り続けます。
 

@@ -12,6 +12,11 @@ export const View = 'View' as unknown as ComponentType<Record<string, unknown>>
 export const StyleSheet = {
   absoluteFill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   create: <T>(styles: T): T => styles,
+  flatten: (style: unknown): Record<string, unknown> | undefined => {
+    if (style == null || style === false) return undefined
+    if (!Array.isArray(style)) return style as Record<string, unknown>
+    return Object.assign({}, ...style.map((entry) => StyleSheet.flatten(entry) ?? {}))
+  },
 }
 
 /** `useSsTextures` is the only caller: a `require()` id becomes a URI. */

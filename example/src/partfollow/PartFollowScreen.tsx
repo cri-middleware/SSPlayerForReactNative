@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Modal,
   Pressable,
@@ -7,12 +7,10 @@ import {
   Text,
   View,
 } from 'react-native'
-import Animated, { useAnimatedStyle } from 'react-native-reanimated'
 import {
+  SpriteStudioPartAnchor,
   SpriteStudioView,
-  useSsPartTransform,
   type SpriteStudioPlayer,
-  type SpriteStudioViewRef,
 } from 'react-native-spritestudio'
 
 import { SsAssets } from '../ss-assets'
@@ -23,10 +21,10 @@ import { SsAssets } from '../ss-assets'
  * `SpriteStudioPartAttachment2D`.
  *
  * A fish — a plain 🐟 emoji, no extra asset — is pinned to a part of the "Ringo"
- * character with {@link useSsPartTransform}, so it tracks that part's position,
- * rotation and (optionally) scale every frame while the character animates. The
- * player never owns the fish: it is an ordinary `Animated.View` sitting on top
- * of the canvas, and the hook just publishes where to put it.
+ * character with {@link SpriteStudioPartAnchor}, so it tracks that part's
+ * position, rotation and (optionally) scale every frame while the character
+ * animates. The player never owns the fish: it is an ordinary view in the
+ * `<SpriteStudioView>`'s children, and the anchor finds that view's player.
  *
  * Ringo is a rig with **skinned** (bone-bound) mesh parts — its hands, legs,
  * ears and tail. A skinned part's own transform stays near the character root
@@ -53,30 +51,20 @@ const PREFERRED_MOTIONS = ['wait1', 'run', 'attack1', 'dance', 'walk', 'jump']
 /** A bone in Ringo's right-hand chain — a good follow target, and ForWeb's default. */
 const DEFAULT_TARGET = 'bone_14'
 
-/** The fish's box, in view pixels. Centred on the part, so rotation spins in place. */
+/** The fish's box, in view pixels. Centred on the part, so it spins in place. */
 const FISH = 44
 
 export function PartFollowScreen() {
-  const ref = useRef<SpriteStudioViewRef>(null)
-
   const [motion, setMotion] = useState(PREFERRED_MOTIONS[0])
   const [target, setTarget] = useState('')
   const [driveScale, setDriveScale] = useState(true)
 
-  // Lifted out of the view's ref into state, so `useSsPartTransform` below (and
-  // the picker) re-run once there is a player to ask. `onLoad` can fire before
-  // React has committed the render that publishes the player on the ref — a
-  // cached load resolves in a microtask — so, exactly as PlayerScreen does, the
-  // ref is read in an effect keyed on a load counter rather than in `onLoad`.
   const [player, setPlayer] = useState<SpriteStudioPlayer | null>(null)
   const [parts, setParts] = useState<string[]>([])
   const [motions, setMotions] = useState<string[]>([])
-  const [loadSeq, setLoadSeq] = useState(0)
 
-  useEffect(() => {
-    const p = ref.current?.player ?? null
+  const onLoad = (p: SpriteStudioPlayer) => {
     setPlayer(p)
-    if (p == null) return
 
     // The parts of the current animation, and which of them a follower cannot
     // sit on. An unnamed part holds its slot as `''`, so it is dropped from a
@@ -102,7 +90,7 @@ export function PartFollowScreen() {
         .find((name) => name !== '' && !p.isPartSkinnedMesh(name))
       return followable ?? p.partNames().find((name) => name !== '') ?? ''
     })
-  }, [loadSeq])
+  }
 
   // The follow-target picker's rows: every named part, tagged with whether it is
   // a poor target. Recomputed when the part list or the player changes.
@@ -117,29 +105,6 @@ export function PartFollowScreen() {
   const targetKnown = player != null && player.findPartIndex(target) >= 0
   const targetSkinned = player != null && player.isPartSkinnedMesh(target)
 
-  // The placement, published through a Reanimated shared value so the fish rides
-  // on the UI thread. `valid` is false until the part resolves — and stays false
-  // for a name the animation does not carry — which is what hides the fish.
-  const transform = useSsPartTransform(player, target)
-  const fishStyle = useAnimatedStyle(() => {
-    const t = transform.value
-    const sx = driveScale ? t.scaleX : 1
-    const sy = driveScale ? t.scaleY : 1
-    return {
-      opacity: t.valid ? 1 : 0,
-      transform: [
-        // Centre the fish's box on the part: translate to the part, then back
-        // off by half so the emoji's middle — not its corner — sits on it, and
-        // rotation spins around that middle.
-        { translateX: t.x - FISH / 2 },
-        { translateY: t.y - FISH / 2 },
-        { rotate: `${t.rotation}rad` },
-        { scaleX: sx },
-        { scaleY: sy },
-      ],
-    }
-  })
-
   const warning = !targetKnown
     ? `"${target}" is not a part of this motion — the fish is hidden until it is.`
     : targetSkinned
@@ -152,27 +117,27 @@ export function PartFollowScreen() {
     <View style={styles.root}>
       <View style={styles.stage}>
         <SpriteStudioView
-          ref={ref}
           style={StyleSheet.absoluteFill}
           source={RINGO}
           animation={motion}
           playing
           fit="contain"
-          // No frame and nothing measured: the view fits Ringo's authored canvas,
-          // which its pivot already puts above the feet. The motions offered here
-          // share one 800x600 canvas, so the framing does not jump when the
-          // motion changes under a fish that is meant to stay put.
-          onLoad={() => setLoadSeq((n) => n + 1)}
-        />
-        {/*
-          The fish is a sibling of the canvas in the same box, so the view-pixel
-          coordinates the hook reports (root transform already applied) land it
-          straight onto the part with nothing left to project. `pointerEvents`
-          none so it never eats a tap meant for the controls below.
-        */}
-        <Animated.View style={[styles.fish, fishStyle]} pointerEvents="none">
-          <Text style={styles.fishGlyph}>🐟</Text>
-        </Animated.View>
+          // No frame and nothing measured: the view fits the canvas of the
+          // animation it loaded on, which Ringo's pivot puts above the feet, and
+          // keeps it when the motion changes under a fish that is meant to stay
+          // put.
+          onLoad={onLoad}
+        >
+          {/*
+            The anchor pins the fish's top-left corner to the part and turns it
+            about that point; the negative margins put the emoji's middle there
+            instead, so it spins in place. It is hidden until the part resolves
+            — and stays hidden for a name the animation does not carry.
+          */}
+          <SpriteStudioPartAnchor partName={target} scale={driveScale}>
+            <Text style={styles.fish}>🐟</Text>
+          </SpriteStudioPartAnchor>
+        </SpriteStudioView>
       </View>
 
       <ScrollView style={styles.panel} contentContainerStyle={styles.panelContent}>
@@ -302,10 +267,11 @@ function Choice({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#101014' },
   stage: { flex: 1 },
-  fish: { position: 'absolute', left: 0, top: 0, width: FISH, height: FISH },
-  fishGlyph: {
+  fish: {
     width: FISH,
     height: FISH,
+    marginLeft: -FISH / 2,
+    marginTop: -FISH / 2,
     fontSize: 30,
     lineHeight: FISH,
     textAlign: 'center',
