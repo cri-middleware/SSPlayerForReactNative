@@ -12,8 +12,8 @@ device** — iOS simulator and Android emulator only.
 
 ## Draws today
 
-Normal, Mesh, Shape, Instance and Effect parts; mask and clipping on Normal and
-Shape targets; the full framebuffer blend table; PartColor; the thirteen `ss-*`
+Normal, Mesh, Shape, Instance and Effect parts; mask and clipping on Normal,
+Mesh and Shape targets; the full framebuffer blend table; PartColor; the thirteen `ss-*`
 integration shaders; the override layer; user-data, audio and signal events; the
 animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
 `<SpriteStudioScene>`; the Expo config plugin.
@@ -28,11 +28,9 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
   nor the Shape path, and is instead drawn into an isolated layer whose alpha the
   same triangles then cut with `kDstIn`, carrying the coverage UV per vertex —
   the same range SpriteStudio Player for Web covers.
-- **A child's own mask writers while a caller's mask reaches into it.** The
-  caller's coverage is handed down and the child references it; its own writers
-  then write nothing for that frame. The SDK calls the two "a separate track",
-  and this port runs one. A sub-animation that masks itself is unaffected as long
-  as no mask reaches it from outside.
+- **More than 96 mask writers at once.** Every mask and clipping part of an
+  instance tree shares one budget, and an instance's count again each time it
+  is placed. Past 96 the rest are ignored, with a warning.
 - **The Reanimated tick** — part transforms already publish as a shared value,
   but the frame loop is still `requestAnimationFrame` on the JS thread.
 

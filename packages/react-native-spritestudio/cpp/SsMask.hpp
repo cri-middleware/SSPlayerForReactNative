@@ -11,10 +11,20 @@
 // `render/mask.dart`, which faced the same primitives.
 //
 // Scope resolution stays on the CPU exactly as it does there, so the shader
-// never sees the flagship's `mask_meta[]` array — only the two 24-bit sets in
+// never sees the flagship's `mask_meta[]` array — only the two writer sets in
 // `SsMaskBits`. Splitting them by OP is not an optimisation: `Invert`
 // and `Increment` do not commute, so each accumulates on its own plane and the
 // replay takes the union.
+//
+// **One plan for the whole instance tree.** The root player numbers every part
+// of the tree in draw order — a sub-animation is numbered in its instance
+// part's place — and gathers every writer of the tree into its one coverage.
+// Each writer then holds its bit over an open interval of that numbering: a
+// pure mask from the start of its own animation up to itself, a clipping writer
+// from itself to the end of the tree. That one rule is the whole of what makes
+// a mask inside an instance cut its own sub-animation, keeps a pure mask from
+// leaking out of it, and carries a clipping writer on to the caller's later
+// parts, however deep it sits.
 //
 // Skia-free, like `SsPartColor.hpp` and for the same reason: the plan is
 // arithmetic over the frame, so `tools/ssbake_check.cpp` can drive it on the
@@ -30,18 +40,29 @@ namespace sscore {
 
 class SsBaker;
 
-/// One bit per writer, in three 8-bit planes of the coverage bitmap.
-/// Writers past the cap are dropped.
+/// One bit per writer, in 8-bit planes of the coverage bitmap. Writers past the
+/// cap are dropped, with a warning.
 ///
-/// The flagships pack the three planes into RGB and leave alpha to the
-/// premultiplied blend; this port puts each in the **alpha** of its own plane
-/// instead, because RGB is colour and Skia gamut-maps it into a Display P3
-/// destination — `SsMaskShader.hpp` has the whole story.
-constexpr int kSsMaxMaskWriters = 24;
+/// 96 and not 24, because the writers of the whole instance tree share this one
+/// budget and an instance's writers count again every time it is placed:
+/// `InstancePropagationTired3` has 80. A budget sized for one animation masks
+/// the first blocks of such a tree and leaves the rest with no writer at all.
+///
+/// The flagships pack the planes into RGB and leave alpha to the premultiplied
+/// blend; this port puts each in the **alpha** of its own plane instead, because
+/// RGB is colour and Skia gamut-maps it into a Display P3 destination —
+/// `SsMaskShader.hpp` has the whole story.
+constexpr int kSsMaxMaskWriters = 96;
 
-/// The number of 8-bit planes `kSsMaxMaskWriters` needs. Also the width of the
-/// per-plane split `SsMaskBits` does, which is why both are byte-shaped.
+/// The number of 8-bit planes `kSsMaxMaskWriters` needs.
 constexpr int kSsMaskPlaneCount = (kSsMaxMaskWriters + 7) / 8;
+
+/// The number of 32-bit words one writer set in `SsMaskBits` needs.
+constexpr int kSsMaskWordCount = (kSsMaxMaskWriters + 31) / 32;
+
+/// Past every number of the tree sequence: where a clipping writer's interval
+/// ends. Exact in a float, like every sequence number below it.
+constexpr float kSsMaskSeqEnd = 16777216.0f;
 
 /// `SsMaskWriter::threshold` for a writer with no texel to cut out (the shape
 /// special case). Below every possible alpha, so nothing is thresholded away.
@@ -100,31 +121,36 @@ struct SsMaskPartFlags {
 /// One coverage-bitmap writer for the current frame.
 struct SsMaskWriter {
   uint32_t partIndex = 0;
-  /// Its position in `draw_order` — the scope pivot.
+  /// Its position in its **own** animation's `draw_order`.
   int32_t drawRank = -1;
   /// Coverage bit, `0..kSsMaxMaskWriters-1`.
   int32_t bit = 0;
-  /// This writer's entry in `SsBaker::parts()`, so the coverage pass finds the
-  /// geometry without a second bake.
+  /// This writer's entry in `SsBaker::parts()` of the baker it was collected
+  /// from, so the coverage pass finds the geometry without a second bake.
   int32_t partDrawIndex = -1;
-  /// The OP: false = increment, true = invert.
+  /// The OP: false = increment, true = invert. Composed one level, like the
+  /// target decision: the writer's own `mask_influence` AND its instance
+  /// part's — never an ancestor's further up.
   bool opInvert = false;
   /// Masks the parts drawn *after* it, rather than before.
   bool isClipping = false;
   /// The cutout: texels at or below this alpha contribute no coverage.
   /// `kSsNoCutoutThreshold` means "never cut out".
   float threshold = 0.0f;
+  /// The open interval of the tree sequence over which this writer holds its
+  /// bit: a target numbered `seq` is reached when `open < seq < close`. A pure
+  /// mask runs from the start of its own animation to itself; a clipping writer
+  /// from itself to `kSsMaskSeqEnd`.
+  float open = -1.0f;
+  float close = kSsMaskSeqEnd;
 
-  /// **Carry-over (ForGodot's `_bubble_child_clip_writers`)**: when a
-  /// mounted instance child holds a clipping writer, it "bubbles up" to clip this
-  /// player's own parts drawn after the instance. Its geometry then lives in the
-  /// child's baker, not this player's, and has to be carried into this player's
-  /// space before it is rasterised. Null for an ordinary own writer, in which
-  /// case `partDrawIndex` indexes `SsBaker::parts()` of the player that owns the
-  /// plan as usual.
+  /// The baker holding this writer's geometry when it belongs to an instance
+  /// child rather than the root — it is then carried into the root's space by
+  /// `foreignXf` before it is rasterised. Null for the root's own writer, in
+  /// which case `partDrawIndex` indexes the root's `SsBaker::parts()`.
   const SsBaker* foreignBaker = nullptr;
-  /// The instance mount matrix, `a,b,c,d,tx,ty` — child-world -> this player's
-  /// space. Only meaningful when `foreignBaker != nullptr`.
+  /// The chain of instance matrices, `a,b,c,d,tx,ty` — the child's local space
+  /// -> the root's. Only meaningful when `foreignBaker != nullptr`.
   float foreignXf[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
 };
 
@@ -134,48 +160,76 @@ struct SsMaskWriter {
 /// The two sets are disjoint by construction — a writer's OP puts it in exactly
 /// one — so the replay is independent of the order the bits are walked in.
 struct SsMaskBits {
-  uint32_t increment = 0;
-  uint32_t invert = 0;
+  uint32_t increment[kSsMaskWordCount] = {};
+  uint32_t invert[kSsMaskWordCount] = {};
   bool visibleInside = false;
+
+  void set(int32_t bit, bool opInvert) {
+    uint32_t* set = opInvert ? invert : increment;
+    set[bit / 32] |= 1u << (bit % 32);
+  }
+
+  /// Byte `index` of a writer set — plane `index` of the coverage.
+  static uint32_t byteOf(const uint32_t* set, int index) {
+    return (set[index / 4] >> ((index % 4) * 8)) & 0xffu;
+  }
 
   /// No writer reaches this target. With `visibleInside` the part then draws
   /// nowhere; otherwise it draws everywhere.
-  bool isEmpty() const { return increment == 0 && invert == 0; }
+  bool isEmpty() const {
+    for (int i = 0; i < kSsMaskWordCount; ++i) {
+      if (increment[i] != 0 || invert[i] != 0) return false;
+    }
+    return true;
+  }
 };
 
-/// The frame's mask plan: who writes coverage, the player-local box the bitmap
-/// spans, and the per-target scope resolution.
+/// What an animation's parts are composed with: the `mask_influence` and
+/// `visible_inside_mask` of the instance part that places it.
+///
+/// **One level only.** A sub-animation gets its own instance part's values,
+/// never what that instance part itself received from further up — and it gets
+/// them whether or not anything above masks. A root is composed with the
+/// identity, so each of its parts is judged on its own settings.
+struct SsMaskContext {
+  bool influence = true;
+  bool visibleInside = false;
+};
+
+/// The frame's mask plan for one whole instance tree: who writes coverage, the
+/// root-local box the bitmap spans, and the per-target scope resolution.
 class SsMaskPlan {
  public:
-  /// Rebuilds from the frame. False when nothing writes coverage — the caller
-  /// then skips the whole mask machinery, which is the overwhelmingly common
-  /// case and the reason this returns a bool rather than an empty plan.
+  /// Rebuilds from one animation with no instance tree, its ranks standing in
+  /// for the sequence. False when nothing writes coverage.
   ///
   /// `flags` is indexed by part index, as `SsAnimeBinaryView` reads it.
   bool build(const ss::runtime::FrameData* fd, const SsBaker& baker,
              const SsMaskPartFlags* flags, size_t flagCount);
 
-  /// Carry-over: fold a mounted instance child's **clipping** writers into
-  /// this plan as foreign writers, so they clip this player's own parts drawn
-  /// after the instance. Called after `build`, once per visible+influenced mount.
+  /// Adds one animation's active writers, in draw order.
   ///
-  /// `childBaker` / `childPlan` are the child's, freshly baked; `mountXf` is the
-  /// instance matrix (child-world -> this player's space); `ownerRank` is the
-  /// instance part's rank in this player's draw order; `inheritedInfluence` is the
-  /// AND-chain reaching the instance (a `false` drops the writer's OP to the
-  /// union plane). Pure-mask writers do NOT bubble — they close within the child.
-  /// A plan can end up non-empty from bubbling alone (a player whose only mask is
-  /// a child's), so this also seeds the coverage box when `build` found nothing.
-  void bubbleChildClipWriters(const SsBaker& childBaker, const SsMaskPlan& childPlan,
-                              const float* mountXf, int32_t ownerRank,
-                              bool inheritedInfluence);
+  /// `seq` maps this animation's ranks onto the tree sequence (null: the rank
+  /// is the number). `startSeq` is its instance part's number, `-1` for the
+  /// root, and `context` its instance part's flags. `foreignBaker` and `toRoot`
+  /// are null for the root, whose baker is the one the coverage is drawn with.
+  void collect(const ss::runtime::FrameData* fd, const SsBaker& baker,
+               const SsMaskPartFlags* flags, size_t flagCount, const float* seq,
+               size_t seqCount, float startSeq, const SsMaskContext& context,
+               const SsBaker* foreignBaker, const float* toRoot);
+
+  /// Closes a plan `collect` filled. False when it holds no writer, or when
+  /// their box has no area — the caller then has no coverage to draw.
+  bool finish();
 
   void clear();
 
   bool empty() const { return writers_.empty(); }
   const std::vector<SsMaskWriter>& writers() const { return writers_; }
+  /// Whether `collect` met more active writers than `kSsMaxMaskWriters`.
+  bool dropped() const { return dropped_; }
 
-  /// Union of the writers' quads in **player-local** space. The coverage bitmap
+  /// Union of the writers' shapes in **root-local** space. The coverage bitmap
   /// is stretched over exactly this box, so the local -> UV map is
   /// resolution-independent.
   float left() const { return left_; }
@@ -193,32 +247,28 @@ class SsMaskPlan {
     *v = (y - top_) / (bottom_ - top_);
   }
 
-  /// The mask test for the target at `rank`, or false when the part is not
+  /// The mask test for the target numbered `seq`, or false when the part is not
   /// masked and keeps the plain batched path.
   ///
-  /// A part is tested when it opts in **and** either a writer's scope
-  /// reaches it or it is `visible_inside_mask` — the latter draws only inside a
-  /// mask, so it must run the test even out of scope, where the empty writer set
-  /// then correctly discards it.
-  bool bitsFor(int32_t rank, const SsMaskPartFlags& flags, SsMaskBits* out) const;
+  /// A part is tested when it opts in — its own `mask_influence` AND its
+  /// context's — **and** either a writer's interval reaches it or it draws
+  /// inside (`visible_inside_mask`, its own OR its context's). The latter draws
+  /// only where a mask covers it, so it is tested even when no writer reaches
+  /// it, and even with no writer in the tree at all: the empty set then hides
+  /// it, as SpriteStudio does. Valid on an empty plan for exactly that reason.
+  bool bitsFor(float seq, const SsMaskPartFlags& flags, const SsMaskContext& context,
+               SsMaskBits* out) const;
 
  private:
-  /// The cheap early-out: does any writer's scope reach `rank`?
-  bool inScope(int32_t rank) const {
-    return (maxMaskRank_ >= 0 && rank < maxMaskRank_) ||
-           (minClipRank_ >= 0 && rank > minClipRank_);
-  }
+  void extend(float x, float y);
 
   std::vector<SsMaskWriter> writers_;
   float left_ = 0.0f;
   float top_ = 0.0f;
   float right_ = 0.0f;
   float bottom_ = 0.0f;
-  /// Highest rank among pure-mask writers (-1 when none): every part below it is
-  /// potentially masked.
-  int32_t maxMaskRank_ = -1;
-  /// Lowest rank among clipping writers (-1 when none): every part above it is.
-  int32_t minClipRank_ = -1;
+  bool haveBounds_ = false;
+  bool dropped_ = false;
 };
 
 }  // namespace sscore

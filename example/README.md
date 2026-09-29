@@ -94,10 +94,11 @@ overwriting it — the script stops before converting anything and says which.
 ## The optional `MaskInstance` subject
 
 One subject's source is **not in this repository**: `MaskInstance`, three scenes
-that mask the stage and mount their characters as instance parts. It is the only
-asset anywhere that exercises a mask crossing into an instance child, which is
-what `pnpm run check-mask`'s fourth check runs against — and that check reports
-itself skipped without it.
+that mask the stage and mount their characters as instance parts. It is what
+`pnpm run check-mask`'s fourth check — a mask crossing into an instance child —
+runs against, and that check reports itself skipped without it. The SDK's own
+`tests/overall` crosses that boundary too, in `InstancePropagation`, but no card
+here shows it and the check does not read it.
 
 It is third-party sample art and the licence to redistribute it is not ours to
 give. Download **SpriteStudio Basic Samples** from
