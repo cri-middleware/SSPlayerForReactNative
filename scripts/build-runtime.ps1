@@ -101,22 +101,24 @@ $ndk = Resolve-Ndk
 $env:ANDROID_NDK_HOME = $ndk
 $env:ANDROID_NDK_ROOT = $ndk
 
-Write-Host "Building Android ($buildMode) via the SDK's release-android.sh, NDK $ndk..."
-Push-Location $sdkDir
-try {
-    # The SDK ships this step as a shell script only; Git for Windows provides
-    # the bash that runs it.
-    bash scripts/release-android.sh $buildMode
-    if ($LASTEXITCODE -ne 0) { throw "release-android.sh failed" }
-} finally {
-    Pop-Location
-}
-
 $abis = @(
     @{ Triple = "aarch64-linux-android";     Abi = "arm64-v8a" },
     @{ Triple = "armv7-linux-androideabi";   Abi = "armeabi-v7a" },
     @{ Triple = "x86_64-linux-android";      Abi = "x86_64" }
 )
+
+# The SDK's PowerShell twin of release-android.sh, rather than the .sh through
+# `bash`: on Windows that name reaches System32\bash.exe, the WSL launcher, and
+# no other bash is a documented prerequisite. The twin does not stop on a failed
+# `cargo`, so each archive goes first — one that failed to build is then missing
+# below instead of standing in from an earlier build.
+foreach ($entry in $abis) {
+    Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $sdkDir "target/$($entry.Triple)/$buildMode/libssruntime.a")
+}
+Write-Host "Building Android ($buildMode) via the SDK's release-android.ps1, NDK $ndk..."
+& (Join-Path $sdkDir "scripts/release-android.ps1") $buildMode
+if ($LASTEXITCODE -ne 0) { throw "release-android.ps1 failed" }
+
 foreach ($entry in $abis) {
     $src = Join-Path $sdkDir "target/$($entry.Triple)/$buildMode/libssruntime.a"
     if (-not (Test-Path $src)) {

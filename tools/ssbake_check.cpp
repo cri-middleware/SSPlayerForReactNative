@@ -136,11 +136,16 @@ void CheckMaskPlan(const ss::runtime::FrameData* fd, const sscore::SsBaker& bake
   for (const sscore::SsPartDraw& info : baker.parts()) {
     if (info.partIndex >= flags.size()) continue;
     sscore::SsMaskBits bits;
-    if (!plan.bitsFor(info.drawRank, flags[info.partIndex], &bits)) continue;
+    if (!plan.bitsFor(static_cast<float>(info.drawRank), flags[info.partIndex],
+                      sscore::SsMaskContext{}, &bits)) {
+      continue;
+    }
     ++totals->targets;
-    if ((bits.increment & bits.invert) != 0) {
-      Fail("mask.planesOverlap", bits.increment & bits.invert, 0, frame,
-           static_cast<int>(info.partIndex));
+    for (int word = 0; word < sscore::kSsMaskWordCount; ++word) {
+      if ((bits.increment[word] & bits.invert[word]) != 0) {
+        Fail("mask.planesOverlap", bits.increment[word] & bits.invert[word], 0, frame,
+             static_cast<int>(info.partIndex));
+      }
     }
   }
 }

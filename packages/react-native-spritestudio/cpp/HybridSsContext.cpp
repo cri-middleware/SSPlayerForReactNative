@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <stdexcept>
 
@@ -60,6 +61,9 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   ssab_ = sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(ctx_),
                                     ss_runtime_get_ssab_len(ctx_));
   maskFlags_ = ssab_.maskFlags();
+  for (const sscore::SsMaskPartFlags& f : maskFlags_) {
+    if (f.isWriter() && f.bakedGeometry) hasWriterParts_ = true;
+  }
   // Same reasoning as the flags, one kind further: the effect bindings are
   // PartData too. The slots borrow `resource_`, which is why `release()`
   // destroys them before it lets go of it.
@@ -985,63 +989,47 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
   baker_.bake(frame_, soa_, effects_.frame(), alphaScale);
 
   ::ssplayer::SsMaskInput mask;
-  // The AND-chain: whether this player, mounted, may mask at all. The identity
-  // is `true` for a root (`drawInto` hands in a default `inherited`), and a
-  // `mask_influence == 0` instance part above has already turned it off for this
-  // whole subtree.
-  mask.influence = inherited.influence;
+  if (!inherited.mounted) {
+    // The root owns the mask for the whole tree: it numbers every part of it in
+    // draw order, then gathers every writer of it into the one plan, before
+    // anything draws — a pure mask reaches parts drawn before it, so the whole
+    // coverage has to exist before the first of them. Children still hold this
+    // frame (they are stepped before the root draws), and each one's bake below
+    // stays untouched until the root's `DrawBakedFrame` has rasterised it.
+    float counter = 0.0f;
+    numberMaskTree(counter);
+    maskPlan_.clear();
+    static constexpr float kIdentity[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+    collectMaskTree(maskPlan_, kIdentity, -1.0f, sscore::SsMaskContext{}, true);
+    if (maskPlan_.dropped() && !warnedDroppedWriters_) {
+      warnedDroppedWriters_ = true;
+      std::fprintf(stderr,
+                   "[SsPlayer] more than %d mask writers at once (an instance counts again "
+                   "every time it is placed); the rest are ignored.\n",
+                   sscore::kSsMaxMaskWriters);
+    }
+    if (maskPlan_.finish()) mask.plan = &maskPlan_;
+  } else {
+    // The root's plan and coverage come in whole — not an optimisation, the
+    // rule: they already hold this player's writers, at their places in the tree.
+    mask.plan = inherited.plan;
+    mask.coverage = inherited.coverage;
+    mask.context = inherited.context;
+    mask.mounted = true;
+    for (int i = 0; i < 6; ++i) mask.slotXf[i] = inherited.slotXf[i];
+  }
+  // Numbered by the root's walk above, this frame.
+  mask.seq = maskSeq_.data();
+  mask.seqCount = maskSeq_.size();
   // The flags go in **whether or not a plan builds**. They are static PartData,
-  // and the draw path needs one of them — `pureMask` — even on a frame with no
-  // coverage at all: a pure mask writes coverage and never colour, and that is
-  // true of a writer that opted out with `mask == 0` just as much as of one that
-  // is cutting holes. Only `plan` is conditional.
+  // and the draw path needs them even on a frame with no coverage at all: a pure
+  // mask writes coverage and never colour, whether it is cutting holes or opted
+  // out with `mask == 0`, and a part that draws inside a mask draws nowhere when
+  // no writer covers it. `flags` stays this player's, because part indices do
+  // not cross an instance boundary.
   if (!maskFlags_.empty()) {
     mask.flags = maskFlags_.data();
     mask.flagCount = maskFlags_.size();
-    if (inherited.plan != nullptr) {
-      // The caller's plan comes in whole and `maskPlan_.build` is skipped —
-      // not an optimisation, the rule. `flags` stays this player's, because part
-      // indices do not cross an instance boundary and each of these
-      // parts is judged on its own settings composed with what came down.
-      //
-      // The carry-over track — a child's own clipping writers lifted up to clip a
-      // caller's parts — runs in the `else` below, where this player builds its
-      // own plan. It does **not** run *here*: when a caller's mask reaches in, this
-      // port still uses only the caller's coverage, and the child's own writers
-      // write nothing for that frame. Both coverages sampled by one part at once
-      // is left to be handled separately (ROADMAP.md).
-      mask.plan = inherited.plan;
-      mask.coverage = inherited.coverage;
-      mask.inherited = true;
-      mask.visibleInside = inherited.visibleInside;
-      mask.callerRank = inherited.callerRank;
-      for (int i = 0; i < 6; ++i) mask.slotXf[i] = inherited.slotXf[i];
-    } else if (inherited.influence) {
-      // Own masking is allowed by the AND-chain (a `mask_influence == 0` instance
-      // above would have turned it off). Build this player's own writers, then
-      // carry each visible instance child's clipping writers up: they clip
-      // this player's parts drawn after the mount. The plan can be non-empty from
-      // the carry-over alone — a player whose only mask part is hidden but whose
-      // mounted child still clips (`InstancePropagation`, `Hole32` hidden).
-      maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size());
-      for (const sscore::SsInstanceDraw& mount : baker_.instances()) {
-        const sscore::SsInstanceState* st = instances_.stateFor(mount.partIndex);
-        if (st == nullptr || !st->visible || st->child == nullptr) continue;
-        auto* child = static_cast<HybridSsContext*>(st->child);
-        if (!child->prepareForBubble()) continue;
-        // Writer-side composition: the influence reaching the child is this
-        // player's, ANDed with the instance part's `mask_influence`. It only sets
-        // the writer's OP; the carry-over itself happens for every visible child.
-        const bool ownMi = mount.partIndex < maskFlags_.size()
-                               ? maskFlags_[mount.partIndex].maskInfluence
-                               : true;
-        maskPlan_.bubbleChildClipWriters(child->baker_, child->maskPlan_, mount.m,
-                                         mount.drawRank, inherited.influence && ownMi);
-      }
-      if (!maskPlan_.empty() && maskPlan_.width() > 0.0f && maskPlan_.height() > 0.0f) {
-        mask.plan = &maskPlan_;
-      }
-    }
   }
 
   const size_t drawn =
@@ -1051,20 +1039,67 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
   return drawn;
 }
 
-bool HybridSsContext::prepareForBubble() {
-  if (ctx_ == nullptr || frame_ == nullptr) return false;
-  // Coverage ignores vertex colour, so alpha 1 and no effects: only the clipping
-  // writers' shapes are wanted, and those are Normal / Shape / Mesh, never
-  // Effect. This bake is thrown away when the child draws for real (it re-bakes
-  // through `drawSubtree`), but the caller lifts what it needs out of it — and
-  // out of the plan below — before that happens.
-  baker_.bake(frame_, soa_);
-  if (maskFlags_.empty()) return false;
-  if (!maskPlan_.build(frame_, baker_, maskFlags_.data(), maskFlags_.size())) return false;
-  for (const sscore::SsMaskWriter& w : maskPlan_.writers()) {
-    if (w.isClipping) return true;
+HybridSsContext* HybridSsContext::mountedChild(uint32_t partIndex) {
+  const sscore::SsInstanceState* state = instances_.stateFor(partIndex);
+  // The same test `drawInstance` makes, so the walks below number and collect
+  // exactly the children that will draw.
+  if (state == nullptr || !state->visible || state->child == nullptr) return nullptr;
+  return static_cast<HybridSsContext*>(state->child);
+}
+
+void HybridSsContext::numberMaskTree(float& counter) {
+  const auto* order = frame_ != nullptr ? frame_->draw_order() : nullptr;
+  const uint32_t n = order != nullptr ? order->size() : 0;
+  maskSeq_.resize(n);
+  for (uint32_t rank = 0; rank < n; ++rank) {
+    maskSeq_[rank] = counter;
+    counter += 1.0f;
+    // A visible instance's sub-animation is drawn in its instance part's place,
+    // so it is numbered right there, ahead of the next part.
+    if (HybridSsContext* child = mountedChild(order->Get(rank))) child->numberMaskTree(counter);
   }
-  return false;
+}
+
+void HybridSsContext::collectMaskTree(sscore::SsMaskPlan& plan, const float toRoot[6],
+                                      float startSeq, const sscore::SsMaskContext& context,
+                                      bool root) {
+  if (frame_ == nullptr) return;
+  if (hasWriterParts_ && !maskFlags_.empty()) {
+    // The root baked for real just before this; a child bakes here, at alpha 1
+    // and with no effects, because coverage reads neither and writers are never
+    // Effect. It is re-baked when it draws, but only after the root has
+    // rasterised the coverage out of this one.
+    if (!root) baker_.bake(frame_, soa_);
+    plan.collect(frame_, baker_, maskFlags_.data(), maskFlags_.size(), maskSeq_.data(),
+                 maskSeq_.size(), startSeq, context, root ? nullptr : &baker_,
+                 root ? nullptr : toRoot);
+  }
+
+  const auto* order = frame_->draw_order();
+  if (order == nullptr || soa_.worldMatrices == nullptr) return;
+  for (uint32_t rank = 0; rank < order->size() && rank < maskSeq_.size(); ++rank) {
+    const uint32_t partIndex = order->Get(rank);
+    HybridSsContext* child = mountedChild(partIndex);
+    if (child == nullptr || partIndex >= soa_.partCount) continue;
+    // The instance matrix, read the way `SsBaker` reads it for the mount — the
+    // 2D affine slice of the column-major world matrix — and chained onto ours.
+    const float* w = soa_.worldMatrices + static_cast<size_t>(partIndex) * 16;
+    const float m[6] = {w[0], w[1], w[4], w[5], w[12], w[13]};
+    const float c[6] = {
+        toRoot[0] * m[0] + toRoot[2] * m[1], toRoot[1] * m[0] + toRoot[3] * m[1],
+        toRoot[0] * m[2] + toRoot[2] * m[3], toRoot[1] * m[2] + toRoot[3] * m[3],
+        toRoot[0] * m[4] + toRoot[2] * m[5] + toRoot[4],
+        toRoot[1] * m[4] + toRoot[3] * m[5] + toRoot[5],
+    };
+    // One level: the instance part's own flags, whatever this player was
+    // composed with.
+    sscore::SsMaskContext childContext;
+    if (partIndex < maskFlags_.size()) {
+      childContext.influence = maskFlags_[partIndex].maskInfluence;
+      childContext.visibleInside = maskFlags_[partIndex].visibleInsideMask;
+    }
+    child->collectMaskTree(plan, c, maskSeq_[rank], childContext, false);
+  }
 }
 
 double HybridSsContext::drawInto(SkCanvasHandle canvas,

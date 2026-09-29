@@ -179,22 +179,31 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// carrying the mount point's opacity), so the two cannot drift — a child is
   /// not a special case of drawing, it is the same draw one transform down.
   ///
-  /// `inherited` is the caller's mask, already composed at the mount point.
-  /// When it carries a plan this subtree resolves against **that**
-  /// coverage instead of building its own, so a mask drawn one level up reaches
-  /// down here; its `flags` are filled in below from this player's own parts,
-  /// because part indices do not cross an instance boundary.
+  /// `inherited` is what the caller composed at the mount point; a default one
+  /// makes this player the root. The root builds the one mask plan for the
+  /// whole tree; a mounted child resolves against **that** plan and coverage,
+  /// which already hold its own writers at their places in the tree. Its
+  /// `flags` and `seq` are filled in below from this player's own parts and
+  /// ranks, because neither crosses an instance boundary.
   size_t drawSubtree(void* canvas, const ::ssplayer::SsPaintBinding* textures,
                      size_t textureCount, float alphaScale,
                      const ::ssplayer::SsMaskInput& inherited = {});
 
-  /// Bakes this child and builds its own writer plan so a **caller** can carry
-  /// its clipping writers into its own coverage (carry-over). Returns true
-  /// only when the plan holds at least one clipping writer worth lifting. Baked
-  /// at alpha 1 (coverage ignores vertex colour) and re-baked for real when the
-  /// child later draws; a caller reads `baker_` / `maskPlan_` right after this,
-  /// before that re-bake. Called by an owner's `drawSubtree`, on the child.
-  bool prepareForBubble();
+  /// The child mounted on `partIndex` that draws this frame, or null.
+  HybridSsContext* mountedChild(uint32_t partIndex);
+
+  /// Numbers this player's ranks on the tree sequence into `maskSeq_`, each
+  /// visible instance's sub-animation in its instance part's place. Run by the
+  /// root, over the whole tree, before each draw.
+  void numberMaskTree(float& counter);
+
+  /// Adds this player's writers, then every visible child's, to the root's
+  /// `plan`. `toRoot` carries this player's local space into the root's,
+  /// `startSeq` is its instance part's number (`-1` for the root), and
+  /// `context` its instance part's flags. A child bakes here for the purpose,
+  /// and its bake has to survive until the root has rasterised the coverage.
+  void collectMaskTree(sscore::SsMaskPlan& plan, const float toRoot[6], float startSeq,
+                       const sscore::SsMaskContext& context, bool root);
 
   /// Spawns one child per instance part, once.
   ///
@@ -297,9 +306,19 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// out of `FrameData` in `maskPlan_`; keeping the two apart is the first thing
   /// the mask spec asks of a Player.
   std::vector<sscore::SsMaskPartFlags> maskFlags_;
-  /// Rebuilt every `drawInto`. A member so the writer vector is reused rather
-  /// than reallocated per frame, like `baker_`'s buffers.
+  /// Whether any part can write coverage at all — static, so a child with none
+  /// is never baked just to find no writers.
+  bool hasWriterParts_ = false;
+  /// Rebuilt every `drawInto`, and only on the root: it holds the writers of
+  /// the whole tree. A member so the writer vector is reused rather than
+  /// reallocated per frame, like `baker_`'s buffers.
   sscore::SsMaskPlan maskPlan_;
+  /// This player's ranks on the tree sequence, indexed by rank. Written by the
+  /// root's `numberMaskTree` at the start of every draw, read by this player's
+  /// own draw.
+  std::vector<float> maskSeq_;
+  /// The writer budget overflowed once already; said once, not every frame.
+  bool warnedDroppedWriters_ = false;
 
   /// One slot per effect part, bound at construction and stepped from
   /// `update()` — not from the draw, because an effect's clock needs a delta and

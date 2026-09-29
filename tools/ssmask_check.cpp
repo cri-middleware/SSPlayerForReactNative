@@ -15,7 +15,7 @@
 //   2. **The coverage encoding round-trips, bit for bit.** The bits ride through
 //      an 8-bit image and a colour-managed sampler, and any transfer function
 //      between the two decodes as writers that never covered the pixel. Checked
-//      for all 24 bits, through the real write *and* replay shaders.
+//      for all 96 bits, through the real write *and* replay shaders.
 //   3. **The whole path still masks something.** The real `DrawBakedFrame` over
 //      a real `.ssab`, rendered twice — with the mask input and without — and
 //      the two framebuffers must differ. This is the one that catches "the
@@ -203,8 +203,8 @@ struct CoverSpec {
 };
 
 /// Builds a coverage image exactly the way `SsSkiaDraw::BuildCoverage` does: the
-/// bit in **alpha**, one 8-bit plane per 8 writers, planes stacked vertically in
-/// one deferred picture image.
+/// bit in **alpha**, one 8-bit plane per 8 writers, planes laid out in the grid
+/// `SsMaskCoverageGrid` gives, in one deferred picture image.
 ///
 /// **The colour space is not a parameter, and that is the point.** `drawInto`
 /// runs on a *recording* canvas, which has no colour space at all, so
@@ -221,9 +221,12 @@ ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int 
   for (const CoverSpec& spec : specs) {
     planeCount = std::max(planeCount, ssplayer::SsMaskBitPlane(spec.bit) + 1);
   }
+  int columns = 1;
+  int rows = 1;
+  ssplayer::SsMaskCoverageGrid(planeCount, &columns, &rows);
 
   SkPictureRecorder recorder;
-  SkCanvas* canvas = recorder.beginRecording(SkRect::MakeIWH(w, h * planeCount));
+  SkCanvas* canvas = recorder.beginRecording(SkRect::MakeIWH(w * columns, h * rows));
 
   for (const CoverSpec& spec : specs) {
     sscore::SsMaskWriter writer;
@@ -242,8 +245,10 @@ ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int 
     }
     cover.setBlendMode(SkBlendMode::kPlus);
     cover.setAntiAlias(false);
+    const int plane = ssplayer::SsMaskBitPlane(spec.bit);
     canvas->save();
-    canvas->translate(0.0f, static_cast<float>(ssplayer::SsMaskBitPlane(spec.bit) * h));
+    canvas->translate(static_cast<float>(ssplayer::SsMaskPlaneColumn(plane) * w),
+                      static_cast<float>(ssplayer::SsMaskPlaneRow(plane) * h));
     canvas->drawVertices(SliceQuad(spec.x0 * w, spec.x1 * w, static_cast<float>(h)),
                          SkBlendMode::kModulate, cover);
     canvas->restore();
@@ -253,8 +258,9 @@ ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int 
   // null outright — whatever its doc comment says — and the whole mask then
   // silently does nothing.
   out.image = SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
-                                            SkISize::Make(w, h * planeCount), nullptr, nullptr,
-                                            SkImages::BitDepth::kU8, SkColorSpace::MakeSRGB());
+                                            SkISize::Make(w * columns, h * rows), nullptr,
+                                            nullptr, SkImages::BitDepth::kU8,
+                                            SkColorSpace::MakeSRGB());
   out.width = w;
   out.height = h;
   out.planeCount = planeCount;
@@ -308,7 +314,7 @@ void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> dstCs, bool flat =
     }
 
     sscore::SsMaskBits bits;
-    bits.increment = 1u << bit;
+    bits.set(bit, false);
     bits.visibleInside = true;
 
     int left = 0;
@@ -331,38 +337,47 @@ void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> dstCs, bool flat =
   }
 }
 
-/// Three writers, one per plane, covering different halves — so a plane read at
-/// the wrong band offset, or one plane's bits leaking into another's decode,
-/// shows up as the wrong half surviving.
+/// Writers in planes of different grid cells, covering different halves — so a
+/// plane read at the wrong cell, or one plane's bits leaking into another's
+/// decode, shows up as the wrong half surviving.
 ///
-/// This is the case `Mask.ssab` itself reaches: nine writers is two planes, and
-/// nothing below eight writers ever leaves plane 0.
+/// `Mask.ssab` itself reaches two planes (nine writers), and an instance tree
+/// like `InstancePropagationTired3` reaches the fourth column: its 80 writers
+/// are ten planes.
 void CheckPlaneIsolation(const char* label, sk_sp<SkColorSpace> dstCs) {
-  const ssplayer::SsMaskCoverage coverage = BuildCoverage(
-      {{1, 0.0f, 0.5f, false}, {9, 0.5f, 1.0f, false}, {17, 0.0f, 1.0f, true}}, kW, kH);
+  const ssplayer::SsMaskCoverage coverage =
+      BuildCoverage({{1, 0.0f, 0.5f, false},
+                     {9, 0.5f, 1.0f, false},
+                     {17, 0.0f, 1.0f, true},
+                     {26, 0.0f, 0.5f, false},
+                     {90, 0.5f, 1.0f, true}},
+                    kW, kH);
   if (!coverage.valid()) {
     Fail("%s: coverage image is null", label);
     return;
   }
-  if (coverage.planeCount != 3) {
-    Fail("%s: %d planes built for bits spanning three of them", label, coverage.planeCount);
+  if (coverage.planeCount != 12) {
+    Fail("%s: %d planes built for bits reaching the twelfth", label, coverage.planeCount);
     return;
   }
 
   const struct {
     const char* what;
-    uint32_t set;
+    int bits[2];
+    int bitCount;
     bool wantLeft;
     bool wantRight;
   } kCases[] = {
-      {"plane 0 (bit 1), left half", 1u << 1, true, false},
-      {"plane 1 (bit 9), right half", 1u << 9, false, true},
-      {"plane 2 (bit 17), whole box", 1u << 17, true, true},
-      {"planes 0+1, both halves", (1u << 1) | (1u << 9), true, true},
+      {"plane 0 (bit 1), left half", {1}, 1, true, false},
+      {"plane 1 (bit 9), right half", {9}, 1, false, true},
+      {"plane 2 (bit 17), whole box", {17}, 1, true, true},
+      {"plane 3, column 1 (bit 26), left half", {26}, 1, true, false},
+      {"plane 11, column 3 (bit 90), right half", {90}, 1, false, true},
+      {"planes 0+1, both halves", {1, 9}, 2, true, true},
   };
   for (const auto& c : kCases) {
     sscore::SsMaskBits bits;
-    bits.increment = c.set;
+    for (int i = 0; i < c.bitCount; ++i) bits.set(c.bits[i], false);
     bits.visibleInside = true;
 
     int left = 0;
@@ -629,17 +644,22 @@ struct MountRecorder : ::ssplayer::SsInstanceRenderer {
     uint32_t partIndex;
     bool gotPlan;
     bool gotCoverage;
-    int32_t callerRank;
-    bool visibleInside;
+    bool mounted;
+    sscore::SsMaskContext context;
     float slotXf[6];
     size_t drawn;
   };
   std::vector<Seen> seen;
 
+  /// The child's ranks on the tree sequence. `HybridSsContext` numbers the
+  /// whole tree; here the caller's plan was built from its ranks alone, so the
+  /// child sits between its instance part's rank and the next one.
+  std::vector<float> seq;
+
   size_t drawInstance(void* canvas, uint32_t partIndex, float alphaScale,
                       const ::ssplayer::SsMaskInput& mask) override {
-    Seen record{partIndex,      mask.plan != nullptr, mask.coverage != nullptr,
-                mask.callerRank, mask.visibleInside,  {}, 0};
+    Seen record{partIndex,    mask.plan != nullptr, mask.coverage != nullptr,
+                mask.mounted, mask.context,         {}, 0};
     for (int i = 0; i < 6; ++i) record.slotXf[i] = mask.slotXf[i];
     if (onlyPart >= 0 && static_cast<uint32_t>(onlyPart) != partIndex) {
       seen.push_back(record);
@@ -649,15 +669,17 @@ struct MountRecorder : ::ssplayer::SsInstanceRenderer {
     ::ssplayer::SsMaskInput input;
     input.flags = child->flags.data();
     input.flagCount = child->flags.size();
+    input.mounted = true;
     if (forward && mask.plan != nullptr) {
       input.plan = mask.plan;
       input.coverage = dropCoverage ? nullptr : mask.coverage;
-      input.inherited = true;
-      input.callerRank = mask.callerRank;
-      input.visibleInside = forceInside || mask.visibleInside;
+      input.context = mask.context;
+      input.context.visibleInside = forceInside || mask.context.visibleInside;
       for (int i = 0; i < 6; ++i) {
         input.slotXf[i] = dropSlotXf ? (i == 0 || i == 3 ? 1.0f : 0.0f) : mask.slotXf[i];
       }
+      input.seq = seq.data();
+      input.seqCount = seq.size();
     }
     record.drawn = ::ssplayer::DrawBakedFrame(canvas, bindings, bindingCount, child->baker, input);
     seen.push_back(record);
@@ -803,8 +825,11 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
     identityXf.dropSlotXf = true;
     inside.forceInside = true;
     rebuilt.dropCoverage = true;
+    const auto* childOrder = child.fd->draw_order();
+    const size_t childRanks = childOrder != nullptr ? childOrder->size() : 0;
     for (MountRecorder* r : {&inherit, &isolated, &identityXf, &inside, &rebuilt}) {
       r->onlyPart = static_cast<int32_t>(mount.partIndex);
+      r->seq.assign(childRanks, static_cast<float>(mount.drawRank) + 0.5f);
     }
 
     SkBitmap a, b, c, d, e;
@@ -827,17 +852,24 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
                 static_cast<int>(name.size()), name.data(), mount.drawRank, isTarget ? 1 : 0,
                 seen->gotPlan ? 1 : 0, seen->gotCoverage ? 1 : 0, seen->drawn, count(b), count(a));
 
+    // The plan goes down on every mount — a mask inside the child, or a
+    // grandchild whose instance part opts in, can need it whatever this
+    // instance part says. What the instance part decides rides in the context.
+    if (!seen->gotPlan || !seen->mounted) {
+      Fail("%.*s was handed %s%s", static_cast<int>(name.size()), name.data(),
+           seen->gotPlan ? "a plan" : "no plan", seen->mounted ? "" : ", as a root");
+    }
     // The AND, read off real data rather than a constructed case: these
     // scenes mark some mounts as mask targets and some not, in the same frame.
-    if (seen->gotPlan != isTarget) {
-      Fail("%.*s is%s a mask target but was handed %s — the AND",
+    if (seen->context.influence != isTarget) {
+      Fail("%.*s is%s a mask target but its child's context says %d — the AND",
            static_cast<int>(name.size()), name.data(), isTarget ? "" : " not",
-           seen->gotPlan ? "a plan" : "none");
+           seen->context.influence ? 1 : 0);
     }
     if (!isTarget) {
-      // Nothing was handed down, so nothing can change. This is the half that
-      // separates "composition works" from "everything under an instance part
-      // gets masked".
+      // The child's own parts are composed with `mask_influence == 0`, so the
+      // caller's plan changes none of them. This is the half that separates
+      // "composition works" from "everything under an instance part gets masked".
       if (differ(a, b) != 0) {
         Fail("%.*s is not a mask target, yet forwarding changed %zu px",
              static_cast<int>(name.size()), name.data(), differ(a, b));
@@ -853,12 +885,6 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
       Fail("%.*s was handed a plan with no coverage. It would rasterise the "
            "caller's writers against its own geometry and mask nothing",
            static_cast<int>(name.size()), name.data());
-    }
-    // Scope does not compose: the sub-animation sits where the instance part
-    // sits, so what goes down is the mount's own rank.
-    if (seen->callerRank != mount.drawRank) {
-      Fail("%.*s got rank %d, but its own draw rank is %d", static_cast<int>(name.size()),
-           name.data(), seen->callerRank, mount.drawRank);
     }
     for (int i = 0; i < 6; ++i) {
       if (seen->slotXf[i] != mount.m[i]) {
