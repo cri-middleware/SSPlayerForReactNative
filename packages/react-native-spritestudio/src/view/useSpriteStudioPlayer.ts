@@ -13,6 +13,7 @@ import {
 } from '../player/SpriteStudioPlayer'
 import { sourceUriOf, type SsSource } from '../player/source'
 import type { SsFit, SsFrameScope } from '../core/fit'
+import { reportError } from './reportError'
 import { useSsTextures, type SsTextureSources } from './useSsTextures'
 
 /**
@@ -78,6 +79,7 @@ export interface SsPlayerProps {
    * reading `getAnimationNames()` needs neither the ref nor an effect.
    */
   onLoad?: (player: SpriteStudioPlayer) => void
+  /** Without one, the error goes to `console.error` rather than nowhere. */
   onError?: (error: unknown) => void
   /** The animation reached its end. Carries which one, since a player outlives them. */
   onAnimationFinished?: (animation: string) => void
@@ -223,7 +225,9 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
         setLoadTick((tick) => tick + 1)
         callbacks.current.onLoad?.(next)
       })
-      .catch((error: unknown) => callbacks.current.onError?.(error))
+      .catch((error: unknown) =>
+        reportError(callbacks.current.onError, error, `'${sourceUri}' did not load`)
+      )
     return () => {
       // Explicit teardown, never GC: every buffer Layer 1 handed out is a borrow
       // of memory this player owns (the lifetime rule in `specs/SsRuntime.nitro.ts`).

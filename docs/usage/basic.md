@@ -103,5 +103,5 @@ not a blank rectangle:
 
 `onLoad` fires when the pack is ready and hands over the player, so
 `getAnimationNames()` can be read there with no ref. `onError` fires when it is
-not. The way to make that window short enough not to matter is
-[`ssPreload`](/usage/textures#preloading).
+not; without one, the error goes to `console.error`. The way to make that window
+short enough not to matter is [`ssPreload`](/usage/textures#preloading).

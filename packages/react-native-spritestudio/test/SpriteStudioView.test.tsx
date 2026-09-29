@@ -179,3 +179,20 @@ describe('the ref', () => {
     expect(ref.current?.player).toBe(SpriteStudioPlayer.last())
   })
 })
+
+describe('an error nobody handles', () => {
+  // A blank rectangle with nothing in the log reads as a renderer fault.
+  it('goes to console.error rather than nowhere', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'draw').mockImplementation(() => {
+      throw new Error('boom')
+    })
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    await layout(renderer, 300, 200)
+
+    await act(async () => stepFrame(16))
+
+    expect(error).toHaveBeenCalledOnce()
+    expect(String(error.mock.calls[0]?.[0])).toContain('frame loop stopped')
+  })
+})

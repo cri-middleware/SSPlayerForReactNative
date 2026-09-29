@@ -19,6 +19,7 @@ import { useSharedValue } from 'react-native-reanimated'
 
 import { resolveRootTransform, type SsAlign } from '../core/fit'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { reportError } from './reportError'
 import {
   useSpriteStudioPlayer,
   type SsPlayerProps,
@@ -172,7 +173,7 @@ export const SpriteStudioView = forwardRef<
         picture.value = recorder.finishRecordingAsPicture()
       } catch (error) {
         cancelAnimationFrame(raf)
-        errorRef.current?.(error)
+        reportError(errorRef.current, error, 'the frame loop stopped')
       }
     }
 

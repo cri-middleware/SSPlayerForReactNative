@@ -317,4 +317,28 @@ describe('the load’s outcome', () => {
 
     expect(onLoad).toHaveBeenCalledWith(SpriteStudioPlayer.last())
   })
+
+  it('goes to onError when there is one', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'load').mockRejectedValue(new Error('404'))
+    const onError = vi.fn()
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const harness = await mount({ source: PACK, onError })
+    await harness.flush()
+
+    expect(onError).toHaveBeenCalledWith(new Error('404'))
+    expect(error).not.toHaveBeenCalled()
+  })
+
+  // A wrong path is otherwise a blank rectangle with nothing in the log.
+  it('says which pack did not load when there is no onError', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'load').mockRejectedValue(new Error('404'))
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const harness = await mount({ source: PACK })
+    await harness.flush()
+
+    expect(error).toHaveBeenCalledOnce()
+    expect(String(error.mock.calls[0]?.[0])).toContain(`'${PACK}' did not load`)
+  })
 })
