@@ -101,6 +101,7 @@ not a blank rectangle:
 <SpriteStudioView source={…} placeholder={<ActivityIndicator />} />
 ```
 
-`onLoad` fires when the pack is ready and `onError` when it is not. The way to
-make that window short enough not to matter is
+`onLoad` fires when the pack is ready and hands over the player, so
+`getAnimationNames()` can be read there with no ref. `onError` fires when it is
+not. The way to make that window short enough not to matter is
 [`ssPreload`](/usage/textures#preloading).

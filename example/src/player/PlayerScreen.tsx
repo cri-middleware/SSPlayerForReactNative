@@ -13,6 +13,7 @@ import {
   ssCheckForLeaks,
   ssLiveHandles,
   SsSignalParamType,
+  type SpriteStudioPlayer,
   type SpriteStudioViewRef,
   type SsAudioEvent,
   type SsSignalEvent,
@@ -584,18 +585,15 @@ export function PlayerScreen() {
   // Read from the `.ssab` rather than hard-coded: the names are the converter's
   // output, so a list in this file would go stale the next time the project is
   // re-converted — and silently, since `setAnimation` only returns false.
-  //
-  // Counted in `onLoad` but **read in an effect**, not in `onLoad` itself. The
-  // view creates its player and starts the load in the same effect, so `onLoad`
-  // can fire before React has committed the render that publishes that player on
-  // the ref — a fast (cached) load resolves in a microtask and wins the race.
-  // Reading there would then see a null player, return no names, and never try
-  // again: an empty picker with nothing else wrong. An effect runs after commit,
-  // so the ref is current by construction.
-  const [loadSeq, setLoadSeq] = useState(0)
-  const onLoad = () => {
+  const onLoad = (loadedPlayer: SpriteStudioPlayer) => {
     setError(null)
-    setLoadSeq((n) => n + 1)
+    setLoaded({
+      file,
+      names: loadedPlayer.getAnimationNames(),
+      // Which animation the load actually settled on — the only way to show the
+      // right thing in the picker when the subject named none.
+      current: loadedPlayer.currentAnimation ?? '',
+    })
     // A fresh pack has fresh keys; keeping the previous subject's would make the
     // readout say a sound fired that this animation never authored. The players
     // go with them, so a BGM does not outlive the animation that started it.
@@ -661,18 +659,6 @@ export function PlayerScreen() {
     const params = event.params.map(formatSignalParam).join(', ')
     pushEvent(`f${event.frameNo} ${event.partName}: ${event.commandId}(${params})`)
   }
-  useEffect(() => {
-    const loadedPlayer = ref.current?.player
-    if (loadedPlayer == null) return
-    setLoaded({
-      file,
-      names: loadedPlayer.getAnimationNames(),
-      // Which animation the load actually settled on — the only way to show the
-      // right thing in the picker when the subject named none.
-      current: loadedPlayer.currentAnimation ?? '',
-    })
-  }, [loadSeq, file])
-
   // Polled rather than pushed: the counts change in C++ destructors, which have
   // nothing to notify from. Two relaxed atomic loads a second is not a cost, and
   // watching them live is what makes the pack/animation toggles above double as

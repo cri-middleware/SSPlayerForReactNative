@@ -77,5 +77,5 @@ ref.current?.player?.setAnimation('walk')
 <SpriteStudioView source={…} placeholder={<ActivityIndicator />} />
 ```
 
-`onLoad` はパックの準備ができたときに、`onError` はできなかったときに発火します。この待ち時間を気にならない程度まで短くする方法が
+`onLoad` はパックの準備ができたときに発火し、プレイヤーを渡します。`getAnimationNames()` は ref なしでそこで読めます。`onError` は準備できなかったときに発火します。この待ち時間を気にならない程度まで短くする方法が
 [`ssPreload`](/ja/usage/textures#preloading) です。

@@ -307,3 +307,14 @@ describe('what the caller renders against', () => {
     expect(harness.result.current.canvas).toEqual(dead)
   })
 })
+
+describe('the load’s outcome', () => {
+  // The player was only reachable through the ref, which a cached load can
+  // outrun: `onLoad` fired before React committed the render that set it.
+  it('hands the player to onLoad', async () => {
+    const onLoad = vi.fn()
+    await mount({ source: PACK, onLoad })
+
+    expect(onLoad).toHaveBeenCalledWith(SpriteStudioPlayer.last())
+  })
+})

@@ -73,7 +73,11 @@ export interface SsPlayerProps {
    */
   onSignal?: (event: SsSignalEvent) => void
 
-  onLoad?: () => void
+  /**
+   * The pack loaded and its animation is set up. Hands over the player, so
+   * reading `getAnimationNames()` needs neither the ref nor an effect.
+   */
+  onLoad?: (player: SpriteStudioPlayer) => void
   onError?: (error: unknown) => void
   /** The animation reached its end. Carries which one, since a player outlives them. */
   onAnimationFinished?: (animation: string) => void
@@ -217,7 +221,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
         // says, and what it could not do while `setAnimation` started playback.
         if (playingRef.current) next.play()
         setLoadTick((tick) => tick + 1)
-        callbacks.current.onLoad?.()
+        callbacks.current.onLoad?.(next)
       })
       .catch((error: unknown) => callbacks.current.onError?.(error))
     return () => {
