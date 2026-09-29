@@ -196,3 +196,32 @@ describe('an error nobody handles', () => {
     expect(String(error.mock.calls[0]?.[0])).toContain('frame loop stopped')
   })
 })
+
+describe('a view’s own props', () => {
+  it('reach the view, and the player’s props do not', async () => {
+    const onLayout = vi.fn()
+    const { renderer } = await render(
+      <SpriteStudioView
+        source={PACK}
+        animation="Walk"
+        testID="hero"
+        accessibilityLabel="Ringo waving"
+        pointerEvents="none"
+        onLayout={onLayout}
+      />
+    )
+    const props = findHosts(renderer, 'View')[0]?.props ?? {}
+
+    expect(props).toMatchObject({
+      testID: 'hero',
+      accessibilityLabel: 'Ringo waving',
+      pointerEvents: 'none',
+    })
+    expect(props).not.toHaveProperty('source')
+    expect(props).not.toHaveProperty('animation')
+
+    await layout(renderer, 300, 200)
+    expect(onLayout).toHaveBeenCalledOnce()
+    expect(pendingFrames()).toBe(1)
+  })
+})

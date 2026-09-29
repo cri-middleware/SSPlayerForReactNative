@@ -12,6 +12,7 @@ import {
   View,
   type LayoutChangeEvent,
   type StyleProp,
+  type ViewProps,
   type ViewStyle,
 } from 'react-native'
 import { Canvas, Picture, Skia, type SkPicture } from '@shopify/react-native-skia'
@@ -25,7 +26,13 @@ import {
   type SsPlayerProps,
 } from './useSpriteStudioPlayer'
 
-export interface SpriteStudioViewProps extends SsPlayerProps {
+/**
+ * The rest are a `<View>`'s own — `testID`, the accessibility props,
+ * `pointerEvents`, `onLayout` — and reach the view unchanged.
+ */
+export interface SpriteStudioViewProps
+  extends SsPlayerProps,
+    Omit<ViewProps, 'style' | 'children'> {
   /**
    * The `.ssab` — a path into the app's asset directory
    * (`'ss/overall/Basic.ssab'`), a filesystem path, or a URL. Never a
@@ -68,6 +75,59 @@ export interface SpriteStudioViewRef {
 }
 
 /**
+ * Every prop this component or the hook reads. A `Record` over `SsPlayerProps`,
+ * so a prop added there does not compile until it is listed — and so never
+ * reaches the `<View>` as an unknown attribute.
+ */
+const OWN_PROPS: Record<
+  | keyof SsPlayerProps
+  | 'align'
+  | 'flipX'
+  | 'flipY'
+  | 'offset'
+  | 'scale'
+  | 'style'
+  | 'placeholder',
+  true
+> = {
+  source: true,
+  textures: true,
+  animation: true,
+  playing: true,
+  speed: true,
+  loop: true,
+  fit: true,
+  frame: true,
+  frameScope: true,
+  measureFrames: true,
+  parts: true,
+  onUserData: true,
+  onAudio: true,
+  onSignal: true,
+  onLoad: true,
+  onError: true,
+  onAnimationFinished: true,
+  onAnimationLooped: true,
+  onAnimationStarted: true,
+  onAnimationChanged: true,
+  align: true,
+  flipX: true,
+  flipY: true,
+  offset: true,
+  scale: true,
+  style: true,
+  placeholder: true,
+}
+
+function viewPropsOf(props: SpriteStudioViewProps): Omit<ViewProps, 'style' | 'children'> {
+  const rest: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(props)) {
+    if (!(key in OWN_PROPS)) rest[key] = value
+  }
+  return rest
+}
+
+/**
  * Layer 4 — the declarative view: **one animation, fitted to its own box**.
  *
  * A Skia `Canvas` plus a frame loop. Each tick advances Layer 3 and re-records
@@ -98,6 +158,7 @@ export const SpriteStudioView = forwardRef<
     placeholder,
   } = props
   const fit = props.fit ?? 'contain'
+  const viewProps = viewPropsOf(props)
 
   const [size, setSize] = useState({ width: 0, height: 0 })
   const { player, measured, canvas, ready } = useSpriteStudioPlayer(props)
@@ -186,10 +247,11 @@ export const SpriteStudioView = forwardRef<
     setSize((prev) =>
       prev.width === width && prev.height === height ? prev : { width, height }
     )
+    viewProps.onLayout?.(event)
   }
 
   return (
-    <View style={style} onLayout={onLayout}>
+    <View {...viewProps} style={style} onLayout={onLayout}>
       <Canvas style={{ flex: 1 }}>
         <Picture picture={picture} />
       </Canvas>

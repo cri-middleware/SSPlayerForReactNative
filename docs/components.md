@@ -36,6 +36,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | Reacting | `onUserData`, `onAudio`, `onSignal`, `onLoad`, `onError`, `onAnimationFinished`, `onAnimationLooped`, `onAnimationStarted`, `onAnimationChanged` |
 | Overriding | `parts`, `textures` |
 | While loading | `placeholder` |
+| A `<View>`'s own | `testID`, the accessibility props, `pointerEvents`, `onLayout` |
 
 `ref.current.player` is the Layer 3 [`SpriteStudioPlayer`](/usage/transport) —
 seek, switch animation, read the content box.

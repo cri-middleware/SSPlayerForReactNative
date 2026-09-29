@@ -16,7 +16,8 @@ description: The props on SpriteStudioView, what a source may be, and how the ar
 
 `<SpriteStudioView>` is an ordinary React Native view that happens to contain a
 Skia canvas and a frame loop. Position, size, clip and animate it like any
-other. For **many** animations at once, reach for
+other; `testID`, the accessibility props, `pointerEvents` and `onLayout` reach
+the view as they would a `<View>`. For **many** animations at once, reach for
 [a scene](/usage/scene) instead — twenty views is twenty canvases and twenty
 clocks.
 

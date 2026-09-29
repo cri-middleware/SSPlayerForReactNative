@@ -35,6 +35,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | 反応する | `onUserData`・`onAudio`・`onSignal`・`onLoad`・`onError`・`onAnimationFinished`・`onAnimationLooped`・`onAnimationStarted`・`onAnimationChanged` |
 | 上書き | `parts`・`textures` |
 | ロード中 | `placeholder` |
+| `<View>` 自身のもの | `testID`・アクセシビリティ系の prop・`pointerEvents`・`onLayout` |
 
 `ref.current.player` がレイヤー 3 の [`SpriteStudioPlayer`](/ja/usage/transport) です —
 シーク、アニメーション切り替え、コンテンツボックスの読み取り。
