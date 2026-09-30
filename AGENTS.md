@@ -85,7 +85,7 @@ And these, because no code site could hold them:
     so prose naming a type and `ReactPackage` in the wrong order gets instantiated as a class name.
 *   **Peer dependencies must stay single-copy.** Two copies of a native module is not a duplicated
     dependency, it is two autolinked pods fighting over one JSI registration; the `overrides` in
-    `pnpm-workspace.yaml` pin each onto the version `expo install` chose. Bump them together with the Expo SDK.
+    `pnpm-workspace.yaml` pin each onto the one version `example/` builds against. Bump them together, by hand.
 *   **RN Skia coupling is confined to `SsRNSkiaInterop`.** `RNSkia` in a name means the fragile dependency,
     `Skia` means the stable one, and the two never share a file — so `grep -rl 'RNSkia::' cpp/` lists
     exactly what a Skia bump can break. The floor is **2.11**.
