@@ -54,7 +54,12 @@ mkdirSync(BUILD, { recursive: true })
 // through `npx`: on Windows `npx` is a `.cmd`, which execFileSync cannot spawn
 // at all (ENOENT for the extensionless name, EINVAL for the shim since Node
 // 20's command-injection fix) — and Windows is exactly who this check is for.
-const tsc = createRequire(import.meta.url).resolve('typescript/bin/tsc')
+// Resolved from the package, which declares typescript: under pnpm nothing is
+// hoisted to the root, so a lookup from tools/ finds no compiler. Through
+// `package.json` and its `bin`, because TypeScript 7's `exports` map exposes
+// neither `bin/tsc` nor any other subpath a script could name.
+const tsPkgPath = createRequire(join(PKG, 'package.json')).resolve('typescript/package.json')
+const tsc = join(dirname(tsPkgPath), JSON.parse(readFileSync(tsPkgPath, 'utf8')).bin.tsc)
 execFileSync(
   process.execPath,
   [tsc, '--noEmit', 'false', '--declaration', 'false',
