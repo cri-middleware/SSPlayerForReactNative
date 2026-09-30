@@ -3,15 +3,17 @@ packages:
   - "example"
   - "docs"
 
-# One copy of each native module, at the version Expo's compatibility table
-# chose for example/. The package names these as peers, and a peer resolved on
-# its own can land a second copy beside the app's: two autolinked pods/prefabs
-# fighting over one JSI registration, not a duplicated dependency. Bump them
-# together when the example's Expo SDK moves.
+# One copy of each native module, at the version example/ builds and runs
+# against. Expo's compatibility table sets it; moving one ahead of the table is
+# a by-hand call, made once the native side has been built against it. Skia is
+# ahead now (the table has 2.11.2). The package names these as peers, and a peer
+# resolved on its own can land a second copy beside the app's: two autolinked
+# pods/prefabs fighting over one JSI registration, not a duplicated dependency.
+# Bump them together.
 overrides:
-  "@shopify/react-native-skia": "2.11.2"
-  react-native-reanimated: "4.6.0"
-  react-native-worklets: "0.12.2"
+  "@shopify/react-native-skia": "2.13.1"
+  react-native-reanimated: "4.7.0"
+  react-native-worklets: "0.13.0"
   react-native: "0.88.0-rc.1"
   react: "19.3.0"
 
@@ -27,3 +29,8 @@ peerDependencyRules:
 # already placed; nothing here needs it.
 allowBuilds:
   esbuild: false
+
+# pnpm added this when RN Skia 2.13.1 was inside its minimum release age. Nothing
+# else needs it: drop it once the version has aged out.
+minimumReleaseAgeExclude:
+  - "@shopify/react-native-skia@2.13.1"

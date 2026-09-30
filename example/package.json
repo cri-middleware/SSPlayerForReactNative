@@ -5,14 +5,13 @@
   "//dependencies": [
     "Five of these are pinned by the `overrides` in pnpm-workspace.yaml and are",
     "NOT the registry's to move: react, react-native, @shopify/react-native-skia,",
-    "react-native-reanimated, react-native-worklets. Their version comes from the",
-    "Expo compatibility table this app installs against, so a range raised here",
-    "past the pin claims a version the install never gives it. Dependabot is told",
-    "to skip them; `pnpm update` is not. Move them by hand, with the overrides and",
-    "the package's peerDependencies, when the Expo SDK moves. The rest are ordinary."
+    "react-native-reanimated, react-native-worklets. Their version is the one this",
+    "app was built against, so a range raised here past the pin claims a version",
+    "the install never gives it. Dependabot is told to skip them; `pnpm update` is",
+    "not. Move them by hand, together with the overrides. The rest are ordinary."
   ],
   "dependencies": {
-    "@shopify/react-native-skia": "^2.11.2",
+    "@shopify/react-native-skia": "^2.13.1",
     "expo": "^58.0.0-preview.6",
     "expo-audio": "^58.0.2",
     "expo-dev-client": "^58.0.6",
@@ -21,9 +20,9 @@
     "react": "^19.3.0",
     "react-native": "^0.88.0-rc.1",
     "react-native-nitro-modules": "^0.37.1",
-    "react-native-reanimated": "^4.6.0",
+    "react-native-reanimated": "^4.7.0",
     "react-native-spritestudio": "workspace:*",
-    "react-native-worklets": "^0.12.2"
+    "react-native-worklets": "^0.13.0"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

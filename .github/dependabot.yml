@@ -16,9 +16,9 @@ updates:
       npm:
         patterns: ['*']
     # The five the workspace `overrides` pin are not the registry's to move.
-    # Their version comes from the Expo compatibility table `example/` installs
-    # against, so a registry bump raises a declared range the overrides then
-    # contradict. Move them by hand, together, when the example's Expo SDK moves.
+    # Their version is the one `example/` was built against, so a registry bump
+    # raises a declared range the overrides then contradict. Move them by hand,
+    # together, once the native side has been built against the new line.
     ignore:
       - dependency-name: react
       - dependency-name: react-native
