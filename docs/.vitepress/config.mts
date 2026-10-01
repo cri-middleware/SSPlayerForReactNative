@@ -1,4 +1,5 @@
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import llmstxt, { copyOrDownloadAsMarkdownButtons } from 'vitepress-plugin-llms'
 
 const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 
@@ -65,6 +66,45 @@ export default withMermaid({
   vite: {
     optimizeDeps: {
       include: ['mermaid'],
+    },
+
+    // `llms.txt` and `llms-full.txt` for readers who hand the docs to an AI assistant, plus a
+    // Markdown copy of every page beside its HTML. The two aggregates leave out the Japanese
+    // pages (the plugin writes one pair for the whole site) and the TypeDoc symbol pages,
+    // which are most of the reference's bytes. Both keep their own `.md`, so the discovery
+    // link in every page resolves. `ja.md` is what the plugin calls the Japanese home page,
+    // which `ja/**` misses.
+    plugins: [
+      llmstxt({
+        domain: new URL(SITE_URL).origin,
+        ignoreFilesPerOutput: {
+          llmsTxt: ['ja.md', 'ja/**', 'api/*/**'],
+          llmsFullTxt: ['ja.md', 'ja/**', 'api/*/**'],
+        },
+        customTemplateVariables: {
+          title: 'SpriteStudio Player for React Native',
+          description: 'SpriteStudio player for React Native (Nitro Modules + React Native Skia)',
+          details: [
+            'React Native player for SpriteStudio on the New Architecture: a `<SpriteStudioView>` component',
+            'over Nitro Modules and React Native Skia. It needs a development build, not Expo Go.',
+            '`setup/install` and `setup/quickstart` get a first animation on screen, `setup/assets`',
+            'converts a `.sspj` into an `.ssab`, `components` is the components at a glance, and `api-guide`',
+            'says where to start in the API. `troubleshooting` is for when it breaks and `limitations` lists',
+            'what is not supported. The generated reference keeps its index page in this file; each class,',
+            'interface, function, type alias and variable has its own page at `api/<kind>/<Name>.md`, where',
+            '`<kind>` is `classes`, `interfaces`, `functions`, `type-aliases` or `variables`. This file is the',
+            'English pages only; each Japanese page is the same path under `ja/` with `.md` appended.',
+          ].join(' '),
+        },
+      }),
+    ],
+  },
+
+  // The Copy as Markdown button, inserted after each page's first heading. The component
+  // itself is registered in theme/index.ts.
+  markdown: {
+    config(md) {
+      md.use(copyOrDownloadAsMarkdownButtons)
     },
   },
 
@@ -177,6 +217,12 @@ export default withMermaid({
       description: 'SpriteStudio のアニメーションを React Native で再生するプレイヤー（Nitro Modules + React Native Skia）',
       themeConfig: {
         outline: { level: [2, 3], label: '目次' },
+        llms: {
+          copyText: 'ページをコピー',
+          copiedText: 'コピーしました',
+          viewMarkdownText: 'Markdown で表示',
+          openInAIText: '{provider} で開く',
+        },
         nav: [
           { text: 'はじめに', link: '/ja/setup/install' },
           { text: '使い方', link: '/ja/usage/basic' },
