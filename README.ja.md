@@ -21,6 +21,7 @@
 ## 📚 ドキュメント
 
 - [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/ja/) — セットアップ、使い方、生成された API リファレンス。🚧 初回リリース後に公開されます。
+- [**AI アシスタント向け**](https://cri-middleware.github.io/SSPlayerForReactNative/llms.txt) — このドキュメントを Markdown で提供します。`llms.txt`（ページの目次）と `llms-full.txt`（全ページを 1 ファイルに）は英語版のページを集めたもので、日本語の各ページは `ja/` 配下の `.md` で取れます — 🚧 初回リリース後に公開
 - [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と全公式 Player の入口 — 🚧 初回リリース後に公開
 
 ---
