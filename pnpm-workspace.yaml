@@ -6,7 +6,7 @@ packages:
 # One copy of each native module, at the version example/ builds and runs
 # against. Expo's compatibility table sets it; moving one ahead of the table is
 # a by-hand call, made once the native side has been built against it. Skia is
-# ahead now (the table has 2.11.2). The package names these as peers, and a peer
+# at the table's 2.13.1. The package names these as peers, and a peer
 # resolved on its own can land a second copy beside the app's: two autolinked
 # pods/prefabs fighting over one JSI registration, not a duplicated dependency.
 # Bump them together.
@@ -30,10 +30,24 @@ peerDependencyRules:
 allowBuilds:
   esbuild: false
 
-# pnpm added this when RN Skia 2.13.1 was inside its minimum release age. Nothing
-# else needs it: drop it once the version has aged out.
+# pnpm adds an entry when a version is inside its minimum release age. Nothing
+# else needs it: drop each entry once its version has aged out.
 minimumReleaseAgeExclude:
   - "@shopify/react-native-skia@2.13.1"
   - "@vitest/mocker@5.0.3"
   - "@vitest/spy@5.0.3"
   - vitest@5.0.3
+  - "@expo/cli@58.1.1"
+  - "@expo/log-box@58.0.8"
+  - "@expo/metro-config@58.0.7"
+  - "@expo/prebuild-config@58.0.7"
+  - "@expo/router-server@58.0.6"
+  - babel-preset-expo@58.0.8
+  - expo-asset@58.0.10
+  - expo-file-system@58.0.5
+  - expo-font@58.0.5
+  - expo-keep-awake@58.0.3
+  - expo-modules-autolinking@58.0.7
+  - expo-modules-core@58.0.11
+  - expo-modules-jsi@58.0.7
+  - expo@58.0.2
