@@ -7,12 +7,12 @@
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
 
 > [!WARNING]
-> **未リリースです。** npm パッケージは未公開で、**実機での動作確認もまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは [docs/limitations.md](docs/limitations.md) を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
+> **未リリースです。** npm パッケージは未公開で、**実機での動作確認もまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは [docs/ja/limitations.md](docs/ja/limitations.md) を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
 
-## ✨ なぜ SpriteStudio Player か
+## ✨ SpriteStudio を React Native で使うメリット
 
 - **スプライトも、シーン全体も、アニメーションのコードなしで動かせます。** 呼吸やまばたき、髪や衣服の揺れ、派手な斬撃や魔法エフェクト。パーツごとに `Animated` や Reanimated のタイムラインを手で組んだり、スプライトシートを切って `<Image>` でめくったりする代わりに、動きは専用エディタで視覚的に作られ、プレイヤーはそれを再生するだけです — ボーンリグ、メッシュ変形、マスク、パーティクルまで含めて。対象はマスコット 1 体に限りません。アニメーションする **UI や HUD、シーン全体**をエディタ上で構成し、まとめて 1 つとして描画できます。
-- **ラスタースプライトのアニメーションを、ネイティブ描画で — ベクターでも動画でもなく。** **ラスターのスプライト素材**にリグを入れて変形させるので、手描きのキャラクターやゲームスプライトが作られたとおりに動きます。Lottie のようなベクターツールとは適性が異なり、`.gif` や `.mp4` を同梱するよりはるかに軽量です。実行時に自由にスケールし、継ぎ目なくループし、単に再生するのではなくアプリに反応します。タイムラインとジオメトリは、SpriteStudio の各公式プレイヤーが共通して使う Rust コアそのものであって再実装ではないため、アーティストが書き出したものがどのプラットフォームにも同じように渡ります — ただし*この*移植版がそこから何を描けるかは所によりまだ追いついておらず、それは [docs/limitations.md](docs/limitations.md) に挙げてあります。
+- **ラスタースプライトのアニメーションを、ネイティブ描画で — ベクターでも動画でもなく。** **ラスターのスプライト素材**にリグを入れて変形させるので、手描きのキャラクターやゲームスプライトが作られたとおりに動きます。Lottie のようなベクターツールとは適性が異なり、`.gif` や `.mp4` を同梱するよりはるかに軽量です。実行時に自由にスケールし、継ぎ目なくループし、単に再生するのではなくアプリに反応します。タイムラインとジオメトリは、SpriteStudio の各公式プレイヤーが共通して使う Rust コアそのものであって再実装ではないため、アーティストが書き出したものがどのプラットフォームにも同じように渡ります — ただし*この*移植版がそこから何を描けるかは所によりまだ追いついておらず、それは [docs/ja/limitations.md](docs/ja/limitations.md) に挙げてあります。
 - **フレームレートに縛られない滑らかな動き。** 再生ヘッドは浮動小数で、フレームは描画される瞬間に組み立てられます。したがって動きは、作成時の fps によるパラパラ漫画でも 30 fps で焼かれた動画でもなく、ディスプレイのリフレッシュレートと指定した速度に追従します。
 - **アニメーションが 1 フレームのコストにならないように作られています。** 重い処理 — タイムライン、ジオメトリ、Skia の描画呼び出し — はすべて [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアと C++ で行われます。JavaScript の 1 フレームあたりの仕事は**プレイヤー 1 つにつき 1 回の呼び出し**で、これが賑やかなシーンでも 60 fps を保てる理由です。
 - **React Native のツリーに馴染みます。** `<SpriteStudioView>` はごく普通のビューです — 他のビューと同じように配置し、サイズを決め、クリップし、アニメーションさせられます。多数のアニメーションを同時に？ `<SpriteStudioScene>` は N 個ずつではなく、**キャンバス 1 枚とクロック 1 つ**でキャスト全体を描画します。
@@ -28,22 +28,22 @@
 
 ## 🚀 クイックスタート
 
-**アプリで使う場合**はこのまま下へ。入れる → アセットを準備する → 再生する。その先（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。**プレイヤー自体や、その下の Rust コアを変更する場合**は[チェックアウトから動かす](docs/development/from-source.md)、変更前に読む作業ガイドが
+**アプリで使う場合**はこのまま下へ。入れる → アセットを準備する → 再生する。その先（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。**プレイヤー自体や、その下の Rust コアを変更する場合**は[チェックアウトから動かす](docs/ja/development/from-source.md)、変更前に読む作業ガイドが
 [CONTRIBUTING.md](CONTRIBUTING.md) です（何がいつ入るかは [ROADMAP.md](ROADMAP.md)）。
 
 ### インストール
 
-> 🚧 パッケージは**まだ npm に公開されていません** — この手順は初回リリース後に使えるようになります。それまでは[チェックアウトから動かす](docs/development/from-source.md)を参照してください。
+> 🚧 パッケージは**まだ npm に公開されていません** — この手順は初回リリース後に使えるようになります。それまでは[チェックアウトから動かす](docs/ja/development/from-source.md)を参照してください。
 
 ```bash
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go はこのパッケージを実行できません。** あなたのアプリには **development build** — このパッケージをコンパイルして組み込んだ自前のバイナリ — が必要です。managed なら `npx expo prebuild` の後に `npx expo run:ios` / `run:android`、bare なら既にネイティブプロジェクトがあるのでリビルドします。どちらでも autolinking がパッケージを拾います。詳細は [インストール](docs/setup/install.md) にあります。
+**Expo Go はこのパッケージを実行できません。** あなたのアプリには **development build** — このパッケージをコンパイルして組み込んだ自前のバイナリ — が必要です。managed なら `npx expo prebuild` の後に `npx expo run:ios` / `run:android`、bare なら既にネイティブプロジェクトがあるのでリビルドします。どちらでも autolinking がパッケージを拾います。詳細は [インストール](docs/ja/setup/install.md) にあります。
 
 ### まず動くところを見る
 
-自分の素材は要りません。このリポジトリのサンプルアプリが、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順は [チェックアウトから使う](docs/development/from-source.md) に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。
+自分の素材は要りません。このリポジトリのサンプルアプリが、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順は [チェックアウトから動かす](docs/ja/development/from-source.md) に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。
 
 > このパックの変換には、現状 Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。`ssconverter-core` の公開後は不要になります。
 
@@ -102,7 +102,7 @@ export function Character() {
 | ロードのコストをマウント前に払う | `ssPreload` / `ssUnload` |
 | トランスポートを命令的に操作する | ref の `player`（`SpriteStudioPlayer`） |
 
-どれが使えるかは `.ssab` が決めます。この移植版が対応するパーツ種別とキーは追加の配線なしですべて扱われます — 一覧は [docs/limitations.md](docs/limitations.md) にあります。
+どれが使えるかは `.ssab` が決めます。この移植版が対応するパーツ種別とキーは追加の配線なしですべて扱われます — 一覧は [docs/ja/limitations.md](docs/ja/limitations.md) にあります。
 
 ## 📋 要件
 
@@ -120,7 +120,7 @@ Skia の下限は実質的な制約です。2.11 で API オブジェクトが `
 
 **このパッケージを追加しても web ビルドは壊れません。** react-native-web の下で `react-native-spritestudio` を import しても安全で、そのバンドルはビルドできます。web が解決するエントリポイントが*スタブ*だからです — native に**加えて** web も出荷し、SpriteStudio は native 側でだけ再生するアプリのために持っています。配置の計算、パスのヘルパー、語彙の enum は両プラットフォームで実装そのものであり、スタブになっているのは Skia かネイティブランタイムを必要とする部分だけです。そこでプレイヤーを描画しようとしたときだけ、このパッケージ名を含むエラーが投げられます。
 
-**行わないのは、web でのアニメーション再生です。** web 上の SpriteStudio に対する答えは [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) です — `@spritestudio/ssplayer-webgl` が同じ `.ssab` を、React Native を挟まずに描画します。
+**行わないのは、web でのアニメーション再生です。** web 上の SpriteStudio に対する答えは [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です — `@spritestudio/ssplayer-webgl` が同じ `.ssab` を、React Native を挟まずに描画します。
 
 ## 🔗 関連リポジトリ
 

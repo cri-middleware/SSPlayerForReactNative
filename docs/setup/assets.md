@@ -17,7 +17,7 @@ graph LR
 
     subgraph Convert ["① Convert — once, on your machine"]
         WEB["ssconverter-web<br>browser"]
-        GUI["SSConverterGUI<br>desktop"]
+        GUI["SSConverter GUI<br>desktop"]
         CLI["ssconverter-cli<br>CLI / CI"]
     end
 
@@ -76,7 +76,7 @@ below as-is.
 | Tool | Best for | Getting it |
 |---|---|---|
 | `ssconverter-web` | converting a few projects by hand, nothing installed | open <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">the hosted converter</a> |
-| SSConverterGUI | a desktop GUI, used repeatedly | a binary from [its Releases](https://github.com/cri-middleware/SSConverterGUI/releases) |
+| SSConverter GUI | a desktop GUI, used repeatedly | a binary from [its Releases](https://github.com/cri-middleware/SSConverterGUI/releases) |
 | `ssconverter-cli` | CI, batch, reproducibility | a binary from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) |
 
 ::: warning `ssconverter-web` needs a Chromium browser

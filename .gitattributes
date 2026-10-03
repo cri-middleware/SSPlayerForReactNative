@@ -19,10 +19,6 @@
 *.css text
 *.js text
 *.ts text
-# Load-bearing here: every npm script is a .js shim over a .sh + .ps1 pair so
-# Windows contributors are not shut out, and Windows' default core.autocrlf
-# would give the .sh CRLF endings — which bash reports as
-# "cannot execute: required file not found", naming nothing useful.
 *.sh text eol=lf
 *.ps1 text eol=crlf
 

@@ -21,7 +21,7 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 
 対象外：**Expo Go**（手順 3 を参照）と Windows / tvOS / visionOS。
 
-**web では何も描画されません** — ただしこのパッケージを追加しても web ビルドは壊れないので、native に加えて web も出荷するアプリで問題は起きません。web 上の SpriteStudio には代わりに [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。詳細は[制約と適用範囲](/ja/limitations)にあります。
+**web では何も描画されません** — ただしこのパッケージを追加しても web ビルドは壊れないので、native に加えて web も出荷するアプリで問題は起きません。web 上の SpriteStudio には代わりに [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。詳細は[制約と適用範囲](/ja/limitations)にあります。
 
 ## 2. インストールする
 
@@ -94,6 +94,6 @@ Expo config plugin が bare アプリでは代わりにやってくれない仕�
 `@shopify/react-native-skia` の `2.11` は、API オブジェクトが `jsi::NativeState`
 パターンへ移ったバージョンで、このパッケージは新しい方法でそれを取り出します。これより古い Skia ではリンクできません。
 
-`react-native-nitro-modules` の `0.36.5` は、リポジトリにコミットされている生成済みバインディングと対応するバージョンです。
+`react-native-nitro-modules` の `0.37.0` は、リポジトリにコミットされている生成済みバインディングと対応するバージョンです。
 
 :::

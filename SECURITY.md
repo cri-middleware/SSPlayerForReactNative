@@ -2,19 +2,18 @@
 
 ## Supported Versions
 
-SpriteStudio Player for React Native is pre-release: nothing is published to
-npm yet, and fixes are issued against `main`. Once there are releases, this
-becomes "the latest one".
+SpriteStudio Player for React Native is in beta. Fixes are issued against the latest release only — if you
+are on an older one, please reproduce on the current release before reporting.
 
 | Version | Supported |
 |---|---|
-| `main` | ✅ |
-| Anything else | ❌ |
+| Latest `7.0.x` release | ✅ |
+| Anything older | ❌ |
 
 ## Reporting a Vulnerability
 
-**Please do not open a public GitHub Issue for a security problem.** Report it
-privately through the official inquiry form:
+**Please do not open a public GitHub Issue for a security problem.** Report it privately through the
+official inquiry form:
 
 👉 [**CRI Middleware Inquiry Form (English)**](https://www.webtech.co.jp/contact/en.html)
 
@@ -34,16 +33,14 @@ Please include:
   or from somewhere untrusted — a `source` may be an `http(s)` URL, so this
   distinction is real here.
 
-We will confirm receipt, tell you whether we can reproduce it, and let you know
-when a fix ships. Please give us a chance to release that fix before disclosing
-publicly.
+We will confirm receipt, tell you whether we can reproduce it, and let you know when a fix ships.
+Please give us a chance to release that fix before disclosing publicly.
 
 ### Which repository to report to
 
-Playback is driven by a native Rust runtime shared with the other SpriteStudio
-players. If the same problem reproduces on a different SpriteStudio player, it is
-most likely in that shared core, which lives in
-SpriteStudio-SDK. Report it here all the same and say so; we will route it.
+Playback is driven by the runtime shared with the other SpriteStudio players, which lives in
+SpriteStudio-SDK. If the same problem reproduces on a different SpriteStudio player, it is most likely
+in that shared core. Report it here all the same and say so; we will route it.
 
 ## Scope Notes
 
@@ -76,13 +73,12 @@ over a channel you control and treat it as content you vouch for.
 
 ## サポート対象バージョン
 
-SpriteStudio Player for React Native はリリース前です。npm への公開はまだ行われておらず、修正は
-`main` に対して提供されます。リリースが始まった時点で「最新リリース」に切り替わります。
+SpriteStudio Player for React Native は beta 版です。修正は最新リリースに対してのみ提供されます。古いバージョンをご利用の場合は、最新リリースで再現することをご確認のうえご報告ください。
 
 | バージョン | サポート |
 |---|---|
-| `main` | ✅ |
-| それ以外 | ❌ |
+| 最新の `7.0.x` リリース | ✅ |
+| それ以前 | ❌ |
 
 ## 脆弱性の報告
 
@@ -98,13 +94,13 @@ SpriteStudio Player for React Native はリリース前です。npm への公開
   React Native と Expo SDK のバージョン、対象プラットフォーム
 - 引き金となる入力が、プロジェクト内の信頼できるものか、信頼できない経路から来たものか。`source` は `http(s)` URL を受け付けるため、この区別は実際に意味を持ちます
 
-受領の確認、再現可否、修正の出荷時期をご連絡します。公開の前に、修正をリリースする機会をいただけますようお願いします。
+受領の確認、再現可否、修正版の公開時期についてご連絡します。修正を公開するまでの間、公表をお待ちいただけますようお願いします。
 
-### どのリポジトリに報告するか
+### 報告先リポジトリの判断
 
-再生は、他の SpriteStudio プレイヤーと共通のネイティブ Rust ランタイムが担っています。同じ問題が別のプレイヤーでも再現する場合、原因は SpriteStudio-SDK にある共通コア側である可能性が高いため、その旨を添えてこちらへご報告ください。適切な側へ回送します。
+再生処理は、他の SpriteStudio Player と共通のランタイムが担っており、SpriteStudio-SDK で開発されています。他の SpriteStudio Player でも同じ問題が再現する場合、共通コア側の問題である可能性が高いため、その旨を添えて本リポジトリへご報告ください。こちらで振り分けます。
 
-## 適用範囲について
+## 既知の注意点
 
 このプレイヤーはバイナリのアニメーションデータ（`.ssab`）を読み込み、ネイティブコードへ渡します。パックをどこまで信頼するかを判断する前に、2点を把握してください。
 

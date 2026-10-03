@@ -131,7 +131,7 @@ const hidden = player.isPartHidden(target)
 メッシュパーツの位置に追従させたいときは、SpriteStudio 側でその位置に **NULL パーツ**（ボーンポイント／空パーツ）を1つ置き、**そのパーツ名**を追従先に指定してください。ボーン（armature）やジョイントパーツを指定しても同様です — null / joint / armature /
 ボーンポイントのパーツは自身のノードが絵の位置にあるため、良い追従先になります。
 
-`isPartSkinnedMesh(part)` は、どのパーツがこれに該当するかを報告します — 兄弟プレイヤー（ForWeb・ForWgpu）と同じ判定で、パックの `.ssab` から読み取ります。追従先として妥当なパーツだけを提示するピッカーの構築に使えます:
+`isPartSkinnedMesh(part)` は、どのパーツがこれに該当するかを報告します — 兄弟プレイヤー（SpriteStudio Player for Web・SpriteStudio Player for wgpu）と同じ判定で、パックの `.ssab` から読み取ります。追従先として妥当なパーツだけを提示するピッカーの構築に使えます:
 
 ```ts
 // 追従先として実際に使えるパーツ: スキンメッシュ以外すべて。
