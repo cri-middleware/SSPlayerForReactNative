@@ -813,8 +813,7 @@ void HybridSsContext::collectTextures(std::vector<SsTextureInfo>& out) {
     }
     if (seen) continue;
     out.emplace_back(static_cast<double>(entry.textureHash), std::string(entry.name),
-                     std::string(entry.imagePath), static_cast<double>(entry.wrapMode),
-                     static_cast<double>(entry.filterMode),
+                     std::string(entry.imagePath),
                      // Copied, not borrowed. The only consumer decodes these
                      // across an `await` per texture, so a borrow would outlive
                      // the resource whenever a load is superseded or the view

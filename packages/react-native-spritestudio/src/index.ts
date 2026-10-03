@@ -152,11 +152,7 @@ export {
 
 // --- Layer 1 ---------------------------------------------------------------
 export { SsRuntimeModule } from './runtime'
-export {
-  SsTexWrapMode,
-  SsTexFilterMode,
-  SsSignalParamType,
-} from './specs/SsRuntime.nitro'
+export { SsSignalParamType } from './specs/SsRuntime.nitro'
 export type {
   SsRuntime,
   SsAudioEvent,

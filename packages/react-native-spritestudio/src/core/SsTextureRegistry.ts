@@ -11,11 +11,13 @@ import { SsRuntimeModule } from '../runtime'
 import type { SsTextureBinding } from '../specs/SsRuntime.nitro'
 
 /**
- * How a cellmap's texture is sampled. Defaults match SpriteStudio's own.
+ * How a cellmap's texture is sampled.
  *
- * Sampling is a cellmap property, so `SsTextureLoader` reads it off the `.ssab`
- * and passes it here. Left to the paint's default, `drawVertices` samples
- * nearest-neighbour and every scaled or rotated sprite comes out jaggy.
+ * The caller's choice, never the cellmap's: the Porting Guide leaves filtering
+ * and wrapping to the engine. `filter` is Linear by default (`FilterMode.Nearest`
+ * for crisp pixel art) and the tiles are Clamp. Left to the paint's default,
+ * `drawVertices` samples nearest-neighbour and every scaled or rotated sprite
+ * comes out jaggy.
  */
 export interface SsTextureOptions {
   filter?: FilterMode
