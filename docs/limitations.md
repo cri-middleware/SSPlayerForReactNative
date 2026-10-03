@@ -5,11 +5,6 @@ description: What this port draws today, what it does not, and what it will not.
 
 # Limitations & Scope
 
-## Not released
-
-The npm package is not published, and nothing here has run on a **physical
-device** — iOS simulator and Android emulator only.
-
 ## Draws today
 
 Normal, Mesh, Shape, Instance and Effect parts; mask and clipping on Normal,
@@ -21,18 +16,12 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
 ## Not yet
 
 - **`Nines` and `Text`** parts.
-- **Masked Effect** — it draws *unmasked*. The mask replay places its coverage
-  sample by inverting one affine quad's UV, and an effect is a cloud of quads
-  rather than one, with no single shape to cut. Masked **Mesh** is supported: a
-  mesh needs its texcoord channel for its atlas, so it fits neither the quad path
-  nor the Shape path, and is instead drawn into an isolated layer whose alpha the
-  same triangles then cut with `kDstIn`, carrying the coverage UV per vertex —
-  the same range SpriteStudio Player for Web covers.
-- **More than 96 mask writers at once.** Every mask and clipping part of an
-  instance tree shares one budget, and an instance's count again each time it
-  is placed. Past 96 the rest are ignored, with a warning.
-- **The Reanimated tick** — part transforms already publish as a shared value,
-  but the frame loop is still `requestAnimationFrame` on the JS thread.
+
+## Masks
+
+**At most 96 mask writers at once.** Every mask and clipping part of an
+instance tree shares one budget, and an instance's count again each time it
+is placed. Past 96 the rest are ignored, with a warning.
 
 ## Platforms
 
@@ -40,8 +29,6 @@ animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
 |---|---|
 | iOS / Android | supported |
 | web | **nothing draws** — but installing the package does not break a web build: the web entry is a stub, so an app shipping both halves still bundles, and only rendering a player there throws. [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) is SpriteStudio on the web. |
-| macOS | may simply work — RN Skia and Nitro both support it. Not in CI, not guaranteed. |
-| tvOS / visionOS | blocked on the runtime: the SDK's XCFramework has no tvOS or visionOS slices yet. |
 | Windows | no route — neither Nitro nor RN Skia supports react-native-windows. |
 
 ## Expo Go, and Fast Refresh

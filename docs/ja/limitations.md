@@ -5,11 +5,6 @@ description: この移植版が今描けるもの、描けないもの、そし�
 
 # 制約と適用範囲
 
-## 未リリース
-
-npm パッケージは未公開で、**実機での動作確認もまだありません** — iOS シミュレータと
-Android エミュレータのみです。
-
 ## 現在描けるもの
 
 Normal / Mesh / Shape / Instance / Effect の各パーツ。Normal / Mesh / Shape のターゲットに対するマスクとクリッピング。フレームバッファのブレンドテーブル全種。PartColor。
@@ -18,12 +13,10 @@ Normal / Mesh / Shape / Instance / Effect の各パーツ。Normal / Mesh / Shap
 ## 未対応
 
 - **`Nines` と `Text`** パーツ。
-- **マスクされた Effect** — *マスクなし*で描画されます。マスクのリプレイは、1 つのアフィン四角形の UV を逆算してカバレッジのサンプル位置を決めますが、エフェクトは
-  1 つの四角形ではなく四角形の群れで、切り抜くべき単一の形を持ちません。マスクされた
-  **Mesh は対応済み**です。メッシュはテクスチャ座標チャンネルを自身のアトラスに使うため四角形の経路にも Shape の経路にも乗らず、かわりに独立したレイヤーへ描き、同じ三角形を頂点ごとのカバレッジ UV 付きで `kDstIn` で重ねてレイヤーのアルファを切り抜きます。
-  SpriteStudio Player for Web と同じ範囲です。
-- **同時に 97 個以上のマスク writer。** インスタンスの階層全体のマスクパーツとクリッピングパーツが 1 つの枠を分け合い、インスタンスの writer は置いた回数だけ数え直しになります。96 個を超えた分は、警告を出して無視します。
-- **Reanimated ティック** — パーツのトランスフォームは既に shared value として公開されていますが、フレームループはまだ JS スレッド上の `requestAnimationFrame` です。
+
+## マスク
+
+**同時に使えるマスク writer は 96 個までです。** インスタンスの階層全体のマスクパーツとクリッピングパーツが 1 つの枠を分け合い、インスタンスの writer は置いた回数だけ数え直しになります。96 個を超えた分は、警告を出して無視します。
 
 ## プラットフォーム
 
@@ -31,8 +24,6 @@ Normal / Mesh / Shape / Instance / Effect の各パーツ。Normal / Mesh / Shap
 |---|---|
 | iOS / Android | サポート対象 |
 | web | **何も描画されません** — ただしこのパッケージを入れても web ビルドは壊れません。web 用のエントリはスタブなので、native と web の両方を出荷するアプリのバンドルは通り、throw するのはそこでプレイヤーを描画したときだけです。web 上の SpriteStudio は [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です。 |
-| macOS | 単に動く可能性があります — RN Skia と Nitro はどちらも対応しています。CI 対象外、保証なし。 |
-| tvOS / visionOS | ランタイム側でブロックされています。SDK の XCFramework に tvOS / visionOS のスライスがまだありません。 |
 | Windows | 手段がありません — Nitro も RN Skia も react-native-windows に対応していません。 |
 
 ## Expo Go と Fast Refresh
