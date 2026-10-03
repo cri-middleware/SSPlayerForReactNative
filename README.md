@@ -12,7 +12,7 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 > [docs/limitations.md](docs/limitations.md) for what draws today and
 > [ROADMAP.md](ROADMAP.md) for what lands when.
 
-## ✨ Why SpriteStudio Player?
+## ✨ Why use SpriteStudio with React Native?
 
 - **Bring your sprites — and whole scenes — to life, with zero animation code.** Breathing and blinking, swaying hair and clothes, flashy slash and magic effects. Instead of hand-wiring an `Animated` or Reanimated timeline per part, or slicing a spritesheet and flipping through it with `<Image>`, the motion is authored visually in a dedicated editor and the player just plays it — bone rigs, mesh deform, masks and particles included. And it is not limited to a single mascot: compose entire animated **UIs, HUDs and full scenes** in the editor and render them as one.
 - **Raster sprite animation, drawn natively — not vector, not video.** It rigs and deforms **raster sprite art**, so hand-painted characters and game sprites animate exactly as authored — a different fit from vector tools like Lottie, and far lighter than shipping a `.gif` or an `.mp4`. It scales freely at runtime, loops seamlessly, and reacts to your app instead of merely playing back. The timeline and the geometry come from the same Rust core every official SpriteStudio player uses rather than a reimplementation, so what your artist exports is what every platform is given — though what *this* port draws from it is still catching up in places, which [docs/limitations.md](docs/limitations.md) lists.
