@@ -36,7 +36,7 @@ A `<SpriteStudioView>` is a real native view, so Yoga lays it out and `fit` / `a
 ## Needs SDK
 
 - [ ] **Stretch a `Nines` part to the layout box** — The runtime evaluates a Nines part's size from its keyframes and hands over finished vertices, and the Override Layer covers colour / cell / visibility only — nothing can resize one from the host, so an authored window frame cannot follow the box Yoga gives it, and scaling the player distorts the border art rather than stretching the middle. Waits for: Per-part size override.
-- [ ] **tvOS / visionOS** — blocked on the **Brain**, not on React Native: the Rust targets are Tier 3 and the SDK's XCFramework has no slices for them. Waits for: tvOS / visionOS XCFramework slices.
+- [ ] **tvOS / visionOS** — blocked on the **Brain**, not on React Native: the SDK's XCFramework has no tvOS or visionOS slices yet. Waits for: tvOS / visionOS XCFramework slices.
 
 ## Backlog
 
