@@ -158,8 +158,8 @@ this port supports is handled without extra wiring —
 
 The Skia lower bound is real: 2.11 moved its API objects onto the
 `jsi::NativeState` pattern, and the package unwraps them the new way. Windows,
-tvOS and visionOS are out of scope — see [ROADMAP.md](ROADMAP.md#platform-and-verification) for
-why.
+tvOS and visionOS are out of scope — see [ROADMAP.md](ROADMAP.md#distribution--verification) (Windows) and
+[ROADMAP.md](ROADMAP.md#needs-sdk) (tvOS and visionOS) for why.
 
 ### Web
 

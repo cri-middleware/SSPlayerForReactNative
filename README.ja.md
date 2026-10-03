@@ -114,7 +114,7 @@ export function Character() {
 | Peer deps | `react-native`、`react`、`@shopify/react-native-skia`、`react-native-nitro-modules`、`react-native-reanimated` — および `react-native-worklets`（Reanimated 4 が依存ではなく自身の peer として要求するもの）。それぞれ必要なバージョンは [`peerDependencies`](packages/react-native-spritestudio/package.json) にあり、インストール時にパッケージマネージャが検証します |
 | SpriteStudio-SDK | [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) で固定 |
 
-Skia の下限は実質的な制約です。2.11 で API オブジェクトが `jsi::NativeState` パターンへ移り、このパッケージは新しい方法で取り出しています。Windows・tvOS・visionOS は対象外です — 理由は [ROADMAP.md](ROADMAP.md#platform-and-verification) を参照してください。
+Skia の下限は実質的な制約です。2.11 で API オブジェクトが `jsi::NativeState` パターンへ移り、このパッケージは新しい方法で取り出しています。Windows・tvOS・visionOS は対象外です — 理由は [ROADMAP.md](ROADMAP.md#distribution--verification)（Windows）と [ROADMAP.md](ROADMAP.md#needs-sdk)（tvOS・visionOS）を参照してください。
 
 ### Web について
 
