@@ -1,24 +1,10 @@
 version: 2
 updates:
-  # The JS tree: the `npm` ecosystem is also the one that reads pnpm-lock.yaml.
-  # One entry at the root and no more: this is a single-lockfile workspace, so a
-  # per-directory entry would have Dependabot fighting itself over the lockfile.
-  #
-  # The peer dependencies are pinned in pnpm-workspace.yaml's `overrides` onto
-  # whatever `expo install` chose, so a bump here that moves one of them is a
-  # bump that has to be read rather than merged — two copies of a native module
-  # is two autolinked pods fighting over one JSI registration.
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
-    groups:
-      npm:
-        patterns: ['*']
-    # The five the workspace `overrides` pin are not the registry's to move.
-    # Their version is the one `example/` was built against, so a registry bump
-    # raises a declared range the overrides then contradict. Move them by hand,
-    # together, once the native side has been built against the new line.
+    open-pull-requests-limit: 0
     ignore:
       - dependency-name: react
       - dependency-name: react-native
@@ -33,8 +19,3 @@ updates:
     groups:
       actions:
         patterns: ['*']
-
-# No `gitsubmodule` entry, deliberately. SpriteStudio-SDK is private, so
-# Dependabot cannot read it; and `third_party/flatbuffers` must move only with
-# the flatc that generated `cpp/format/*.h`, which those headers static_assert
-# on — an automatic bump there breaks the build in a way the PR cannot explain.
