@@ -1,5 +1,4 @@
 import {
-  FilterMode,
   Skia,
   TileMode,
   type SkData,
@@ -7,11 +6,7 @@ import {
 } from '@shopify/react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
-import {
-  SsTexFilterMode,
-  SsTexWrapMode,
-  type SsTextureInfo,
-} from '../specs/SsRuntime.nitro'
+import { SsTexWrapMode, type SsTextureInfo } from '../specs/SsRuntime.nitro'
 import { resolveAgainst, schemeOf } from './assets'
 import { ssImageCache } from './caches'
 import type { SsTextureOptions, SsTextureRegistry } from './SsTextureRegistry'
@@ -171,6 +166,12 @@ export async function loadImageData(uri: string): Promise<SkData> {
   return Skia.Data.fromURI(uri)
 }
 
+/**
+ * The cellmap's wrap, and nothing for the filter: that is the registry's
+ * (Linear unless the caller registers the atlas itself). The SpriteStudio
+ * setting is deliberately not carried — the Porting Guide leaves filtering to
+ * the engine.
+ */
 function samplingOf(texture: SsTextureInfo): SsTextureOptions {
   const tile =
     texture.wrapMode === SsTexWrapMode.repeat
@@ -178,12 +179,5 @@ function samplingOf(texture: SsTextureInfo): SsTextureOptions {
       : texture.wrapMode === SsTexWrapMode.mirror
         ? TileMode.Mirror
         : TileMode.Clamp
-  return {
-    filter:
-      texture.filterMode === SsTexFilterMode.nearest
-        ? FilterMode.Nearest
-        : FilterMode.Linear,
-    tileX: tile,
-    tileY: tile,
-  }
+  return { tileX: tile, tileY: tile }
 }

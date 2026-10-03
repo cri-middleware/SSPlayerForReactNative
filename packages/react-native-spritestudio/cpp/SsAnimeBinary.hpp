@@ -53,7 +53,6 @@ struct SsTextureEntry {
   const uint8_t* embedded = nullptr;
   size_t embeddedLength = 0;
   ss::format::TexWrapMode wrapMode = ss::format::TexWrapMode_Clamp;
-  ss::format::TexFilterMode filterMode = ss::format::TexFilterMode_Linear;
 };
 
 /// One `SoundFile` out of a pack's `SoundList`, resolved against
@@ -471,7 +470,6 @@ class SsAnimeBinaryView {
     out.name = toView(cellmap->name());
     out.imagePath = toView(cellmap->image_path());
     out.wrapMode = cellmap->wrap_mode();
-    out.filterMode = cellmap->filter_mode();
     // Embedded assets are keyed by the hash of the *file name*, not of the
     // cellmap name — the two differ, so the lookup goes through
     // `image_path_hash`.

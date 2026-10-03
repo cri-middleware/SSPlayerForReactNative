@@ -154,7 +154,6 @@ export {
 export { SsRuntimeModule } from './runtime'
 export {
   SsTexWrapMode,
-  SsTexFilterMode,
   SsSignalParamType,
 } from './specs/SsRuntime.nitro'
 export type {

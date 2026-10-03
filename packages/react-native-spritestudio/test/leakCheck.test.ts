@@ -22,7 +22,6 @@ const embedded = (name: string): SsTextureInfo => ({
   name,
   imagePath: '',
   wrapMode: 0,
-  filterMode: 1,
   embedded: new Uint8Array([1, 2, 3]).buffer as ArrayBuffer,
 })
 

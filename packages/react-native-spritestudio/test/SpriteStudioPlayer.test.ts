@@ -40,7 +40,6 @@ function embeddedTexture(name: string, imagePath = ''): SsTextureInfo {
     name,
     imagePath,
     wrapMode: 0,
-    filterMode: 1,
     embedded: new Uint8Array(imagePath === '' ? [1, 2, 3] : []).buffer as ArrayBuffer,
   }
 }

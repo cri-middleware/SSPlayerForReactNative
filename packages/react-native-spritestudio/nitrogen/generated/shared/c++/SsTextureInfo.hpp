@@ -44,12 +44,11 @@ namespace margelo::nitro::ssplayer {
     std::string name     SWIFT_PRIVATE;
     std::string imagePath     SWIFT_PRIVATE;
     double wrapMode     SWIFT_PRIVATE;
-    double filterMode     SWIFT_PRIVATE;
     std::shared_ptr<ArrayBuffer> embedded     SWIFT_PRIVATE;
 
   public:
     SsTextureInfo() = default;
-    explicit SsTextureInfo(double textureHash, std::string name, std::string imagePath, double wrapMode, double filterMode, std::shared_ptr<ArrayBuffer> embedded): textureHash(textureHash), name(name), imagePath(imagePath), wrapMode(wrapMode), filterMode(filterMode), embedded(embedded) {}
+    explicit SsTextureInfo(double textureHash, std::string name, std::string imagePath, double wrapMode, std::shared_ptr<ArrayBuffer> embedded): textureHash(textureHash), name(name), imagePath(imagePath), wrapMode(wrapMode), embedded(embedded) {}
 
   public:
     friend bool operator==(const SsTextureInfo& lhs, const SsTextureInfo& rhs) = default;
@@ -69,7 +68,6 @@ namespace margelo::nitro {
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "name"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "imagePath"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "wrapMode"))),
-        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "filterMode"))),
         JSIConverter<std::shared_ptr<ArrayBuffer>>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "embedded")))
       );
     }
@@ -79,7 +77,6 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "name"), JSIConverter<std::string>::toJSI(runtime, arg.name));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "imagePath"), JSIConverter<std::string>::toJSI(runtime, arg.imagePath));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "wrapMode"), JSIConverter<double>::toJSI(runtime, arg.wrapMode));
-      obj.setProperty(runtime, PropNameIDCache::get(runtime, "filterMode"), JSIConverter<double>::toJSI(runtime, arg.filterMode));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "embedded"), JSIConverter<std::shared_ptr<ArrayBuffer>>::toJSI(runtime, arg.embedded));
       return obj;
     }
@@ -95,7 +92,6 @@ namespace margelo::nitro {
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "name")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "imagePath")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "wrapMode")))) return false;
-      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "filterMode")))) return false;
       if (!JSIConverter<std::shared_ptr<ArrayBuffer>>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "embedded")))) return false;
       return true;
     }
