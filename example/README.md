@@ -1,7 +1,9 @@
 # Example app
 
-The Expo app this repository verifies rendering on. One screen, one player, and
-a *Subject* picker that steps through a feature card per SpriteStudio capability.
+The Expo app this repository verifies rendering on. Two screens, switched by a
+tab bar. The **Viewer** is one player and a *Subject* picker that steps through a
+feature card per SpriteStudio capability; **Part follow** pins a fish to Ringo
+with `useSsPartTransform`.
 
 **This is not a standalone project.** It consumes the workspace package, and it
 needs the native core and the converted packs before it can show anything — both
@@ -33,7 +35,7 @@ prebuild is required. On Android the prebuild should log
 `dropped x86 from reactNativeArchitectures`; the Rust core ships no 32-bit x86
 slice, so use an `x86_64` or `arm64-v8a` emulator image.
 
-## The screen
+## The Viewer
 
 | Control | What it does |
 |---|---|
@@ -53,11 +55,11 @@ mounted as instance parts); `Doll`, instance and effect parts on one rig; and
 `ParticleEffect`, the heaviest packs.
 
 **Read `Mask` and `BlendMode` on both platforms.** The only platform-specific
-defect this screen has ever caught was iOS-only.
+defect the Viewer has ever caught was iOS-only.
 
 ## The subject list is generated
 
-`src/ss-assets.ts` is written by `pnpm run deploy-examples`, and the screen reads
+`src/ss-assets.ts` is written by `pnpm run deploy-examples`, and the Viewer reads
 its subject list out of it. Nothing in the app can list a directory at runtime,
 so this manifest is the only enumeration there is — a subject with nothing
 deployed leaves the screen rather than loading nothing and blaming the renderer.
