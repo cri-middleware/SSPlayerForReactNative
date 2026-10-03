@@ -129,7 +129,7 @@ Android には、ソースの修正後も生き残るキャッシュが 2 つあ
 
 react-native-web の下でプレイヤーを描画するとこのパッケージ名を含むエラーが投げられますが、これは正しい挙動です — **このパッケージは web ではアニメーションを再生しません**。web 用のエントリが存在するのは、native に*加えて* web も出荷するアプリが
 web バンドルをビルドできるようにするためです。web 上の SpriteStudio には
-[SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。
+[SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。
 
 ## 音が出ない
 

@@ -188,7 +188,8 @@ bone-point part places its own node where the art is, so it is a good follow
 target.
 
 `isPartSkinnedMesh(part)` reports which parts this applies to — the same
-judgement the sibling players make (ForWeb, ForWgpu), read from the pack's
+judgement the sibling players make (SpriteStudio Player for Web and SpriteStudio Player
+for wgpu), read from the pack's
 `.ssab`. Use it to build a picker that only offers parts a follower can sit on:
 
 ```ts

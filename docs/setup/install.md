@@ -29,7 +29,7 @@ Not supported: **Expo Go** (see step 3) and Windows / tvOS / visionOS.
 
 **On web nothing draws** — but adding this package does not break a web build,
 so an app shipping web as well as native is fine. For SpriteStudio on the web
-use [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) instead.
+use [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) instead.
 Full detail in [Limitations & Scope](/limitations).
 
 ## 2. Install
@@ -120,7 +120,7 @@ command in step 2 already does.
 `jsi::NativeState` pattern, and this package unwraps them the new way — an older
 Skia does not link.
 
-`react-native-nitro-modules` `0.36.5` matches the generated bindings committed
+`react-native-nitro-modules` `0.37.0` matches the generated bindings committed
 in the repository.
 
 :::

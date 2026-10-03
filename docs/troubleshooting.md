@@ -158,7 +158,7 @@ Rendering a player under react-native-web throws an error naming this package,
 and that is correct — **this package does not play animations on web**. The web
 entry exists so an app shipping web *as well as* native can build its web
 bundle. For SpriteStudio on the web, use
-[SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb).
+[SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb).
 
 ## No sound
 

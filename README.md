@@ -24,7 +24,7 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 ## 📚 Documentation
 
 - [**Documentation site**](https://cri-middleware.github.io/SSPlayerForReactNative/) — setup, usage, the generated API reference. 🚧 Live after the first release.
-- [**For AI assistants**](https://cri-middleware.github.io/SSPlayerForReactNative/llms.txt) — these docs as Markdown: `llms.txt` indexes the pages and `llms-full.txt` holds all of them in one file — 🚧 live after the first release
+- [**For AI assistants**](https://cri-middleware.github.io/SSPlayerForReactNative/llms.txt) — these docs as Markdown: `llms.txt` indexes the English pages and `llms-full.txt` holds all of them in one file; each Japanese page is available as `.md` under `ja/` — 🚧 live after the first release
 - [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
 
 ---
@@ -173,7 +173,7 @@ native runtime are stubbed, and rendering a player on web throws an error naming
 this package.
 
 **What it does not do is play animations on web.** For SpriteStudio on the web
-the answer is [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb)
+the answer is [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb)
 — `@spritestudio/ssplayer-webgl` renders the same `.ssab` with no React Native
 in the way.
 

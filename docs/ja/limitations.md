@@ -30,7 +30,7 @@ Normal / Mesh / Shape / Instance / Effect の各パーツ。Normal / Mesh / Shap
 | | |
 |---|---|
 | iOS / Android | サポート対象 |
-| web | **何も描画されません** — ただしこのパッケージを入れても web ビルドは壊れません。web 用のエントリはスタブなので、native と web の両方を出荷するアプリのバンドルは通り、throw するのはそこでプレイヤーを描画したときだけです。web 上の SpriteStudio は [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) です。 |
+| web | **何も描画されません** — ただしこのパッケージを入れても web ビルドは壊れません。web 用のエントリはスタブなので、native と web の両方を出荷するアプリのバンドルは通り、throw するのはそこでプレイヤーを描画したときだけです。web 上の SpriteStudio は [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です。 |
 | macOS | 単に動く可能性があります — RN Skia と Nitro はどちらも対応しています。CI 対象外、保証なし。 |
 | tvOS / visionOS | ランタイム側でブロックされています。SDK の XCFramework に tvOS / visionOS のスライスがまだありません。 |
 | Windows | 手段がありません — Nitro も RN Skia も react-native-windows に対応していません。 |
