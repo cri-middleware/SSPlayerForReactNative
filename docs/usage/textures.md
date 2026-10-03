@@ -137,13 +137,6 @@ entries. Calling it twice for one source is safe and does the work once.
 somewhere stays loaded. `ssClearCaches()` drops the lot, which is what an app
 under memory pressure wants.
 
-::: warning One known sharp edge
-`ssUnload` can evict an atlas another preload is still holding, when two packs
-share a cellmap name — the retain is a boolean rather than a count. The pack is
-still listed as preloaded and its atlas is gone. Tracked in the
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md).
-:::
-
 ## When a texture does not resolve
 
 A missing texture is **silent by construction**: the batch is skipped, so the

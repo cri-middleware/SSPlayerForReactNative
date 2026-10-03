@@ -142,8 +142,6 @@ int CheckCompiles() {
     const char* body = ssplayer::SsShaderBodies()[i];
     const char* name = IdName(id);
     if (body == nullptr) {
-      // Not a failure: this is the documented fallback, and ROADMAP tracks the
-      // twelve. It is printed so the count is visible when one lands.
       std::printf("    %-10s no body — falls back to the plain textured draw\n", name);
       continue;
     }

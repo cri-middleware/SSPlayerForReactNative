@@ -117,9 +117,9 @@ Metro — and launches it on a simulator or a connected device. `device=<name>`
 picks one and `config=debug` serves the JS from Metro instead. Underneath they are
 `expo prebuild` and `expo run:ios|android`, run in `example/`.
 
-The example app is the rendering verification surface — one screen, one feature
-card per capability. What each subject proves, how to look at a project of your
-own, and the optional `MaskInstance` sample are covered in
+The example app is the rendering verification surface — its Viewer screen has
+one feature card per capability. What each subject proves, how to look at a
+project of your own, and the optional `MaskInstance` sample are covered in
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example).
 
 ## Checks
