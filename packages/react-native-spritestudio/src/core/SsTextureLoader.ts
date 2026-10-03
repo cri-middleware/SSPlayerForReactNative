@@ -1,15 +1,10 @@
-import {
-  Skia,
-  TileMode,
-  type SkData,
-  type SkImage,
-} from '@shopify/react-native-skia'
+import { Skia, type SkData, type SkImage } from '@shopify/react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
-import { SsTexWrapMode, type SsTextureInfo } from '../specs/SsRuntime.nitro'
+import type { SsTextureInfo } from '../specs/SsRuntime.nitro'
 import { resolveAgainst, schemeOf } from './assets'
 import { ssImageCache } from './caches'
-import type { SsTextureOptions, SsTextureRegistry } from './SsTextureRegistry'
+import type { SsTextureRegistry } from './SsTextureRegistry'
 
 /**
  * What a texture-load pass could not resolve. Empty on full success.
@@ -115,7 +110,10 @@ export class SsTextureLoader {
       if (image != null) {
         imageKeys.push(key)
         registered.push(texture.textureHash)
-        registry.registerByHash(texture.textureHash, image, samplingOf(texture))
+        // Sampling is the registry's (Linear + Clamp unless the caller registers
+        // the atlas itself). The SpriteStudio filter and wrap are deliberately
+        // not carried — the Porting Guide leaves both to the engine.
+        registry.registerByHash(texture.textureHash, image)
         continue
       }
       unresolved.push(
@@ -164,20 +162,4 @@ export async function loadImageData(uri: string): Promise<SkData> {
     return Skia.Data.fromBytes(new Uint8Array(SsRuntimeModule.readAsset(uri)))
   }
   return Skia.Data.fromURI(uri)
-}
-
-/**
- * The cellmap's wrap, and nothing for the filter: that is the registry's
- * (Linear unless the caller registers the atlas itself). The SpriteStudio
- * setting is deliberately not carried — the Porting Guide leaves filtering to
- * the engine.
- */
-function samplingOf(texture: SsTextureInfo): SsTextureOptions {
-  const tile =
-    texture.wrapMode === SsTexWrapMode.repeat
-      ? TileMode.Repeat
-      : texture.wrapMode === SsTexWrapMode.mirror
-        ? TileMode.Mirror
-        : TileMode.Clamp
-  return { tileX: tile, tileY: tile }
 }

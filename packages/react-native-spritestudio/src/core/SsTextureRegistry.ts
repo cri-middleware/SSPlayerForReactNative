@@ -13,11 +13,11 @@ import type { SsTextureBinding } from '../specs/SsRuntime.nitro'
 /**
  * How a cellmap's texture is sampled.
  *
- * `filter` is the caller's choice — Linear by default, `FilterMode.Nearest` for
- * crisp pixel art — and never the cellmap's: the Porting Guide leaves filtering
- * to the engine. The tiles follow the cellmap's wrap, which `SsTextureLoader`
- * reads off the `.ssab`. Left to the paint's default, `drawVertices` samples
- * nearest-neighbour and every scaled or rotated sprite comes out jaggy.
+ * The caller's choice, never the cellmap's: the Porting Guide leaves filtering
+ * and wrapping to the engine. `filter` is Linear by default (`FilterMode.Nearest`
+ * for crisp pixel art) and the tiles are Clamp. Left to the paint's default,
+ * `drawVertices` samples nearest-neighbour and every scaled or rotated sprite
+ * comes out jaggy.
  */
 export interface SsTextureOptions {
   filter?: FilterMode

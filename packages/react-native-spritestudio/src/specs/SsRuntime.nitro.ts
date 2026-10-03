@@ -61,15 +61,11 @@ export interface SsTextureBinding {
   paint: SkPaintHandle
 }
 
-/** `cellmap.wrap_mode` wire values. */
-export const SsTexWrapMode = { clamp: 0, repeat: 1, mirror: 2 } as const
-
 /**
  * One texture a pack needs, read out of its `.ssab`.
  *
- * The wrap comes along because it is a cellmap property. The filter does not:
- * the `.ssab` carries the SpriteStudio setting, but filtering is the engine's to
- * choose (see `SsTextureOptions`).
+ * Sampling does not come along: the `.ssab` carries the SpriteStudio filter and
+ * wrap, but both are the engine's to choose (see `SsTextureOptions`).
  */
 export interface SsTextureInfo {
   /** Look this up with `DrawBatch.texture_hash` directly. */
@@ -78,8 +74,6 @@ export interface SsTextureInfo {
   name: string
   /** Path to the image **relative to the `.ssab`**, or empty when embedded-only. */
   imagePath: string
-  /** `SsTexWrapMode`. */
-  wrapMode: number
   /**
    * Encoded image bytes for an embedded pack, empty for a reference one.
    *
