@@ -14,7 +14,7 @@ graph LR
 
     subgraph Convert ["① 変換 — 手元で一度だけ"]
         WEB["ssconverter-web<br>ブラウザ"]
-        GUI["SSConverterGUI<br>デスクトップ"]
+        GUI["SSConverter GUI<br>デスクトップ"]
         CLI["ssconverter-cli<br>CLI / CI"]
     end
 
@@ -68,7 +68,7 @@ graph LR
 | ツール | 向いている場面 | 入手方法 |
 |---|---|---|
 | `ssconverter-web` | 数個を手作業で変換。インストール不要 | <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">ホスト版のコンバータ</a>を開く |
-| SSConverterGUI | デスクトップ GUI で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
+| SSConverter GUI | デスクトップ GUI で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
 | `ssconverter-cli` | CI、バッチ、再現性 | [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) のバイナリ |
 
 ::: warning `ssconverter-web` には Chromium 系ブラウザが必要です
