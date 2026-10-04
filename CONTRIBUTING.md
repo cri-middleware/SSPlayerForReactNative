@@ -41,7 +41,7 @@ community forum rather than the tracker; see [SUPPORT.md](./SUPPORT.md).
 
 ### Pull Requests
 
-1. Branch from `main`.
+1. Branch from `develop`, and open the pull request into `develop`.
 2. Match the style of the file you are touching.
 3. Run what CI cannot — see [Development Environment](#development-environment).
 4. Keep the change scoped to one thing.
@@ -51,14 +51,15 @@ community forum rather than the tracker; see [SUPPORT.md](./SUPPORT.md).
 
 ### Branching & releases
 
-This repository is **trunk-based**: `main` is the single long-lived branch. Use
-short-lived branches off it.
+This repository follows **git-flow**: `develop` integrates, and a pull request goes
+into it; `main` holds released commits only, and moves only through a
+maintainer's release branch.
 
 The package version is **lockstep with the SDK** — `scripts/SDK_VERSION.txt` pins
 the Brain release the package is built against, and the package carries the
-matching version. There are no changesets here; that differs from SSPlayerForWeb,
-where packages are versioned independently. The branch model follows the
-versioning model.
+matching version — so there is one version line. That differs from
+SSPlayerForWeb, whose packages are versioned independently and released from
+`main`: the branch model follows the versioning model.
 
 Cutting a release is maintainer work — see [RELEASING.md](./RELEASING.md).
 
@@ -141,7 +142,19 @@ would shut out contributors on the other platform, and CI checks that both parse
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
 | `generate-fbs-code` | `flatc -c` over the three schemas → `cpp/format/`. Commit the result. | After a schema change |
 | `build-release` / `release` | See [RELEASING.md](./RELEASING.md). | Maintainers |
-| `prepare-docs` / `build-docs` | See [RELEASING.md](./RELEASING.md). | Working on the docs |
+| `prepare-docs` / `build-docs` | See [Documentation](#documentation) below. | Working on the docs |
+
+### Documentation
+
+```bash
+pnpm run prepare-docs   # pnpm install
+pnpm run build-docs     # TypeDoc + VitePress into docs/.vitepress/dist
+```
+
+`scripts/build-pages.sh` is the two together, and is what `pages.yml` runs. Neither needs the
+Brain or Rust — TypeDoc reads TypeScript and VitePress reads Markdown — which is why that workflow
+checks out without submodules. The build fails on a dead page link but **does not check
+`#anchors`**: a link to a heading that does not exist still builds green, so verify those by hand.
 
 ## Coding Standards
 
@@ -207,7 +220,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 ### プルリクエスト
 
-1. `main` からブランチを切ってください。
+1. `develop` からブランチを切り、`develop` へプルリクエストを出してください。
 2. 変更するファイルの既存のスタイルに合わせてください。
 3. CI が回せない検証を手元で実行してください（[開発環境](#開発環境のセットアップ)）。
 4. 変更は 1 つの目的に絞ってください。
@@ -215,10 +228,9 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 ### ブランチとリリース
 
-このリポジトリは **trunk-based** です。長期ブランチは `main` の 1 本だけで、そこから短命なブランチを切ります。
+このリポジトリは **git-flow** です。`develop` が統合ブランチで、プルリクエストはそこへ出します。`main` にはリリース済みのコミットだけが入り、メンテナーのリリースブランチを通してだけ進みます。
 
-パッケージのバージョンは **SDK とロックステップ**です。`scripts/SDK_VERSION.txt` がビルド対象の Brain のリリースを固定し、パッケージ側も同じバージョンを名乗ります。
-changesets は使いません — パッケージを個別にバージョニングする SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
+パッケージのバージョンは **SDK とロックステップ**です。`scripts/SDK_VERSION.txt` がビルド対象の Brain のリリースを固定し、パッケージ側も同じバージョンを名乗るので、バージョンの系統は 1 つです。パッケージを個別にバージョニングし `main` から出す SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
 
 リリース作業はメンテナーが行います（[RELEASING.md](./RELEASING.md) を参照）。
 
@@ -269,7 +281,18 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`。生成物はコミットしてください。 | spec を変更した後 |
 | `generate-fbs-code` | 3 つのスキーマに `flatc -c` → `cpp/format/`。生成物はコミットしてください。 | スキーマを変更した後 |
 | `build-release` / `release` | [RELEASING.md](./RELEASING.md) を参照してください。 | メンテナー |
-| `prepare-docs` / `build-docs` | [RELEASING.md](./RELEASING.md) を参照してください。 | docs を編集するとき |
+| `prepare-docs` / `build-docs` | 下の[ドキュメント](#ドキュメント)を参照してください。 | docs を編集するとき |
+
+### ドキュメント
+
+```bash
+pnpm run prepare-docs   # pnpm install
+pnpm run build-docs     # TypeDoc + VitePress を docs/.vitepress/dist へ
+```
+
+`scripts/build-pages.sh` はこの 2 つをまとめたもので、`pages.yml` が実行するのもこれです。どちらも
+Brain も Rust も必要としません（TypeDoc は TypeScript を、VitePress は Markdown を読むだけです）。そのためこのワークフローは submodule 無しでチェックアウトします。リンク切れではビルドが失敗しますが、
+**`#anchor` は検査しません**。存在しない見出しへのリンクは緑のまま通るので、手で確認してください。
 
 ## コーディング規約
 
