@@ -74,4 +74,4 @@ Windows, tvOS and visionOS are out of scope. **This package does not play animat
 
 BSD-3-Clause — see [LICENSE.md](./LICENSE.md).
 
-It also compiles FlatBuffers and `libssruntime` into the app you publish, which carries obligations onto *your* binary — see [THIRD_PARTY_NOTICES.md](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/THIRD_PARTY_NOTICES.md).
+It also compiles FlatBuffers and `libssruntime` into the app you publish, which carries obligations onto *your* binary — see [THIRD_PARTY_NOTICES.md](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/THIRD_PARTY_NOTICES.md).

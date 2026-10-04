@@ -70,7 +70,7 @@ npx react-native run-ios     # または run-android
 ::: warning bare のルートは未完成です
 Expo config plugin が bare アプリでは代わりにやってくれない仕事が 2 つあります。**パックのディレクトリをネイティブアセットとして同梱すること**、そしてネイティブコアが提供しない 32 ビット `x86` スライスをビルドが要求しなくなるよう
 **`reactNativeArchitectures` を絞ること**です。どちらも文書化と検証が
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md)
+[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
 の未着手項目として残っています。それまでは自力で解決する必要があると考えてください。
 :::
 

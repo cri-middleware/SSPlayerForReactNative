@@ -92,7 +92,7 @@ The Expo config plugin does two things nothing does for you in a bare app: it
 `reactNativeArchitectures`** so the build stops asking for the 32-bit `x86`
 slice the native core does not provide. Writing both down and verifying them is
 still an open
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md)
+[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
 item — until then, expect to work them out yourself.
 :::
 

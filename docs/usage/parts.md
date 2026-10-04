@@ -209,5 +209,5 @@ is **non-blocking**, so the transform is still published rather than refused.
 Each hook instance currently runs its own `requestAnimationFrame` beside the
 view's and reads the part **by name** across JSI every frame. It works, and it
 is the one API here that reintroduces per-frame JS work — see the
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md).
+[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).
 :::

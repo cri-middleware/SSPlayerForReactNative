@@ -88,7 +88,7 @@ amount of Reanimated on your side fixes.
 Moving it needs the whole update → bake → draw chain reachable from a worklet
 runtime, and the borrow rule says update and draw cannot land on different
 threads — so it is one move, not an incremental one. Tracked in the
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md).
+[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).
 
 ::: tip Each follower costs its own loop
 `useSsPartTransform` starts a second `requestAnimationFrame` beside the view's,
