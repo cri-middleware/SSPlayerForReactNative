@@ -219,7 +219,7 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   /// The resource holding `packNameHash`'s animations, or null.
   ///
-  /// External packs win, then the own pack, matching the flagship's
+  /// External packs win, then the own pack, matching SSPlayerForGodot's
   /// `_resolve_ssab_by_hash`. A hash of 0 is an author who left the reference
   /// pack-less, which also means the own pack.
   std::shared_ptr<HybridSsResource> resolvePack(uint32_t packNameHash) const;
