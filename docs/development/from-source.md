@@ -120,7 +120,7 @@ picks one and `config=debug` serves the JS from Metro instead. Underneath they a
 The example app is the rendering verification surface — its Viewer screen has
 one feature card per capability. What each subject proves, how to look at a
 project of your own, and the optional `MaskInstance` sample are covered in
-[`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example).
+[`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/HEAD/example).
 
 ## Checks
 

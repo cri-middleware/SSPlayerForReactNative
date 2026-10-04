@@ -145,6 +145,6 @@ const followable = player
 
 ::: warning こちらはフレームループを 1 つ消費します
 このフックのインスタンスは現在、ビューのものとは別に自前の `requestAnimationFrame` を回し、毎フレーム**名前で**パーツを JSI 越しに読んでいます。動作はしますが、設計の他の部分が取り除いたはずのフレームごとの JS 処理を再導入している唯一の API です —
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md)
+[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
 を参照してください。
 :::

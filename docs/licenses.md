@@ -8,9 +8,9 @@ description: What this package puts inside the app you publish, and what you hav
 `react-native-spritestudio` is distributed under the **BSD-3-Clause** license,
 following the license of SpriteStudio-SDK. Copyright © CRI Middleware Co., Ltd.
 
-- Full text: [`LICENSE.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/LICENSE.md)
+- Full text: [`LICENSE.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/LICENSE.md)
 - The authoritative notice list:
-  [`THIRD_PARTY_NOTICES.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/THIRD_PARTY_NOTICES.md)
+  [`THIRD_PARTY_NOTICES.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/THIRD_PARTY_NOTICES.md)
 
 ## Why this is not only our problem
 

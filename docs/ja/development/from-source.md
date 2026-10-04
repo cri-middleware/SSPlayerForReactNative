@@ -101,7 +101,7 @@ pnpm run run-ios         # または: pnpm run run-android
 どちらも `example/` を prebuild し、Release でビルドして（JS バンドルを埋め込むので Metro は不要）、シミュレータか接続した端末で起動します。`device=<名前>` で端末を選び、`config=debug` にすると JS を Metro から配信します。中身は `example/` での `expo prebuild` と `expo run:ios|android` です。
 
 サンプルアプリは描画の検証面です — Viewer 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが何を証明するか、自分のプロジェクトを見る方法、および任意の `MaskInstance` サンプルについては
-[`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/example)
+[`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/HEAD/example)
 が扱います。
 
 ## チェック

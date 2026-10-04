@@ -8,9 +8,9 @@ description: このパッケージが、あなたの公開するアプリの中�
 `react-native-spritestudio` は、SpriteStudio-SDK のライセンスに従い
 **BSD-3-Clause** で配布されています。Copyright © CRI Middleware Co., Ltd.
 
-- 全文: [`LICENSE.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/LICENSE.md)（参考訳: [`LICENSE.ja.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/LICENSE.ja.md)）
+- 全文: [`LICENSE.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/LICENSE.md)（参考訳: [`LICENSE.ja.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/LICENSE.ja.md)）
 - 表記の正本:
-  [`THIRD_PARTY_NOTICES.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/THIRD_PARTY_NOTICES.md)
+  [`THIRD_PARTY_NOTICES.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/THIRD_PARTY_NOTICES.md)
 
 ## これがこちら側だけの話ではない理由
 

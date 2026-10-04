@@ -72,7 +72,7 @@ JS スレッドが混雑すれば再生のムラとして現れ、あなたの�
 
 これを移すには update → bake → draw の連鎖全体が worklet ランタイムから到達可能である必要があり、かつ borrow rule により update と draw を別スレッドに置くことはできません —
 つまり段階的にではなく一度に移す作業です。
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/ROADMAP.md)
+[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
 で追跡されています。
 
 ::: tip 追従 1 つにつきループが 1 つ増えます
