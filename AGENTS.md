@@ -44,8 +44,8 @@ Brain lives in the `SpriteStudio-SDK/` submodule — see its own
 |---|---|
 | What the package does, and how to use it | [README.md](./README.md), the [docs site](./docs/) |
 | What does and does not draw | [docs/limitations.md](./docs/limitations.md), the single list |
-| How to set up, build, test and verify | [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/development/](./docs/development/) |
-| How the site is built and a release is cut | [RELEASING.md](./RELEASING.md), maintainers only |
+| How to set up, build, test and verify, the docs site included | [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/development/](./docs/development/) |
+| How a release is cut | [RELEASING.md](./RELEASING.md), maintainers only |
 | Status, what lands when, and what is out of scope | [ROADMAP.md](./ROADMAP.md) |
 | What a layer is for | that layer's own header comment; `src/index.ts` lists the four in order |
 | The argument behind an invariant below | the code site named beside it |

@@ -1,36 +1,41 @@
 name: Release
 
-# One-shot publish of `react-native-spritestudio` to npm, dispatched by hand.
+# One release of `react-native-spritestudio`, dispatched by hand.
 #
-# This is a thin wrapper around `scripts/release.sh` on purpose. That script is
-# what a maintainer runs on a laptop, and re-stating its order here would give
-# the two routes a chance to disagree about what a release is. Everything it
-# enforces — a clean tree, the *pinned* Brain rather than a local build,
-# generated code that still matches its inputs, the four host checks, and a
-# `prepack` that refuses a tarball a consumer could not use — holds identically
-# whichever way it is run.
+# With upload_release left false it is the QA run off a branch:
+# scripts/build-release.sh -- everything release.sh checks, the pinned Brain, the
+# generated code, the host checks and `prepack`, then the tarball opened and
+# checked again -- and the result kept on the run, nothing uploaded. A release is
+# a v* tag on main, pushed first and dispatched from second with
+# upload_release=true: the same build, then the tarball it checked goes to npm
+# (under publishConfig.tag) and a DRAFT GitHub Release carries it with SHA256SUMS
+# and generated notes. publish_npm=false leaves npm out, which is how the package
+# ships before npm can take it. Publishing the draft starts pages.yml.
 #
-# **macOS only, and not by oversight.** The tarball carries the Brain's iOS
-# xcframework, which only Xcode can build, and `check-mask` / `check-shader`
-# link the host `libskia.a` that RN Skia ships with a macOS slice and no Linux
-# one. `release.sh` refuses to start anywhere else.
+# **macOS only, and not by oversight.** `check-mask` / `check-shader` link the
+# host `libskia.a` that RN Skia ships with a macOS slice and no Linux one, and
+# build-release.sh skips them anywhere else -- which a release cannot afford.
 #
 # 🚧 **Blocked today, and the failure is the correct one.** `scripts/SDK_VERSION.txt`
 # names a SpriteStudio-SDK release tag that has not been published, so
-# `download-sdk.sh` — step 2 of the script — cannot resolve it and the run stops
+# `download-sdk.sh` — build-release.sh's sdk stage — cannot resolve it and the run stops
 # there. See ROADMAP.md. Nothing here works around that: this workflow exists so
 # the channel is ready the moment the tag lands, not so a green tick can be had
 # without one.
 #
 # Secrets:
 #   SS_NPM_TOKEN  an npm automation token. Automation tokens bypass 2FA, which CI
-#                 cannot answer interactively — which is why `release.sh --otp`
-#                 has no counterpart input here.
+#                 cannot answer interactively — which is why there is no OTP
+#                 input here.
 on:
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: 'Verify only — everything up to npm pack, publish nothing'
+      upload_release:
+        description: 'Publish to npm and draft the GitHub Release (only effective on a v* tag ref)'
+        type: boolean
+        default: false
+      publish_npm:
+        description: 'With upload_release, publish to npm too (off: the Release alone, tarball attached)'
         type: boolean
         default: true
 
@@ -41,7 +46,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read # release.sh bumps nothing and tags nothing — both are decisions
+  contents: write # the draft Release; the version and the tag are a maintainer's
 
 jobs:
   release:
@@ -53,18 +58,26 @@ jobs:
       - name: Checkout (with both submodules)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # `release.sh` runs its own `git submodule update --init` over the same
-          # two paths, which is a no-op once this step has done it.
           submodules: recursive
+          # Full history + tags, for the previous tag the notes start at.
+          fetch-depth: 0
 
-      - name: A real publish comes from main
-        # `release.sh` only prints a note when it runs off main, which is right
-        # for a laptop: verifying a branch is a normal thing to want. Publishing
-        # is not undoable, so that half is refused rather than noted.
-        if: ${{ !inputs.dry_run && github.ref != 'refs/heads/main' }}
+      # A release is a tag that was pushed first and dispatched from second, so
+      # asking to upload from anything else is an operator error, not a mode.
+      - name: Refuse to release from a non-tag ref
+        if: inputs.upload_release && !startsWith(github.ref, 'refs/tags/v')
         run: |
-          echo "::error::a publish must be dispatched from main (this ref: ${GITHUB_REF}) — re-run with dry_run to verify a branch"
+          echo "::error::upload_release=true needs a v* tag. Push the tag first, then dispatch this workflow from it."
           exit 1
+
+      - name: The tag names this version
+        if: inputs.upload_release
+        run: |
+          version="$(node -p "require('./packages/react-native-spritestudio/package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "v${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match the package version (v${version})."
+            exit 1
+          fi
 
       - name: Setup pnpm
         # Before setup-node, whose pnpm cache needs the binary. The version is
@@ -91,7 +104,22 @@ jobs:
         # as "wrong flatc", not "stale output".
         run: brew install flatbuffers
 
-      - name: Release
+      # scripts/build-release.sh IS the release build, and the tarball it packs and
+      # checks is the file published and attached below. Every option is spelled
+      # out, so a release cannot change because a default did.
+      - name: Build and check the release
+        run: ./scripts/build-release.sh skip=install sdk=download out=release-dist verify=yes clean=yes
+
+      - name: Upload the release build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: react-native-spritestudio-release-dist
+          path: release-dist
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish to npm
+        if: inputs.upload_release && inputs.publish_npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.SS_NPM_TOKEN }}
           # npm provenance attestation needs a PUBLIC repository, and npm rejects
@@ -99,10 +127,26 @@ jobs:
           # repository goes public — nothing else has to change. SSPlayerForWeb
           # carries the same line for the same reason.
           NPM_CONFIG_PROVENANCE: 'false'
-          DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          if [ "$DRY_RUN" = "true" ]; then
-            ./scripts/release.sh --dry-run
-          else
-            ./scripts/release.sh
+          version="${GITHUB_REF_NAME#v}"
+          if [ -n "$(npm view "react-native-spritestudio@${version}" version 2>/dev/null || true)" ]; then
+            echo "::notice::react-native-spritestudio@${version} is already on npm — skipping."
+            exit 0
           fi
+          npm publish release-dist/npm/*.tgz
+
+      - name: Draft the GitHub Release
+        if: inputs.upload_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "::notice::${tag} already has a Release — nothing to do."
+            exit 0
+          fi
+          args=(--verify-tag --title "SpriteStudio Player for React Native ${tag}" --generate-notes --draft)
+          case "$tag" in *-*) args+=(--prerelease) ;; esac
+          gh release create "$tag" release-dist/npm/*.tgz release-dist/SHA256SUMS "${args[@]}"
+          echo "::notice::Drafted ${tag} — check it and publish it from the Releases page."
