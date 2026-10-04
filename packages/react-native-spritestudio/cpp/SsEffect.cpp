@@ -9,10 +9,11 @@ namespace {
 
 /// The seed for one part's slot: deterministic, yet different per part.
 ///
-/// SSPlayerForFlutter's and the flagship's formula. Two parts playing the *same*
-/// effect would otherwise emit in visual lockstep, and a clock- or RNG-derived
-/// seed would make the same frame render differently on a second run. The
-/// runtime overrides it outright for effects authored `is_lock_rand_seed`.
+/// SSPlayerForFlutter's and SSPlayerForGodot's formula. Two parts playing the
+/// *same* effect would otherwise emit in visual lockstep, and a clock- or
+/// RNG-derived seed would make the same frame render differently on a second
+/// run. The runtime overrides it outright for effects authored
+/// `is_lock_rand_seed`.
 uint32_t SeedFor(const SsEffectPart& part) {
   return part.partIndex ^ part.effectNameHash;
 }

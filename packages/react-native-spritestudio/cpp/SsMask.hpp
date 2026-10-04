@@ -11,8 +11,8 @@
 // `render/mask.dart`, which faced the same primitives.
 //
 // Scope resolution stays on the CPU exactly as it does there, so the shader
-// never sees the flagship's `mask_meta[]` array — only the two writer sets in
-// `SsMaskBits`. Splitting them by OP is not an optimisation: `Invert`
+// never sees SSPlayerForGodot's `mask_meta[]` array — only the two writer sets
+// in `SsMaskBits`. Splitting them by OP is not an optimisation: `Invert`
 // and `Increment` do not commute, so each accumulates on its own plane and the
 // replay takes the union.
 //
@@ -48,10 +48,11 @@ class SsBaker;
 /// `InstancePropagationTired3` has 80. A budget sized for one animation masks
 /// the first blocks of such a tree and leaves the rest with no writer at all.
 ///
-/// The flagships pack the planes into RGB and leave alpha to the premultiplied
-/// blend; this port puts each in the **alpha** of its own plane instead, because
-/// RGB is colour and Skia gamut-maps it into a Display P3 destination —
-/// `SsMaskShader.hpp` has the whole story.
+/// SSPlayerForGodot, SSPlayerForWeb and SSPlayerForFlutter pack the planes into
+/// RGB and leave alpha to the premultiplied blend; this port puts each in the
+/// **alpha** of its own plane instead, because RGB is colour and Skia
+/// gamut-maps it into a Display P3 destination — `SsMaskShader.hpp` has the
+/// whole story.
 constexpr int kSsMaxMaskWriters = 96;
 
 /// The number of 8-bit planes `kSsMaxMaskWriters` needs.
