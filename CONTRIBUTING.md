@@ -1,5 +1,9 @@
 # Contributing to SSPlayerForReactNative
 
+> [!IMPORTANT]
+> We are not accepting pull requests until a Contributor License Agreement
+> (CLA) is in place. Issues remain open for bug reports and requests.
+
 Thank you for your interest in contributing. This player draws SpriteStudio
 animations through Skia, driven by a native runtime shared with every other
 official player, so a change here usually touches TypeScript, C++, or both.
@@ -185,6 +189,9 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 ---
 
 # SSPlayerForReactNative への貢献について
+
+> [!IMPORTANT]
+> コントリビューターライセンス契約（CLA）の準備が整うまで、プルリクエストは受け付けていません。バグ報告や要望は引き続き Issue で受け付けています。
 
 ご興味をお持ちいただきありがとうございます。この Player は、他の公式 Player と共通のネイティブランタイムを Skia 経由で描画します。そのため変更は TypeScript と C++ のどちらか、あるいは両方に及ぶことが多くなります。
 
