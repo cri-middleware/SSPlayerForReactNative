@@ -12,10 +12,15 @@ name: Release
 # maintainer runs on a Mac to cut the release without this workflow. Publishing
 # the draft starts pages.yml.
 #
-# publish_npm is off by default: until npm trusted publishing replaces the
-# token, a maintainer publishes the tarball on the Release by hand (RELEASING.md).
-# On, the tarball the build checked goes to npm (under publishConfig.tag), unless
-# npm already has that version.
+# With upload_release, publish_npm stages the tarball the build checked on npm
+# through trusted publishing, unless npm already has that version, staged or
+# published, under the dist-tag its version names: the prerelease's word, or
+# `latest` for a full release, which publishConfig.tag would otherwise put under
+# `beta`. Nothing is public until a maintainer approves it with 2FA, on npmjs.com
+# or with `npm stage approve` (RELEASING.md, step 6). Off, the Release alone
+# carries the tarball. That is how the package's first version ships: npm sets
+# up a trusted publisher only for a package it already has, so a maintainer
+# publishes that version by hand from the tarball.
 #
 # **macOS only, and not by oversight.** `check-mask` / `check-shader` link the
 # host `libskia.a` that RN Skia ships with a macOS slice and no Linux one, and
@@ -28,8 +33,9 @@ name: Release
 # the channel is ready the moment the tag lands, not so a green tick can be had
 # without one.
 #
-# publish_npm needs the SS_NPM_TOKEN secret: an npm token that bypasses 2FA,
-# which CI cannot answer interactively — which is why there is no OTP input here.
+# Staging needs no secret: the package on npm has a trusted publisher for this
+# repository and this workflow file, allowed to stage, and the job's id-token is
+# what npm trusts.
 on:
   workflow_dispatch:
     inputs:
@@ -38,9 +44,9 @@ on:
         type: boolean
         default: false
       publish_npm:
-        description: 'With upload_release, publish to npm too (off: the Release alone, tarball attached)'
+        description: 'With upload_release, stage on npm too, for a maintainer to approve (off: the Release alone, tarball attached)'
         type: boolean
-        default: false
+        default: true
 
 # An npm version is immutable once published, so two of these must never
 # overlap, and a queued one must not be cancelled half way.
@@ -50,6 +56,7 @@ concurrency:
 
 permissions:
   contents: write # the draft Release; the version and the tag are a maintainer's
+  id-token: write # trusted publishing on npm
 
 jobs:
   release:
@@ -91,8 +98,8 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          # Writes the .npmrc that NODE_AUTH_TOKEN is read through. Without it
-          # the token is set and ignored, and the publish fails as anonymous.
+          # The registry the staging step's trusted publishing talks to, set the
+          # way npm's own trusted publishing example sets it.
           registry-url: 'https://registry.npmjs.org'
           cache: pnpm
 
@@ -129,19 +136,36 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Publish to npm
+      # npm 11.21 is the first CLI that sets a dist-tag through trusted
+      # publishing, and Node 22 ships npm 10.
+      - name: Update npm
         if: inputs.upload_release && inputs.publish_npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.SS_NPM_TOKEN }}
-          # npm provenance attestation needs a PUBLIC repository, and npm rejects
-          # the publish outright rather than degrading. Flip to 'true' when this
-          # repository goes public — nothing else has to change. SSPlayerForWeb
-          # carries the same line for the same reason.
-          NPM_CONFIG_PROVENANCE: 'false'
+        run: npm install -g npm@11.21.0
+
+      # Last, so that a failure here leaves the draft in place for a re-run or a
+      # maintainer to finish. npm lists a staged version only once it is
+      # approved, so staging one again is refused with a 409, which is skipped
+      # like a version npm already has.
+      - name: Stage on npm
+        if: inputs.upload_release && inputs.publish_npm
         run: |
+          set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
           if [ -n "$(npm view "react-native-spritestudio@${version}" version 2>/dev/null || true)" ]; then
             echo "::notice::react-native-spritestudio@${version} is already on npm — skipping."
             exit 0
           fi
-          npm publish release-dist/npm/*.tgz
+          case "$version" in
+            *-*) dist_tag="${version#*-}"; dist_tag="${dist_tag%%.*}" ;;
+            *)   dist_tag="latest" ;;
+          esac
+          if ! out="$(npm stage publish release-dist/npm/*.tgz --tag "$dist_tag" 2>&1)"; then
+            echo "$out"
+            if grep -qE "409 Conflict.*previously (published|staged) version \"${version}\"" <<< "$out"; then
+              echo "::notice::react-native-spritestudio@${version} is already staged — skipping."
+              exit 0
+            fi
+            exit 1
+          fi
+          echo "$out"
+          echo "::notice::Staged react-native-spritestudio@${version} under '${dist_tag}' — approve it on npmjs.com or with npm stage approve."

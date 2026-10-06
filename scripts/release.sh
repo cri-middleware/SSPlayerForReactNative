@@ -8,9 +8,10 @@
 #
 #   git switch --detach v7.0.1 && pnpm run release
 #
-# What this does NOT do: publish. The tarball goes to npm by hand, from the
-# draft, and the draft is published by hand — both are permanent, and they are
-# steps 6 and 7 of RELEASING.md, after the draft has been looked at.
+# What this does NOT do: anything public. When release.yml runs this, it stages
+# the tarball on npm afterwards; cut on a Mac, the tarball goes to npm by hand.
+# Approving or publishing it, and publishing the draft, are permanent: steps 6
+# and 7 of RELEASING.md, after the draft has been looked at.
 #
 # **macOS only, and not by oversight.** `check-mask` / `check-shader` link the
 # host `libskia.a` RN Skia ships with a macOS slice and no other, and

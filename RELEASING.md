@@ -4,7 +4,7 @@ Maintainers only. Contributors do not run any of this — see [CONTRIBUTING.md](
 
 ## Cutting a release
 
-Anyone with the Write role on this repository can cut a release: every step is a branch, a pull request, a tag, a workflow run or a Release, so nothing depends on whose machine runs it beyond looking at the drawing on a device. You need `git`, `gh` (run `gh auth login` once), Node.js and pnpm, and for step 6, `npm` signed in to an account that can publish `react-native-spritestudio`. The repository needs GitHub Pages enabled with GitHub Actions as its source, and a `v*` tag rule on its `github-pages` environment, or publishing a Release deploys nothing; both are settings a repository admin makes. The commands are bash: in zsh, run `setopt interactive_comments` first, so that the `#` comments are not taken as arguments; on Windows, use Git Bash.
+Anyone with the Write role on this repository can cut a release: every step is a branch, a pull request, a tag, a workflow run or a Release, so nothing depends on whose machine runs it beyond looking at the drawing on a device. You need `git`, `gh` (run `gh auth login` once), Node.js and pnpm, and for step 6, `npm` signed in to an account that can publish `react-native-spritestudio`. The repository needs GitHub Pages enabled with GitHub Actions as its source, and a `v*` tag rule on its `github-pages` environment, or publishing a Release deploys nothing; both are settings a repository admin makes. The package on npm needs a trusted publisher for this repository's `release.yml`, allowed to stage. npm sets one up only for a package it already has, so the package's first version goes out by hand (step 6). The commands are bash: in zsh, run `setopt interactive_comments` first, so that the `#` comments are not taken as arguments; on Windows, use Git Bash.
 
 Both workflow runs, the QA build in step 3 and the Release in step 5, can run on a Mac instead: the workflow runs nothing but the scripts those steps name. They run the host checks, so that route needs what those need besides: Rust, to build a host Brain, and `flatc` ([CONTRIBUTING.md](./CONTRIBUTING.md) lists the checks).
 
@@ -82,24 +82,31 @@ RUN=$(gh run list -w release.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json dat
 gh run watch "$RUN" --exit-status                 # RUN is empty, or an earlier run, for the few seconds before the run appears
 ```
 
-`upload_release=true` from anything but a `v*` tag, or from a tag that does not match the package version, fails the run rather than skipping the Release quietly. `publish_npm` stays off until npm trusted publishing is set up, and step 6 publishes by hand meanwhile.
+`upload_release=true` from anything but a `v*` tag, or from a tag that does not match the package version, fails the run rather than skipping the Release quietly. The run then stages the tarball on npm, under the dist-tag its version names, where it waits for step 6. A version npm cannot stage yet — the package's first — is dispatched with `-f publish_npm=false` added, and step 6 publishes it by hand.
 
-On a Mac, the same script makes the same draft without the workflow. It refuses anything but a clean checkout of the tag that `origin` has, and requires `flatc`, so that no check is skipped.
+On a Mac, the same script makes the same draft without the workflow, and stages nothing: step 6 publishes by hand. It refuses anything but a clean checkout of the tag that `origin` has, and requires `flatc`, so that no check is skipped.
 
 ```bash
 git switch --detach "$TAG" && pnpm run release
 ```
 
-### 6. Publish to npm
+### 6. Approve on npm
 
-Open the draft on the [Releases](https://github.com/cri-middleware/SSPlayerForReactNative/releases) page and check the attachments: `react-native-spritestudio-X.Y.Z.tgz` and `SHA256SUMS`. The package goes to npm from the very tarball on the draft, before the Release is published, so that by the time the Release announces the version, `npm install` finds it. Look inside it first: until it is on npm, a fault is undone by deleting the draft (see [Undoing a release](#undoing-a-release)), and after it, only a new version fixes it.
-
-`--tag` is the prerelease's word (`beta`). A full release takes `--tag latest`, since the package's `publishConfig.tag` would otherwise put it under `beta` as well. npm asks for a 2FA code, and `npm login` and that code take a person at the terminal: an AI agent cutting the release hands this step over. Until npm can take the package, skip this step: the Release alone carries the tarball, and these lines publish it from there later.
+Open the draft on the [Releases](https://github.com/cri-middleware/SSPlayerForReactNative/releases) page and check the attachments: `react-native-spritestudio-X.Y.Z.tgz` and `SHA256SUMS`. Look inside the tarball first: until npm makes the version public, a fault is undone by deleting the draft and rejecting what was staged (see [Undoing a release](#undoing-a-release)), and after it, only a new version fixes it. Approve before the Release is published, so that by the time the Release announces the version, `npm install` finds it; approving applies the dist-tag it was staged under. Approving asks for a 2FA code, and `npm login` and that code take a person at the terminal: an AI agent cutting the release hands this step over.
 
 ```bash
 npm login                                         # once
 dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
 tar -tzf "$dir"/*.tgz                             # what npm will carry
+npm stage list react-native-spritestudio          # the staged version, with its stage id
+npm stage approve <stage-id>
+npm view react-native-spritestudio dist-tags      # the version just approved, under its dist-tag
+```
+
+A release the run did not stage — the package's first, one dispatched with `publish_npm=false`, one cut on a Mac, or one whose **Stage on npm** failed — is published by hand instead, from the same tarball. `--tag` is the prerelease's word (`beta`). A full release takes `--tag latest`, since the package's `publishConfig.tag` would otherwise put it under `beta` as well. Until npm can take the package, skip this: the Release alone carries the tarball, and these lines publish it from there later.
+
+```bash
+dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
 npm publish "$dir"/*.tgz --tag beta               # a full release: --tag latest
 npm view react-native-spritestudio dist-tags      # beta: the version just published
 ```
@@ -127,9 +134,9 @@ If the button on its pull request already deleted the release branch, the last l
 
 ## Undoing a release
 
-Until step 6 publishes to npm, a release can be undone. A run that failed for a transient reason is run again from the same tag — the workflow or `pnpm run release` — once any draft it left is deleted. A fault that needs new commits takes the tag down too: delete the draft, run `git push origin ":refs/tags/$TAG" && git tag -d "$TAG"`, fix it on the branch — restore it from its pull request if it was deleted — and go back to step 3.
+Until step 6 makes the version public on npm, a release can be undone. A run that failed for a transient reason is run again from the same tag — the workflow or `pnpm run release` — once any draft it left is deleted; a version it had already staged is skipped. A fault that needs new commits takes the tag down too: delete the draft, reject what was staged with `npm stage reject <stage-id>` (a person, with 2FA), run `git push origin ":refs/tags/$TAG" && git tag -d "$TAG"`, fix it on the branch — restore it from its pull request if it was deleted — and go back to step 3.
 
-**A version on npm is permanent**: it cannot be withdrawn, only superseded. So is a published Release, whose file users have downloaded by its tag. A fault found after either is fixed by a new patch version.
+**A version npm has made public is permanent**, whether approved or published by hand: it cannot be withdrawn, only superseded. So is a published Release, whose file users have downloaded by its tag. A fault found after either is fixed by a new patch version. A version that is only staged is not public yet, and rejecting it removes it.
 
 ## Building the release locally
 
@@ -151,7 +158,7 @@ It runs anywhere, but off macOS it skips `check-mask` and `check-shader`, which 
 
 ## リリースの手順
 
-このリポジトリの Write ロールを持つ人なら誰でもリリースできます。どの手順もブランチ・プルリクエスト・タグ・ワークフローの実行・Release のいずれかで、端末で描画を見る部分を除けば、誰の手元で実行しても結果は変わりません。必要なのは `git`、`gh`（最初に一度 `gh auth login`）、Node.js、pnpm、それに手順 6 のための `npm` で、`react-native-spritestudio` に publish できるアカウントでログインしておきます。リポジトリ側では、GitHub Pages を有効にしてソースを GitHub Actions にし、`github-pages` environment に `v*` のタグのルールを足しておく必要があります。どちらかが欠けると、Release を公開しても何もデプロイされません。どちらもリポジトリの admin が行う設定です。コマンドは bash です。zsh では、`#` のコメントが引数として渡されないよう、先に `setopt interactive_comments` を実行します。Windows では Git Bash を使います。
+このリポジトリの Write ロールを持つ人なら誰でもリリースできます。どの手順もブランチ・プルリクエスト・タグ・ワークフローの実行・Release のいずれかで、端末で描画を見る部分を除けば、誰の手元で実行しても結果は変わりません。必要なのは `git`、`gh`（最初に一度 `gh auth login`）、Node.js、pnpm、それに手順 6 のための `npm` で、`react-native-spritestudio` に publish できるアカウントでログインしておきます。リポジトリ側では、GitHub Pages を有効にしてソースを GitHub Actions にし、`github-pages` environment に `v*` のタグのルールを足しておく必要があります。どちらかが欠けると、Release を公開しても何もデプロイされません。どちらもリポジトリの admin が行う設定です。npm 側では、パッケージに、このリポジトリの `release.yml` を trusted publisher として登録し、stage を許可しておきます。npm はすでにあるパッケージにしか trusted publisher を設定できないので、パッケージの最初のバージョンは手作業で出します（手順 6）。コマンドは bash です。zsh では、`#` のコメントが引数として渡されないよう、先に `setopt interactive_comments` を実行します。Windows では Git Bash を使います。
 
 ワークフローの 2 つの実行、手順 3 の QA ビルドと手順 5 の Release は、どちらも代わりに Mac の手元で実行できます。ワークフローが実行するのは、その手順が名前を挙げるスクリプトだけだからです。それらのスクリプトはホストチェックを実行するので、この経路にはその検査に要るもの、つまりホスト用の Brain をビルドする Rust と `flatc` も必要です（検査の一覧は [CONTRIBUTING.md](./CONTRIBUTING.md) にあります）。
 
@@ -229,24 +236,31 @@ RUN=$(gh run list -w release.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json dat
 gh run watch "$RUN" --exit-status                 # run が一覧に出るまでの数秒間は、RUN が空か前の run になる
 ```
 
-`v*` タグ以外からの `upload_release=true` と、パッケージのバージョンと食い違うタグからの実行は、Release を黙って飛ばさずに実行を失敗させます。`publish_npm` は npm の trusted publishing を設定するまでオフのままにし、それまでは手順 6 で手動で publish します。
+`v*` タグ以外からの `upload_release=true` と、パッケージのバージョンと食い違うタグからの実行は、Release を黙って飛ばさずに実行を失敗させます。run は続けて、バージョンが示す dist-tag で tarball を npm に stage します。stage したものは手順 6 を待ちます。npm がまだ stage できないバージョン（パッケージの最初のバージョン）は、`-f publish_npm=false` を足して実行し、手順 6 で手作業で publish します。
 
-Mac では、同じスクリプトがワークフロー無しで同じ下書きを作ります。`origin` にあるタグをそのままチェックアウトした、変更の無い作業ツリーでしか動きません。検査を 1 つも飛ばさないよう、`flatc` も必須です。
+Mac では、同じスクリプトがワークフロー無しで同じ下書きを作ります。npm には何も stage しないので、手順 6 で手作業で publish します。`origin` にあるタグをそのままチェックアウトした、変更の無い作業ツリーでしか動きません。検査を 1 つも飛ばさないよう、`flatc` も必須です。
 
 ```bash
 git switch --detach "$TAG" && pnpm run release
 ```
 
-### 6. npm に publish する
+### 6. npm で承認する
 
-[Releases](https://github.com/cri-middleware/SSPlayerForReactNative/releases) ページで下書きを開き、添付を確かめます。`react-native-spritestudio-X.Y.Z.tgz` と `SHA256SUMS` です。パッケージは、下書きに添付された tarball そのものを npm に出します。Release を公開するよりも先に行い、Release がバージョンを告知する時点で、`npm install` がそのバージョンを見つけられるようにします。先に中身を確かめます。npm に出すまでなら下書きを消せば取り消せますが（「[リリースの取り消し](#リリースの取り消し)」を参照）、出した後は新しいバージョンでしか直せません。
-
-`--tag` はプレリリースの語（`beta`）です。正式版では `--tag latest` を付けます。付けないと、パッケージの `publishConfig.tag` に従って正式版も `beta` の下に出てしまいます。npm は 2FA のコードを求めます。`npm login` とこのコードの入力は人が端末で行うもので、AI エージェントにリリースさせているときは、この手順を人に引き継ぎます。npm に出せるようになるまでは、この手順は飛ばします。tarball は Release だけが持ち、あとで同じコマンドでそこから publish できます。
+[Releases](https://github.com/cri-middleware/SSPlayerForReactNative/releases) ページで下書きを開き、添付を確かめます。`react-native-spritestudio-X.Y.Z.tgz` と `SHA256SUMS` です。先に tarball の中身を確かめます。npm でバージョンが公開されるまでなら、下書きを消して stage したものを取り下げれば取り消せますが（「[リリースの取り消し](#リリースの取り消し)」を参照）、公開した後は新しいバージョンでしか直せません。Release を公開するよりも先に承認し、Release がバージョンを告知する時点で、`npm install` がそのバージョンを見つけられるようにします。承認すると、stage したときの dist-tag が付きます。承認には 2FA のコードが要ります。`npm login` とこのコードの入力は人が端末で行うもので、AI エージェントにリリースさせているときは、この手順を人に引き継ぎます。
 
 ```bash
 npm login                                         # 最初に一度
 dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
 tar -tzf "$dir"/*.tgz                             # npm に出る中身
+npm stage list react-native-spritestudio          # stage されたバージョンと、その stage id
+npm stage approve <stage-id>
+npm view react-native-spritestudio dist-tags      # いま承認したバージョンと、その dist-tag
+```
+
+run が stage しなかったリリースは、同じ tarball を手作業で publish します。パッケージの最初のバージョン、`publish_npm=false` で実行したもの、Mac で切ったもの、**Stage on npm** が失敗したものがこれにあたります。`--tag` はプレリリースの語（`beta`）です。正式版では `--tag latest` を付けます。付けないと、パッケージの `publishConfig.tag` に従って正式版も `beta` の下に出てしまいます。npm に出せるようになるまでは、ここは飛ばします。tarball は Release だけが持ち、あとで同じコマンドでそこから publish できます。
+
+```bash
+dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
 npm publish "$dir"/*.tgz --tag beta               # 正式版は --tag latest
 npm view react-native-spritestudio dist-tags      # beta: いま出したバージョン
 ```
@@ -274,9 +288,9 @@ git push origin --delete "$BRANCH"
 
 ## リリースの取り消し
 
-手順 6 で npm へ publish するまでは取り消せます。一時的な理由で失敗した run は、残った下書きがあれば消してから、同じタグでもう一度実行します（ワークフローでも `pnpm run release` でも構いません）。新しいコミットが要る不具合ならタグも取り下げます。下書きを消し、`git push origin ":refs/tags/$TAG" && git tag -d "$TAG"` を実行し、ブランチで直して（消していたらプルリクエストのページから復元して）手順 3 に戻ります。
+手順 6 で npm にバージョンが公開されるまでは取り消せます。一時的な理由で失敗した run は、残った下書きがあれば消してから、同じタグでもう一度実行します（ワークフローでも `pnpm run release` でも構いません）。stage 済みのバージョンは飛ばされます。新しいコミットが要る不具合ならタグも取り下げます。下書きを消し、stage したものを `npm stage reject <stage-id>` で取り下げ（人が 2FA で行います）、`git push origin ":refs/tags/$TAG" && git tag -d "$TAG"` を実行し、ブランチで直して（消していたらプルリクエストのページから復元して）手順 3 に戻ります。
 
-**npm のバージョンは恒久的です。** 取り下げられず、新しいバージョンで置き換えるしかありません。公開した Release も同じで、利用者はそのタグでファイルを取得しています。どちらかの後に見つかった不具合は、新しいパッチバージョンで直します。
+**npm で公開されたバージョンは恒久的です。** 承認したものも手作業で publish したものも、取り下げられず、新しいバージョンで置き換えるしかありません。公開した Release も同じで、利用者はそのタグでファイルを取得しています。どちらかの後に見つかった不具合は、新しいパッチバージョンで直します。stage しただけのバージョンはまだ公開されておらず、取り下げれば消えます。
 
 ## リリースのローカルビルド
 
