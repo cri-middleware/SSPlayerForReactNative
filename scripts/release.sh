@@ -1,134 +1,87 @@
 #!/bin/bash
 #
-# Everything that has to be true before `npm publish`, in the order it has to
-# be true in — then the publish.
+# The release, from a checkout of its tag: `build-release.sh` with the options a
+# release takes, then the draft GitHub Release carrying the tarball it checked
+# and SHA256SUMS. `release.yml` runs this very script when dispatched from a tag
+# with upload_release=true, so a release cut on a Mac and one cut by CI are the
+# same build and the same draft.
 #
-# **macOS only, and that is not a portability oversight.** The tarball carries
-# the Brain's iOS xcframework, which only Xcode can build, so a release from
-# anywhere else would ship an Android-only package that installs and then fails
-# to link on iOS. `build-runtime.ps1` says the same thing about Windows.
+#   git switch --detach v7.0.1 && pnpm run release
 #
-# What this does NOT do: bump the version or tag. Those are decisions, and a
-# script that made them would have to guess which.
+# What this does NOT do: publish. The tarball goes to npm by hand, from the
+# draft, and the draft is published by hand — both are permanent, and they are
+# steps 6 and 7 of RELEASING.md, after the draft has been looked at.
 #
-# Usage: scripts/release.sh [--dry-run] [--otp <code>]
-#   --dry-run  everything up to and including `npm pack`, no publish
-#   --otp      forwarded to npm publish for 2FA
+# **macOS only, and not by oversight.** `check-mask` / `check-shader` link the
+# host `libskia.a` RN Skia ships with a macOS slice and no other, and
+# build-release.sh skips them anywhere else — which a release cannot afford. It
+# skips what needs `flatc` the same way, so that is required here too.
 
-set -e
+set -euo pipefail
 
+APP=$(basename "$0")
 BASEDIR=$(dirname "$0")
 SCRIPTDIR=$(cd "$BASEDIR" && pwd -P)
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 PKG_DIR="${ROOTDIR}/packages/react-native-spritestudio"
-APP=$(basename "$0")
+OUT="${ROOTDIR}/release-dist"
 
-DRY_RUN=""
-OTP=""
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --dry-run) DRY_RUN="1" ;;
-        --otp) shift; OTP="$1" ;;
-        -h|--help)
-            echo "Usage: ${APP} [--dry-run] [--otp <code>]"
-            exit 0 ;;
-        *) echo "${APP}: unknown argument '$1'" >&2; exit 2 ;;
-    esac
-    shift
+die () { echo "${APP}: $1" >&2; exit 1; }
+
+[ $# -eq 0 ] || { echo "Usage: ${APP}   (no arguments — see RELEASING.md)" >&2; exit 2; }
+
+[ "$(uname)" = "Darwin" ] || die "macOS only — check-mask and check-shader link a libskia with no other slice"
+for tool in gh flatc; do
+    command -v "$tool" >/dev/null 2>&1 || die "${tool} not found"
 done
 
-step() { echo ""; echo "==> $1"; }
-die() { echo "" >&2; echo "${APP}: $1" >&2; exit 1; }
+PKG_NAME=$(node -p "require('${PKG_DIR}/package.json').name")
+VERSION=$(node -p "require('${PKG_DIR}/package.json').version")
+TAG="v${VERSION}"
+# npm's tarball name, as build-release.sh spells it.
+TGZ="${OUT}/npm/$(printf '%s' "$PKG_NAME" | sed 's|^@||; s|/|-|g')-${VERSION}.tgz"
 
-[ "$(uname)" = "Darwin" ] || die "macOS only — the iOS xcframework in the tarball needs Xcode"
-
-# --- 1. the tree ------------------------------------------------------------
+# --- the checkout -----------------------------------------------------------
 #
-# A dirty tree is the one way a published tarball can contain something that is
-# in no commit, which is unreproducible in the exact way a release must not be.
-step "checking the working tree"
-[ -z "$(git -C "$ROOTDIR" status --porcelain)" ] || die "working tree is dirty — commit or stash first"
-BRANCH=$(git -C "$ROOTDIR" rev-parse --abbrev-ref HEAD)
-[ "$BRANCH" = "main" ] || echo "    note: on '${BRANCH}', not main"
-
-# Both submodules, for two different reasons. The vendored flatbuffers headers
-# go *in* the tarball, and an uninitialised submodule is an empty directory that
-# packs as a package whose C++ cannot compile. The SDK is not shipped at all,
-# but the host checks below build a host Brain out of it.
+# The tag as origin has it, and nothing else. The draft attaches files to that
+# tag, so a tarball built from any other tree would be published under a name
+# that does not describe it.
+#
+# Both submodules first, so the tree is compared with them where the tag puts
+# them: the vendored flatbuffers headers go in the tarball, and the host checks
+# build a host Brain out of the SDK.
 git -C "$ROOTDIR" submodule update --init \
     packages/react-native-spritestudio/third_party/flatbuffers SpriteStudio-SDK
-echo "    submodules initialised"
+[ -z "$(git -C "$ROOTDIR" status --porcelain)" ] || die "the working tree is dirty — commit or stash first"
 
-# --- 2. the Brain -----------------------------------------------------------
+HEAD=$(git -C "$ROOTDIR" rev-parse HEAD)
+# An annotated tag lists twice, and its peeled `^{}` line, the commit, sorts last.
+REMOTE=$(git -C "$ROOTDIR" ls-remote origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | awk '{ c = $1 } END { print c }')
+[ -n "$REMOTE" ] || die "origin has no tag ${TAG} — tag main and push the tag first"
+[ "$REMOTE" = "$HEAD" ] || die "HEAD is not ${TAG} — run 'git switch --detach ${TAG}' first"
+
+gh api 'repos/{owner}/{repo}' --silent || die "gh cannot reach this repository — run 'gh auth login'"
+
+echo "${APP}: releasing ${TAG} from ${HEAD}"
+
+# --- the build --------------------------------------------------------------
 #
-# The pinned **release**, not a local build. `build-runtime` builds whatever the
-# submodule happens to be checked out at, and the gitlink tracks an internal
-# branch — so publishing one would ship a Brain from a commit that moves and
-# that nobody outside can reproduce. It leaves no version behind for exactly
-# that reason, which is also what stops this step from being skipped.
+# Every option spelled out, so a release cannot change because a default did.
+"${SCRIPTDIR}/build-release.sh" sdk=download out="$OUT" verify=yes clean=yes
+
+[ -f "$TGZ" ] || die "the build produced no $(basename "$TGZ")"
+
+# --- the draft --------------------------------------------------------------
 #
-# It also settles the build mode: a release asset is a release build, which is
-# what prepack insists on.
-#
-# This is the step that fails while the SDK has no release tag. That is the
-# correct failure: there is nothing to publish against yet.
-step "installing the pinned Brain"
-"${SCRIPTDIR}/download-sdk.sh"
-
-# --- 3. generated code ------------------------------------------------------
-#
-# Both generators are committed output, so what matters is that the tree matches
-# what the current inputs would produce. A stale nitrogen/ ships bindings that
-# disagree with the spec; a stale cpp/format/ reads FrameData at the wrong
-# offsets, silently.
-step "checking the generated code is current"
-"${SCRIPTDIR}/generate-nitro-code.sh" >/dev/null
-git -C "$ROOTDIR" diff --exit-code -- packages/react-native-spritestudio/nitrogen >/dev/null \
-    || die "nitrogen/ is stale — commit the regenerated output"
-echo "    nitrogen/ current"
-
-if command -v flatc >/dev/null 2>&1; then
-    "${SCRIPTDIR}/generate-fbs-code.sh" >/dev/null
-    git -C "$ROOTDIR" diff --exit-code -- packages/react-native-spritestudio/cpp/format >/dev/null \
-        || die "cpp/format/ is stale — commit the regenerated output"
-    echo "    cpp/format/ current"
-else
-    echo "    cpp/format/ SKIPPED (no flatc) — run 'pnpm run check-framedata' before releasing"
-fi
-
-# --- 4. the checks ----------------------------------------------------------
-#
-# The ones that run without a device. They are the difference between "it
-# compiles" and "it draws what it drew last time".
-step "typecheck"
-( cd "$ROOTDIR" && pnpm run typecheck )
-
-step "host checks"
-( cd "$ROOTDIR" && pnpm run check-framedata && pnpm run check-mask && pnpm run check-shader && pnpm run check-hidden )
-
-# --- 5. the tarball ---------------------------------------------------------
-#
-# `prepack` runs `bob build` and then refuses anything the consumer could not
-# use — a debug Brain, missing licences, an empty flatbuffers include, `files`
-# naming a path that is not there.
-step "packing"
-( cd "$PKG_DIR" && npm pack --dry-run )
-
-if [ -n "$DRY_RUN" ]; then
-    echo ""
-    echo "Dry run: everything passed, nothing published."
-    exit 0
-fi
-
-# --- 6. publish -------------------------------------------------------------
-step "publishing"
-if [ -n "$OTP" ]; then
-    ( cd "$PKG_DIR" && npm publish --otp "$OTP" )
-else
-    ( cd "$PKG_DIR" && npm publish )
-fi
-
-VERSION=$(node -p "require('${PKG_DIR}/package.json').version")
+# A Release that is already there is left alone: delete a draft to have it made
+# again.
 echo ""
-echo "Published react-native-spritestudio@${VERSION}."
-echo "Tag it if that is the convention: git tag v${VERSION} && git push origin v${VERSION}"
+if gh release view "$TAG" >/dev/null 2>&1; then
+    echo "${APP}: ${TAG} already has a Release — nothing to draft."
+else
+    args=(--verify-tag --title "SpriteStudio Player for React Native ${TAG}" --generate-notes --draft)
+    case "$TAG" in *-*) args+=(--prerelease) ;; esac
+    gh release create "$TAG" "$TGZ" "${OUT}/SHA256SUMS" "${args[@]}"
+    echo "${APP}: drafted ${TAG}."
+fi
+echo "${APP}: nothing is public yet — publishing is steps 6 and 7 of RELEASING.md."

@@ -1,16 +1,16 @@
 #!/bin/bash
 #
 # Build the release locally and publish none of it: the tarball `release.sh`
-# would upload, packed where you can look inside it, with SHA256SUMS over it and
-# the checks that have to pass before it goes out.
+# would attach to the draft Release, packed where you can look inside it, with
+# SHA256SUMS over it and the checks that have to pass before it goes out.
 #
 #   scripts/build-release.sh                      # the whole thing
 #   scripts/build-release.sh sdk=build            # compile the Brain here instead
 #   scripts/build-release.sh skip=install,checks  # iterate
 #   scripts/build-release.sh out=/tmp/rel         # somewhere else
 #
-# This is `release.sh` minus the publish. It bumps nothing and tags nothing: the
-# tarball carries the version the tree has right now.
+# `release.sh` is this with the draft Release on the end. This bumps nothing and
+# tags nothing: the tarball carries the version the tree has right now.
 #
 # **Only the pinned SDK release can be packed.** `download-sdk` writes
 # native/VERSION and native/BUILD_MODE; `build-runtime` deletes both, because a
@@ -598,7 +598,7 @@ echo ""
 done )
 echo ""
 if [ "$SHIPPABLE" = "yes" ]; then
-    echo "${APP}: nothing was published. 'pnpm run release' is the same run with the publish on the end."
+    echo "${APP}: nothing was published. 'pnpm run release', on the tag, is the same run with the draft Release on the end."
     if [ -n "$PACKED" ]; then
         echo ""
         echo "${APP}: try it before shipping it — install the tarball into a scratch app:"

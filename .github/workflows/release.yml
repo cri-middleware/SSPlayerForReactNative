@@ -3,14 +3,19 @@ name: Release
 # One release of `react-native-spritestudio`, dispatched by hand.
 #
 # With upload_release left false it is the QA run off a branch:
-# scripts/build-release.sh -- everything release.sh checks, the pinned Brain, the
-# generated code, the host checks and `prepack`, then the tarball opened and
-# checked again -- and the result kept on the run, nothing uploaded. A release is
-# a v* tag on main, pushed first and dispatched from second with
-# upload_release=true: the same build, then the tarball it checked goes to npm
-# (under publishConfig.tag) and a DRAFT GitHub Release carries it with SHA256SUMS
-# and generated notes. publish_npm=false leaves npm out, which is how the package
-# ships before npm can take it. Publishing the draft starts pages.yml.
+# scripts/build-release.sh -- the pinned Brain, the generated code, the host
+# checks and `prepack`, then the tarball opened and checked again -- and the
+# result kept on the run, nothing uploaded. A release is a v* tag on main, pushed
+# first and dispatched from second with upload_release=true: scripts/release.sh,
+# which is the same build with a DRAFT GitHub Release on the end, carrying the
+# tarball it checked with SHA256SUMS and generated notes -- and which a
+# maintainer runs on a Mac to cut the release without this workflow. Publishing
+# the draft starts pages.yml.
+#
+# publish_npm is off by default: until npm trusted publishing replaces the
+# token, a maintainer publishes the tarball on the Release by hand (RELEASING.md).
+# On, the tarball the build checked goes to npm (under publishConfig.tag), unless
+# npm already has that version.
 #
 # **macOS only, and not by oversight.** `check-mask` / `check-shader` link the
 # host `libskia.a` that RN Skia ships with a macOS slice and no Linux one, and
@@ -23,21 +28,19 @@ name: Release
 # the channel is ready the moment the tag lands, not so a green tick can be had
 # without one.
 #
-# Secrets:
-#   SS_NPM_TOKEN  an npm automation token. Automation tokens bypass 2FA, which CI
-#                 cannot answer interactively — which is why there is no OTP
-#                 input here.
+# publish_npm needs the SS_NPM_TOKEN secret: an npm token that bypasses 2FA,
+# which CI cannot answer interactively — which is why there is no OTP input here.
 on:
   workflow_dispatch:
     inputs:
       upload_release:
-        description: 'Publish to npm and draft the GitHub Release (only effective on a v* tag ref)'
+        description: 'Draft the GitHub Release (only effective on a v* tag ref)'
         type: boolean
         default: false
       publish_npm:
         description: 'With upload_release, publish to npm too (off: the Release alone, tarball attached)'
         type: boolean
-        default: true
+        default: false
 
 # An npm version is immutable once published, so two of these must never
 # overlap, and a queued one must not be cancelled half way.
@@ -105,10 +108,18 @@ jobs:
         run: brew install flatbuffers
 
       # scripts/build-release.sh IS the release build, and the tarball it packs and
-      # checks is the file published and attached below. Every option is spelled
-      # out, so a release cannot change because a default did.
+      # checks is the file attached and published below. Every option is spelled
+      # out, so a release cannot change because a default did; release.sh spells
+      # out the same ones.
       - name: Build and check the release
+        if: ${{ !inputs.upload_release }}
         run: ./scripts/build-release.sh skip=install sdk=download out=release-dist verify=yes clean=yes
+
+      - name: Build and check the release, and draft the GitHub Release
+        if: inputs.upload_release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/release.sh
 
       - name: Upload the release build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -134,19 +145,3 @@ jobs:
             exit 0
           fi
           npm publish release-dist/npm/*.tgz
-
-      - name: Draft the GitHub Release
-        if: inputs.upload_release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          tag="$GITHUB_REF_NAME"
-          if gh release view "$tag" > /dev/null 2>&1; then
-            echo "::notice::${tag} already has a Release — nothing to do."
-            exit 0
-          fi
-          args=(--verify-tag --title "SpriteStudio Player for React Native ${tag}" --generate-notes --draft)
-          case "$tag" in *-*) args+=(--prerelease) ;; esac
-          gh release create "$tag" release-dist/npm/*.tgz release-dist/SHA256SUMS "${args[@]}"
-          echo "::notice::Drafted ${tag} — check it and publish it from the Releases page."
