@@ -11,12 +11,12 @@ param (
 #   scripts\build-release.ps1 sdk=build            # compile the Brain here instead
 #   scripts\build-release.ps1 skip=install,checks  # iterate
 #
-# Unlike release.ps1 this DOES run on Windows, and the reason is the same one
-# that stops the other: the iOS xcframework needs Xcode. Publishing an
-# Android-only package is a broken release, but BUILDING one to look at is a
-# useful thing to do -- and sdk=download carries the iOS half anyway, since the
-# release archive holds every slice. What the verification will not do is call
-# an Android-only package shippable.
+# Unlike release.ps1 this DOES run on Windows. A release cannot skip the host
+# checks, which link a libskia with no Windows slice, but BUILDING the tarball to
+# look at is a useful thing to do -- and sdk=download carries the iOS half,
+# since the release archive holds every slice. With sdk=build only Xcode makes
+# that half, and what the verification will not do is call an Android-only
+# package shippable.
 #
 # Only the pinned SDK release can be packed: download-sdk writes native\VERSION
 # and native\BUILD_MODE, build-runtime deletes both, and prepack refuses a
