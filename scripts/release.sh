@@ -3,7 +3,7 @@
 # The release, from a checkout of its tag: `build-release.sh` with the options a
 # release takes, then the draft GitHub Release carrying the tarball it checked
 # and SHA256SUMS. `release.yml` runs this very script when dispatched from a tag
-# with upload_release=true, so a release cut on a Mac and one cut by CI are the
+# with upload_release on, so a release cut on a Mac and one cut by CI are the
 # same build and the same draft.
 #
 #   git switch --detach v7.0.1 && pnpm run release
