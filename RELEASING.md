@@ -42,7 +42,7 @@ git commit -m "chore(release): v${VERSION:?}"
 
 ### 3. Pull request, QA build and a look on a device
 
-Open the pull request into `main`, then dispatch the release workflow from the branch. With `upload_release` left false it runs `scripts/build-release.sh` on macOS — the pinned Brain, the generated code, the typecheck and the host checks, `prepack`, and the tarball opened and checked again — keeps the result on the run (`react-native-spritestudio-release-dist`), and uploads nothing. Fix anything on the branch and repeat until it is green.
+Open the pull request into `main`, then dispatch the release workflow from the branch. From a branch it runs `scripts/build-release.sh` on macOS — the pinned Brain, the generated code, the typecheck and the host checks, `prepack`, and the tarball opened and checked again — keeps the result on the run (`react-native-spritestudio-release-dist`), and uploads nothing. Fix anything on the branch and repeat until it is green.
 
 ```bash
 git push -u origin "$BRANCH"
@@ -82,7 +82,7 @@ RUN=$(gh run list -w release.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json dat
 gh run watch "$RUN" --exit-status                 # RUN is empty, or an earlier run, for the few seconds before the run appears
 ```
 
-`upload_release=true` from anything but a `v*` tag, or from a tag that does not match the package version, fails the run rather than skipping the Release quietly. The run then stages the tarball on npm, under the dist-tag its version names, where it waits for step 6. A version npm cannot stage yet — the package's first — is dispatched with `-f publish_npm=false` added, and step 6 publishes it by hand.
+A tag that does not match the package version fails the run. A tag that already has a Release, draft or published, keeps it as it is, so delete a draft before dispatching again ([Undoing a release](#undoing-a-release)). The run then stages the tarball on npm, under the dist-tag its version names, where it waits for step 6. A version npm cannot stage yet — the package's first — is dispatched with `-f publish_npm=false` added, and step 6 publishes it by hand. The two inputs are independent: `-f upload_release=false` stages on npm without touching the Release, and with both off a run from the tag only builds.
 
 On a Mac, the same script makes the same draft without the workflow, and stages nothing: step 6 publishes by hand. It refuses anything but a clean checkout of the tag that `origin` has, and requires `flatc`, so that no check is skipped.
 
@@ -196,7 +196,7 @@ git commit -m "chore(release): v${VERSION:?}"
 
 ### 3. プルリクエスト、QA ビルド、端末での確認
 
-`main` へのプルリクエストを作り、ブランチからリリースワークフローを実行します。`upload_release` を false のままにすると、macOS で `scripts/build-release.sh` を実行し（ピンした Brain、生成コード、型チェックとホストチェック、`prepack`、そして完成した tarball を開き直しての検査）、結果を run に残して（`react-native-spritestudio-release-dist`）、何もアップロードしません。問題があればブランチで直し、緑になるまで繰り返します。
+`main` へのプルリクエストを作り、ブランチからリリースワークフローを実行します。ブランチからの実行では、macOS で `scripts/build-release.sh` を実行し（ピンした Brain、生成コード、型チェックとホストチェック、`prepack`、そして完成した tarball を開き直しての検査）、結果を run に残して（`react-native-spritestudio-release-dist`）、何もアップロードしません。問題があればブランチで直し、緑になるまで繰り返します。
 
 ```bash
 git push -u origin "$BRANCH"
@@ -236,7 +236,7 @@ RUN=$(gh run list -w release.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json dat
 gh run watch "$RUN" --exit-status                 # run が一覧に出るまでの数秒間は、RUN が空か前の run になる
 ```
 
-`v*` タグ以外からの `upload_release=true` と、パッケージのバージョンと食い違うタグからの実行は、Release を黙って飛ばさずに実行を失敗させます。run は続けて、バージョンが示す dist-tag で tarball を npm に stage します。stage したものは手順 6 を待ちます。npm がまだ stage できないバージョン（パッケージの最初のバージョン）は、`-f publish_npm=false` を足して実行し、手順 6 で手作業で publish します。
+パッケージのバージョンと食い違うタグからの実行は失敗します。Release がすでにあるタグでは、下書きでも公開済みでも、その Release に触れないので、もう一度実行するときは先に下書きを消します（[リリースの取り消し](#リリースの取り消し)）。run は続けて、バージョンが示す dist-tag で tarball を npm に stage します。stage したものは手順 6 を待ちます。npm がまだ stage できないバージョン（パッケージの最初のバージョン）は、`-f publish_npm=false` を足して実行し、手順 6 で手作業で publish します。2 つの入力は独立しています。`-f upload_release=false` なら Release に触れずに npm にだけ stage し、両方を外せばタグからの実行でもビルドだけを行います。
 
 Mac では、同じスクリプトがワークフロー無しで同じ下書きを作ります。npm には何も stage しないので、手順 6 で手作業で publish します。`origin` にあるタグをそのままチェックアウトした、変更の無い作業ツリーでしか動きません。検査を 1 つも飛ばさないよう、`flatc` も必須です。
 

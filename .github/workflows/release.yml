@@ -2,25 +2,25 @@ name: Release
 
 # One release of `react-native-spritestudio`, dispatched by hand.
 #
-# With upload_release left false it is the QA run off a branch:
+# The ref decides what the run is. From a branch it is the QA run:
 # scripts/build-release.sh -- the pinned Brain, the generated code, the host
 # checks and `prepack`, then the tarball opened and checked again -- and the
 # result kept on the run, nothing uploaded. A release is a v* tag on main, pushed
-# first and dispatched from second with upload_release=true: scripts/release.sh,
+# first and dispatched from second. There upload_release runs scripts/release.sh,
 # which is the same build with a DRAFT GitHub Release on the end, carrying the
-# tarball it checked with SHA256SUMS and generated notes -- and which a
-# maintainer runs on a Mac to cut the release without this workflow. Publishing
-# the draft starts pages.yml.
+# tarball it checked with SHA256SUMS and generated notes, unless the tag has a
+# Release already -- and which a maintainer runs on a Mac to cut the release
+# without this workflow. Publishing the draft starts pages.yml.
 #
-# With upload_release, publish_npm stages the tarball the build checked on npm
-# through trusted publishing, unless npm already has that version, staged or
-# published, under the dist-tag its version names: the prerelease's word, or
-# `latest` for a full release, which publishConfig.tag would otherwise put under
-# `beta`. Nothing is public until a maintainer approves it with 2FA, on npmjs.com
-# or with `npm stage approve` (RELEASING.md, step 6). Off, the Release alone
-# carries the tarball. That is how the package's first version ships: npm sets
-# up a trusted publisher only for a package it already has, so a maintainer
-# publishes that version by hand from the tarball.
+# On a v* tag, with or without upload_release, publish_npm stages the tarball
+# the build checked on npm through trusted publishing, unless npm already has
+# that version, staged or published, under the dist-tag its version names: the
+# prerelease's word, or `latest` for a full release, which publishConfig.tag
+# would otherwise put under `beta`. Nothing is public until a maintainer approves
+# it with 2FA, on npmjs.com or with `npm stage approve` (RELEASING.md, step 6).
+# Off, the Release alone carries the tarball. That is how the package's first
+# version ships: npm sets up a trusted publisher only for a package it already
+# has, so a maintainer publishes that version by hand from the tarball.
 #
 # **macOS only, and not by oversight.** `check-mask` / `check-shader` link the
 # host `libskia.a` that RN Skia ships with a macOS slice and no Linux one, and
@@ -40,11 +40,11 @@ on:
   workflow_dispatch:
     inputs:
       upload_release:
-        description: 'Draft the GitHub Release (only effective on a v* tag ref)'
+        description: 'Draft the GitHub Release, to publish by hand. Only from a v* tag that has no Release yet; from a branch the run is a build.'
         type: boolean
-        default: false
+        default: true
       publish_npm:
-        description: 'With upload_release, stage on npm too, for a maintainer to approve (off: the Release alone, tarball attached)'
+        description: 'Stage the tarball on npm, for a maintainer to approve. Only from a v* tag, with or without upload_release.'
         type: boolean
         default: true
 
@@ -72,16 +72,10 @@ jobs:
           # Full history + tags, for the previous tag the notes start at.
           fetch-depth: 0
 
-      # A release is a tag that was pushed first and dispatched from second, so
-      # asking to upload from anything else is an operator error, not a mode.
-      - name: Refuse to release from a non-tag ref
-        if: inputs.upload_release && !startsWith(github.ref, 'refs/tags/v')
-        run: |
-          echo "::error::upload_release=true needs a v* tag. Push the tag first, then dispatch this workflow from it."
-          exit 1
-
+      # A v* tag releases -- a draft, npm, or both -- so it has to name the
+      # version they carry. A branch releases nothing and has nothing to check.
       - name: The tag names this version
-        if: inputs.upload_release
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(node -p "require('./packages/react-native-spritestudio/package.json').version")"
           if [ "$GITHUB_REF_NAME" != "v${version}" ]; then
@@ -119,11 +113,11 @@ jobs:
       # out, so a release cannot change because a default did; release.sh spells
       # out the same ones.
       - name: Build and check the release
-        if: ${{ !inputs.upload_release }}
+        if: ${{ !(inputs.upload_release && startsWith(github.ref, 'refs/tags/v')) }}
         run: ./scripts/build-release.sh skip=install sdk=download out=release-dist verify=yes clean=yes
 
       - name: Build and check the release, and draft the GitHub Release
-        if: inputs.upload_release
+        if: inputs.upload_release && startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/release.sh
@@ -139,7 +133,7 @@ jobs:
       # npm 11.21 is the first CLI that sets a dist-tag through trusted
       # publishing, and Node 22 ships npm 10.
       - name: Update npm
-        if: inputs.upload_release && inputs.publish_npm
+        if: startsWith(github.ref, 'refs/tags/v') && inputs.publish_npm
         run: npm install -g npm@11.21.0
 
       # Last, so that a failure here leaves the draft in place for a re-run or a
@@ -147,7 +141,7 @@ jobs:
       # approved, so staging one again is refused with a 409, which is skipped
       # like a version npm already has.
       - name: Stage on npm
-        if: inputs.upload_release && inputs.publish_npm
+        if: startsWith(github.ref, 'refs/tags/v') && inputs.publish_npm
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
