@@ -7,10 +7,9 @@
 A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
 
 > [!WARNING]
-> **Not released yet.** The npm package is not published, and nothing here has
-> run on a **physical device** — iOS simulator and Android emulator only. See
-> [docs/limitations.md](docs/limitations.md) for what draws today and
-> [ROADMAP.md](ROADMAP.md) for what lands when.
+> Nothing here has run on a **physical device** — iOS simulator and Android
+> emulator only. See [docs/limitations.md](docs/limitations.md) for what draws
+> today and [ROADMAP.md](ROADMAP.md) for what lands when.
 
 ## ✨ Why use SpriteStudio with React Native?
 
@@ -22,9 +21,9 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 
 ## 📚 Documentation
 
-- [**Documentation site**](https://cri-middleware.github.io/SSPlayerForReactNative/) — setup, usage, the generated API reference. 🚧 Live after the first release.
-- [**For AI assistants**](https://cri-middleware.github.io/SSPlayerForReactNative/llms.txt) — these docs as Markdown: `llms.txt` indexes the English pages and `llms-full.txt` holds all of them in one file; each Japanese page is available as `.md` under `ja/` — 🚧 live after the first release
-- [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place — 🚧 live after the first release
+- [**Documentation site**](https://cri-middleware.github.io/SSPlayerForReactNative/) — setup, usage, the generated API reference
+- [**For AI assistants**](https://cri-middleware.github.io/SSPlayerForReactNative/llms.txt) — these docs as Markdown: `llms.txt` indexes the English pages and `llms-full.txt` holds all of them in one file; each Japanese page is available as `.md` under `ja/`
+- [**SpriteStudio Docs (portal)**](https://cri-middleware.github.io/SpriteStudio-Docs/) — the SDK and every official player in one place
 
 ---
 
@@ -39,10 +38,6 @@ that (events, part overrides, custom textures) is the same path further in, on t
 lands when.
 
 ### Install
-
-> 🚧 The package is **not published to npm yet** — this path opens up after the
-> first release. Until then, run it from a checkout:
-> [Working from a checkout](docs/development/from-source.md).
 
 ```bash
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
@@ -62,9 +57,8 @@ submodule. [Working from a checkout](docs/development/from-source.md) is the pat
 from clone to running app, and [the example app](example/README.md) says what each
 subject on its screen proves.
 
-> Converting those packs needs a Rust toolchain today, because `deploy-examples`
-> builds the SDK's `ssconverter-cli` from source. That goes away once
-> `ssconverter-core` is published.
+> Converting those packs needs a Rust toolchain, because `deploy-examples`
+> builds the SDK's `ssconverter-cli` from source.
 
 ### Preparing assets (`.sspj` → `.ssab`)
 

@@ -7,7 +7,7 @@
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を React Native の New Architecture 上で再生します。描画は [React Native Skia](https://shopify.github.io/react-native-skia/) によるネイティブ描画で、タイムラインとジオメトリは [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアが担います。
 
 > [!WARNING]
-> **未リリースです。** このパッケージは npm に公開されておらず、**実機での動作確認もまだありません** — iOS シミュレータと Android エミュレータのみです。
+> **実機での動作確認はまだありません** — iOS シミュレータと Android エミュレータのみです。
 
 - 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/)** — セットアップ、使い方、生成された API リファレンス
 - 📦 **[リポジトリ](https://github.com/cri-middleware/SSPlayerForReactNative)** — 詳細版 README、ロードマップ、サンプルアプリ

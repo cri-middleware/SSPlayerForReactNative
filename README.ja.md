@@ -7,7 +7,7 @@
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
 
 > [!WARNING]
-> **未リリースです。** npm パッケージは未公開で、**実機での動作確認もまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは [docs/ja/limitations.md](docs/ja/limitations.md) を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
+> **実機での動作確認はまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは [docs/ja/limitations.md](docs/ja/limitations.md) を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
 
 ## ✨ SpriteStudio を React Native で使うメリット
 
@@ -19,9 +19,9 @@
 
 ## 📚 ドキュメント
 
-- [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/ja/) — セットアップ、使い方、生成された API リファレンス。🚧 初回リリース後に公開されます。
-- [**AI アシスタント向け**](https://cri-middleware.github.io/SSPlayerForReactNative/llms.txt) — このドキュメントを Markdown で提供します。`llms.txt`（ページの目次）と `llms-full.txt`（全ページを 1 ファイルに）は英語版のページを集めたもので、日本語の各ページは `ja/` 配下の `.md` で取れます — 🚧 初回リリース後に公開
-- [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と全公式 Player の入口 — 🚧 初回リリース後に公開
+- [**ドキュメントサイト**](https://cri-middleware.github.io/SSPlayerForReactNative/ja/) — セットアップ、使い方、生成された API リファレンス。
+- [**AI アシスタント向け**](https://cri-middleware.github.io/SSPlayerForReactNative/llms.txt) — このドキュメントを Markdown で提供します。`llms.txt`（ページの目次）と `llms-full.txt`（全ページを 1 ファイルに）は英語版のページを集めたもので、日本語の各ページは `ja/` 配下の `.md` で取れます。
+- [**SpriteStudio Docs（ポータル）**](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と全公式 Player の入口
 
 ---
 
@@ -31,8 +31,6 @@
 [CONTRIBUTING.md](CONTRIBUTING.md) です（何がいつ入るかは [ROADMAP.md](ROADMAP.md)）。
 
 ### インストール
-
-> 🚧 パッケージは**まだ npm に公開されていません** — この手順は初回リリース後に使えるようになります。それまでは[チェックアウトから動かす](docs/ja/development/from-source.md)を参照してください。
 
 ```bash
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
@@ -44,7 +42,7 @@ npx expo install react-native-spritestudio @shopify/react-native-skia react-nati
 
 自分の素材は要りません。このリポジトリのサンプルアプリが、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順は [チェックアウトから動かす](docs/ja/development/from-source.md) に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。
 
-> このパックの変換には、現状 Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。`ssconverter-core` の公開後は不要になります。
+> このパックの変換には Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。
 
 ### アセットの準備（`.sspj` → `.ssab`）
 

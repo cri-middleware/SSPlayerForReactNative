@@ -121,8 +121,8 @@ a `src/**/*.test.ts` would land in the tarball. `typecheck` passes them through
 `tsconfig.test.json` with `--project`; widening the base config's `include` instead would break
 `check-web-barrel`, which runs a bare `tsc --rootDir src`.
 
-**A green CI is not a substitute for running these.** CI has no access to the
-private SDK submodule and no macOS libskia, so it runs typecheck, the unit
+**A green CI is not a substitute for running these.** CI checks out no
+submodules and has no macOS libskia, so it runs typecheck, the unit
 tests, the Nitro bindings check, `bob build`, the web barrel, script parsing and
 the `files` guard — and none of the host checks or `prepack`.
 
@@ -268,9 +268,7 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 | `pnpm run check-web-barrel` | web スタブの barrel が import 可能なこと（OS 不問・Brain 不要） |
 | `pnpm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
 
-**CI が緑であることは、これらを実行した代わりにはなりません。** CI は private な SDK
-サブモジュールにも macOS の libskia にもアクセスできないため、typecheck・ユニットテスト・Nitro
-バインディング・`bob build`・web barrel・スクリプトの構文・`files` ガードまでしか実行できず、ホスト側のチェックと `prepack` は動きません。
+**CI が緑であることは、これらを実行した代わりにはなりません。** CI はサブモジュールをチェックアウトせず、macOS の libskia も持たないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・スクリプトの構文・`files` ガードまでしか実行できず、ホスト側のチェックと `prepack` は動きません。
 
 描画の確認は example の Player 画面で手動で行います。機能ごとにカードが 1 枚あり、それぞれが何を証明するかは [`example/README.md`](./example/README.md) に記載しています。
 

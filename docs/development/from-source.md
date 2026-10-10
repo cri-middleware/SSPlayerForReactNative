@@ -5,9 +5,8 @@ description: Getting the repository running — the native core, the sample pack
 
 # Working from a checkout
 
-For **SDK and Player developers**: anyone changing this package, changing the
-Rust core underneath it, or wanting to see the player run before the npm release
-exists.
+For **SDK and Player developers**: anyone changing this package or the Rust
+core underneath it.
 
 If you only want to *use* the package in your own app, you want
 [Installation](/setup/install) instead — nothing on this page is part of that.

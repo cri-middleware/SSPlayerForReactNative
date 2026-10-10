@@ -20,9 +20,9 @@ param (
 #
 # Only the pinned SDK release can be packed: download-sdk writes native\VERSION
 # and native\BUILD_MODE, build-runtime deletes both, and prepack refuses a
-# tarball without them (ROADMAP.md, "The pinned SDK release does not exist
-# yet"). So sdk=build is a REHEARSAL -- every stage runs, lib\ is built, and the
-# pack is a dry run that reports the file list an upload would carry.
+# tarball without them. So sdk=build is a REHEARSAL -- every stage runs, lib\ is
+# built, and the pack is a dry run that reports the file list an upload would
+# carry.
 #
 # Two stages are thinner here than in build-release.sh, and say so as they run:
 # the host checks are bash + a host libskia with no Windows slice, and flatc is
@@ -238,8 +238,6 @@ $sdkWhat = switch ($sdk) {
 if (Invoke-Stage "sdk" $sdkWhat) {
     switch ($sdk) {
         "download" {
-            # While the SDK has no release tag this 404s, and that is the
-            # correct failure -- there is nothing to publish against yet.
             & powershell -ExecutionPolicy Bypass -File (Join-Path $scriptDir "download-sdk.ps1")
             if ($LASTEXITCODE -ne 0) {
                 [Console]::Error.WriteLine("")
@@ -565,9 +563,8 @@ if ($shippable -eq "yes") {
     }
 } else {
     Write-Host "${app}: REHEARSAL -- no tarball. The Brain in native\ is a local build, and"
-    Write-Host "${app}: prepack refuses to pack one (ROADMAP.md, 'The pinned SDK release does"
-    Write-Host "${app}: not exist yet'). Everything else ran; $base.files is what an upload"
-    Write-Host "${app}: would have carried."
+    Write-Host "${app}: prepack refuses to pack one. Everything else ran; $base.files is"
+    Write-Host "${app}: what an upload would have carried."
 }
 
 } finally {
