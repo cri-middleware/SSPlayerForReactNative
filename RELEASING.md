@@ -60,6 +60,18 @@ Drawing on a device has no check in CI. Look at it on the branch, on iOS and on 
 pnpm run run-ios && pnpm run run-android
 ```
 
+Last, scan the branch for code copied from others. `scripts/scan-snippets.sh` matches the files tracked at `HEAD` against public open-source code with SCANOSS, sending their fingerprints rather than the code; it writes its report to `qa/scanoss-<commit>.json` and prints the matches. It runs on this machine, and needs Python 3: SCANOSS's free service limits calls per address, and GitHub's runners share addresses it has often limited already. `provenance.yml` runs ScanCode, which finds copyright and license notices, and keeps its report and a summary on the run (`provenance`); the block downloads them into `qa/<run ID>` and prints the summary. **A person sorts the matches.** A match with the earlier SpriteStudio Players and SDK is our own code. A match with a library this repository bundles must be listed in `THIRD_PARTY_NOTICES.md`. Anything else is rewritten, unless its license, read at its source, is compatible with BSD-3-Clause and the code keeps the notice that license asks for. After any change on the branch, run the block again.
+
+```bash
+git push origin "$BRANCH" &&
+  gh workflow run provenance.yml --ref "${BRANCH:?}" &&
+  scripts/scan-snippets.sh &&
+  RUN=$(gh run list -w provenance.yml -c "$(git rev-parse HEAD)" -L 1 --json databaseId -q '.[0].databaseId') &&
+  gh run watch "${RUN:?}" --exit-status &&
+  gh run download "$RUN" -n provenance -D "qa/$RUN" &&
+  cat "qa/$RUN/summary.md"
+```
+
 ### 4. Merge and tag
 
 Merge with a merge commit, never a squash or a rebase, so that `main` keeps the commits the QA build built rather than copies of them. Tag `main` only when its tree is the one the QA build built. It differs only when `main` held commits the branch did not; merge `main` into the branch and go back to step 3.
@@ -212,6 +224,18 @@ Mac では、ブランチ上で `pnpm run build-release` を実行すれば同�
 
 ```bash
 pnpm run run-ios && pnpm run run-android
+```
+
+最後に、他者のコードを写した箇所が無いかを、ブランチで照合します。`scripts/scan-snippets.sh` は、`HEAD` で追跡しているファイルを、SCANOSS で公開されているオープンソースのコードと照合します。送るのはコードではなく指紋です。報告を `qa/scanoss-<commit>.json` に書き、一致を表示します。このスクリプトは手元で実行し、Python 3 が要ります。SCANOSS の無料のサービスはアドレスごとに回数を制限していて、GitHub のランナーはすでに制限されたアドレスを共有していることが多いためです。`provenance.yml` は ScanCode で著作権表示とライセンスの記述を見つけ、報告と一覧を run に残します（`provenance`）。ブロックはそれを `qa/<run ID>` にダウンロードし、一覧を表示します。**一致は人が仕分けます。** 以前の SpriteStudio の Player・SDK との一致は、自社のコードです。このリポジトリが同梱するライブラリとの一致は、`THIRD_PARTY_NOTICES.md` に載っていなければなりません。それ以外は書き直します。残せるのは、出所で確かめたライセンスが BSD-3-Clause と両立し、そのライセンスが求める表示をコードに残すときだけです。ブランチを変えたら、このブロックをもう一度実行します。
+
+```bash
+git push origin "$BRANCH" &&
+  gh workflow run provenance.yml --ref "${BRANCH:?}" &&
+  scripts/scan-snippets.sh &&
+  RUN=$(gh run list -w provenance.yml -c "$(git rev-parse HEAD)" -L 1 --json databaseId -q '.[0].databaseId') &&
+  gh run watch "${RUN:?}" --exit-status &&
+  gh run download "$RUN" -n provenance -D "qa/$RUN" &&
+  cat "qa/$RUN/summary.md"
 ```
 
 ### 4. マージとタグ
