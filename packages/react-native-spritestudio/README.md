@@ -7,7 +7,7 @@
 Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) on React Native's New Architecture, drawing natively through [React Native Skia](https://shopify.github.io/react-native-skia/) with the timeline and geometry in a Rust core under [Nitro Modules](https://nitro.margelo.com/) (JSI).
 
 > [!WARNING]
-> **Not released yet.** This package is not published to npm, and nothing here has run on a **physical device** — iOS simulator and Android emulator only.
+> Nothing here has run on a **physical device** — iOS simulator and Android emulator only.
 
 - 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference
 - 📦 **[Repository](https://github.com/cri-middleware/SSPlayerForReactNative)** — the long-form README, the roadmap and the example app
