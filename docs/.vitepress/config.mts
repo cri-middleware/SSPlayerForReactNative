@@ -46,7 +46,11 @@ export default withMermaid({
   base: '/SSPlayerForReactNative/',
 
 
-  head: [['meta', { property: 'og:site_name', content: 'SpriteStudio Player for React Native' }]],
+  // VitePress puts no `base` in front of a `head` href, so the icon's spells it out.
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/SSPlayerForReactNative/favicon.svg' }],
+    ['meta', { property: 'og:site_name', content: 'SpriteStudio Player for React Native' }],
+  ],
 
   // mermaid 12 defaults to the ELK layout and the redux-color theme, which draws
   // the diagram on setup/assets as a thin strip too small to read, and wraps
