@@ -26,13 +26,6 @@ name: Release
 # host `libskia.a` that RN Skia ships with a macOS slice and no Linux one, and
 # build-release.sh skips them anywhere else -- which a release cannot afford.
 #
-# 🚧 **Blocked today, and the failure is the correct one.** `scripts/SDK_VERSION.txt`
-# names a SpriteStudio-SDK release tag that has not been published, so
-# `download-sdk.sh` — build-release.sh's sdk stage — cannot resolve it and the run stops
-# there. See ROADMAP.md. Nothing here works around that: this workflow exists so
-# the channel is ready the moment the tag lands, not so a green tick can be had
-# without one.
-#
 # Staging needs no secret: the package on npm has a trusted publisher for this
 # repository and this workflow file, allowed to stage, and the job's id-token is
 # what npm trusts.

@@ -15,11 +15,10 @@
 # **Only the pinned SDK release can be packed.** `download-sdk` writes
 # native/VERSION and native/BUILD_MODE; `build-runtime` deletes both, because a
 # local Brain comes from a submodule commit that moves — and `prepack` refuses a
-# tarball without them (ROADMAP.md, "The pinned SDK release does not exist
-# yet"). So `sdk=build` is a REHEARSAL: every stage runs, `lib/` is built, and
-# the pack is a dry run that reports the file list an upload would carry. No
-# archive, deliberately — there is no way around that gate and this does not
-# invent one.
+# tarball without them. So `sdk=build` is a REHEARSAL: every stage runs, `lib/`
+# is built, and the pack is a dry run that reports the file list an upload
+# would carry. No archive, deliberately — there is no way around that gate and
+# this does not invent one.
 #
 # What verification catches, from inside the finished archive rather than off
 # the disk `prepack` reads:
@@ -70,8 +69,8 @@ usage () {
     echo "                          shippable tarball can have. build ="
     echo "                          build-runtime.sh in release mode, from the"
     echo "                          submodule (needs rustup + the NDK, and Xcode for"
-    echo "                          the iOS half) — the way through while that release"
-    echo "                          does not exist, at the cost of the tarball itself."
+    echo "                          the iOS half) — and the tarball itself is out of"
+    echo "                          reach."
     echo "                          skip = keep native/ as it stands."
     echo "  skip=<a,b,...>          Stages to leave out. One or more of:"
     echo "                          ${STAGES}"
@@ -265,8 +264,6 @@ esac
 if stage sdk "$sdk_what"; then
     case "$SDK" in
         download)
-            # While the SDK has no release tag this 404s, and that is the
-            # correct failure — there is nothing to publish against yet.
             "${SCRIPTDIR}/download-sdk.sh" || {
                 echo "" >&2
                 echo "${APP}: the pinned SDK release ${PINNED} could not be installed." >&2
@@ -607,7 +604,6 @@ if [ "$SHIPPABLE" = "yes" ]; then
     fi
 else
     echo "${APP}: REHEARSAL — no tarball. The Brain in native/ is a local build, and"
-    echo "${APP}: prepack refuses to pack one (ROADMAP.md, 'The pinned SDK release does"
-    echo "${APP}: not exist yet'). Everything else ran; ${BASE}.files is what an upload"
-    echo "${APP}: would have carried."
+    echo "${APP}: prepack refuses to pack one. Everything else ran; ${BASE}.files is"
+    echo "${APP}: what an upload would have carried."
 fi
