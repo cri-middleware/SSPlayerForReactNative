@@ -1,6 +1,7 @@
 <!--
 Thanks for contributing! See CONTRIBUTING.md for the constraints this project works under
-(Layer 2 imports nothing from React, nothing per-vertex crosses JSI, generated code is regenerated).
+(Layer 2 imports nothing from React, nothing per-vertex crosses JSI, no per-frame allocation,
+generated code is regenerated).
 CONTRIBUTING.md に本プロジェクトの制約が記載されています。日本語でも英語でも構いません。
 -->
 
@@ -32,6 +33,7 @@ that is useful information, not a problem.
 - [ ] Anything that exists twice changed twice — a page and its translation, a `.sh` and its `.ps1`.
 - [ ] Layer 2 imports nothing from `react` / `react-native` — nothing enforces this.
 - [ ] Nothing per-vertex crosses JSI, and a buffer handed to JS is read only until the next `update()`.
+- [ ] No per-frame allocations, on either side of JSI.
 - [ ] `nitrogen/generated/` and `cpp/format/` regenerated, never hand-edited; the source is `src/specs/*.nitro.ts`.
 
 ## Anything reviewers should know? / レビュー時の注意点
