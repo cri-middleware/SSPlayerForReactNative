@@ -565,9 +565,11 @@ export interface SsContext
    *
    * Read from the **display** frame's `FrameData` — floored when sub-frame is
    * off, the same frame the renderer bakes — so it cannot disagree with what is
-   * on screen. It reflects the animation's own hide, not a
-   * `setPartVisibility` force-hide. False for an out-of-range index and before
-   * the first `update()`, when there is no frame to read.
+   * on screen. It is that frame's `hide`, which the Brain also sets for a
+   * `setPartVisibility` force-hide and, with `cascade`, for every descendant it
+   * reaches, from the next `update()` or call that moves the playhead. False
+   * for an out-of-range index and before the first `update()`, when there is
+   * no frame to read.
    */
   isPartHidden(partIndex: number): boolean
 

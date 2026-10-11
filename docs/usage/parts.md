@@ -162,9 +162,11 @@ const hidden = player.isPartHidden(target)
 
 `isPartHidden(part)` takes a part **name or index** and reads the **display**
 frame — the same frame that was drawn, floored when sub-frame is off — so it
-cannot disagree with what is on screen. It reports the animation's own hide, not
-a `setPartOverrides` `hide: true`, and it is `false` for an unknown name, an
-out-of-range index and before the first frame has played.
+cannot disagree with what is on screen. It reports that frame's hide: the
+animation's own, and a `setPartOverrides` `hide: true` too, on every descendant
+it hides when `cascade` is set. An override shows up once the player next
+advances or seeks. It is `false` for an unknown name, an out-of-range index and
+before the first frame has played.
 
 This is the `onHide` option the sibling players offer on their built-in
 attachments. This player has no managed attachment — following is a pull API —

@@ -979,10 +979,12 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * call a host makes alongside it.
    *
    * Read from the **display** frame — floored when sub-frame is off, the same
-   * frame that was drawn — so it cannot disagree with what is on screen. It
-   * reflects the animation's own hide, not a {@link setPartOverrides}
-   * `hide: true`. False for an unknown name, an out-of-range index and
-   * before the first `advance`; {@link findPartIndex} is the existence test.
+   * frame that was drawn — so it cannot disagree with what is on screen. It is
+   * that frame's hide: the animation's own, and a {@link setPartOverrides}
+   * `hide: true` too, on every descendant it hides when `cascade` is set. An
+   * override shows up once the player next advances or seeks. False for an
+   * unknown name, an out-of-range index and before the first `advance`;
+   * {@link findPartIndex} is the existence test.
    */
   isPartHidden(part: string | number): boolean {
     const internal = this.internalPlayer
