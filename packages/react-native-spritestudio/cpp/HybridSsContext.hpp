@@ -247,10 +247,11 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// Drives every effect slot one tick at the current playhead.
   ///
   /// `dtMilliseconds` is what `update()` was handed (0 for a seek) and `looped`
-  /// the parent's loop edge for this tick. Called from `update()` and from
-  /// `resync()`, never from the draw:
-  /// stepping must not be driven off `draw_order`, since the Brain drops a
-  /// hidden effect from it and an independent one would then freeze in mid-air.
+  /// the parent's loop edge for this tick. Called right after `refreshFrame()`,
+  /// never from the draw: a part `frame_` hides steps without building its
+  /// particles, but it still steps. Stepping must not be driven off
+  /// `draw_order`, since the Brain drops a hidden effect from it and an
+  /// independent one would then freeze in mid-air.
   void stepEffects(float dtMilliseconds, bool looped);
 
   /// Re-reads the playhead from the Brain and republishes the frame.

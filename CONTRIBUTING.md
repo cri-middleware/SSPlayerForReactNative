@@ -97,7 +97,7 @@ Android slice alone.
 | The package compiles to `lib/` | `pnpm run build` — `bob build`, the step `prepack` runs |
 | FlatBuffers accessors current + read path sound | `pnpm run check-framedata` (needs `flatc`) |
 | Mask drawing, and a mask crossing into an instance child | `pnpm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample |
-| Instance slots keep stepping while out of the draw plan | `pnpm run check-hidden` |
+| Instance and effect slots keep stepping while out of the draw plan, and a hidden effect builds no particles | `pnpm run check-hidden` |
 | `ss-*` shaders compile, and their arithmetic | `pnpm run check-shader` (macOS) |
 | The web stub barrel imports clean, matches `index.ts` and throws | `pnpm run check-web-barrel` (any OS, no Brain) |
 | Nitro codegen is current | `pnpm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |

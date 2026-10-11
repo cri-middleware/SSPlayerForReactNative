@@ -252,7 +252,9 @@ void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
   // The *animation's* authored fps, which is what converts an independent
   // slot's delta into frames — not the display's refresh rate.
   const int32_t fps = ss_runtime_get_frame_rate(ctx_);
-  effects_.step(ctx_, frameNo_, dtMilliseconds / 1000.0f,
+  // `frame_` is the frame this tick draws, refreshed by every caller just
+  // before, so a part it hides skips the particles nothing would draw.
+  effects_.step(ctx_, frame_, frameNo_, dtMilliseconds / 1000.0f,
                 fps > 0 ? static_cast<float>(fps) : 60.0f, looped);
 }
 

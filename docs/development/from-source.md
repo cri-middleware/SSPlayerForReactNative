@@ -128,7 +128,7 @@ project of your own, and the optional `MaskInstance` sample are covered in
 | Typecheck (package + example) | `pnpm run typecheck` |
 | FlatBuffers accessors current + read path sound (needs `flatc`) | `pnpm run check-framedata` |
 | Mask drawing, and a mask crossing into an instance child (macOS) | `pnpm run check-mask` |
-| Instance slots keep stepping while out of the draw plan | `pnpm run check-hidden` |
+| Instance and effect slots keep stepping while out of the draw plan, and a hidden effect builds no particles | `pnpm run check-hidden` |
 | `ss-*` shaders compile, and their arithmetic (macOS) | `pnpm run check-shader` |
 | Web stub barrel imports clean and throws (any OS, no Brain) | `pnpm run check-web-barrel` |
 | Nitro codegen is current | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
