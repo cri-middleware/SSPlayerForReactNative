@@ -73,6 +73,8 @@ And these, because no code site could hold them:
 *   **Layer 1 owns the drawing, not just the geometry.** JS's per-frame job is one call per player,
     `drawInto`; nothing per-vertex crosses the JSI boundary. Routing vertices through JS was measured and
     does not work — `Skia.MakeVertices` unmarshals host objects one vertex at a time.
+*   **No per-frame allocations in the playback hot path**, on either side of JSI. A per-frame buffer is
+    a member resized in place, like `SsBaker`'s, never a fresh vector or JS array.
 *   **L2 must import nothing from `react` or `react-native`**, so headless use, react-native-web and a
     future renderer stay possible. Skia is fair game: it is the drawing backend, not the UI framework.
     **Nothing enforces this** — no lint rule, no test.
