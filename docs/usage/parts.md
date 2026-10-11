@@ -33,7 +33,7 @@ override is a patch, not a replacement.
 
 | Field | Type | Means |
 |---|---|---|
-| `hide` | `boolean` | Force-hide the part (`true`) or force-show it (`false`). Omitting the key is the third answer: leave it to the animation. |
+| `hide` | `boolean` | `true` force-hides the part. `false`, like omitting the key, clears this player's hide override, so the animation's own hide applies again; it does not show a part the animation hides. |
 | `cascade` | `boolean` | Whether a `hide: true` reaches descendants. Default `false` — a keyframed hide never cascades in SpriteStudio, so cascading is the opt-in. |
 | `color` | `string \| number` | A tint. Anything Skia parses (`'#f00'`, `'rgba(255,0,0,.5)'`) or a packed `0xRRGGBBAA` number. |
 | `blendOp` | `SsBlendOpValue` | How the tint combines: `SsBlendOp.mix` / `.mul` / `.add` / `.sub`. Default `mix`. |

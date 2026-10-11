@@ -50,9 +50,9 @@ export interface SsCellRef {
  */
 export interface SsPartOverride {
   /**
-   * Force-hide the part (`true`) or force-show it (`false`). Omit the key to
-   * leave it to the animation — this is a patch, so absent and `false` are
-   * different answers.
+   * `true` force-hides the part. `false`, like omitting the key, clears this
+   * player's hide override, so the animation's own hide applies again; it does
+   * not show a part the animation hides.
    *
    * Spelled the family's way round. Every sibling Player takes
    * `setPartVisibilityOverride(part, hide, …)`, because the Brain's override is

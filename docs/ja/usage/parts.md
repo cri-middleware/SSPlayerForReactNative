@@ -29,7 +29,7 @@ import { SpriteStudioView, SsBlendOp } from 'react-native-spritestudio'
 
 | フィールド | 型 | 意味 |
 |---|---|---|
-| `hide` | `boolean` | パーツを強制的に隠す（`true`）／強制的に表示する（`false`）。キー自体を省くのが 3 つ目の答えで、アニメーションに任せます。 |
+| `hide` | `boolean` | `true` でパーツを強制的に隠します。`false` はキーを省いたときと同じく、このプレイヤーの hide オーバーライドを解除し、アニメーション自身の hide に戻します。アニメーションが隠しているパーツを表示するものではありません。 |
 | `cascade` | `boolean` | `hide: true` を子孫まで及ぼすか。既定は `false` — SpriteStudio ではキーフレームの hide が子孫に及ばないため、カスケードは opt-in です。 |
 | `color` | `string \| number` | 色味。Skia が解釈できるもの（`'#f00'`、`'rgba(255,0,0,.5)'`）か、パックされた `0xRRGGBBAA` の数値。 |
 | `blendOp` | `SsBlendOpValue` | 色味の合成方法：`SsBlendOp.mix` / `.mul` / `.add` / `.sub`。既定は `mix`。 |

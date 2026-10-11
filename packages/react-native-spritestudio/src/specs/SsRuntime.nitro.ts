@@ -655,7 +655,8 @@ export interface SsContext
   // cell, so `setPartCell` on one is a no-op and says so.
 
   /**
-   * `force`: 0 reverts to the animation, 1 force-hides, 2 force-shows.
+   * `force`: 0 reverts to the animation, 1 force-hides. 2 (force-show) is
+   * reserved: the runtime rejects it and returns false.
    * `cascade` propagates a force-hide to descendants, which is what "hide this
    * limb" almost always means.
    */
