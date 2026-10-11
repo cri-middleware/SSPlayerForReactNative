@@ -29,7 +29,10 @@ on:
   # The weekly run also writes the caches that PRs restore from, since PRs do not
   # save. It runs on the default branch.
   schedule:
-    - cron: '0 0 * * 0'
+    # Each repository of the family takes its own hour on Sunday, so their
+    # weekly runs do not queue for the organization's runners; :17 keeps clear
+    # of the top of the hour, when GitHub delays scheduled runs.
+    - cron: '17 8 * * 0'
   workflow_dispatch:
 
 permissions:
