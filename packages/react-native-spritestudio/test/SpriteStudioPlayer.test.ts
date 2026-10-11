@@ -391,13 +391,18 @@ describe('part overrides', () => {
     expect(internal.argsOf('setPartVisibility')).toEqual([[0, 1, false]])
   })
 
-  // The tri-state the C ABI keeps: 1 force-hides, 2 force-shows, absent reverts.
-  it('force-shows on hide: false rather than reverting', async () => {
+  // The Brain rejects the force-show the C ABI reserves, so `false` reverts, as
+  // in every sibling Player.
+  it('reverts on hide: false rather than force-showing', async () => {
     const player = await withParts()
+    player.setPartOverrides({ hat: { hide: true } })
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
 
     player.setPartOverrides({ hat: { hide: false } })
 
-    expect(SsInternalPlayer.last().argsOf('setPartVisibility')).toEqual([[0, 2, false]])
+    expect(internal.argsOf('clearPartVisibility')).toEqual([[0]])
+    expect(internal.names()).not.toContain('setPartVisibility')
   })
 
   it('hashes a cell override through the Brain, at the family default priority', async () => {

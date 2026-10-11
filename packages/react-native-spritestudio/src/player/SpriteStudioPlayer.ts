@@ -1064,16 +1064,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // unchanged either way: `applySettings` replays the map after every setup.
       const priority = override.priority ?? SsOverridePriority.holdUntilNextAnimation
 
-      if (override.hide == null) internal.clearPartVisibility(index)
+      // `hide: false` reverts, like an absent key and like every sibling
+      // Player's `setPartVisibilityOverride(part, false)`: the Brain's override
+      // only force-hides, and it rejects the force-show the C ABI reserves.
+      if (!override.hide) internal.clearPartVisibility(index)
       else {
         internal.setPartVisibility(
           index,
-          // Layer 2 keeps the C ABI's tri-state force flag: 1 force-hides,
-          // 2 force-shows. An absent key is the third answer and took the
-          // branch above, so `hide: false` still means force-show rather than
-          // revert — the same three ways round the sibling Players offer as
-          // `setPartVisibilityOverride(part, false)` next to `clear…`.
-          override.hide ? 1 : 2,
+          1,
           // Off by default, as everywhere else: a keyframed hide never cascades
           // in SpriteStudio, so cascading is the opt-in.
           override.cascade ?? false
