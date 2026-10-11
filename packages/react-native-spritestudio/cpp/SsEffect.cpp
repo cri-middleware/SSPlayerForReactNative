@@ -9,10 +9,11 @@ namespace {
 
 /// The seed for one part's slot: deterministic, yet different per part.
 ///
-/// SSPlayerForFlutter's and the flagship's formula. Two parts playing the *same*
-/// effect would otherwise emit in visual lockstep, and a clock- or RNG-derived
-/// seed would make the same frame render differently on a second run. The
-/// runtime overrides it outright for effects authored `is_lock_rand_seed`.
+/// SSPlayerForFlutter's and SSPlayerForGodot's formula. Two parts playing the
+/// *same* effect would otherwise emit in visual lockstep, and a clock- or
+/// RNG-derived seed would make the same frame render differently on a second
+/// run. The runtime overrides it outright for effects authored
+/// `is_lock_rand_seed`.
 uint32_t SeedFor(const SsEffectPart& part) {
   return part.partIndex ^ part.effectNameHash;
 }
@@ -64,7 +65,9 @@ void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, f
                             /*y_flip=*/true,
                             // (x, y) pairs. The plan reports it back and the
                             // baker reads it there rather than assuming.
-                            /*vert_stride=*/2);
+                            /*vert_stride=*/2,
+                            // No draw_order here: every part builds its plan.
+                            /*draw=*/true);
 
     planByPart_[partIndex] =
         result.visible && result.draw_plan_buf != nullptr && result.draw_plan_len > 0

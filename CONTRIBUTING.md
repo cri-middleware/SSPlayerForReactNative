@@ -25,12 +25,15 @@ Please refer to [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 Most of this player's rules exist because the obvious implementation was tried
 and did not work, and the reasoning behind each is written in the code, at the
 site the rule binds — read it there before changing anything in `cpp/` or in the
-buffer handling. Four are worth knowing before you start:
+buffer handling. Five are worth knowing before you start:
 
 - **Every buffer handed to JS is valid only until the next `update()`.** Structs
   carry a `generation`; compare it before reading.
 - **Nothing per-vertex crosses the JSI boundary.** JS's per-frame job is one call
   per player. Routing vertices through JS was measured and caps the frame rate.
+- **No per-frame allocations in the playback hot path**, on either side of JSI.
+  A per-frame buffer is a member resized in place, like `SsBaker`'s, never a
+  fresh vector or JS array.
 - **Layer 2 imports nothing from `react` / `react-native`**, so headless use and
   react-native-web stay possible. Nothing enforces this — no lint rule, no test.
 - **A pack is a directory, not a file**, so `require()` is not a source and
@@ -211,12 +214,13 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 ### 技術的制約と設計原則
 
-この Player の規則の多くは「素直な実装を試した結果うまくいかなかった」ことの記録で、それぞれの根拠はその規則が縛るコードの箇所に書いてあります。`cpp/` やバッファの扱いに手を入れる前に、そこを読んでください。着手前に知っておきたいものを 4 つ挙げます。
+この Player の規則の多くは「素直な実装を試した結果うまくいかなかった」ことの記録で、それぞれの根拠はその規則が縛るコードの箇所に書いてあります。`cpp/` やバッファの扱いに手を入れる前に、そこを読んでください。着手前に知っておきたいものを 5 つ挙げます。
 
 - **JS に渡されるバッファは次の `update()` までしか有効ではありません。** 各構造体は
   `generation` を持つので、読む前に比較してください。
 - **頂点単位のデータは JSI 境界を越えません。** JS の 1 フレームあたりの仕事は Player
   ごとに 1 回の呼び出しだけです。頂点を JS 経由にする案は計測済みで、フレームレートの上限を作ります。
+- **再生中は毎フレームのヒープ確保をしません。** JSI のどちら側でも同じです。毎フレーム使うバッファは `SsBaker` のようにメンバーに持ってその場でサイズを変え、vector や JS の配列を毎フレーム新しく作らないでください。
 - **レイヤ 2 は `react` / `react-native` を一切 import しません。** ヘッドレス利用と
   react-native-web を残すためです。**これを強制する仕組みはありません** — lint ルールもテストもありません。
 - **パックはファイルではなくディレクトリです。** そのため `require()` はソースになり得ず、
