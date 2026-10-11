@@ -16,6 +16,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "format/framedata.h"
+
 namespace sscore {
 
 class SsAnimeBinaryView;
@@ -93,6 +95,11 @@ class SsEffectSlots {
 
   /// Advances every slot one tick.
   ///
+  /// `frame` is this tick's FrameData, the one the draw reads. A part it hides
+  /// is out of the draw order, so its slot moves only its clock and builds no
+  /// plan, and the first step after the part is shown again builds the plan it
+  /// would have built anyway. Null builds every plan.
+  ///
   /// `parentFrame` must stay a **raw float**: rounding it back into slot state
   /// freezes an effect whose per-tick progress is under one frame. `deltaSeconds`
   /// and `fps` matter only to independent slots (they run on their own clock and
@@ -100,7 +107,8 @@ class SsEffectSlots {
   /// parent's loop **edge** for this update — `ss_runtime_just_looped` is cleared
   /// at the top of each one — which re-arms a synced effect so it fires again
   /// next cycle.
-  void step(void* context, float parentFrame, float deltaSeconds, float fps, bool parentLooped);
+  void step(void* context, const ss::runtime::FrameData* frame, float parentFrame,
+            float deltaSeconds, float fps, bool parentLooped);
 
   /// Rewinds each slot's "last started key" memory.
   ///

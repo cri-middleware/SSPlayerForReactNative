@@ -111,7 +111,7 @@ pnpm run run-ios         # または: pnpm run run-android
 | 型チェック（パッケージ + サンプル） | `pnpm run typecheck` |
 | FlatBuffers アクセサが最新かつ読み取りパスが健全（`flatc` が必要） | `pnpm run check-framedata` |
 | マスク描画、およびインスタンスの子へまたがるマスク（macOS） | `pnpm run check-mask` |
-| 描画プランから外れている間もインスタンススロットが進み続けること | `pnpm run check-hidden` |
+| 描画プランから外れている間もインスタンスとエフェクトのスロットが進み続け、非表示のエフェクトはパーティクルを作らないこと | `pnpm run check-hidden` |
 | `ss-*` シェーダーがコンパイルでき、その演算が正しいこと（macOS） | `pnpm run check-shader` |
 | web スタブバレルが import 可能で throw すること（OS 不問、Brain 不要） | `pnpm run check-web-barrel` |
 | Nitro のコード生成が最新であること | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |

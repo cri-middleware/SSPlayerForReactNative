@@ -40,9 +40,10 @@ void SsEffectSlots::bind(void* resource, const SsAnimeBinaryView& view) {
   }
 }
 
-void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, float fps,
-                         bool parentLooped) {
+void SsEffectSlots::step(void* context, const ss::runtime::FrameData* frame, float parentFrame,
+                         float deltaSeconds, float fps, bool parentLooped) {
   if (context == nullptr || parts_.empty()) return;
+  const auto* states = frame != nullptr ? frame->parts() : nullptr;
 
   for (size_t i = 0; i < parts_.size(); ++i) {
     void* slot = slots_[i];
@@ -54,6 +55,9 @@ void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, f
     }
 
     const ss_effect_event_info ev = ss_runtime_get_active_effect_event(context, partIndex);
+    // Whether the draw order has the part: the Brain leaves a hidden one out.
+    const bool draw =
+        states == nullptr || (partIndex < states->size() && !states->Get(partIndex)->hide());
     const ss_effect_step_result result =
         ss_effect_slot_step(slot, ev, parentFrame, deltaSeconds, fps, parentLooped,
                             // `y_flip = true`: the context runs Y-down (see
@@ -65,9 +69,7 @@ void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, f
                             /*y_flip=*/true,
                             // (x, y) pairs. The plan reports it back and the
                             // baker reads it there rather than assuming.
-                            /*vert_stride=*/2,
-                            // No draw_order here: every part builds its plan.
-                            /*draw=*/true);
+                            /*vert_stride=*/2, draw);
 
     planByPart_[partIndex] =
         result.visible && result.draw_plan_buf != nullptr && result.draw_plan_len > 0

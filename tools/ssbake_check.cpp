@@ -485,33 +485,38 @@ int main(int argc, char** argv) {
     // until the effect slots arrived.
     const float deltaMs = 1000.0f / 60.0f;
     const float frameNo = ss_runtime_update(ctx, deltaMs);
-    // After the update, so `is_looped` is this tick's edge — the same ordering
-    // `HybridSsContext::update` keeps.
-    effects.step(ctx, frameNo, deltaMs / 1000.0f, fps > 0 ? static_cast<float>(fps) : 60.0f,
-                 ss_runtime_just_looped(ctx));
-
-    // Before the FrameData fetch below, which `continue`s past a frame with no
-    // buffer — an audio key is authored on a frame, not on geometry, so a pack
-    // that draws nothing can still be the one carrying every key.
-    CountAudio(ctx, view, animationIndex, audioTotals);
-    CountSignals(ctx, view, animationIndex, signalTotals);
 
     const unsigned char* fdPtr = nullptr;
     size_t fdLen = 0;
     ss_runtime_get_frame_data(ctx, frameNo, &fdPtr, &fdLen);
-    if (fdPtr == nullptr || fdLen == 0) continue;
-
-    // The structural check the device path skips. If this rejects a buffer the
-    // Brain just wrote, the committed `format/framedata.h` is out of step with
-    // `native/libssruntime` — regenerate it (`pnpm run generate-fbs-code`).
-    ::flatbuffers::Verifier verifier(fdPtr, fdLen);
-    if (!ss::runtime::VerifyFrameDataBuffer(verifier)) {
-      std::fprintf(stderr, "frame %d: VerifyFrameDataBuffer rejected a %zu byte buffer\n", frame,
-                   fdLen);
-      ++g_failures;
-      continue;
+    const ss::runtime::FrameData* fd = nullptr;
+    if (fdPtr != nullptr && fdLen != 0) {
+      // The structural check the device path skips. If this rejects a buffer the
+      // Brain just wrote, the committed `format/framedata.h` is out of step with
+      // `native/libssruntime` — regenerate it (`pnpm run generate-fbs-code`).
+      ::flatbuffers::Verifier verifier(fdPtr, fdLen);
+      if (ss::runtime::VerifyFrameDataBuffer(verifier)) {
+        fd = ss::runtime::GetFrameData(fdPtr);
+      } else {
+        std::fprintf(stderr, "frame %d: VerifyFrameDataBuffer rejected a %zu byte buffer\n",
+                     frame, fdLen);
+        ++g_failures;
+      }
     }
-    const ss::runtime::FrameData* fd = ss::runtime::GetFrameData(fdPtr);
+
+    // After the update, so `is_looped` is this tick's edge, and after the frame,
+    // whose hidden parts step without a plan — the same ordering
+    // `HybridSsContext::update` keeps. Every frame, buffer or not.
+    effects.step(ctx, fd, frameNo, deltaMs / 1000.0f, fps > 0 ? static_cast<float>(fps) : 60.0f,
+                 ss_runtime_just_looped(ctx));
+
+    // Before the `continue` past a frame with no buffer — an audio key is
+    // authored on a frame, not on geometry, so a pack that draws nothing can
+    // still be the one carrying every key.
+    CountAudio(ctx, view, animationIndex, audioTotals);
+    CountSignals(ctx, view, animationIndex, signalTotals);
+
+    if (fd == nullptr) continue;
 
     // Exercise the baker on the same buffer so an out-of-bounds read shows up
     // here (under ASan) rather than on a device.
