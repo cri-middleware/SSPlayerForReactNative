@@ -1,23 +1,24 @@
 name: CI
 
-# Everything here runs with **no secrets and no submodules**, which is the whole
-# reason it can exist today: SpriteStudio-SDK is private, so a job that needed it
-# would fail for every external contributor and every fork.
+# Two tiers, as in SpriteStudio-SDK. Every pull request runs the checks below
+# with **no submodules**: typecheck, tests, the Nitro bindings, the package build,
+# the web stub, the scripts' syntax and the `files` guard. The weekly run, a
+# dispatch and the release PR (release/X.Y into main) also build the example app
+# for Android and iOS, on the Brain built from the SDK submodule, and build the
+# Pages site.
 #
-# What that leaves out, so nobody mistakes a green tick for more than it is:
+# What the pull-request tier leaves out, so nobody mistakes a green tick for more
+# than it is:
 #
 #   * the host checks (`check-framedata`, `check-mask`, `check-shader`,
 #     `check-hidden`) — they build a host Brain out of the SDK submodule, and
 #     `check-mask` / `check-shader` also link the macOS-only libskia RN Skia
-#     ships. They want a macOS job with SDK access.
+#     ships. They want a macOS job with the SDK submodule.
 #   * `cpp/format/` being current — regenerating needs a `flatc` whose version
 #     matches the vendored headers, which `static_assert` on it. An
 #     apt-installed flatc would report a diff that means "wrong flatc", not
 #     "stale output". `pnpm run check-framedata` is where that check lives.
 #   * anything that needs the Brain — `prepack`, and therefore `npm pack`.
-#
-# Add a macOS job with `secrets.SDK_SUBMODULE_TOKEN` when there is one; the
-# sibling players already carry that pattern.
 
 on:
   pull_request:
@@ -25,8 +26,10 @@ on:
       - '**/*.md'
       - '.gitignore'
       - 'LICENSE*'
-  push:
-    branches: [main, develop]
+  # The weekly run also writes the caches that PRs restore from, since PRs do not
+  # save. It runs on the default branch.
+  schedule:
+    - cron: '0 0 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -128,3 +131,146 @@ jobs:
               process.exit(1)
             }
           '
+
+  # The weekly tier. `github.base_ref == 'main'` is the release PR: under git-flow
+  # only release/X.Y is merged into main.
+  android:
+    name: 🤖 Example app (Android)
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with both submodules)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          # Pinned by SHA, so the channel must be named explicitly here.
+          toolchain: stable
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: SpriteStudio-SDK
+          # Only develop writes caches. A PR's cache is visible to that PR alone,
+          # so saving one per PR would only fill the 10 GB quota and evict the
+          # develop caches every PR restores from.
+          save-if: ${{ github.ref == 'refs/heads/develop' }}
+
+      # The NDK SpriteStudio-SDK's release.yml builds the Brain with, handed to
+      # build-runtime.sh as ndk=; the app itself builds with the NDK its Gradle
+      # build names.
+      - name: Setup Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+        with:
+          ndk-version: r23c
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the Brain, then the example data
+        run: |
+          bash scripts/build-runtime.sh platform=android build=release "ndk=${{ steps.ndk.outputs.ndk-path }}"
+          bash scripts/deploy-examples.sh
+
+      # scripts/run-android.sh's prebuild, then a build instead of its
+      # `expo run:android`, which wants a device. One ABI is enough to compile
+      # and link the Nitro module against the Brain.
+      - name: Build the app
+        working-directory: example
+        run: |
+          pnpm exec expo prebuild --platform android --no-install
+          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+
+  ios:
+    name: 🍏 Example app (iOS)
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with both submodules)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-ios
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: SpriteStudio-SDK
+          save-if: ${{ github.ref == 'refs/heads/develop' }}
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the Brain, then the example data
+        run: |
+          bash scripts/build-runtime.sh platform=ios build=release
+          bash scripts/deploy-examples.sh
+
+      # scripts/run-ios.sh's prebuild (with the pod install), then a device build
+      # with no signing instead of its `expo run:ios`, which wants a simulator.
+      - name: Build the app
+        working-directory: example
+        run: |
+          pnpm exec expo prebuild --platform ios
+          xcodebuild -workspace ios/SSPlayerExample.xcworkspace -scheme SSPlayerExample \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO build
+
+  # The site pages.yml publishes, built the same way, so a broken page surfaces
+  # here rather than when a release is published.
+  docs:
+    name: 📚 Pages site
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the Pages tree
+        run: ./scripts/build-pages.sh prepare=no api=yes serve=no
