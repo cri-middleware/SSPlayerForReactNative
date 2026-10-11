@@ -65,7 +65,9 @@ void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, f
                             /*y_flip=*/true,
                             // (x, y) pairs. The plan reports it back and the
                             // baker reads it there rather than assuming.
-                            /*vert_stride=*/2);
+                            /*vert_stride=*/2,
+                            // No draw_order here: every part builds its plan.
+                            /*draw=*/true);
 
     planByPart_[partIndex] =
         result.visible && result.draw_plan_buf != nullptr && result.draw_plan_len > 0
