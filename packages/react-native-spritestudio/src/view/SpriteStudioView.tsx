@@ -189,7 +189,7 @@ export const SpriteStudioView = forwardRef<
   const [size, setSize] = useState({ width: 0, height: 0 })
   const { player, measured, canvas, ready } = useSpriteStudioPlayer(props)
 
-  const picture = useFramePicture()
+  const { picture, publish } = useFramePicture()
 
   const errorRef = useRef(props.onError)
   errorRef.current = props.onError
@@ -254,7 +254,7 @@ export const SpriteStudioView = forwardRef<
         if (!player.needsDraw) return
         const canvas = recorder.beginRecording()
         player.draw(canvas)
-        picture.value = recorder.finishRecordingAsPicture()
+        publish(recorder.finishRecordingAsPicture())
       } catch (error) {
         cancelAnimationFrame(raf)
         reportError(errorRef.current, error, 'the frame loop stopped')
@@ -263,7 +263,7 @@ export const SpriteStudioView = forwardRef<
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [player, size.width, size.height, picture])
+  }, [player, size.width, size.height, publish])
 
   const onLayout = (event: LayoutChangeEvent): void => {
     const { width, height } = event.nativeEvent.layout
