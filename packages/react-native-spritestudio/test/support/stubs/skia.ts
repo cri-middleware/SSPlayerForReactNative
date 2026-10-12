@@ -21,6 +21,8 @@ export interface StubCanvas {
 export interface StubPicture {
   readonly canvas: StubCanvas
   readonly drawn: unknown[]
+  disposed: boolean
+  dispose(): void
 }
 
 function makeCanvas(): StubCanvas {
@@ -52,6 +54,10 @@ export const Skia = {
       finishRecordingAsPicture: (): StubPicture => ({
         canvas,
         drawn: canvas.drawn,
+        disposed: false,
+        dispose() {
+          this.disposed = true
+        },
       }),
     }
   },

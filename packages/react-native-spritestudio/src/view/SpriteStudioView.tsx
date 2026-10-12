@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -17,13 +16,13 @@ import {
   type ViewProps,
   type ViewStyle,
 } from 'react-native'
-import { Canvas, Picture, Skia, type SkPicture } from '@shopify/react-native-skia'
-import { useSharedValue } from 'react-native-reanimated'
+import { Canvas, Picture, Skia } from '@shopify/react-native-skia'
 
 import { resolveRootTransform, type SsAlign } from '../core/fit'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
 import { intrinsicSize } from './intrinsicSize'
 import { reportError } from './reportError'
+import { useFramePicture } from './useFramePicture'
 import {
   useSpriteStudioPlayer,
   type SsPlayerProps,
@@ -190,14 +189,7 @@ export const SpriteStudioView = forwardRef<
   const [size, setSize] = useState({ width: 0, height: 0 })
   const { player, measured, canvas, ready } = useSpriteStudioPlayer(props)
 
-  // `<Picture>` has no null state, so seed it with an empty recording rather
-  // than letting the first frame render before the loop has run once.
-  const emptyPicture = useMemo(() => {
-    const recorder = Skia.PictureRecorder()
-    recorder.beginRecording()
-    return recorder.finishRecordingAsPicture()
-  }, [])
-  const picture = useSharedValue<SkPicture>(emptyPicture)
+  const picture = useFramePicture()
 
   const errorRef = useRef(props.onError)
   errorRef.current = props.onError
