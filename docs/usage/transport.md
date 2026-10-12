@@ -99,9 +99,9 @@ They are not interchangeable, and none of them is a synonym for another:
 | | |
 |---|---|
 | `play()` | **Head-out.** Rewinds to the start of the section and re-arms the loop count. Using it to lift a `pause()` sends the playhead back to the start. |
-| `pause()` | Holds playback where it stands. Idempotent, and ignored while nothing is playing. |
+| `pause()` | Holds playback where it stands. Idempotent, and ignored while nothing is playing. Parts with independent playback keep running. |
 | `resume()` | Lifts a `pause()`, carrying on from the same frame. Idempotent, and a **no-op on a stopped animation** — starting one is `play()`'s job. |
-| `stop()` | Ends playback. Nothing rewinds, so the frame it stopped on stays on screen. |
+| `stop()` | Ends playback. Nothing rewinds, so the frame it stopped on stays on screen, and nothing moves until the next `play()` — parts with independent playback included. |
 
 `isPlaying` stays **true** across a `pause()` — a pause is a hold, not a stop —
 so `isPlaying && !isPausing` is what "currently advancing" means.

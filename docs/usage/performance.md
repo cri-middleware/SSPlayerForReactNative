@@ -44,6 +44,19 @@ a sprite renders nothing of its own — see
 [Many animations: a scene](/usage/scene), which also has the `paused` prop worth
 wiring to your app going to the background.
 
+## A player that holds still costs next to nothing
+
+A player that is not playing (never started, stopped, or finished) builds no
+frame, and neither does a paused one with no effect or instance part, since
+nothing in it can move. Its view keeps the picture it last drew until something
+changes it: a seek, another animation, an override, a texture swap or a new
+placement. A screen of still poses costs the JS thread a couple of cheap reads
+per player a frame, and the UI thread nothing.
+
+A paused player with an effect or instance part still advances, because parts
+with independent playback keep running in a pause. `playing={false}` pauses; if
+the pose is all you need, call `stop()` on the player through the ref instead.
+
 ## The one API that adds a frame loop
 
 `useSsPartTransform` is the exception to the fixed calls above, and every

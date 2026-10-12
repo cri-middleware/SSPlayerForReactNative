@@ -49,6 +49,8 @@ export class SpriteStudioPlayer {
 
   currentAnimation: string | null = null
   isPlaying = false
+  /** What a frame loop asks before it records. A test sets it false for a player with nothing new to draw. */
+  needsDraw = true
   isLoaded = false
   contentBox: SsBox | null = null
   canvasBox: SsBox | null = null

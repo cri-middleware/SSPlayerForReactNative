@@ -81,6 +81,9 @@ export function SpriteStudioScene({
   const [size, setSize] = useState({ width: 0, height: 0 })
   const members = useRef(new Set<SsSceneMember>()).current
   const seq = useRef(0)
+  // Re-sorted only on a join or a leave, which a `z` change is: the sprite
+  // enrols again.
+  const order = useRef({ list: [] as SsSceneMember[], stale: true }).current
 
   const emptyPicture = useMemo(() => {
     const recorder = Skia.PictureRecorder()
@@ -102,15 +105,17 @@ export function SpriteStudioScene({
       join(member) {
         const entry: SsSceneMember = { ...member, seq: seq.current++ }
         members.add(entry)
+        order.stale = true
         return () => {
           members.delete(entry)
+          order.stale = true
         }
       },
       get size() {
         return sizeRef.current
       },
     }),
-    [members]
+    [members, order]
   )
 
   // --- the one frame loop -------------------------------------------------
@@ -127,16 +132,19 @@ export function SpriteStudioScene({
       last = now
 
       try {
-        // Sorted per tick rather than kept sorted, because the cost is in the
-        // draw and a scene holds tens of members, not thousands. Sorting on
-        // enrolment would need the set to be a list and every leave to splice.
-        const ordered = [...members].sort((a, b) => a.z - b.z || a.seq - b.seq)
+        let redraw = order.stale
+        if (order.stale) {
+          order.list = [...members].sort((a, b) => a.z - b.z || a.seq - b.seq)
+          order.stale = false
+        }
+        for (const member of order.list) {
+          member.player.advance(dtMs)
+          if (!redraw && member.player.needsDraw) redraw = true
+        }
+        if (!redraw) return
         const recorder = Skia.PictureRecorder()
         const canvas = recorder.beginRecording()
-        for (const member of ordered) {
-          member.player.advance(dtMs)
-          member.player.draw(canvas)
-        }
+        for (const member of order.list) member.player.draw(canvas)
         picture.value = recorder.finishRecordingAsPicture()
       } catch (error) {
         cancelAnimationFrame(raf)
@@ -146,7 +154,7 @@ export function SpriteStudioScene({
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [members, picture, size.width, size.height, paused])
+  }, [members, order, picture, size.width, size.height, paused])
 
   const onLayout = (event: LayoutChangeEvent): void => {
     const { width, height } = event.nativeEvent.layout

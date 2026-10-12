@@ -122,6 +122,55 @@ describe('SpriteStudioScene', () => {
     expect(drawn(renderer)).toEqual([kept])
   })
 
+  // Every sprite stopped and unchanged: the picture the scene has is the one it
+  // would record. One that has something new redraws the lot.
+  it('records only when a sprite has something new to draw', async () => {
+    const { renderer } = await render(
+      <SpriteStudioScene>
+        <SpriteStudioSprite source={PACK} />
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+    const picture = findHosts(renderer, 'Picture')[0]?.props.picture as { value: unknown }
+    const [a, b] = SpriteStudioPlayer.created
+    const first = picture.value
+
+    for (const player of SpriteStudioPlayer.created) player.needsDraw = false
+    await act(async () => stepFrame(16))
+    expect(picture.value).toBe(first)
+    // Still advanced: a paused sprite's independent effects keep running.
+    expect(a?.argsOf('advance')).toEqual([[16], [16]])
+
+    if (b != null) b.needsDraw = true
+    await act(async () => stepFrame(16))
+    expect(picture.value).not.toBe(first)
+    expect(drawn(renderer)).toEqual([a, b])
+  })
+
+  it('records again when a sprite leaves, even with nothing new to draw', async () => {
+    const { renderer, update } = await render(
+      <SpriteStudioScene>
+        <SpriteStudioSprite key="a" source={PACK} />
+        <SpriteStudioSprite key="b" source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+    for (const player of SpriteStudioPlayer.created) player.needsDraw = false
+
+    await update(
+      <SpriteStudioScene>
+        <SpriteStudioSprite key="a" source={PACK} />
+      </SpriteStudioScene>
+    )
+    await act(async () => stepFrame(16))
+
+    const [kept] = SpriteStudioPlayer.created
+    expect(drawn(renderer)).toEqual([kept])
+  })
+
   // Caps the step so returning from the background does not fast-forward
   // through every frame the scene missed — events on them included.
   it('caps a long tick', async () => {

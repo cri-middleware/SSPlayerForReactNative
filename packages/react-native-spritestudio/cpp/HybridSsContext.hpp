@@ -74,6 +74,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   double getPartCount() override { return static_cast<double>(partCount_); }
   double getGeneration() override { return static_cast<double>(generation_); }
   double getFrameNo() override { return static_cast<double>(frameNo_); }
+  bool getFrameDrawn() override;
+  bool getAdvances() override { return advances(); }
 
   bool getIsPlaying() override;
   bool getIsPausing() override;
@@ -254,6 +256,15 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// independent one would then freeze in mid-air.
   void stepEffects(float dtMilliseconds, bool looped);
 
+  /// Whether `update()` can change the frame. A pause moves only the parts that
+  /// keep their own clock, and only effect and instance parts can.
+  bool advances() const;
+  /// Without this an override on a player that does not advance never shows:
+  /// Layer 3 sends it no `update()`. The rebuild waits for `refreshIfStale`, so
+  /// a whole override map costs one build.
+  void markStaleIfHeld();
+  void refreshIfStale();
+
   /// Re-reads the playhead from the Brain and republishes the frame.
   ///
   /// Every transport call that moves the playhead goes through this, so a seek
@@ -277,6 +288,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   sscore::SsAnimeBinaryView ssab_;
 
   double generation_ = 0;
+  double drawnGeneration_ = -1;
+  bool stale_ = false;
   float frameNo_ = 0.0f;
   /// Whether the DISPLAY frame keeps its fraction. On by default: this Player
   /// draws for applications, where interpolating between authored frames is the

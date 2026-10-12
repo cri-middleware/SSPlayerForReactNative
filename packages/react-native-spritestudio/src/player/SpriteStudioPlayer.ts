@@ -982,7 +982,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * frame that was drawn — so it cannot disagree with what is on screen. It is
    * that frame's hide: the animation's own, and a {@link setPartOverrides}
    * `hide: true` too, on every descendant it hides when `cascade` is set. An
-   * override shows up once the player next advances or seeks. False for an
+   * override shows up once the player next advances or seeks, and at once on
+   * a stopped player. False for an
    * unknown name, an out-of-range index and before the first `advance`;
    * {@link findPartIndex} is the existence test.
    */
@@ -1255,6 +1256,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /**
    * Advances the animation and dispatches the frame's events.
    *
+   * A stopped player (never played, stopped, or finished) holds its frame:
+   * nothing advances, its parts with independent playback included, as in
+   * SSPlayerForWeb. A paused one still advances, so those keep running, unless
+   * it has no effect or instance part, in which case nothing could move.
+   *
    * `isFinished` is a *state* the Brain latches until the next play/setup, so
    * `onAnimationFinished` is fired off its rising edge — polling the state itself would
    * fire it on every frame after the end.
@@ -1262,6 +1268,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   advance(dtMilliseconds: number): void {
     const internal = this.internalPlayer
     if (internal == null || internal.isDisposed) return
+    if (!internal.advances) return
 
     internal.advance(dtMilliseconds)
 
@@ -1300,12 +1307,28 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.wasFinished = finished
   }
 
+  /**
+   * Whether {@link draw} would draw something other than what it last drew.
+   * False for a stopped player whose frame, textures and placement are as they
+   * were, so a view can keep the picture it has.
+   */
+  get needsDraw(): boolean {
+    const internal = this.internalPlayer
+    // Loaded, reloaded or released since the last draw.
+    if (internal !== this.drawnInternal) return true
+    return internal != null && !internal.isDisposed && internal.needsDraw
+  }
+
   /** Draws the current frame. Returns the number of vertices drawn. */
   draw(canvas: SkCanvas): number {
     const internal = this.internalPlayer
+    this.drawnInternal = internal
     if (internal == null || internal.isDisposed) return 0
     return internal.draw(canvas)
   }
+
+  /** The Layer 2 player the last {@link draw} drew; `undefined` before any. */
+  private drawnInternal: SsInternalPlayer | null | undefined = undefined
 
   // --- fallback clock ----------------------------------------------------
 

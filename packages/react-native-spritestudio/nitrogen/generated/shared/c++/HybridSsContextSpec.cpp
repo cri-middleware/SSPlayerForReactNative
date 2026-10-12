@@ -17,6 +17,8 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridGetter("partCount", &HybridSsContextSpec::getPartCount);
       prototype.registerHybridGetter("generation", &HybridSsContextSpec::getGeneration);
       prototype.registerHybridGetter("frameNo", &HybridSsContextSpec::getFrameNo);
+      prototype.registerHybridGetter("frameDrawn", &HybridSsContextSpec::getFrameDrawn);
+      prototype.registerHybridGetter("advances", &HybridSsContextSpec::getAdvances);
       prototype.registerHybridGetter("isPlaying", &HybridSsContextSpec::getIsPlaying);
       prototype.registerHybridGetter("isPausing", &HybridSsContextSpec::getIsPausing);
       prototype.registerHybridGetter("isFinished", &HybridSsContextSpec::getIsFinished);

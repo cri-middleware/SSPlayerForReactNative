@@ -73,6 +73,8 @@ namespace margelo::nitro::ssplayer {
       virtual double getPartCount() = 0;
       virtual double getGeneration() = 0;
       virtual double getFrameNo() = 0;
+      virtual bool getFrameDrawn() = 0;
+      virtual bool getAdvances() = 0;
       virtual bool getIsPlaying() = 0;
       virtual bool getIsPausing() = 0;
       virtual bool getIsFinished() = 0;

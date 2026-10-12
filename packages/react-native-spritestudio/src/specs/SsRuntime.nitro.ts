@@ -319,6 +319,25 @@ export interface SsContext
   readonly frameNo: number
 
   /**
+   * Whether the last `drawInto` drew the frame as it stands.
+   *
+   * False after anything that changes what would be drawn: an `update()`, a
+   * call that moves the playhead, a new animation, a sub-frame switch, or an
+   * override on a player that does not advance. A view that finds it true,
+   * with the same texture table and transform as last time, can keep the
+   * picture it has.
+   */
+  readonly frameDrawn: boolean
+
+  /**
+   * Whether `update()` can change the frame. False for a stopped player, and
+   * for a paused one with no effect or instance part: a pause moves only the
+   * parts that keep their own clock, and only those two kinds can. Layer 3
+   * sends a player that does not advance no `update()`.
+   */
+  readonly advances: boolean
+
+  /**
    * Makes `pack` available to this player's Instance parts.
    *
    * **Must be called before `setupAnimation`**, which is when the child players
@@ -567,7 +586,8 @@ export interface SsContext
    * off, the same frame the renderer bakes — so it cannot disagree with what is
    * on screen. It is that frame's `hide`, which the Brain also sets for a
    * `setPartVisibility` force-hide and, with `cascade`, for every descendant it
-   * reaches, from the next `update()` or call that moves the playhead. False
+   * reaches, from the next `update()` or call that moves the playhead (at once
+   * on a player that does not advance — see the override layer below). False
    * for an out-of-range index and before the first `update()`, when there is
    * no frame to read.
    */
@@ -653,6 +673,10 @@ export interface SsContext
   // part index from `findPartIndex`, and every one returns false rather than
   // throwing when the part cannot take that kind of override — a Shape has no
   // cell, so `setPartCell` on one is a no-op and says so.
+  //
+  // The Brain applies an override when it builds a frame. A player that
+  // `advances` shows it from the next `update()`. One that does not has no
+  // `update()` coming, so its frame is rebuilt at the next read or draw.
 
   /**
    * `force`: 0 reverts to the animation, 1 force-hides. 2 (force-show) is
