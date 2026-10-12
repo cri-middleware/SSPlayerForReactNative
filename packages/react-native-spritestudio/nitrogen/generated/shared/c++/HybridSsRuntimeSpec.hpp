@@ -26,6 +26,8 @@ namespace margelo::nitro::ssplayer { class HybridSsContextSpec; }
 #include "HybridSsResourceSpec.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
 #include "HybridSsContextSpec.hpp"
+#include <NitroModules/Promise.hpp>
+#include "SsRNSkiaInterop.hpp"
 
 namespace margelo::nitro::ssplayer {
 
@@ -66,6 +68,7 @@ namespace margelo::nitro::ssplayer {
       virtual std::shared_ptr<HybridSsContextSpec> createContext(const std::shared_ptr<HybridSsResourceSpec>& resource) = 0;
       virtual std::shared_ptr<ArrayBuffer> readAsset(const std::string& path) = 0;
       virtual double hashString(const std::string& value) = 0;
+      virtual std::shared_ptr<Promise<void>> decodeImage(SkImageHandle image) = 0;
 
     protected:
       // Hybrid Setup

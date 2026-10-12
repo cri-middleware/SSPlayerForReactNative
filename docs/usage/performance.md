@@ -74,8 +74,10 @@ second time. See [Part overrides & following](/usage/parts).
 
 Parsing the `.ssab` is cheap and happens in C++ against bytes that never enter
 the JS heap. **Decoding the atlases is not** — every texture is a PNG decode,
-and that is the slow half. A view mounting against a cold cache shows its
-`placeholder` while it happens.
+and that is the slow half. It runs on a worker thread, so neither the JS thread
+nor the UI thread waits for it, and a view mounting against a cold cache shows
+its `placeholder` while it happens. A decoded atlas then takes width × height ×
+4 bytes of memory for as long as a player holds it.
 
 - **Warm the cache before the navigation** with `ssPreload` —
   [Preloading](/usage/textures#preloading).

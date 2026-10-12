@@ -23,6 +23,7 @@ namespace margelo::nitro::ssplayer {
       prototype.registerHybridMethod("createContext", &HybridSsRuntimeSpec::createContext);
       prototype.registerHybridMethod("readAsset", &HybridSsRuntimeSpec::readAsset);
       prototype.registerHybridMethod("hashString", &HybridSsRuntimeSpec::hashString);
+      prototype.registerHybridMethod("decodeImage", &HybridSsRuntimeSpec::decodeImage);
     });
   }
 

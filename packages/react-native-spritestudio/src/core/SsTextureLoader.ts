@@ -135,18 +135,33 @@ export class SsTextureLoader {
       const image = Skia.Image.MakeImageFromEncoded(
         Skia.Data.fromBytes(new Uint8Array(texture.embedded))
       )
-      if (image != null) return image
+      if (image != null) return decodeOffThread(image)
     }
 
     // 2. Reference: the parent of the `.ssab`, joined with the path inside it.
     if (texture.imagePath.length === 0 || baseUri == null) return null
     try {
       const data = await loadImageData(resolveAgainst(baseUri, texture.imagePath))
-      return Skia.Image.MakeImageFromEncoded(data)
+      const image = Skia.Image.MakeImageFromEncoded(data)
+      return image == null ? null : await decodeOffThread(image)
     } catch {
       return null
     }
   }
+}
+
+/**
+ * `image`, decoded on a worker. Left encoded, it decodes the first time a
+ * canvas draws it — on the UI thread, which a large atlas stalls for tens of
+ * milliseconds. A build that cannot decode natively keeps it encoded.
+ */
+async function decodeOffThread(image: SkImage): Promise<SkImage> {
+  try {
+    await SsRuntimeModule.decodeImage(image)
+  } catch {
+    // Drawn as it is, decoding on first use.
+  }
+  return image
 }
 
 /**

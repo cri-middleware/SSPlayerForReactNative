@@ -99,6 +99,12 @@ export const SsRuntimeModule = {
    * exactly what `SsTextureRegistry` warns against, and one that happened to
    * agree would let a test assert the right number for the wrong reason.
    */
+  /** Every image handed to `decodeImage`, oldest first. */
+  decoded: [] as unknown[],
+  decodeImage: async (image: unknown): Promise<void> => {
+    SsRuntimeModule.decoded.push(image)
+  },
+
   hashString: (value: string): number => {
     let hash = hashes.get(value)
     if (hash == null) {
@@ -114,4 +120,5 @@ export function resetFakeRuntime(): void {
   live.resources.clear()
   live.contexts.clear()
   hashes.clear()
+  SsRuntimeModule.decoded.length = 0
 }

@@ -45,6 +45,13 @@ export type SkPaintHandle = CustomType<
   { include: 'SsRNSkiaInterop.hpp' }
 >
 
+/** An RN Skia `SkImage`, unwrapped the same way. */
+export type SkImageHandle = CustomType<
+  object,
+  'SkImageHandle',
+  { include: 'SsRNSkiaInterop.hpp' }
+>
+
 /**
  * One entry of the texture table `drawInto` resolves batches against.
  *
@@ -896,4 +903,16 @@ export interface SsRuntime
    * silent disagreement shows up as a texture that simply never resolves.
    */
   hashString(value: string): number
+
+  /**
+   * Decodes `image` on a worker thread if it is still encoded, and swaps the
+   * decoded pixels into it.
+   *
+   * `Skia.Image.MakeImageFromEncoded` returns an image that decodes the first
+   * time it is drawn, and a canvas draws on the UI thread, which a large atlas
+   * stalls for tens of milliseconds. Decoded here, the image keeps its pixels
+   * (width × height × 4 bytes) for as long as it lives. Leave the image alone
+   * until the promise settles.
+   */
+  decodeImage(image: SkImageHandle): Promise<void>
 }

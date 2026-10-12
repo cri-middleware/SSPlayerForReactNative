@@ -38,6 +38,16 @@ struct SkPaintHandle final {
   std::shared_ptr<void> owner;
 };
 
+/// An `SkImage` wrapper — RN Skia's `JsiSkImage` — kept alive by `owner`.
+struct SkImageHandle final {
+  void* image = nullptr;
+  std::shared_ptr<void> owner;
+};
+
+/// Decodes the image `handle` wraps, if it is lazily decoded, and puts the
+/// decoded pixels in its place. Blocking: run it off the JS thread.
+void DecodeImageInPlace(const SkImageHandle& handle);
+
 }  // namespace margelo::nitro::ssplayer
 
 namespace margelo::nitro {
@@ -57,6 +67,7 @@ namespace margelo::nitro {
 /// below are the ones found.
 using SkCanvasHandle = ssplayer::SkCanvasHandle;
 using SkPaintHandle = ssplayer::SkPaintHandle;
+using SkImageHandle = ssplayer::SkImageHandle;
 
 template <>
 struct JSIConverter<ssplayer::SkCanvasHandle> final {
@@ -69,6 +80,13 @@ template <>
 struct JSIConverter<ssplayer::SkPaintHandle> final {
   static ssplayer::SkPaintHandle fromJSI(jsi::Runtime& runtime, const jsi::Value& value);
   static jsi::Value toJSI(jsi::Runtime& runtime, const ssplayer::SkPaintHandle& handle);
+  static bool canConvert(jsi::Runtime& runtime, const jsi::Value& value);
+};
+
+template <>
+struct JSIConverter<ssplayer::SkImageHandle> final {
+  static ssplayer::SkImageHandle fromJSI(jsi::Runtime& runtime, const jsi::Value& value);
+  static jsi::Value toJSI(jsi::Runtime& runtime, const ssplayer::SkImageHandle& handle);
   static bool canConvert(jsi::Runtime& runtime, const jsi::Value& value);
 };
 

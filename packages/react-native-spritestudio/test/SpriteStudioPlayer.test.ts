@@ -677,6 +677,18 @@ describe('dispose', () => {
     expect(ssImageCache.size).toBe(0)
   })
 
+  // Left encoded, an atlas decodes the first time a canvas draws it, on the UI
+  // thread. Every atlas a load registers has been through the worker first.
+  it('decodes each atlas off the UI thread before registering it', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = await loaded()
+    const registry = player.textures as unknown as SsTextureRegistry
+    const bound = registry.bound(SsRuntimeModule.hashString('common'))
+
+    expect(bound).toBeDefined()
+    expect(SsRuntimeModule.decoded).toEqual([bound])
+  })
+
   // `texture_hash` is the hash of a *cellmap name*, so a second pack naming a
   // cellmap the same thing kept drawing with the first pack's atlas.
   it('takes its own registry entries back out', async () => {

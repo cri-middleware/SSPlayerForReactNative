@@ -28,6 +28,7 @@ class HybridSsRuntime final : public HybridSsRuntimeSpec {
   SsLiveHandles getLiveHandles() override;
 
   double hashString(const std::string& value) override;
+  std::shared_ptr<Promise<void>> decodeImage(SkImageHandle image) override;
 };
 
 }  // namespace margelo::nitro::ssplayer

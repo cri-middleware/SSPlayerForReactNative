@@ -86,4 +86,8 @@ double HybridSsRuntime::hashString(const std::string& value) {
   return static_cast<double>(ss_runtime_hash_string(value.c_str()));
 }
 
+std::shared_ptr<Promise<void>> HybridSsRuntime::decodeImage(SkImageHandle image) {
+  return Promise<void>::async([image]() { DecodeImageInPlace(image); });
+}
+
 }  // namespace margelo::nitro::ssplayer

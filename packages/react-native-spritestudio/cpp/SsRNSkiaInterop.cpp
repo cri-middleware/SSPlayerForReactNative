@@ -15,6 +15,7 @@
 // package declares.
 #if SSPLAYER_ENABLE_SKIA_DIRECT
 #include "JsiSkCanvas.h"
+#include "JsiSkImage.h"
 #include "JsiSkNativeObjects.h"
 #include "JsiSkPaint.h"
 #endif
@@ -90,4 +91,55 @@ bool JSIConverter<ssplayer::SkPaintHandle>::canConvert(jsi::Runtime& runtime,
 #endif
 }
 
+ssplayer::SkImageHandle JSIConverter<ssplayer::SkImageHandle>::fromJSI(jsi::Runtime& runtime,
+                                                                      const jsi::Value& value) {
+#if SSPLAYER_ENABLE_SKIA_DIRECT
+  auto image = RNSkia::getJsiObject<RNSkia::JsiSkImage>(runtime, value);
+  return ssplayer::SkImageHandle{image.get(), image};
+#else
+  ThrowUnavailable(runtime);
+#endif
+}
+
+jsi::Value JSIConverter<ssplayer::SkImageHandle>::toJSI(jsi::Runtime& runtime,
+                                                        const ssplayer::SkImageHandle&) {
+  throw jsi::JSError(runtime, "SkImageHandle cannot be returned to JS");
+}
+
+bool JSIConverter<ssplayer::SkImageHandle>::canConvert(jsi::Runtime& runtime,
+                                                       const jsi::Value& value) {
+#if SSPLAYER_ENABLE_SKIA_DIRECT
+  return RNSkia::tryGetJsiObject<RNSkia::JsiSkImage>(runtime, value) != nullptr;
+#else
+  (void)runtime;
+  (void)value;
+  return false;
+#endif
+}
+
 }  // namespace margelo::nitro
+
+namespace margelo::nitro::ssplayer {
+
+void DecodeImageInPlace(const SkImageHandle& handle) {
+#if SSPLAYER_ENABLE_SKIA_DIRECT
+  auto* wrapper = static_cast<RNSkia::JsiSkImage*>(handle.image);
+  if (wrapper == nullptr) return;
+  sk_sp<SkImage> image;
+  try {
+    image = wrapper->getObject();
+  } catch (...) {
+    // Disposed while it waited for a worker: nothing left to decode.
+    return;
+  }
+  if (image == nullptr || !image->isLazyGenerated()) return;
+  // No GPU context: the pixels land in memory, and the canvas that draws the
+  // image uploads them instead of decoding.
+  sk_sp<SkImage> decoded = image->makeRasterImage(nullptr);
+  if (decoded != nullptr) wrapper->setObject(decoded);
+#else
+  (void)handle;
+#endif
+}
+
+}  // namespace margelo::nitro::ssplayer
