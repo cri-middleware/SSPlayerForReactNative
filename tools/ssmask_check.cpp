@@ -19,7 +19,8 @@
 //   3. **The whole path still masks something.** The real `DrawBakedFrame` over
 //      a real `.ssab`, rendered twice — with the mask input and without — and
 //      the two framebuffers must differ. This is the one that catches "the
-//      coverage silently became null" again.
+//      coverage silently became null" again. The masked frame must also open
+//      no layer: each one is an offscreen render on the UI thread every frame.
 //   4. **A mask reaches into an instance child.** The same draw, over a scene
 //      whose mask has to cross an instance boundary. One mount at
 //      a time, against the pack's real atlases, with the caller's coverage
@@ -54,6 +55,7 @@
 #include "include/core/SkVertices.h"
 #include "include/effects/SkRuntimeEffect.h"
 #include "include/encode/SkPngEncoder.h"
+#include "include/utils/SkNoDrawCanvas.h"
 
 #include "../packages/react-native-spritestudio/cpp/SsAnimeBinary.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsBaker.hpp"
@@ -552,6 +554,24 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
     Fail("the mask changed nothing — %zu writers were planned and none reached the "
          "framebuffer",
          plan.writers().size());
+  }
+
+  struct LayerCounter : SkNoDrawCanvas {
+    LayerCounter() : SkNoDrawCanvas(kSize, kSize) {}
+    int layers = 0;
+    SaveLayerStrategy getSaveLayerStrategy(const SaveLayerRec& rec) override {
+      ++layers;
+      return SkNoDrawCanvas::getSaveLayerStrategy(rec);
+    }
+  } counter;
+  ::ssplayer::SsMaskInput input;
+  input.plan = &plan;
+  input.flags = flags.data();
+  input.flagCount = flags.size();
+  ::ssplayer::DrawBakedFrame(&counter, &binding, 1, baker, input);
+  if (counter.layers != 0) {
+    Fail("the masked frame opened %d layer%s — each is an offscreen render every frame",
+         counter.layers, counter.layers == 1 ? "" : "s");
   }
 }
 
