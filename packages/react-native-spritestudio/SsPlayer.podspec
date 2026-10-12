@@ -93,6 +93,9 @@ Pod::Spec.new do |s|
       "SSPLAYER_ENABLE_SKIA_DIRECT=#{skia_direct ? 1 : 0}",
     # RN Skia's headers are C++17; Nitro's are C++20. C++20 compiles both.
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
+    # Xcode's Release default is -Os, which leaves the bake's copy loops
+    # unvectorised: half the speed of the -O2 Android builds with.
+    "GCC_OPTIMIZATION_LEVEL[config=Release]" => "2",
   }
 
   load File.join(__dir__, "nitrogen/generated/ios/SsPlayer+autolinking.rb")
