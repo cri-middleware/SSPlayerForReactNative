@@ -1,5 +1,8 @@
 #include "SsBaker.hpp"
 
+#include <algorithm>
+#include <cstring>
+
 namespace sscore {
 
 namespace {
@@ -298,31 +301,49 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
         WhiteWithAlpha((hasPartColor ? info.partColor.lt.a : partAlpha) * alphaScale);
 
     const uint16_t base = static_cast<uint16_t>(positions_.size() / 2 - desc.vertexOffset);
-    for (uint32_t v = v0; v < v1; ++v) {
-      // Already world-space: the Brain did the skinning, so the world matrix
-      // must NOT be applied a second time.
-      positions_.push_back(soa.meshVerticesX[v]);
-      positions_.push_back(soa.meshVerticesY[v]);
-      texCoords_.push_back(soa.meshUvs[static_cast<size_t>(v) * 2]);
-      texCoords_.push_back(soa.meshUvs[static_cast<size_t>(v) * 2 + 1]);
-      colors_.push_back(color);
+    const uint32_t indexCount = i1 - i0;
+
+    // Sized once and written through pointers, not pushed an element at a time:
+    // a skinned part runs to hundreds of vertices and thousands of indices, and
+    // a capacity check per element keeps these loops from vectorising.
+    const size_t vertexAt = positions_.size();
+    const size_t colorAt = colors_.size();
+    const size_t indexAt = indices_.size();
+    positions_.resize(vertexAt + static_cast<size_t>(vertCount) * 2);
+    texCoords_.resize(vertexAt + static_cast<size_t>(vertCount) * 2);
+    colors_.resize(colorAt + vertCount);
+    indices_.resize(indexAt + indexCount);
+
+    // Already world-space: the Brain did the skinning, so the world matrix
+    // must NOT be applied a second time.
+    float* positions = positions_.data() + vertexAt;
+    const float* xs = soa.meshVerticesX + v0;
+    const float* ys = soa.meshVerticesY + v0;
+    for (uint32_t v = 0; v < vertCount; ++v) {
+      positions[v * 2] = xs[v];
+      positions[v * 2 + 1] = ys[v];
     }
+    // Interleaved u,v already, which is the layout `texCoords_` keeps.
+    std::memcpy(texCoords_.data() + vertexAt, soa.meshUvs + static_cast<size_t>(v0) * 2,
+                sizeof(float) * 2 * vertCount);
+    std::fill(colors_.begin() + static_cast<std::ptrdiff_t>(colorAt), colors_.end(), color);
+
     // Part-local 0-based, so they are rebased onto this part's slice of the
     // batch — the batch is one draw call, which is exactly the case the mesh doc
     // says needs the vertex base added.
-    for (uint32_t i = i0; i < i1; ++i) {
-      const int32_t local = soa.meshIndices[i];
-      if (local < 0 || static_cast<uint32_t>(local) >= vertCount) {
-        // A malformed index would walk outside the part; drop the triangle
-        // rather than the whole part.
-        indices_.push_back(base);
-        continue;
-      }
-      indices_.push_back(static_cast<uint16_t>(base + local));
+    uint16_t* indices = indices_.data() + indexAt;
+    const int32_t* local = soa.meshIndices + i0;
+    for (uint32_t i = 0; i < indexCount; ++i) {
+      // Unsigned, so a negative index fails the same test as one past the end.
+      // A malformed index would walk outside the part; it is pointed at the
+      // part's first vertex instead, which drops the triangle rather than the
+      // whole part.
+      const uint32_t at = static_cast<uint32_t>(local[i]);
+      indices[i] = static_cast<uint16_t>(base + (at < vertCount ? at : 0u));
     }
 
     info.vertexCount = static_cast<int32_t>(vertCount);
-    info.indexCount = static_cast<int32_t>(i1 - i0);
+    info.indexCount = static_cast<int32_t>(indexCount);
     parts_.push_back(info);
   }
 }
@@ -646,12 +667,22 @@ bool SsBaker::appendEffectRun(const ss::runtime::EffectDrawPlan* plan, uint32_t 
       continue;
     }
 
+    // Read straight out of the vectors' payload rather than through `Get`, one
+    // accessor call per float: the payload is little-endian scalars in exactly
+    // the layout the loops below walk. The bounds test above is what makes each
+    // pointer's run real.
+    static_assert(FLATBUFFERS_LITTLEENDIAN,
+                  "the plan's vectors are read in place, which assumes host order is theirs");
+    const float* planVerts = verts->data() + vOff;
+    const float* planUvs = uvs->data() + uOff;
+    const float* planColors = colors->data() + cOff;
+    const int32_t* planIdx = planIndices->data() + iOff;
+
     // Validated whole *before* anything is written, so a corrupt command cannot
     // leave a half-built quad behind in the shared arrays.
-    const auto iAt = static_cast<uint32_t>(iOff);
     bool valid = true;
     for (uint32_t n = 0; n < indexCount; ++n) {
-      const int32_t v = planIndices->Get(iAt + n);
+      const int32_t v = planIdx[n];
       if (v < 0 || static_cast<uint32_t>(v) >= vertexCount) {
         valid = false;
         break;
@@ -659,31 +690,39 @@ bool SsBaker::appendEffectRun(const ss::runtime::EffectDrawPlan* plan, uint32_t 
     }
     if (!valid) continue;
 
-    // Narrowed only now: the bounds test above proved each offset addresses a
-    // real element, and a FlatBuffers vector index is 32-bit.
-    const auto vAt = static_cast<uint32_t>(vOff);
-    const auto uAt = static_cast<uint32_t>(uOff);
-    const auto cAt = static_cast<uint32_t>(cOff);
+    // Sized once and written through pointers, for the reason `bakeMeshBatch`
+    // gives.
+    const size_t vertexAt = positions_.size();
+    const size_t colorAt = colors_.size();
+    const size_t indexAt = indices_.size();
+    positions_.resize(vertexAt + static_cast<size_t>(vertexCount) * 2);
+    texCoords_.resize(vertexAt + static_cast<size_t>(vertexCount) * 2);
+    colors_.resize(colorAt + vertexCount);
+    indices_.resize(indexAt + indexCount);
+    float* outPositions = positions_.data() + vertexAt;
+    float* outTexCoords = texCoords_.data() + vertexAt;
+    uint32_t* outColors = colors_.data() + colorAt;
+    uint16_t* outIndices = indices_.data() + indexAt;
 
     for (uint32_t v = 0; v < vertexCount; ++v) {
-      const float x = verts->Get(vAt + v * stride);
-      const float y = verts->Get(vAt + v * stride + 1);
-      positions_.push_back(m0 * x + m4 * y + m12);
-      positions_.push_back(m1 * x + m5 * y + m13);
+      const float x = planVerts[v * stride];
+      const float y = planVerts[v * stride + 1];
+      outPositions[v * 2] = m0 * x + m4 * y + m12;
+      outPositions[v * 2 + 1] = m1 * x + m5 * y + m13;
 
       // Normalised 0..1 in the plan — the runtime divided by the cellmap's
       // `size_original` — whereas `local_uvs` and `mesh_uvs` are already texture
       // pixels. Scaling back up is what puts all three in one space.
-      texCoords_.push_back(uvs->Get(uAt + v * 2) * texWidth);
-      texCoords_.push_back(uvs->Get(uAt + v * 2 + 1) * texHeight);
+      outTexCoords[v * 2] = planUvs[v * 2] * texWidth;
+      outTexCoords[v * 2 + 1] = planUvs[v * 2 + 1] * texHeight;
 
-      const uint32_t o = cAt + v * 4;
-      const uint32_t a = Channel(colors->Get(o + 3) * partAlpha);
-      colors_.push_back((a << 24) | (Channel(colors->Get(o)) << 16) |
-                        (Channel(colors->Get(o + 1)) << 8) | Channel(colors->Get(o + 2)));
+      const float* rgba = planColors + static_cast<size_t>(v) * 4;
+      const uint32_t a = Channel(rgba[3] * partAlpha);
+      outColors[v] =
+          (a << 24) | (Channel(rgba[0]) << 16) | (Channel(rgba[1]) << 8) | Channel(rgba[2]);
     }
     for (uint32_t n = 0; n < indexCount; ++n) {
-      indices_.push_back(static_cast<uint16_t>(base + planIndices->Get(iAt + n)));
+      outIndices[n] = static_cast<uint16_t>(base + planIdx[n]);
     }
 
     base += vertexCount;
