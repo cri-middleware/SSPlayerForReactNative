@@ -41,9 +41,8 @@ echo "==> building host libssruntime"
 ( cd "$SDK_DIR" && cargo build -q -p ssruntime-ffi --features libc_alloc,panic-handler )
 
 echo "==> compiling sshidden_check"
-# The vendored flatbuffers headers rather than brew's: this reads FrameData
-# through the committed cpp/format/, which is what the package ships against,
-# and unlike check-framedata.sh it is not also checking that flatc is current.
+# The vendored flatbuffers headers: this reads FrameData through the committed
+# cpp/format/, which is what the package ships against.
 clang++ -std=c++17 -O1 -g -fsanitize=address,undefined \
   -I"$PKG_DIR/third_party/flatbuffers/include" \
   -I"$NATIVE_INCLUDE" \

@@ -147,6 +147,7 @@ would shut out contributors on the other platform, and CI checks that both parse
 | `download-sdk` | Install the release pinned in `scripts/SDK_VERSION.txt` into `native/`. **No Rust needed**, and skips when what is installed already matches. | Normal setup |
 | `build-runtime` | Build the Brain from the submodule into the same layout. Writes no version, so it is always replaced and never published. Windows: Android slice only. | Changing the Brain |
 | `deploy-examples` | `.sspj` → `.ssab` for `example/` via `ssconverter-cli` (needs Rust), then refreshes `example/src/ss-assets.ts`. Every project under `example/SpriteStudio_Source/` is converted too and shows up as a `local/<folder>` subject ([example/README.md](./example/README.md#looking-at-a-project-of-your-own)); the optional `MaskInstance` sample is reported and skipped when absent. | Refresh example assets |
+| `generate-assets` | Rewrites `example/src/ss-assets.ts` from the packs under `example/assets/ss/`: the last step of `deploy-examples`, on its own. An app runs the same command as `npx react-native-spritestudio assets`. | After adding packs to `example/assets/ss/` by hand |
 | `run-ios` | Prebuild the example, build it in Release (the JS bundle embedded, so no Metro) and launch it on a simulator or a connected iPhone, picked with `device=<name\|udid>`; a simulator is booted when none is named. `config=debug` serves the JS from Metro instead. macOS only, so there is no `.ps1`. | Looking at drawing on a device |
 | `run-android` | The same for an Android device or emulator, picked with `device=<name>`. | Looking at drawing on a device |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`. Commit the result. | After a spec change |
@@ -288,6 +289,7 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 | `download-sdk` | `scripts/SDK_VERSION.txt` で固定したリリースを `native/` に導入します。**Rust は不要**で、導入済みのものが一致していれば何もしません。 | 通常のセットアップ |
 | `build-runtime` | submodule から Brain をビルドし、同じ配置に置きます。バージョンを書き込まないため、常に置き換えられ、publish されることもありません。Windows では Android 向けのみです。 | Brain を変更するとき |
 | `deploy-examples` | `ssconverter-cli`（Rust が必要）で `example/` 用に `.sspj` を `.ssab` へ変換し、`example/src/ss-assets.ts` を更新します。`example/SpriteStudio_Source/` 以下のプロジェクトもすべて変換され、`local/<folder>` の Subject として表示されます（[example/README.md](./example/README.md#looking-at-a-project-of-your-own)）。任意の `MaskInstance` サンプルは、無ければその旨を表示して飛ばします。 | example のアセットを更新するとき |
+| `generate-assets` | `example/assets/ss/` 以下のパックから `example/src/ss-assets.ts` を書き直します。`deploy-examples` の最後の手順だけを単独で行うものです。アプリでは同じコマンドを `npx react-native-spritestudio assets` として実行します。 | `example/assets/ss/` にパックを手で足したとき |
 | `run-ios` | example を prebuild し、Release でビルドして（JS バンドルを埋め込むので Metro は不要）、シミュレータか接続した iPhone で起動します。端末は `device=<名前\|UDID>` で選び、指定がなければシミュレータを起動します。`config=debug` にすると JS を Metro から配信します。macOS 専用のため `.ps1` はありません。 | 端末で描画を確かめるとき |
 | `run-android` | 同じことを Android の端末かエミュレータで行います。端末は `device=<名前>` で選びます。 | 端末で描画を確かめるとき |
 | `generate-nitro-code` | `nitrogen` → `nitrogen/generated/`。生成物はコミットしてください。 | spec を変更した後 |
