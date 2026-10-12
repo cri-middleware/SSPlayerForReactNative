@@ -1,26 +1,32 @@
 ---
 title: Performance
-description: What a frame actually costs, and the few places where the one-call-per-player rule stops holding.
+description: What a frame actually costs, which thread pays for it, and the few places that add to it.
 ---
 
 # Performance
 
 ## What a frame costs
 
-Per frame, per player, **JavaScript makes one call** — `drawInto`. Advancing the
-clock, building the geometry and issuing the Skia draw calls all happen below
-it, in the Rust core and the C++ beside it, and no vertex ever crosses the JSI
-boundary.
+A frame runs on the JS thread, in a `requestAnimationFrame` callback. Per
+player, JavaScript makes **the same few calls into native code however complex
+the animation is** — advance the clock, read the playback state, place the
+canvas, `drawInto` — and no vertex ever crosses the JSI boundary.
 
-Two things follow, and they are worth designing around:
+Those calls are synchronous, though. Advancing the timeline, building the
+geometry and recording the Skia draw calls all happen inside them, in the Rust
+core and the C++ beside it, so that time is spent on the JS thread as well. Two
+things follow, and they are worth designing around:
 
-- **The JS cost scales with how many players are on screen, not with how complex
-  they are.** A 300-part character and a 3-part logo cost the JS thread the
-  same.
-- **The drawing cost scales with pixels.** Effect and particle parts stack many
-  large, mostly-transparent quads, so the same pixel is shaded over and over.
-  The surface is the view's size times the device's pixel ratio, and nothing
-  here decouples the two — a smaller view is less work.
+- **The JS thread's cost scales with how many players are on screen and with
+  how much each one draws.** A 300-part character costs more than a 3-part
+  logo. Skinned meshes and particles carry the most vertices, and a part with a
+  PartColor tint, an `ss-*` shader or a mask is drawn on its own rather than
+  with its batch.
+- **The drawing cost scales with pixels.** The recorded frame is drawn off the
+  JS thread, and effect and particle parts stack many large, mostly-transparent
+  quads, so the same pixel is shaded over and over. The surface is the view's
+  size times the device's pixel ratio, and nothing here decouples the two — a
+  smaller view is less work.
 
 ::: warning There are no device numbers behind this page
 Nothing has been measured on a physical device: iOS Simulator and Android
@@ -32,15 +38,15 @@ build, since a debug bundle swamps everything described here.
 ## Many animations: one scene, not many views
 
 `<SpriteStudioView>` owns a canvas and a frame loop. Twenty views is twenty
-canvases and twenty clocks, which is the one arrangement the rule above cannot
-save you from. `<SpriteStudioScene>` draws a whole cast into **one canvas off
-one clock**, and a sprite renders nothing of its own — see
+canvases and twenty clocks, on top of what the twenty players cost anyway.
+`<SpriteStudioScene>` draws a whole cast into **one canvas off one clock**, and
+a sprite renders nothing of its own — see
 [Many animations: a scene](/usage/scene), which also has the `paused` prop worth
 wiring to your app going to the background.
 
 ## The one API that adds a frame loop
 
-`useSsPartTransform` is the exception to everything above, and every
+`useSsPartTransform` is the exception to the fixed calls above, and every
 `<SpriteStudioPartAnchor>` is one of it. Each hook instance starts a **second `requestAnimationFrame` beside the view's**, and reads through
 `getPartTransform(partName)` — a string across the JSI boundary, every frame,
 per part. It is the one consumer-facing API that reintroduces exactly the

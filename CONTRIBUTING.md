@@ -29,8 +29,9 @@ buffer handling. Five are worth knowing before you start:
 
 - **Every buffer handed to JS is valid only until the next `update()`.** Structs
   carry a `generation`; compare it before reading.
-- **Nothing per-vertex crosses the JSI boundary.** JS's per-frame job is one call
-  per player. Routing vertices through JS was measured and caps the frame rate.
+- **Nothing per-vertex crosses the JSI boundary.** JS makes the same few calls
+  per player per frame, whatever the vertex count. Routing vertices through JS
+  was measured and caps the frame rate.
 - **No per-frame allocations in the playback hot path**, on either side of JSI.
   A per-frame buffer is a member resized in place, like `SsBaker`'s, never a
   fresh vector or JS array.
@@ -218,8 +219,8 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 - **JS に渡されるバッファは次の `update()` までしか有効ではありません。** 各構造体は
   `generation` を持つので、読む前に比較してください。
-- **頂点単位のデータは JSI 境界を越えません。** JS の 1 フレームあたりの仕事は Player
-  ごとに 1 回の呼び出しだけです。頂点を JS 経由にする案は計測済みで、フレームレートの上限を作ります。
+- **頂点単位のデータは JSI 境界を越えません。** JS が 1 フレームに呼ぶ回数は Player
+  ごとに決まっていて、頂点数によりません。頂点を JS 経由にする案は計測済みで、フレームレートの上限を作ります。
 - **再生中は毎フレームのヒープ確保をしません。** JSI のどちら側でも同じです。毎フレーム使うバッファは `SsBaker` のようにメンバーに持ってその場でサイズを変え、vector や JS の配列を毎フレーム新しく作らないでください。
 - **レイヤ 2 は `react` / `react-native` を一切 import しません。** ヘッドレス利用と
   react-native-web を残すためです。**これを強制する仕組みはありません** — lint ルールもテストもありません。
