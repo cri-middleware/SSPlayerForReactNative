@@ -17,8 +17,9 @@ param (
 # round-trips, the path still masks) run tools/check-mask.sh on a Mac.
 #
 # It compiles the units whose includes are self-contained — Skia + FlatBuffers +
-# this package's own cpp/. SsRNSkiaInterop.cpp is left out on purpose: it pulls
-# in NitroModules/JSI headers that only exist inside a full RN build.
+# this package's own cpp/. SsRNSkiaInterop.cpp is left out on purpose: it
+# includes <NitroModules/...>, which resolves only through CocoaPods' header map
+# or a flattened copy of Nitro's cpp/ headers, and this script builds neither.
 #
 # Usage: tools/check-skia-compile.ps1 [ndk=<path>] [api=<level>] [-Object]
 #   ndk      : Android NDK root  (default: $env:ANDROID_NDK_HOME, else the
