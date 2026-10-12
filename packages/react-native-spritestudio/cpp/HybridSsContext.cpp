@@ -161,6 +161,8 @@ void HybridSsContext::release() noexcept {
   soa_ = {};
   textures_.clear();
   paintBindings_.clear();
+  // The kept mask coverage samples those paints' atlases.
+  drawScratch_ = {};
   partCount_ = 0;
   frameNo_ = 0.0f;
   animationIndex_ = -1;

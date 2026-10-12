@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "SsMask.hpp"
@@ -99,6 +100,15 @@ struct SsDrawScratch {
   std::vector<uint16_t> indices;
   /// Coverage UVs, `x, y` per vertex.
   std::vector<float> coverageUvs;
+
+  /// The last coverage this root built, and the inputs it was built from.
+  ///
+  /// Kept because the GPU caches a rasterised image under the image itself: a
+  /// new image every frame is an offscreen render every frame. A frame whose
+  /// writers read the same inputs hands the same image on instead.
+  std::shared_ptr<SsMaskCoverage> coverage;
+  std::vector<uint8_t> coverageInputs;
+  std::vector<uint8_t> nextCoverageInputs;
 };
 
 /// Draws every batch the baker produced into `canvas`, picking each batch's

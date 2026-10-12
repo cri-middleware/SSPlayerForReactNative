@@ -268,6 +268,73 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   return out;
 }
 
+template <typename T>
+void AppendBytes(std::vector<uint8_t>& out, const T* values, size_t count) {
+  const auto* bytes = reinterpret_cast<const uint8_t*>(values);
+  out.insert(out.end(), bytes, bytes + count * sizeof(T));
+}
+
+/// Everything `BuildCoverage` reads, flattened into `out`, so that two frames
+/// with equal bytes rasterise the same coverage.
+///
+/// The atlas goes in as its shader's address. That is safe to compare across
+/// frames because the kept coverage holds a reference to the shader it
+/// sampled, so the address cannot be reused while it is the one compared
+/// against.
+void CoverageInputs(const sscore::SsMaskPlan& plan, const sscore::SsBaker& baker,
+                    const SsPaintBinding* textures, size_t textureCount,
+                    std::vector<uint8_t>& out) {
+  out.clear();
+  const float box[4] = {plan.left(), plan.top(), plan.width(), plan.height()};
+  AppendBytes(out, box, 4);
+  for (const sscore::SsMaskWriter& writer : plan.writers()) {
+    const bool foreign = writer.foreignBaker != nullptr;
+    const int32_t head[3] = {writer.bit, writer.partDrawIndex, foreign ? 1 : 0};
+    AppendBytes(out, head, 3);
+    AppendBytes(out, &writer.threshold, 1);
+    if (foreign) AppendBytes(out, writer.foreignXf, 6);
+
+    const sscore::SsBaker& src = foreign ? *writer.foreignBaker : baker;
+    const std::vector<sscore::SsPartDraw>& parts = src.parts();
+    if (writer.partDrawIndex < 0 ||
+        static_cast<size_t>(writer.partDrawIndex) >= parts.size()) {
+      continue;
+    }
+    const sscore::SsPartDraw& part = parts[writer.partDrawIndex];
+    const sscore::SsBatchDesc* batch = BatchOfPart(src, writer.partDrawIndex);
+    if (batch == nullptr) continue;
+    const bool untextured = batch->kind == ss::runtime::DrawBatchKind_Shape;
+    const SkPaint* paint =
+        untextured ? nullptr : PaintFor(textures, textureCount, batch->textureHash);
+    const auto atlas = reinterpret_cast<uintptr_t>(paint != nullptr ? paint->getShader() : nullptr);
+    AppendBytes(out, &atlas, 1);
+    const int32_t shape[4] = {untextured ? 1 : 0, part.vertexCount, part.indexCount,
+                              part.vertexOffset - batch->vertexOffset};
+    AppendBytes(out, shape, 4);
+    if (part.vertexCount <= 0 || part.indexCount <= 0) continue;
+    const size_t base = static_cast<size_t>(part.vertexOffset) * 2;
+    const size_t floats = static_cast<size_t>(part.vertexCount) * 2;
+    AppendBytes(out, src.positions().data() + base, floats);
+    if (!untextured) AppendBytes(out, src.texCoords().data() + base, floats);
+    AppendBytes(out, src.indices().data() + part.indexOffset,
+                static_cast<size_t>(part.indexCount));
+  }
+}
+
+/// This frame's coverage: the kept one when the writers read the same inputs
+/// as last frame, else a fresh one, kept in its place.
+const SsMaskCoverage& CoverageFor(const sscore::SsMaskPlan& plan, const sscore::SsBaker& baker,
+                                  const SsPaintBinding* textures, size_t textureCount,
+                                  SsDrawScratch& scratch) {
+  CoverageInputs(plan, baker, textures, textureCount, scratch.nextCoverageInputs);
+  if (scratch.coverage == nullptr || scratch.nextCoverageInputs != scratch.coverageInputs) {
+    if (scratch.coverage == nullptr) scratch.coverage = std::make_shared<SsMaskCoverage>();
+    *scratch.coverage = BuildCoverage(plan, baker, textures, textureCount, scratch);
+    scratch.coverageInputs.swap(scratch.nextCoverageInputs);
+  }
+  return *scratch.coverage;
+}
+
 }  // namespace
 
 size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t textureCount,
@@ -291,11 +358,12 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   // Built here only by the root, which owns the whole tree's writers. A
   // sub-animation is handed the root's instead — see `SsMaskInput::coverage`.
   const bool haveWriters = mask.plan != nullptr && !mask.plan->empty();
-  SsMaskCoverage built;
   const SsMaskCoverage* coverage = mask.coverage;
   if (coverage == nullptr && mask.active() && haveWriters) {
-    built = BuildCoverage(*mask.plan, baker, textures, textureCount, scratch);
-    coverage = &built;
+    coverage = &CoverageFor(*mask.plan, baker, textures, textureCount, scratch);
+  } else if (coverage == nullptr) {
+    // No writers this frame: let go of the atlases the kept coverage samples.
+    scratch.coverage.reset();
   }
   const bool masking = haveWriters && coverage != nullptr && coverage->valid();
 
