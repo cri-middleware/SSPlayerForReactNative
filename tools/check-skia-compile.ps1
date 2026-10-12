@@ -19,7 +19,8 @@ param (
 # It compiles the units whose includes are self-contained — Skia + FlatBuffers +
 # this package's own cpp/. SsRNSkiaInterop.cpp is left out on purpose: it
 # includes <NitroModules/...>, which resolves only through CocoaPods' header map
-# or a flattened copy of Nitro's cpp/ headers, and this script builds neither.
+# or a flattened copy of Nitro's cpp/ headers. tools/check-glue.sh builds the
+# latter, on macOS and Linux.
 #
 # Usage: tools/check-skia-compile.ps1 [ndk=<path>] [api=<level>] [-Object]
 #   ndk      : Android NDK root  (default: $env:ANDROID_NDK_HOME, else the
