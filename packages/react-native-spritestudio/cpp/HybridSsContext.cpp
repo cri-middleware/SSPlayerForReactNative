@@ -55,11 +55,10 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // Read once: these are PartData, so they are fixed for the life of the
   // resource. Re-reading them per frame would be the mistake the mask spec opens
   // by warning against — the animated `mask` / `hide` come from FrameData.
-  // The one view this context ever builds — see `ssab_`. Verified here, on the
-  // Brain's copy of a pack `adopt()` already gated, because a view that skipped
-  // the verifier would be a second path for every reader below to trust.
-  ssab_ = sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(ctx_),
-                                    ss_runtime_get_ssab_len(ctx_));
+  // Verified, on the Brain's copy of a pack `adopt()` already gated, because a
+  // view that skipped the verifier would be a second path for every reader
+  // below to trust.
+  ssab_ = resource_->view(ctx_);
   maskFlags_ = ssab_.maskFlags();
   for (const sscore::SsMaskPartFlags& f : maskFlags_) {
     if (f.isWriter() && f.bakedGeometry) hasWriterParts_ = true;

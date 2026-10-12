@@ -104,8 +104,19 @@ void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
   gLiveResources.fetch_add(1, std::memory_order_relaxed);
 }
 
+const sscore::SsAnimeBinaryView& HybridSsResource::view(void* boundContext) {
+  if (!view_.valid() && resource_ != nullptr && boundContext != nullptr) {
+    view_ = sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(boundContext),
+                                      ss_runtime_get_ssab_len(boundContext));
+  }
+  return view_;
+}
+
 void HybridSsResource::release() noexcept {
   if (resource_ == nullptr) return;
+  // Contexts still bound keep copies of the view, valid while the Brain keeps
+  // the pack for them; no new context can bind a released resource.
+  view_ = {};
   // Safe even while contexts are still bound: the Brain refcounts internally
   // (see ss_runtime_bind_resource's "Lifetime Safety" note). That is what makes
   // an eager `dispose()` safe to expose at all — releasing here cannot pull the

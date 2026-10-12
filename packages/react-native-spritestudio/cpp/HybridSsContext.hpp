@@ -280,13 +280,14 @@ class HybridSsContext final : public HybridSsContextSpec,
   std::shared_ptr<HybridSsResource> resource_;
   void* ctx_ = nullptr;
 
-  /// A verified view over the bound `.ssab`, built once in the constructor.
+  /// A verified view over the bound `.ssab`, taken from `resource_` in the
+  /// constructor.
   ///
   /// Kept rather than rebuilt per query, because building one runs the
-  /// FlatBuffers verifier over the whole pack — 470 us on Ringo — and the
-  /// queries are not all load-time: `resolvePack` asks per instance part, and
-  /// the three event getters ask on every frame carrying an event. It borrows
-  /// through `resource_`, so `release()` clears it.
+  /// FlatBuffers verifier over the whole pack, and the queries are not all
+  /// load-time: `resolvePack` asks per instance part, and the three event
+  /// getters ask on every frame carrying an event. It borrows through
+  /// `resource_`, so `release()` clears it.
   sscore::SsAnimeBinaryView ssab_;
 
   double generation_ = 0;
