@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Initial public release.** `react-native-spritestudio`, a React Native player for SpriteStudio
   animations (`.ssab`). The SpriteStudio-SDK Rust runtime and the Skia draw calls run in C++ under
-  Nitro Modules (JSI); JavaScript makes one call per player per frame.
+  Nitro Modules (JSI); no vertex passes through JavaScript.
 - **Components**: `<SpriteStudioView>`, an ordinary view, and `<SpriteStudioScene>`, which draws a
   whole cast through one canvas and one clock.
 - **Drawing**: Normal, Mesh, Shape, Instance and Effect parts; mask and clipping on Normal, Mesh and

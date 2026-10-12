@@ -755,8 +755,8 @@ export interface SsContext
    * Bake **and draw** the current frame, entirely in C++.
    *
    * Nothing per-vertex crosses into JS — no `SkPoint` host objects to allocate
-   * and no `MakeVertices` array to unmarshal. JS is left with one call per
-   * player per frame.
+   * and no `MakeVertices` array to unmarshal. JS is left with one draw call
+   * per player per frame.
    *
    * `textures` resolves each batch's `texture_hash` to the paint it draws with,
    * so a pack with several cellmaps still costs one call and — unlike drawing
