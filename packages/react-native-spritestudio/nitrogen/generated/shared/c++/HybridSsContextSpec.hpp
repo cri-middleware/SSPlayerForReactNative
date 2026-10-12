@@ -40,6 +40,7 @@ namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 #include "SsAudioEvent.hpp"
 #include "SsSignalEvent.hpp"
 #include "SsTextureInfo.hpp"
+#include <NitroModules/ArrayBuffer.hpp>
 #include "SsTextureBinding.hpp"
 #include "SsRNSkiaInterop.hpp"
 
@@ -128,6 +129,7 @@ namespace margelo::nitro::ssplayer {
       virtual bool clearPartCell(double partIndex) = 0;
       virtual bool clearPartOverrides() = 0;
       virtual std::vector<SsTextureInfo> getTextures() = 0;
+      virtual std::shared_ptr<ArrayBuffer> copyEmbeddedTexture(double textureHash) = 0;
       virtual std::vector<std::string> getAnimationNames() = 0;
       virtual std::vector<std::string> partNames() = 0;
       virtual std::vector<std::string> cellmapNames() = 0;

@@ -55,11 +55,10 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // Read once: these are PartData, so they are fixed for the life of the
   // resource. Re-reading them per frame would be the mistake the mask spec opens
   // by warning against — the animated `mask` / `hide` come from FrameData.
-  // The one view this context ever builds — see `ssab_`. Verified here, on the
-  // Brain's copy of a pack `adopt()` already gated, because a view that skipped
-  // the verifier would be a second path for every reader below to trust.
-  ssab_ = sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(ctx_),
-                                    ss_runtime_get_ssab_len(ctx_));
+  // Verified, on the Brain's copy of a pack `adopt()` already gated, because a
+  // view that skipped the verifier would be a second path for every reader
+  // below to trust.
+  ssab_ = resource_->view(ctx_);
   maskFlags_ = ssab_.maskFlags();
   for (const sscore::SsMaskPartFlags& f : maskFlags_) {
     if (f.isWriter() && f.bakedGeometry) hasWriterParts_ = true;
@@ -855,14 +854,7 @@ void HybridSsContext::collectTextures(std::vector<SsTextureInfo>& out) {
     if (seen) continue;
     out.emplace_back(static_cast<double>(entry.textureHash), std::string(entry.name),
                      std::string(entry.imagePath),
-                     // Copied, not borrowed. The only consumer decodes these
-                     // across an `await` per texture, so a borrow would outlive
-                     // the resource whenever a load is superseded or the view
-                     // unmounts mid-decode. Paid once per load, never per frame,
-                     // and JS drops it after decoding.
-                     entry.embedded != nullptr && entry.embeddedLength > 0
-                         ? ArrayBuffer::copy(entry.embedded, entry.embeddedLength)
-                         : ArrayBuffer::allocate(0));
+                     static_cast<double>(entry.embedded != nullptr ? entry.embeddedLength : 0));
   }
 
   // The children's, so one call answers for the whole tree. They exist only
@@ -871,6 +863,37 @@ void HybridSsContext::collectTextures(std::vector<SsTextureInfo>& out) {
     if (state.child == nullptr) continue;
     static_cast<HybridSsContext*>(state.child)->collectTextures(out);
   }
+}
+
+bool HybridSsContext::findTexture(uint32_t textureHash, sscore::SsTextureEntry& out) const {
+  const sscore::SsAnimeBinaryView view = ssab();
+  if (!view.valid()) return false;
+  const uint32_t count = view.textureCount();
+  for (uint32_t i = 0; i < count; ++i) {
+    const sscore::SsTextureEntry entry = view.textureAt(i);
+    if (entry.textureHash == textureHash) {
+      out = entry;
+      return true;
+    }
+  }
+  for (const sscore::SsInstanceState& state : instances_.states()) {
+    if (state.child == nullptr) continue;
+    if (static_cast<const HybridSsContext*>(state.child)->findTexture(textureHash, out)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::shared_ptr<ArrayBuffer> HybridSsContext::copyEmbeddedTexture(double textureHash) {
+  sscore::SsTextureEntry entry;
+  // Copied, not borrowed: the loader decodes it across an `await`, and a
+  // superseded load or an unmount can release the resource before it is done.
+  if (findTexture(static_cast<uint32_t>(textureHash), entry) && entry.embedded != nullptr &&
+      entry.embeddedLength > 0) {
+    return ArrayBuffer::copy(entry.embedded, entry.embeddedLength);
+  }
+  return ArrayBuffer::allocate(0);
 }
 
 std::vector<std::string> HybridSsContext::getAnimationNames() {

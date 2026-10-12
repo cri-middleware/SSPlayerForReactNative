@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "HybridSsResourceSpec.hpp"
+#include "SsAnimeBinary.hpp"
 
 namespace margelo::nitro::ssplayer {
 
@@ -63,6 +64,14 @@ class HybridSsResource final : public HybridSsResourceSpec {
   /// The Brain-side handle, for `HybridSsContext` to bind. Null once released.
   void* handle() const noexcept { return resource_; }
 
+  /// The verified view over the Brain's copy of the pack, for a context that
+  /// has just bound this resource.
+  ///
+  /// Built by the first context and kept: every context bound to the resource
+  /// reads the same buffer, and verifying it walks the whole pack, so a view per
+  /// context costs a full walk per player and per instance child.
+  const sscore::SsAnimeBinaryView& view(void* boundContext);
+
   /// Instances currently holding a Brain handle. Backs `SsRuntime.liveHandles`.
   static int32_t liveCount() noexcept;
 
@@ -77,6 +86,7 @@ class HybridSsResource final : public HybridSsResourceSpec {
 
   size_t byteLength_ = 0;
   void* resource_ = nullptr;
+  sscore::SsAnimeBinaryView view_;
   uint32_t packNameHash_ = 0;
   std::vector<std::string> externalPackNames_;
 };

@@ -139,6 +139,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   bool clearPartOverrides() override;
 
   std::vector<SsTextureInfo> getTextures() override;
+  std::shared_ptr<ArrayBuffer> copyEmbeddedTexture(double textureHash) override;
   std::vector<std::string> getAnimationNames() override;
   std::vector<std::string> partNames() override;
   std::vector<std::string> cellmapNames() override;
@@ -221,6 +222,10 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// already present. Recursive, so a pack three mounts down still contributes.
   void collectTextures(std::vector<SsTextureInfo>& out);
 
+  /// The entry `collectTextures` keeps for `textureHash` — the first in the same
+  /// walk — or false when no pack in the tree has one.
+  bool findTexture(uint32_t textureHash, sscore::SsTextureEntry& out) const;
+
   /// The resource holding `packNameHash`'s animations, or null.
   ///
   /// External packs win, then the own pack, matching SSPlayerForGodot's
@@ -280,13 +285,14 @@ class HybridSsContext final : public HybridSsContextSpec,
   std::shared_ptr<HybridSsResource> resource_;
   void* ctx_ = nullptr;
 
-  /// A verified view over the bound `.ssab`, built once in the constructor.
+  /// A verified view over the bound `.ssab`, taken from `resource_` in the
+  /// constructor.
   ///
   /// Kept rather than rebuilt per query, because building one runs the
-  /// FlatBuffers verifier over the whole pack — 470 us on Ringo — and the
-  /// queries are not all load-time: `resolvePack` asks per instance part, and
-  /// the three event getters ask on every frame carrying an event. It borrows
-  /// through `resource_`, so `release()` clears it.
+  /// FlatBuffers verifier over the whole pack, and the queries are not all
+  /// load-time: `resolvePack` asks per instance part, and the three event
+  /// getters ask on every frame carrying an event. It borrows through
+  /// `resource_`, so `release()` clears it.
   sscore::SsAnimeBinaryView ssab_;
 
   double generation_ = 0;

@@ -82,14 +82,13 @@ export interface SsTextureInfo {
   /** Path to the image **relative to the `.ssab`**, or empty when embedded-only. */
   imagePath: string
   /**
-   * Encoded image bytes for an embedded pack, empty for a reference one.
+   * Size of the encoded image an embedded pack carries, 0 for a reference one.
    *
-   * A **borrow** of the Brain's copy — decode it during the call that received
-   * it and do not retain it. Note that an embedded atlas stays resident for the
-   * resource's whole life even after decoding: it sits inside the same
-   * contiguous FlatBuffer the Brain holds, so it cannot be freed on its own.
+   * The bytes themselves come from `SsContext.copyEmbeddedTexture`, asked for
+   * only when the atlas is not decoded already: copying every one on every
+   * load would pay again for each atlas the image cache holds.
    */
-  embedded: ArrayBuffer
+  embeddedLength: number
 }
 
 /**
@@ -753,6 +752,18 @@ export interface SsContext
    * come with them.
    */
   getTextures(): SsTextureInfo[]
+
+  /**
+   * A copy of the encoded image an embedded texture carries, by
+   * `SsTextureInfo.textureHash`, out of the same tree `getTextures` lists.
+   * Empty when that texture is not embedded, or once the context is released.
+   *
+   * A copy because the decode runs across an `await`, which the resource may
+   * not outlive. The Brain's own copy stays resident for the resource's whole
+   * life either way: it sits inside the same contiguous FlatBuffer as the rest
+   * of the pack, so it cannot be freed on its own.
+   */
+  copyEmbeddedTexture(textureHash: number): ArrayBuffer
 
   /** Animation names in this pack, for feeding back to `setupAnimation`. */
   getAnimationNames(): string[]

@@ -65,6 +65,11 @@ export class SsTextureLoader {
   /**
    * Decodes and registers every texture in `textures`.
    *
+   * `readEmbedded` hands over an embedded atlas's encoded bytes —
+   * `SsInternalPlayer.copyEmbeddedTexture` for textures out of its
+   * `getTextures()`. It is asked only for an atlas the image cache does not
+   * already hold.
+   *
    * `baseUri` is the `.ssab`'s own URI. Omit it to load embedded textures only.
    *
    * A hash already in `registry` is skipped, so several packs sharing one
@@ -74,6 +79,7 @@ export class SsTextureLoader {
   static async load(
     registry: SsTextureRegistry,
     textures: SsTextureInfo[],
+    readEmbedded: (textureHash: number) => ArrayBuffer,
     baseUri?: string
   ): Promise<SsTextureLoadReport> {
     const unresolved: string[] = []
@@ -90,14 +96,14 @@ export class SsTextureLoader {
       // image decode it once. An embedded atlas has no URI of its own, so it is
       // keyed by the pack it lives inside plus the hash it is stored under.
       const key =
-        texture.embedded.byteLength > 0 || texture.imagePath.length === 0 || baseUri == null
+        texture.embeddedLength > 0 || texture.imagePath.length === 0 || baseUri == null
           ? `${baseUri ?? ''}#${texture.textureHash}`
           : resolveAgainst(baseUri, texture.imagePath)
 
       let image: SkImage | null = null
       try {
         image = await ssImageCache.acquire(key, async () => {
-          const decoded = await this.decode(texture, baseUri)
+          const decoded = await this.decode(texture, readEmbedded, baseUri)
           // Thrown rather than returned: a null must not be cached, or the pack
           // whose atlas arrives late is permanently textureless.
           if (decoded == null) throw new Error(`unresolved texture '${key}'`)
@@ -128,13 +134,16 @@ export class SsTextureLoader {
 
   private static async decode(
     texture: SsTextureInfo,
+    readEmbedded: (textureHash: number) => ArrayBuffer,
     baseUri?: string
   ): Promise<SkImage | null> {
     // 1. Embedded bytes win.
-    if (texture.embedded.byteLength > 0) {
-      const image = Skia.Image.MakeImageFromEncoded(
-        Skia.Data.fromBytes(new Uint8Array(texture.embedded))
-      )
+    if (texture.embeddedLength > 0) {
+      const bytes = readEmbedded(texture.textureHash)
+      const image =
+        bytes.byteLength > 0
+          ? Skia.Image.MakeImageFromEncoded(Skia.Data.fromBytes(new Uint8Array(bytes)))
+          : null
       if (image != null) return decodeOffThread(image)
     }
 

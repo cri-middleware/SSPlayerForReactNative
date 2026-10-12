@@ -21,7 +21,7 @@ const embedded = (name: string): SsTextureInfo => ({
   textureHash: SsRuntimeModule.hashString(name),
   name,
   imagePath: '',
-  embedded: new Uint8Array([1, 2, 3]).buffer as ArrayBuffer,
+  embeddedLength: 3,
 })
 
 beforeEach(() => {
