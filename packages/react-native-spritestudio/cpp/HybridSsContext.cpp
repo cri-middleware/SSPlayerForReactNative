@@ -247,6 +247,26 @@ void HybridSsContext::resync() {
   instances_.step(ctx_, frameNo_, 0.0f, false);
 }
 
+bool HybridSsContext::advances() const {
+  if (ctx_ == nullptr || !ss_runtime_is_playing(ctx_)) return false;
+  return !ss_runtime_is_pausing(ctx_) || !effects_.empty() || !instances_.states().empty();
+}
+
+void HybridSsContext::markStaleIfHeld() {
+  if (ctx_ != nullptr && !advances()) stale_ = true;
+}
+
+void HybridSsContext::refreshIfStale() {
+  if (!stale_ || ctx_ == nullptr) return;
+  // Unbumped, `frameDrawn` would stay true and the view keep the old picture.
+  ++generation_;
+  refreshFrame();
+}
+
+bool HybridSsContext::getFrameDrawn() {
+  return ctx_ == nullptr || (!stale_ && drawnGeneration_ == generation_);
+}
+
 void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
   if (ctx_ == nullptr || effects_.empty()) return;
   // The *animation's* authored fps, which is what converts an independent
@@ -389,6 +409,7 @@ void HybridSsContext::setSubFrame(bool enabled) {
     }
   }
   // What is already on screen was resolved under the old setting.
+  ++generation_;
   refreshFrame();
 }
 
@@ -491,6 +512,7 @@ SsBox HybridSsContext::canvasBox() {
 }
 
 SsPartTransform HybridSsContext::getPartTransform(double partIndex) {
+  refreshIfStale();
   const auto index = static_cast<size_t>(partIndex);
   if (ctx_ == nullptr || soa_.worldMatrices == nullptr || partIndex < 0 ||
       index >= partCount_) {
@@ -523,6 +545,7 @@ bool HybridSsContext::isPartHidden(double partIndex) {
   // one case where "not hidden" is a guess rather than a reading; a caller that
   // needs to tell the two apart has `findPartIndex` for existence, and the
   // frame itself only starts existing once something has played.
+  refreshIfStale();
   if (ctx_ == nullptr || frame_ == nullptr || partIndex < 0) return false;
   const auto* parts = frame_->parts();
   if (parts == nullptr) return false;
@@ -744,45 +767,59 @@ std::vector<SsSignalEvent> HybridSsContext::getSignalEvents() {
 
 bool HybridSsContext::setPartVisibility(double partIndex, double force, bool cascade) {
   if (ctx_ == nullptr || partIndex < 0) return false;
-  return ss_runtime_set_part_visibility_override(
+  const bool ok = ss_runtime_set_part_visibility_override(
       ctx_, static_cast<uint32_t>(partIndex), static_cast<unsigned char>(force),
       cascade ? 1 : 0);
+  if (ok) markStaleIfHeld();
+  return ok;
 }
 
 bool HybridSsContext::clearPartVisibility(double partIndex) {
   if (ctx_ == nullptr || partIndex < 0) return false;
-  return ss_runtime_clear_part_visibility_override(ctx_, static_cast<uint32_t>(partIndex));
+  const bool ok = ss_runtime_clear_part_visibility_override(ctx_, static_cast<uint32_t>(partIndex));
+  if (ok) markStaleIfHeld();
+  return ok;
 }
 
 bool HybridSsContext::setPartColor(double partIndex, double blendOp, double rgba,
                                    double priority) {
   if (ctx_ == nullptr || partIndex < 0) return false;
-  return ss_runtime_set_part_color_override(
+  const bool ok = ss_runtime_set_part_color_override(
       ctx_, static_cast<uint32_t>(partIndex), static_cast<unsigned char>(blendOp),
       static_cast<uint32_t>(rgba), static_cast<unsigned char>(priority));
+  if (ok) markStaleIfHeld();
+  return ok;
 }
 
 bool HybridSsContext::clearPartColor(double partIndex) {
   if (ctx_ == nullptr || partIndex < 0) return false;
-  return ss_runtime_clear_part_color_override(ctx_, static_cast<uint32_t>(partIndex));
+  const bool ok = ss_runtime_clear_part_color_override(ctx_, static_cast<uint32_t>(partIndex));
+  if (ok) markStaleIfHeld();
+  return ok;
 }
 
 bool HybridSsContext::setPartCell(double partIndex, double cellmapNameHash,
                                   double cellNameHash, double priority) {
   if (ctx_ == nullptr || partIndex < 0) return false;
-  return ss_runtime_set_part_cell_override(
+  const bool ok = ss_runtime_set_part_cell_override(
       ctx_, static_cast<uint32_t>(partIndex), static_cast<uint32_t>(cellmapNameHash),
       static_cast<uint32_t>(cellNameHash), static_cast<unsigned char>(priority));
+  if (ok) markStaleIfHeld();
+  return ok;
 }
 
 bool HybridSsContext::clearPartCell(double partIndex) {
   if (ctx_ == nullptr || partIndex < 0) return false;
-  return ss_runtime_clear_part_cell_override(ctx_, static_cast<uint32_t>(partIndex));
+  const bool ok = ss_runtime_clear_part_cell_override(ctx_, static_cast<uint32_t>(partIndex));
+  if (ok) markStaleIfHeld();
+  return ok;
 }
 
 bool HybridSsContext::clearPartOverrides() {
   if (ctx_ == nullptr) return false;
-  return ss_runtime_clear_all_part_overrides(ctx_);
+  const bool ok = ss_runtime_clear_all_part_overrides(ctx_);
+  if (ok) markStaleIfHeld();
+  return ok;
 }
 
 sscore::SsAnimeBinaryView HybridSsContext::ssab() const {
@@ -881,6 +918,7 @@ void HybridSsContext::refreshFrame() {
   // chooses rather than only at destruction, so the invariant is stated here
   // too instead of resting on all of them staying correct.
   if (ctx_ == nullptr) return;
+  stale_ = false;
 
   const unsigned char* fdPtr = nullptr;
   size_t fdLen = 0;
@@ -1127,11 +1165,14 @@ double HybridSsContext::drawInto(SkCanvasHandle canvas,
     paintBindings_.push_back({static_cast<uint32_t>(binding.textureHash), binding.paint.paint});
   }
 
+  refreshIfStale();
   // The root of the same recursion an instance mount enters one level down, at
   // `alphaScale` 1 because nothing above it dims it. Keeping the two on one path
   // is what stops a child from quietly missing a feature the root has.
-  return static_cast<double>(
-      drawSubtree(canvas.canvas, paintBindings_.data(), paintBindings_.size(), 1.0f));
+  const size_t drawn =
+      drawSubtree(canvas.canvas, paintBindings_.data(), paintBindings_.size(), 1.0f);
+  drawnGeneration_ = generation_;
+  return static_cast<double>(drawn);
 }
 
 }  // namespace margelo::nitro::ssplayer

@@ -165,7 +165,8 @@ frame — the same frame that was drawn, floored when sub-frame is off — so it
 cannot disagree with what is on screen. It reports that frame's hide: the
 animation's own, and a `setPartOverrides` `hide: true` too, on every descendant
 it hides when `cascade` is set. An override shows up once the player next
-advances or seeks. It is `false` for an unknown name, an out-of-range index and
+advances or seeks, and at once on a stopped player. It is `false` for an
+unknown name, an out-of-range index and
 before the first frame has played.
 
 This is the `onHide` option the sibling players offer on their built-in
@@ -209,7 +210,7 @@ is **non-blocking**, so the transform is still published rather than refused.
 
 ::: warning This one costs a frame loop
 Each hook instance currently runs its own `requestAnimationFrame` beside the
-view's and reads the part **by name** across JSI every frame. It works, and it
-is the one API here that reintroduces per-frame JS work — see the
+view's and reads the part across JSI every frame. It works, and it is the one
+API here that reintroduces per-frame JS work — see the
 [ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).
 :::

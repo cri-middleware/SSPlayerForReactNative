@@ -62,6 +62,15 @@ export class SsInternalPlayer {
   isFinished = false
   justLooped = false
   isPlayingForward = true
+  /** What `needsDraw` answers; a test sets it false to stand for an unchanged frame. */
+  needsDraw = true
+  /** Whether the pack has an effect or instance part, which a pause leaves running. */
+  hasOwnClocks = true
+
+  /** The real one's rule: playing, and not paused unless something keeps its own clock. */
+  get advances(): boolean {
+    return this.isPlaying && (!this.isPausing || this.hasOwnClocks)
+  }
   frameNo = 0
   frameRate = 30
   startFrame = 0
@@ -253,6 +262,7 @@ export class SsInternalPlayer {
   // --- parts -------------------------------------------------------------
 
   findPartIndex(partName: string): number {
+    this.record('findPartIndex', partName)
     return this.parts.indexOf(partName)
   }
 

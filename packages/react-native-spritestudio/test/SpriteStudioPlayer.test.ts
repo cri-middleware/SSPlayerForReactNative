@@ -300,12 +300,16 @@ describe('advance', () => {
     const finished = vi.fn()
     player.onAnimationFinished = finished
     const internal = SsInternalPlayer.last()
+    player.play()
 
     player.advance(16)
     expect(finished).not.toHaveBeenCalled()
 
     internal.isFinished = true
     player.advance(16)
+    player.advance(16)
+    // How the Brain leaves a run that finished.
+    internal.isPlaying = false
     player.advance(16)
 
     expect(finished.mock.calls).toEqual([['Walk']])
@@ -315,6 +319,7 @@ describe('advance', () => {
     const player = await loaded({ animation: 'Walk' })
     const looped = vi.fn()
     player.onAnimationLooped = looped
+    player.play()
     SsInternalPlayer.last().justLooped = true
 
     player.advance(16)
@@ -347,6 +352,7 @@ describe('advance', () => {
   it('reads only the kinds that have a handler', async () => {
     const player = await loaded()
     player.onAudio = vi.fn()
+    player.play()
     SsInternalPlayer.last().passedEventCount = 1
 
     player.advance(16)
@@ -366,6 +372,82 @@ describe('advance', () => {
     player.advance(16)
 
     expect(internal.names()).not.toContain('advance')
+  })
+
+  // As in SSPlayerForWeb: a stopped player builds no frame, steps no effect
+  // and fires nothing, so a view of one costs next to nothing.
+  it('holds a stopped player where it is, and advances a paused one', async () => {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    const advances = (): number => internal.names('advance').length
+
+    player.advance(16)
+    expect(advances()).toBe(0)
+
+    player.play()
+    player.advance(16)
+    expect(advances()).toBe(1)
+
+    // A paused player's independent effects and sub-animations keep running.
+    player.pause()
+    player.advance(16)
+    expect(advances()).toBe(2)
+
+    player.stop()
+    player.advance(16)
+    expect(advances()).toBe(2)
+  })
+
+  // A pause moves only the parts that keep their own clock, and only effect
+  // and instance parts can — so `playing={false}` on a pack with neither holds
+  // like a stop.
+  it('holds a paused player that has no effect or instance part', async () => {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    internal.hasOwnClocks = false
+    player.play()
+    player.pause()
+
+    player.advance(16)
+
+    expect(internal.names()).not.toContain('advance')
+  })
+})
+
+describe('needsDraw', () => {
+  it('asks for the first draw, and for one after every load', async () => {
+    const player = await loaded()
+    SsInternalPlayer.last().needsDraw = false
+    expect(player.needsDraw).toBe(true)
+
+    player.draw({} as never)
+    expect(player.needsDraw).toBe(false)
+
+    await player.load(PACK)
+    SsInternalPlayer.last().needsDraw = false
+    expect(player.needsDraw).toBe(true)
+  })
+
+  it('follows Layer 2 once a frame is drawn', async () => {
+    const player = await loaded()
+    player.draw({} as never)
+    const internal = SsInternalPlayer.last()
+
+    internal.needsDraw = false
+    expect(player.needsDraw).toBe(false)
+    internal.needsDraw = true
+    expect(player.needsDraw).toBe(true)
+  })
+
+  // Released: the view has to draw once more, to put down the empty frame.
+  it('asks for a draw once the player is released', async () => {
+    const player = await loaded()
+    player.draw({} as never)
+    player.dispose()
+
+    expect(player.needsDraw).toBe(true)
+    player.draw({} as never)
+    expect(player.needsDraw).toBe(false)
   })
 })
 
@@ -552,6 +634,24 @@ describe('getPartTransform', () => {
     const player = await loaded()
     SsInternalPlayer.last().parts = ['hat']
     expect(player.getPartTransform('hat')).toBeNull()
+  })
+
+  // A follower reads its part by name every frame; resolving the name is a
+  // string across JSI and a scan of the part names.
+  it('resolves a part name once per animation', async () => {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    internal.parts = ['hat']
+    const resolves = (): number => internal.names('findPartIndex').length
+
+    player.getPartTransform('hat')
+    player.getPartTransform('hat')
+    player.isPartHidden('hat')
+    expect(resolves()).toBe(1)
+
+    player.setAnimation('Walk')
+    player.getPartTransform('hat')
+    expect(resolves()).toBe(2)
   })
 })
 
@@ -761,6 +861,7 @@ describe('the fallback clock', () => {
   // Only for a player with no view attached — `<SpriteStudioView>` clocks its own.
   it('advances off requestAnimationFrame, capped so a backgrounded app does not fast-forward', async () => {
     const player = await loaded()
+    player.play()
     player.startClock()
 
     stepFrame(16)

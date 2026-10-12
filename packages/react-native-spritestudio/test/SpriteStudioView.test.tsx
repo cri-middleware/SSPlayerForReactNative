@@ -55,6 +55,26 @@ describe('the frame loop', () => {
     expect(player.names('advance', 'draw')).toEqual(['advance', 'draw'])
   })
 
+  // A stopped player with nothing new to draw would record the same picture
+  // again, and have the UI thread redraw it.
+  it('keeps its picture while the player has nothing new to draw', async () => {
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+    const player = SpriteStudioPlayer.last()
+    const picture = findHosts(renderer, 'Picture')[0]?.props.picture as { value: unknown }
+    const first = picture.value
+
+    player.needsDraw = false
+    await act(async () => stepFrame(16))
+    expect(picture.value).toBe(first)
+    expect(player.names('advance', 'draw')).toEqual(['advance', 'draw', 'advance'])
+
+    player.needsDraw = true
+    await act(async () => stepFrame(16))
+    expect(picture.value).not.toBe(first)
+  })
+
   it('caps a long tick so a backgrounded app does not fast-forward', async () => {
     const { renderer } = await render(<SpriteStudioView source={PACK} />)
     await layout(renderer, 300, 200)

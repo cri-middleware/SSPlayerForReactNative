@@ -255,6 +255,9 @@ export const SpriteStudioView = forwardRef<
 
       try {
         player.advance(dtMs)
+        // A stopped player whose frame, textures and placement have not changed
+        // would record the same picture again, and have the UI thread redraw it.
+        if (!player.needsDraw) return
         const recorder = Skia.PictureRecorder()
         const canvas = recorder.beginRecording()
         player.draw(canvas)

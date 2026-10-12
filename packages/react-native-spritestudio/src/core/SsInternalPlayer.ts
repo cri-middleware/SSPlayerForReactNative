@@ -8,6 +8,7 @@ import type {
   SsPartTransform,
   SsResource,
   SsSignalEvent,
+  SsTextureBinding,
   SsTextureInfo,
   SsUserDataEvent,
 } from '../specs/SsRuntime.nitro'
@@ -150,8 +151,44 @@ export class SsInternalPlayer {
    * conversion, and a missed conversion is a silent 1000x, not an error.
    */
   advance(dtMilliseconds: number): number {
-    return this.require().update(dtMilliseconds)
+    const frameNo = this.require().update(dtMilliseconds)
+    this.advanced = true
+    return frameNo
   }
+
+  /**
+   * Whether {@link draw} would draw something other than what it last drew:
+   * the frame changed, or the texture table, or the root transform.
+   *
+   * An `advance` always changes the frame, so it answers true without asking
+   * the context. Anything else that changes the frame (a seek, a new
+   * animation, an override on a stopped player) is caught by `frameDrawn`.
+   */
+  get needsDraw(): boolean {
+    const context = this.context
+    if (context == null) return false
+    const bindings = this.textures.bindings()
+    if (bindings !== this.drawnBindings) return true
+    const t = this.rootTransform
+    const d = this.drawnTransform
+    if (
+      t.x !== d.x ||
+      t.y !== d.y ||
+      t.scale !== d.scale ||
+      t.flipX !== d.flipX ||
+      t.flipY !== d.flipY
+    ) {
+      return true
+    }
+    // With no textures, `draw` never reaches `drawInto`, so the context's frame
+    // is never drawn; and nothing would show anyway.
+    if (bindings.length === 0) return false
+    return this.advanced || !context.frameDrawn
+  }
+
+  private advanced = false
+  private drawnBindings: SsTextureBinding[] | null = null
+  private drawnTransform: SsRootTransform = { ...SS_ROOT_TRANSFORM_IDENTITY }
 
   /**
    * Draws the current frame.
@@ -167,9 +204,17 @@ export class SsInternalPlayer {
   draw(canvas: SkCanvas): number {
     const context = this.require()
     const bindings = this.textures.bindings()
+    const t = this.rootTransform
+    const d = this.drawnTransform
+    this.advanced = false
+    this.drawnBindings = bindings
+    d.x = t.x
+    d.y = t.y
+    d.scale = t.scale
+    d.flipX = t.flipX
+    d.flipY = t.flipY
     if (bindings.length === 0) return 0
 
-    const t = this.rootTransform
     canvas.save()
     try {
       canvas.translate(t.x, t.y)
@@ -218,6 +263,13 @@ export class SsInternalPlayer {
   }
   get isPausing(): boolean {
     return this.context?.isPausing ?? false
+  }
+  /**
+   * Whether {@link advance} can change the frame: playing, and not paused
+   * unless an effect or instance part keeps its own clock.
+   */
+  get advances(): boolean {
+    return this.context?.advances ?? false
   }
   /** A state, not a pulse — take its rising edge for a one-shot completion. */
   get isFinished(): boolean {

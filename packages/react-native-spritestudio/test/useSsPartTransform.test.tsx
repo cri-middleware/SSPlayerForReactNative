@@ -116,6 +116,25 @@ describe('useSsPartTransform', () => {
     })
   })
 
+  // A stopped player's part does not move, and writing the same pose would
+  // still have the UI thread re-run every style built on it.
+  it('writes only when the pose changes', async () => {
+    state.transform = local()
+    const harness = await follow(followedPlayer(state))
+
+    await act(async () => {
+      stepFrame(16)
+      stepFrame(16)
+      stepFrame(16)
+    })
+    expect(writesOf(harness.result.current)).toBe(1)
+
+    state.transform = local({ x: 11 })
+    await act(async () => stepFrame(16))
+    expect(writesOf(harness.result.current)).toBe(2)
+    expect(harness.result.current.value.x).toBe(11)
+  })
+
   it('goes back to nothing when the part stops resolving', async () => {
     state.transform = local()
     const harness = await follow(followedPlayer(state))
