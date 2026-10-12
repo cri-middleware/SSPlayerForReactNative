@@ -41,3 +41,42 @@ function makeShared<T>(initial: T): SharedValue<T> {
     },
   }
 }
+
+/**
+ * A reaction runs on the UI thread when what `prepare` returns changes. There
+ * is no UI thread here, so a test runs them with {@link flushReactions}.
+ */
+const reactions: Array<{
+  prepare: () => unknown
+  react: (current: unknown, previous: unknown) => void
+  last: unknown
+}> = []
+
+export function useAnimatedReaction<T>(
+  prepare: () => T,
+  react: (current: T, previous: T | null) => void
+): void {
+  const registered = useRef(false)
+  if (!registered.current) {
+    registered.current = true
+    reactions.push({
+      prepare,
+      react: react as (current: unknown, previous: unknown) => void,
+      last: null,
+    })
+  }
+}
+
+/** Runs every reaction whose prepared value changed since it last ran. */
+export function flushReactions(): void {
+  for (const reaction of reactions) {
+    const current = reaction.prepare()
+    if (current === reaction.last) continue
+    reaction.react(current, reaction.last)
+    reaction.last = current
+  }
+}
+
+export function resetReactions(): void {
+  reactions.length = 0
+}

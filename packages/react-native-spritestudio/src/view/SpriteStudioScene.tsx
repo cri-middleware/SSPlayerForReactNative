@@ -13,10 +13,10 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { Canvas, Picture, Skia, type SkPicture } from '@shopify/react-native-skia'
-import { useSharedValue } from 'react-native-reanimated'
+import { Canvas, Picture, Skia } from '@shopify/react-native-skia'
 
 import { MAX_STEP_MS, type SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { useFramePicture } from './useFramePicture'
 
 /** One player enrolled in a scene, in the shape the scene's tick consumes. */
 export interface SsSceneMember {
@@ -85,12 +85,7 @@ export function SpriteStudioScene({
   // enrols again.
   const order = useRef({ list: [] as SsSceneMember[], stale: true }).current
 
-  const emptyPicture = useMemo(() => {
-    const recorder = Skia.PictureRecorder()
-    recorder.beginRecording()
-    return recorder.finishRecordingAsPicture()
-  }, [])
-  const picture = useSharedValue<SkPicture>(emptyPicture)
+  const picture = useFramePicture()
 
   const errorRef = useRef(onError)
   errorRef.current = onError
@@ -124,6 +119,8 @@ export function SpriteStudioScene({
 
     let raf = 0
     let last = performance.now()
+    // One for the loop's life: a recorder records again after each finish.
+    const recorder = Skia.PictureRecorder()
 
     const tick = (): void => {
       raf = requestAnimationFrame(tick)
@@ -142,7 +139,6 @@ export function SpriteStudioScene({
           if (!redraw && member.player.needsDraw) redraw = true
         }
         if (!redraw) return
-        const recorder = Skia.PictureRecorder()
         const canvas = recorder.beginRecording()
         for (const member of order.list) member.player.draw(canvas)
         picture.value = recorder.finishRecordingAsPicture()

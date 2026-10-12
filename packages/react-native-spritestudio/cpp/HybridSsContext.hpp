@@ -144,7 +144,9 @@ class HybridSsContext final : public HybridSsContextSpec,
   std::vector<std::string> cellmapNames() override;
   std::vector<std::string> cellNames(const std::string& cellmapName) override;
 
-  double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) override;
+  void setTextures(const std::vector<SsTextureBinding>& textures) override;
+  double drawInto(SkCanvasHandle canvas, double x, double y, double scaleX,
+                  double scaleY) override;
 
   // --- `SsInstanceChild`: this player driven as somebody else's instance ----
   //
@@ -311,8 +313,10 @@ class HybridSsContext final : public HybridSsContextSpec,
   sscore::SsSoAPointers soa_;
 
   sscore::SsBaker baker_;
-  /// `drawInto`'s texture table, in the Nitro-free shape `SsSkiaDraw` takes.
-  /// A member so the per-frame repack reuses one allocation.
+  ::ssplayer::SsDrawScratch drawScratch_;
+  /// What `setTextures` was given, held for the paints it keeps alive.
+  std::vector<SsTextureBinding> textures_;
+  /// The same table in the Nitro-free shape `SsSkiaDraw` takes.
   std::vector<::ssplayer::SsPaintBinding> paintBindings_;
 
   /// The static half of masking, read once from the `.ssab` at construction and

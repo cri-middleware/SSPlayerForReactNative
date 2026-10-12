@@ -40,8 +40,8 @@ namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 #include "SsAudioEvent.hpp"
 #include "SsSignalEvent.hpp"
 #include "SsTextureInfo.hpp"
-#include "SsRNSkiaInterop.hpp"
 #include "SsTextureBinding.hpp"
+#include "SsRNSkiaInterop.hpp"
 
 namespace margelo::nitro::ssplayer {
 
@@ -132,7 +132,8 @@ namespace margelo::nitro::ssplayer {
       virtual std::vector<std::string> partNames() = 0;
       virtual std::vector<std::string> cellmapNames() = 0;
       virtual std::vector<std::string> cellNames(const std::string& cellmapName) = 0;
-      virtual double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) = 0;
+      virtual void setTextures(const std::vector<SsTextureBinding>& textures) = 0;
+      virtual double drawInto(SkCanvasHandle canvas, double x, double y, double scaleX, double scaleY) = 0;
 
     protected:
       // Hybrid Setup
