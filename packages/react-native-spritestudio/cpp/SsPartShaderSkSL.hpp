@@ -26,6 +26,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <mutex>
 
 #include "include/core/SkImage.h"
 #include "include/core/SkShader.h"
@@ -533,30 +534,36 @@ inline const char* const* SsShaderBodies() {
 /// Compiled on first use and cached for the process. A failure is reported once
 /// and degrades to the plain textured draw rather than dropping the part — an
 /// un-effected sprite is a far better failure than a missing one.
+///
+/// Safe from any thread, as `PartColorEffect()`'s static is: two threads asking
+/// for one id at once get one compile, and neither reads a half-written slot.
 inline SkRuntimeEffect* SsShaderEffect(sscore::SsShaderId id) {
-  static SkRuntimeEffect* cache[sscore::kSsShaderCount] = {};
-  static bool tried[sscore::kSsShaderCount] = {};
+  struct Slot {
+    std::once_flag compiled;
+    SkRuntimeEffect* effect = nullptr;
+  };
+  static Slot slots[sscore::kSsShaderCount];
 
   const int i = static_cast<int>(id);
   if (i < 0 || i >= sscore::kSsShaderCount) return nullptr;
-  if (tried[i]) return cache[i];
-  tried[i] = true;
+  Slot& slot = slots[i];
+  std::call_once(slot.compiled, [&] {
+    const char* body = SsShaderBodies()[i];
+    if (body == nullptr) return;
 
-  const char* body = SsShaderBodies()[i];
-  if (body == nullptr) return nullptr;
-
-  SkString source(kSsShaderPreamble);
-  source.append(body);
-  SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(source);
-  if (result.effect == nullptr) {
-    std::fprintf(stderr, "[SsPlayer] ss-shader %d failed to compile: %s\n", i,
-                 result.errorText.c_str());
-    return nullptr;
-  }
-  // Leaked deliberately, as `PartColorEffect()` is: it lives for the process,
-  // and a static sk_sp would destruct at exit after Skia may already be gone.
-  cache[i] = result.effect.release();
-  return cache[i];
+    SkString source(kSsShaderPreamble);
+    source.append(body);
+    SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(source);
+    if (result.effect == nullptr) {
+      std::fprintf(stderr, "[SsPlayer] ss-shader %d failed to compile: %s\n", i,
+                   result.errorText.c_str());
+      return;
+    }
+    // Leaked deliberately, as `PartColorEffect()` is: it lives for the process,
+    // and a static sk_sp would destruct at exit after Skia may already be gone.
+    slot.effect = result.effect.release();
+  });
+  return slot.effect;
 }
 
 /// The shader realising `ps` over `atlas`, for a quad whose UV corners are `uv`
