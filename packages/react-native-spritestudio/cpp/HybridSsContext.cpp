@@ -160,6 +160,8 @@ void HybridSsContext::release() noexcept {
   ssab_ = {};
   frame_ = nullptr;
   soa_ = {};
+  textures_.clear();
+  paintBindings_.clear();
   partCount_ = 0;
   frameNo_ = 0.0f;
   animationIndex_ = -1;
@@ -1072,7 +1074,7 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
   }
 
   const size_t drawn =
-      ::ssplayer::DrawBakedFrame(canvas, textures, textureCount, baker_, mask, this);
+      ::ssplayer::DrawBakedFrame(canvas, textures, textureCount, baker_, mask, this, &drawScratch_);
   drawTextures_ = nullptr;
   drawTextureCount_ = 0;
   return drawn;
@@ -1141,8 +1143,19 @@ void HybridSsContext::collectMaskTree(sscore::SsMaskPlan& plan, const float toRo
   }
 }
 
-double HybridSsContext::drawInto(SkCanvasHandle canvas,
-                                 const std::vector<SsTextureBinding>& textures) {
+void HybridSsContext::setTextures(const std::vector<SsTextureBinding>& textures) {
+  textures_ = textures;
+  // Repacked rather than handed through: SsSkiaDraw is shared with the host
+  // harness and must not see Nitro's types.
+  paintBindings_.clear();
+  paintBindings_.reserve(textures_.size());
+  for (const SsTextureBinding& binding : textures_) {
+    paintBindings_.push_back({static_cast<uint32_t>(binding.textureHash), binding.paint.paint});
+  }
+}
+
+double HybridSsContext::drawInto(SkCanvasHandle canvas, double x, double y, double scaleX,
+                                 double scaleY) {
   if (!::ssplayer::SkiaDirectAvailable()) {
     throw std::runtime_error(
         "SsContext.drawInto: this build has no direct Skia drawing "
@@ -1153,22 +1166,22 @@ double HybridSsContext::drawInto(SkCanvasHandle canvas,
   // method here; the alternative is baking from `frame_`/`soa_` pointers that
   // `release()` has already invalidated.
   if (ctx_ == nullptr) return 0.0;
-  if (textures.empty()) return 0.0;
-
-  // Repack rather than pass the Nitro structs through: SsSkiaDraw is shared with
-  // the host harness and must not see Nitro's types. A pack has a handful of
-  // cellmaps, so the copy is a few words on a member vector that is reused every
-  // frame.
-  paintBindings_.clear();
-  paintBindings_.reserve(textures.size());
-  for (const SsTextureBinding& binding : textures) {
-    paintBindings_.push_back({static_cast<uint32_t>(binding.textureHash), binding.paint.paint});
-  }
+  if (paintBindings_.empty()) return 0.0;
 
   refreshIfStale();
   // The root of the same recursion an instance mount enters one level down, at
   // `alphaScale` 1 because nothing above it dims it. Keeping the two on one path
   // is what stops a child from quietly missing a feature the root has.
+  // Restored on the way out however the draw leaves, or the placement would
+  // stay on the caller's canvas for everything drawn after this player.
+  struct Placement {
+    void* canvas;
+    int saveCount;
+    ~Placement() { ::ssplayer::RestoreCanvas(canvas, saveCount); }
+  } placement{canvas.canvas,
+              ::ssplayer::SaveAndPlaceCanvas(canvas.canvas, static_cast<float>(x),
+                                             static_cast<float>(y), static_cast<float>(scaleX),
+                                             static_cast<float>(scaleY))};
   const size_t drawn =
       drawSubtree(canvas.canvas, paintBindings_.data(), paintBindings_.size(), 1.0f);
   drawnGeneration_ = generation_;

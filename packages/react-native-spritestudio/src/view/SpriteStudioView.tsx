@@ -243,6 +243,8 @@ export const SpriteStudioView = forwardRef<
 
     let raf = 0
     let last = performance.now()
+    // One for the loop's life: a recorder records again after each finish.
+    const recorder = Skia.PictureRecorder()
 
     const tick = (): void => {
       raf = requestAnimationFrame(tick)
@@ -258,7 +260,6 @@ export const SpriteStudioView = forwardRef<
         // A stopped player whose frame, textures and placement have not changed
         // would record the same picture again, and have the UI thread redraw it.
         if (!player.needsDraw) return
-        const recorder = Skia.PictureRecorder()
         const canvas = recorder.beginRecording()
         player.draw(canvas)
         picture.value = recorder.finishRecordingAsPicture()

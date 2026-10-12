@@ -124,6 +124,8 @@ export function SpriteStudioScene({
 
     let raf = 0
     let last = performance.now()
+    // One for the loop's life: a recorder records again after each finish.
+    const recorder = Skia.PictureRecorder()
 
     const tick = (): void => {
       raf = requestAnimationFrame(tick)
@@ -142,7 +144,6 @@ export function SpriteStudioScene({
           if (!redraw && member.player.needsDraw) redraw = true
         }
         if (!redraw) return
-        const recorder = Skia.PictureRecorder()
         const canvas = recorder.beginRecording()
         for (const member of order.list) member.player.draw(canvas)
         picture.value = recorder.finishRecordingAsPicture()

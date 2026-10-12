@@ -9,8 +9,8 @@ description: What a frame actually costs, which thread pays for it, and the few 
 
 A frame runs on the JS thread, in a `requestAnimationFrame` callback. Per
 player, JavaScript makes **the same few calls into native code however complex
-the animation is** — advance the clock, read the playback state, place the
-canvas, `drawInto` — and no vertex ever crosses the JSI boundary.
+the animation is** — advance the clock, read the playback state, `drawInto` —
+and no vertex ever crosses the JSI boundary.
 
 Those calls are synchronous, though. Advancing the timeline, building the
 geometry and recording the Skia draw calls all happen inside them, in the Rust

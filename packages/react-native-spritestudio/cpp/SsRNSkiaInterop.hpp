@@ -21,6 +21,8 @@
 
 #include <jsi/jsi.h>
 
+#include <memory>
+
 namespace margelo::nitro::ssplayer {
 
 /// A borrowed `SkCanvas*`. Valid only for the duration of the call it was
@@ -29,9 +31,11 @@ struct SkCanvasHandle final {
   void* canvas = nullptr;
 };
 
-/// A borrowed `SkPaint*`, same lifetime rule.
+/// An `SkPaint*`, kept alive by `owner` for as long as the handle is held — the
+/// texture table outlives the call that set it.
 struct SkPaintHandle final {
   void* paint = nullptr;
+  std::shared_ptr<void> owner;
 };
 
 }  // namespace margelo::nitro::ssplayer

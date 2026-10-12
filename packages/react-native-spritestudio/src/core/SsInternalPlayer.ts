@@ -26,8 +26,7 @@ import {
  *
  * This layer is thin on purpose. With the batch walk, the geometry bake and the
  * Skia calls all in C++, what is left up here is lifetime and placement, not
- * rendering — `draw()` is a canvas transform and a single `drawInto`, whatever
- * the vertex count.
+ * rendering — `draw()` is a single `drawInto`, whatever the vertex count.
  *
  * **Imports nothing from `react` or `react-native`**, which is what keeps a
  * headless test, a non-React renderer and the react-native-web route
@@ -207,6 +206,8 @@ export class SsInternalPlayer {
     const t = this.rootTransform
     const d = this.drawnTransform
     this.advanced = false
+    // Only when it changed: the table is an array marshalled across JSI.
+    if (bindings !== this.drawnBindings) context.setTextures(bindings)
     this.drawnBindings = bindings
     d.x = t.x
     d.y = t.y
@@ -215,20 +216,13 @@ export class SsInternalPlayer {
     d.flipY = t.flipY
     if (bindings.length === 0) return 0
 
-    canvas.save()
-    try {
-      canvas.translate(t.x, t.y)
-      canvas.scale(
-        t.flipX ? -t.scale : t.scale,
-        t.flipY ? -t.scale : t.scale
-      )
-      return context.drawInto(canvas, bindings)
-    } finally {
-      // The canvas is the caller's, and RN Skia keeps drawing into it after we
-      // return: an unbalanced save() would leak this player's transform onto
-      // everything drawn next.
-      canvas.restore()
-    }
+    return context.drawInto(
+      canvas,
+      t.x,
+      t.y,
+      t.flipX ? -t.scale : t.scale,
+      t.flipY ? -t.scale : t.scale
+    )
   }
 
   /**

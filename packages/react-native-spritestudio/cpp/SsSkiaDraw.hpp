@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #include "SsMask.hpp"
 
@@ -92,6 +93,14 @@ struct SsPaintBinding {
   void* paint;
 };
 
+/// Buffers `DrawBakedFrame` rebuilds for one part at a time. Resized in place,
+/// so after the first frames a draw allocates nothing here.
+struct SsDrawScratch {
+  std::vector<uint16_t> indices;
+  /// Coverage UVs, `x, y` per vertex.
+  std::vector<float> coverageUvs;
+};
+
 /// Draws every batch the baker produced into `canvas`, picking each batch's
 /// paint out of `textures` by its `texture_hash`.
 ///
@@ -112,9 +121,19 @@ struct SsPaintBinding {
 ///
 /// `instances` is called for each live instance part, or may be null in a pack
 /// that has none — in which case an Instance batch simply draws nothing.
+///
+/// `scratch` holds the per-part buffers the peel and the coverage pass build,
+/// kept by the caller so a frame allocates none of its own. Null draws with
+/// buffers of the call's own.
 size_t DrawBakedFrame(void* canvas, const SsPaintBinding* textures, size_t textureCount,
                       const sscore::SsBaker& baker, const SsMaskInput& mask,
-                      SsInstanceRenderer* instances = nullptr);
+                      SsInstanceRenderer* instances = nullptr,
+                      SsDrawScratch* scratch = nullptr);
+
+/// Saves `canvas` and applies the root placement: translate by `(x, y)`, then
+/// scale by `(scaleX, scaleY)`. Returns the save count to give `RestoreCanvas`.
+int SaveAndPlaceCanvas(void* canvas, float x, float y, float scaleX, float scaleY);
+void RestoreCanvas(void* canvas, int saveCount);
 
 /// Whether this build can draw natively at all.
 bool SkiaDirectAvailable();

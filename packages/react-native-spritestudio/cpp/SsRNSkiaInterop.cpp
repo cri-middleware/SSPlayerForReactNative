@@ -65,11 +65,10 @@ bool JSIConverter<ssplayer::SkCanvasHandle>::canConvert(jsi::Runtime& runtime,
 ssplayer::SkPaintHandle JSIConverter<ssplayer::SkPaintHandle>::fromJSI(jsi::Runtime& runtime,
                                                                       const jsi::Value& value) {
 #if SSPLAYER_ENABLE_SKIA_DIRECT
-  // JsiSkPaint wraps a `shared_ptr<SkPaint>`; the raw pointer is borrowed for
-  // the call and the JS-side paint keeps owning it. `objectFromValue` hands back
-  // a copy of that shared_ptr, so the SkPaint outlives this temporary.
+  // JsiSkPaint wraps a `shared_ptr<SkPaint>`, and the handle shares it, so the
+  // paint lives as long as the texture table does, whatever JS drops meanwhile.
   std::shared_ptr<SkPaint> paint = RNSkia::JsiSkPaint::objectFromValue(runtime, value);
-  return ssplayer::SkPaintHandle{paint.get()};
+  return ssplayer::SkPaintHandle{paint.get(), paint};
 #else
   ThrowUnavailable(runtime);
 #endif

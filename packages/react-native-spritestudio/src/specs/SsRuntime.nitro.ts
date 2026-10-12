@@ -776,24 +776,43 @@ export interface SsContext
   cellNames(cellmapName: string): string[]
 
   /**
+   * The texture table `drawInto` resolves batches against, kept until the next
+   * call. Set it when the table changes, not every frame: it is an array
+   * marshalled across JSI.
+   *
+   * It resolves each batch's `texture_hash` to the paint it draws with, so a
+   * pack with several cellmaps still costs one `drawInto` and — unlike drawing
+   * per texture — keeps the batches in the order the Brain emitted them, which
+   * is the whole of the depth sorting. A batch whose hash is absent is skipped
+   * rather than drawn with the wrong atlas; a single-entry table is matched
+   * unconditionally, so a one-cellmap pack does not need the hash to be right.
+   *
+   * The context holds a reference to every paint until the table is replaced
+   * or the context disposed, so a registry that drops a paint meanwhile leaves
+   * nothing dangling.
+   */
+  setTextures(textures: SsTextureBinding[]): void
+
+  /**
    * Bake **and draw** the current frame, entirely in C++.
    *
    * Nothing per-vertex crosses into JS — no `SkPoint` host objects to allocate
    * and no `MakeVertices` array to unmarshal. JS is left with one draw call
    * per player per frame.
    *
-   * `textures` resolves each batch's `texture_hash` to the paint it draws with,
-   * so a pack with several cellmaps still costs one call and — unlike drawing
-   * per texture — keeps the batches in the order the Brain emitted them, which
-   * is the whole of the depth sorting. A batch whose hash is absent is skipped
-   * rather than drawn with the wrong atlas; a single-entry table is matched
-   * unconditionally, so a one-cellmap pack does not need the hash to be right.
-   *
-   * The canvas and every paint come straight from RN Skia; the caller keeps
-   * owning them and this only borrows them for the duration of the call.
-   * Returns the number of vertices drawn.
+   * The root placement is applied here, around the draw: translate by
+   * `(x, y)`, then scale by `(scaleX, scaleY)`, a negative scale mirroring that
+   * axis. The canvas comes from RN Skia and is borrowed for the call. Draws
+   * nothing until `setTextures` has given it a table. Returns the number of
+   * vertices drawn.
    */
-  drawInto(canvas: SkCanvasHandle, textures: SsTextureBinding[]): number
+  drawInto(
+    canvas: SkCanvasHandle,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number
+  ): number
 }
 
 /** The module root. One instance per app. */
