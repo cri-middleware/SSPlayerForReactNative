@@ -92,6 +92,6 @@ threads — so it is one move, not an incremental one. Tracked in the
 
 ::: tip Each follower costs its own loop
 `useSsPartTransform` starts a second `requestAnimationFrame` beside the view's,
-per hook instance, and reads the part **by name** across JSI every frame. Two or
+per hook instance, and reads the part across JSI every frame. Two or
 three followers are fine; a dozen is not the shape to build on.
 :::

@@ -60,10 +60,11 @@ the pose is all you need, call `stop()` on the player through the ref instead.
 ## The one API that adds a frame loop
 
 `useSsPartTransform` is the exception to the fixed calls above, and every
-`<SpriteStudioPartAnchor>` is one of it. Each hook instance starts a **second `requestAnimationFrame` beside the view's**, and reads through
-`getPartTransform(partName)` — a string across the JSI boundary, every frame,
-per part. It is the one consumer-facing API that reintroduces exactly the
-per-frame JS work the rest of the design removes.
+`<SpriteStudioPartAnchor>` is one of it. Each hook instance starts a **second `requestAnimationFrame` beside the view's**, and reads
+`getPartTransform(partName)` every frame, per part. The name is resolved once
+per animation, so the read is one call across the JSI boundary, and the shared
+value is written only when the pose changes. It is the one consumer-facing API
+that reintroduces the per-frame JS work the rest of the design removes.
 
 That is a fine price for a health bar pinned over a character's head. It is not
 a fine price for twenty parts, and it is worth knowing before you reach for it a

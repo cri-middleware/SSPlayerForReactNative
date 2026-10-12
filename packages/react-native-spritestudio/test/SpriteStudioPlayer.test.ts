@@ -635,6 +635,24 @@ describe('getPartTransform', () => {
     SsInternalPlayer.last().parts = ['hat']
     expect(player.getPartTransform('hat')).toBeNull()
   })
+
+  // A follower reads its part by name every frame; resolving the name is a
+  // string across JSI and a scan of the part names.
+  it('resolves a part name once per animation', async () => {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    internal.parts = ['hat']
+    const resolves = (): number => internal.names('findPartIndex').length
+
+    player.getPartTransform('hat')
+    player.getPartTransform('hat')
+    player.isPartHidden('hat')
+    expect(resolves()).toBe(1)
+
+    player.setAnimation('Walk')
+    player.getPartTransform('hat')
+    expect(resolves()).toBe(2)
+  })
 })
 
 describe('dispose', () => {

@@ -61,6 +61,9 @@ export function useSsPartTransform(
     // runs on the first frame the part resolves and never again — not per frame
     // on the loop this hook already documents as the costly one.
     let checked = false
+    // A stopped player's part does not move, and writing the same pose again
+    // would still have the UI thread re-run every style built on it.
+    let published: SsPartScreenTransform = ABSENT
     const tick = (): void => {
       raf = requestAnimationFrame(tick)
       const local = player.getPartTransform(partName)
@@ -69,7 +72,10 @@ export function useSsPartTransform(
         // Only write when it changes: a shared value assignment crosses to the
         // UI thread, and an unresolved part would otherwise do that 60 times a
         // second to say the same thing.
-        if (value.value.valid) value.value = ABSENT
+        if (published.valid) {
+          published = ABSENT
+          value.value = ABSENT
+        }
         return
       }
 
@@ -99,19 +105,28 @@ export function useSsPartTransform(
       // a way that looks like an animation bug.
       const sx = root.flipX ? -root.scale : root.scale
       const sy = root.flipY ? -root.scale : root.scale
-      value.value = {
-        valid: true,
-        x: root.x + sx * local.x,
-        y: root.y + sy * local.y,
-        // Taken as it comes: the Brain mirrors the hierarchy itself (it negates
-        // `rotation_z` along with `position_y`), so the angle decomposed out of
-        // the world matrix already turns the way the screen does. Negating here
-        // as well — which is what this did while the flip lived in the root
-        // transform — would turn every follower the wrong way.
-        rotation: local.rotation,
-        scaleX: local.scaleX * Math.abs(sx),
-        scaleY: local.scaleY * Math.abs(sy),
+      const x = root.x + sx * local.x
+      const y = root.y + sy * local.y
+      // Taken as it comes: the Brain mirrors the hierarchy itself (it negates
+      // `rotation_z` along with `position_y`), so the angle decomposed out of
+      // the world matrix already turns the way the screen does. Negating here
+      // as well — which is what this did while the flip lived in the root
+      // transform — would turn every follower the wrong way.
+      const rotation = local.rotation
+      const scaleX = local.scaleX * Math.abs(sx)
+      const scaleY = local.scaleY * Math.abs(sy)
+      if (
+        published.valid &&
+        published.x === x &&
+        published.y === y &&
+        published.rotation === rotation &&
+        published.scaleX === scaleX &&
+        published.scaleY === scaleY
+      ) {
+        return
       }
+      published = { valid: true, x, y, rotation, scaleX, scaleY }
+      value.value = published
     }
 
     raf = requestAnimationFrame(tick)

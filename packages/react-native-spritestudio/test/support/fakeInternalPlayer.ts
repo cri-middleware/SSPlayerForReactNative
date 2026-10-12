@@ -262,6 +262,7 @@ export class SsInternalPlayer {
   // --- parts -------------------------------------------------------------
 
   findPartIndex(partName: string): number {
+    this.record('findPartIndex', partName)
     return this.parts.indexOf(partName)
   }
 

@@ -357,6 +357,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.resourceUri = uri
     this.instancePacks = packs
     const internal = new SsInternalPlayer(resource, this.textures)
+    this.partIndices.clear()
     // Before `setAnimation` below, which is what spawns the child players — a
     // pack bound after that has nothing left to reach.
     for (const pack of packs) internal.bindInstancePack(pack.resource)
@@ -599,7 +600,26 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /** See `SpriteStudioPlayerApi`. Empty before a load completes. */
   /** Resolve a part name to its index, or `-1` when the name is not in the animation. */
   findPartIndex(partName: string): number {
-    return this.internalPlayer?.findPartIndex(partName) ?? -1
+    const internal = this.internalPlayer
+    return internal == null ? -1 : this.partIndexOf(internal, partName)
+  }
+
+  /**
+   * Part indices by name, resolved once per animation.
+   *
+   * A follower reads its part by name every frame, and resolving one is a
+   * string across JSI and a scan of the part names. The answer only changes
+   * with the context or the animation, so the cache is emptied at both.
+   */
+  private readonly partIndices = new Map<string, number>()
+
+  private partIndexOf(internal: SsInternalPlayer, name: string): number {
+    let index = this.partIndices.get(name)
+    if (index === undefined) {
+      index = internal.findPartIndex(name)
+      this.partIndices.set(name, index)
+    }
+    return index
   }
 
   /**
@@ -664,6 +684,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       this.remeasure(name)
     }
 
+    this.partIndices.clear()
     if (!internal.setupAnimation(name)) {
       this.reportMissingAnimation(name)
       return false
@@ -962,7 +983,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     const internal = this.internalPlayer
     if (internal == null) return null
     const index =
-      typeof part === 'number' ? part : internal.findPartIndex(part)
+      typeof part === 'number' ? part : this.partIndexOf(internal, part)
     if (index < 0) return null
     const transform = internal.getPartTransform(index)
     return transform.valid ? transform : null
@@ -991,7 +1012,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     const internal = this.internalPlayer
     if (internal == null) return false
     const index =
-      typeof part === 'number' ? part : internal.findPartIndex(part)
+      typeof part === 'number' ? part : this.partIndexOf(internal, part)
     if (index < 0) return false
     return internal.isPartHidden(index)
   }
@@ -1017,7 +1038,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     const internal = this.internalPlayer
     if (internal == null) return false
     const index =
-      typeof part === 'number' ? part : internal.findPartIndex(part)
+      typeof part === 'number' ? part : this.partIndexOf(internal, part)
     if (index < 0) return false
     return internal.isPartSkinnedMesh(index)
   }
@@ -1041,7 +1062,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
     for (const name of this.overriddenParts) {
       if (name in overrides) continue
-      const index = internal.findPartIndex(name)
+      const index = this.partIndexOf(internal, name)
       if (index < 0) continue
       internal.clearPartVisibility(index)
       internal.clearPartColor(index)
@@ -1050,7 +1071,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.overriddenParts.clear()
 
     for (const [name, override] of Object.entries(overrides)) {
-      const index = internal.findPartIndex(name)
+      const index = this.partIndexOf(internal, name)
       if (index < 0) {
         console.warn(
           `react-native-spritestudio: no part called '${name}' in ` +
@@ -1382,6 +1403,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // down with it, which is why the mounted packs can only be released after.
     this.internalPlayer?.dispose()
     this.internalPlayer = null
+    this.partIndices.clear()
     // Leases, not handles: the cache disposes the resource when the last player
     // holding it lets go. Order still matters for the same reason it did — the
     // context borrows from the resource, so it goes first.
