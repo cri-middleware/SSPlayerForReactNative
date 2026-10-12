@@ -85,7 +85,7 @@ export function SpriteStudioScene({
   // enrols again.
   const order = useRef({ list: [] as SsSceneMember[], stale: true }).current
 
-  const picture = useFramePicture()
+  const { picture, publish } = useFramePicture()
 
   const errorRef = useRef(onError)
   errorRef.current = onError
@@ -141,7 +141,7 @@ export function SpriteStudioScene({
         if (!redraw) return
         const canvas = recorder.beginRecording()
         for (const member of order.list) member.player.draw(canvas)
-        picture.value = recorder.finishRecordingAsPicture()
+        publish(recorder.finishRecordingAsPicture())
       } catch (error) {
         cancelAnimationFrame(raf)
         errorRef.current?.(error)
@@ -150,7 +150,7 @@ export function SpriteStudioScene({
 
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [members, order, picture, size.width, size.height, paused])
+  }, [members, order, publish, size.width, size.height, paused])
 
   const onLayout = (event: LayoutChangeEvent): void => {
     const { width, height } = event.nativeEvent.layout

@@ -80,3 +80,8 @@ export function flushReactions(): void {
 export function resetReactions(): void {
   reactions.length = 0
 }
+
+/** Calls straight through: the stub's reactions already run on the JS thread. */
+export function runOnJS<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+  return fn
+}
