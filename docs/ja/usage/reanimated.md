@@ -28,7 +28,7 @@ const style = useAnimatedStyle(() => ({
 
 ## パーツに追従する
 
-両者が実際に出会う唯一の場所です。`useSsPartTransform` は毎フレーム パーツをサンプリングして shared value に公開するので、React のビューが再レンダリングなしにパーツへ乗れます。
+両者が実際に出会う唯一の場所です。`useSsPartTransform` はプレイヤーが新しいフレームを見せるたびにパーツをサンプリングして shared value に公開するので、React のビューが再レンダリングなしにパーツへ乗れます。
 
 ```tsx
 const transform = useSsPartTransform(player, 'head')
@@ -74,9 +74,3 @@ JS スレッドが混雑すれば再生のムラとして現れ、あなたの�
 つまり段階的にではなく一度に移す作業です。
 [ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
 で追跡されています。
-
-::: tip 追従 1 つにつきループが 1 つ増えます
-`useSsPartTransform` はフックのインスタンスごとに、ビューのものとは別の
-`requestAnimationFrame` を開始し、毎フレームパーツを JSI 越しに読みます。
-2〜3 個なら問題ありませんが、十数個を前提に設計するべきではありません。
-:::

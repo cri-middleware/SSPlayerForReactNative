@@ -1,4 +1,5 @@
 import type { SsPartOverrides } from '../../src/core/parts'
+import { frameShown } from '../../src/player/frames'
 import type { SsRootTransform } from '../../src/core/types'
 import type {
   SsAudioEvent,
@@ -146,6 +147,7 @@ export class SpriteStudioPlayer {
   draw(canvas: { drawn?: unknown[] }): number {
     this.record('draw')
     canvas.drawn?.push(this)
+    frameShown(this)
     return 0
   }
 

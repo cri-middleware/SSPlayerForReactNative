@@ -23,6 +23,7 @@ import {
   type SsRootTransform,
 } from '../core/types'
 import { SsRuntimeModule } from '../runtime'
+import { frameShown } from './frames'
 import type {
   SsAudioEvent,
   SsBox,
@@ -1348,8 +1349,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   draw(canvas: SkCanvas): number {
     const internal = this.internalPlayer
     this.drawnInternal = internal
-    if (internal == null || internal.isDisposed) return 0
-    return internal.draw(canvas)
+    const drawn = internal == null || internal.isDisposed ? 0 : internal.draw(canvas)
+    frameShown(this)
+    return drawn
   }
 
   /** The Layer 2 player the last {@link draw} drew; `undefined` before any. */
@@ -1374,6 +1376,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // it missed.
       this.advance(Math.min(now - last, MAX_STEP_MS))
       last = now
+      // Nothing draws a player on this clock, so its step is the frame.
+      frameShown(this)
       this.clock = requestAnimationFrame(tick)
     }
     this.clock = requestAnimationFrame(tick)

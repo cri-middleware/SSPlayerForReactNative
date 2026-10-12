@@ -34,9 +34,9 @@ draws into. Those are two independent clocks and they do not need to agree.
 
 ## Following a part
 
-The one place the two genuinely meet. `useSsPartTransform` samples a part every
-frame and publishes it into a shared value, so a React view can ride on a part
-without a re-render:
+The one place the two genuinely meet. `useSsPartTransform` samples a part on
+every frame the player shows and publishes it into a shared value, so a React
+view can ride on a part without a re-render:
 
 ```tsx
 const transform = useSsPartTransform(player, 'head')
@@ -89,9 +89,3 @@ Moving it needs the whole update → bake → draw chain reachable from a workle
 runtime, and the borrow rule says update and draw cannot land on different
 threads — so it is one move, not an incremental one. Tracked in the
 [ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).
-
-::: tip Each follower costs its own loop
-`useSsPartTransform` starts a second `requestAnimationFrame` beside the view's,
-per hook instance, and reads the part across JSI every frame. Two or
-three followers are fine; a dozen is not the shape to build on.
-:::
