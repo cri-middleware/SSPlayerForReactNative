@@ -402,14 +402,14 @@ export class SsInternalPlayer {
     return this.require().canvasBox()
   }
 
-  /**
-   * Every texture this pack needs, read out of the `.ssab` in C++.
-   *
-   * The `embedded` buffers are borrows of the Brain's copy — decode them during
-   * the call that asked for them and do not retain them.
-   */
+  /** Every texture this pack needs, read out of the `.ssab` in C++. */
   getTextures(): SsTextureInfo[] {
     return this.require().getTextures()
+  }
+
+  /** A copy of embedded texture `textureHash`'s encoded image — see the spec. */
+  copyEmbeddedTexture(textureHash: number): ArrayBuffer {
+    return this.require().copyEmbeddedTexture(textureHash)
   }
 
   /** Where part `partIndex` is this frame, in player-local units. */

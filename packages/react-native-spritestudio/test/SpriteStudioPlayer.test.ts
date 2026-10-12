@@ -39,7 +39,7 @@ function embeddedTexture(name: string, imagePath = ''): SsTextureInfo {
     textureHash: SsRuntimeModule.hashString(name),
     name,
     imagePath,
-    embedded: new Uint8Array(imagePath === '' ? [1, 2, 3] : []).buffer as ArrayBuffer,
+    embeddedLength: imagePath === '' ? 3 : 0,
   }
 }
 
@@ -724,6 +724,21 @@ describe('dispose', () => {
     player.dispose()
     player.dispose()
     expect(releaseResource).toHaveBeenCalledOnce()
+  })
+})
+
+describe('embedded atlases', () => {
+  // The bytes cross JSI as a copy, which a second player of the pack has no use
+  // for while the first one's decode is in the cache.
+  it('are copied only when the cache does not hold the decode', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    await loaded()
+    await loaded()
+
+    expect(SsInternalPlayer.created.map((p) => p.argsOf('copyEmbeddedTexture'))).toEqual([
+      [[SsRuntimeModule.hashString('common')]],
+      [],
+    ])
   })
 })
 

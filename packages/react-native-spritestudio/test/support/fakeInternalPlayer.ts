@@ -356,6 +356,12 @@ export class SsInternalPlayer {
     return [...this.textureInfos]
   }
 
+  /** Placeholder bytes for any hash: the loader asks only after `embeddedLength` said there are some. */
+  copyEmbeddedTexture(textureHash: number): ArrayBuffer {
+    this.record('copyEmbeddedTexture', textureHash)
+    return new Uint8Array([1, 2, 3]).buffer as ArrayBuffer
+  }
+
   getUserDataEvents(): SsUserDataEvent[] {
     this.record('getUserDataEvents')
     return this.userDataEvents

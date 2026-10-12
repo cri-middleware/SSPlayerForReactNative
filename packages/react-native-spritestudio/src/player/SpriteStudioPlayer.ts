@@ -397,8 +397,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // rather than again per query. After `setAnimation` because the children —
     // and so their textures — do not exist until then, and before the
     // `loadTextures` early-out because a runtime override does not depend on the
-    // pack's own atlases being loaded. The names are copied strings, so retaining
-    // them past the borrowed `SsTextureInfo[]` is safe.
+    // pack's own atlases being loaded.
     const textureInfos = internal.getTextures()
     this.replaceableTextureNames = textureInfos.map((info) => info.name)
 
@@ -419,7 +418,12 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // After `notify()` on purpose — the animation is usable the moment the
     // context exists, and holding the load open for a texture fetch would delay
     // the first frame for no reason. It simply draws nothing until they arrive.
-    const report = await SsTextureLoader.load(this.textures, textureInfos, uri)
+    const report = await SsTextureLoader.load(
+      this.textures,
+      textureInfos,
+      (hash) => internal.copyEmbeddedTexture(hash),
+      uri
+    )
     if (token !== this.loadToken || this.disposed) {
       // The leases this pass took belong to a load that is no longer wanted.
       for (const key of report.imageKeys) ssImageCache.release(key)

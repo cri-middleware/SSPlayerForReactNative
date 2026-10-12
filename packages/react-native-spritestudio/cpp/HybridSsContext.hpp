@@ -139,6 +139,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   bool clearPartOverrides() override;
 
   std::vector<SsTextureInfo> getTextures() override;
+  std::shared_ptr<ArrayBuffer> copyEmbeddedTexture(double textureHash) override;
   std::vector<std::string> getAnimationNames() override;
   std::vector<std::string> partNames() override;
   std::vector<std::string> cellmapNames() override;
@@ -220,6 +221,10 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// Appends this player's textures and then every child's, skipping hashes
   /// already present. Recursive, so a pack three mounts down still contributes.
   void collectTextures(std::vector<SsTextureInfo>& out);
+
+  /// The entry `collectTextures` keeps for `textureHash` — the first in the same
+  /// walk — or false when no pack in the tree has one.
+  bool findTexture(uint32_t textureHash, sscore::SsTextureEntry& out) const;
 
   /// The resource holding `packNameHash`'s animations, or null.
   ///
