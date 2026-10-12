@@ -207,10 +207,3 @@ mesh and every non-mesh part — those follow correctly — as well as for an
 unknown name or before a load. As a backstop, following a skinned mesh through
 `useSsPartTransform` also logs a one-time `__DEV__` warning naming the part; it
 is **non-blocking**, so the transform is still published rather than refused.
-
-::: warning This one costs a frame loop
-Each hook instance currently runs its own `requestAnimationFrame` beside the
-view's and reads the part across JSI every frame. It works, and it is the one
-API here that reintroduces per-frame JS work — see the
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).
-:::

@@ -141,9 +141,3 @@ const followable = player
 
 パーツの**名前またはインデックス**を取り、リジッド（変形のみ）メッシュと非メッシュパーツ — これらは正常に追従できます — に対しては `false`、不明な名前やロード前も
 `false` を返します。加えて安全弁として、`useSsPartTransform` でスキンメッシュを追従しようとするとパーツ名を挙げた `__DEV__` 警告が一度だけ出力されます。これは**非ブロッキング**で、変換は拒否されず publish され続けます。
-
-::: warning こちらはフレームループを 1 つ消費します
-このフックのインスタンスは現在、ビューのものとは別に自前の `requestAnimationFrame` を回し、毎フレームパーツを JSI 越しに読んでいます。動作はしますが、設計の他の部分が取り除いたはずのフレームごとの JS 処理を再導入している唯一の API です —
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
-を参照してください。
-:::

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useSharedValue, type SharedValue } from 'react-native-reanimated'
 
+import { onFrameShown } from '../player/frames'
 import type { SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
 
 /** A part's placement in **view pixels**, ready for an `Animated.View`. */
@@ -28,11 +29,12 @@ const ABSENT: SsPartScreenTransform = {
  * Follows a part with a Reanimated shared value — a health bar over a head, a
  * spark at a muzzle, a React view pinned to a hand.
  *
- * Sampled on the JS thread and published into a shared value, so the *consumer*
- * runs on the UI thread even though the sample does not. That is the honest
- * shape today: the frame loop, the Brain and the whole player are JS-thread, so
- * a hook that claimed to sample in a worklet would be sampling a value the JS
- * thread had already moved on from. Moving the tick itself to the UI thread is
+ * Sampled on the JS thread, once per frame the player shows (`player/frames`),
+ * and published into a shared value, so the *consumer* runs on the UI thread
+ * even though the sample does not. A player that stands still shows no new
+ * frame, and is not read. That is the honest shape today: the frame loop, the
+ * Brain and the whole player are JS-thread, so a hook that claimed to sample in
+ * a worklet would be sampling a value the JS thread had already moved on from. Moving the tick itself to the UI thread is
  * a separate piece of work, and when it lands this hook's *consumers* do not
  * change — which is the point of publishing through a shared value now.
  *
@@ -56,22 +58,20 @@ export function useSsPartTransform(
       return
     }
 
-    let raf = 0
     // One-shot, and only in dev: the check reads the `.ssab` across JSI, so it
-    // runs on the first frame the part resolves and never again — not per frame
-    // on the loop this hook already documents as the costly one.
+    // runs on the first frame the part resolves and never again.
     let checked = false
-    // A stopped player's part does not move, and writing the same pose again
-    // would still have the UI thread re-run every style built on it.
+    // A scene redraws every member when one of them moves, so a still part is
+    // read again, and writing the same pose would still have the UI thread
+    // re-run every style built on it.
     let published: SsPartScreenTransform = ABSENT
-    const tick = (): void => {
-      raf = requestAnimationFrame(tick)
+    const sample = (): void => {
       const local = player.getPartTransform(partName)
       const root = player.rootTransform
       if (local == null || root == null) {
         // Only write when it changes: a shared value assignment crosses to the
-        // UI thread, and an unresolved part would otherwise do that 60 times a
-        // second to say the same thing.
+        // UI thread, and an unresolved part would otherwise do that on every
+        // frame to say the same thing.
         if (published.valid) {
           published = ABSENT
           value.value = ABSENT
@@ -129,8 +129,10 @@ export function useSsPartTransform(
       value.value = published
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    // The frame already shown: a follower mounted on a still player would
+    // otherwise wait for one that never comes.
+    sample()
+    return onFrameShown(player, sample)
   }, [player, partName, value])
 
   return value

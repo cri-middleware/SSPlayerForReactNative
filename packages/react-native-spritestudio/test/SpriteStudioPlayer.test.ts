@@ -4,6 +4,7 @@ import type { SkImage } from '@shopify/react-native-skia'
 import { ssClearCaches, ssImageCache } from '../src/core/caches'
 import { SsOverridePriority } from '../src/core/parts'
 import { SsPlaybackDirection, SsPlaybackStyle } from '../src/core/types'
+import { onFrameShown } from '../src/player/frames'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../src/player/SpriteStudioPlayer'
 import type { SsTextureInfo } from '../src/specs/SsRuntime.nitro'
 import { pendingFrames, stepFrame } from './support/frameClock'
@@ -881,6 +882,57 @@ describe('runtime texture replacement', () => {
     expect(shared.disposed).toBe(false)
     expect(shared.isOverridden(SsRuntimeModule.hashString('common'))).toBe(false)
     expect(shared.bound(SsRuntimeModule.hashString('common'))).toBe(original)
+  })
+})
+
+describe('the frames a player shows', () => {
+  // What a part follower reads on: a frame is new when it is drawn.
+  it('run after each draw, and not on an advance alone', async () => {
+    const player = await loaded()
+    let frames = 0
+    const unsubscribe = onFrameShown(player, () => {
+      frames += 1
+    })
+
+    player.advance(16)
+    expect(frames).toBe(0)
+    player.draw({} as never)
+    expect(frames).toBe(1)
+
+    unsubscribe()
+    player.draw({} as never)
+    expect(frames).toBe(1)
+  })
+
+  // Released, the view draws once more to put down the empty frame — and a
+  // follower has to hear that its part is gone.
+  it('run after the draw that follows a release', async () => {
+    const player = await loaded()
+    let frames = 0
+    onFrameShown(player, () => {
+      frames += 1
+    })
+    player.dispose()
+
+    player.draw({} as never)
+
+    expect(frames).toBe(1)
+  })
+
+  // Nothing draws a player on its own clock, so the step is the frame.
+  it('run after each step of the fallback clock', async () => {
+    const player = await loaded()
+    let frames = 0
+    onFrameShown(player, () => {
+      frames += 1
+    })
+    player.startClock()
+
+    stepFrame(16)
+    stepFrame(16)
+
+    expect(frames).toBe(2)
+    player.stopClock()
   })
 })
 

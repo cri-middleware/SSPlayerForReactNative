@@ -62,18 +62,16 @@ A paused player with an effect or instance part still advances, because parts
 with independent playback keep running in a pause. `playing={false}` pauses; if
 the pose is all you need, call `stop()` on the player through the ref instead.
 
-## The one API that adds a frame loop
+## What a part follower adds
 
-`useSsPartTransform` is the exception to the fixed calls above, and every
-`<SpriteStudioPartAnchor>` is one of it. Each hook instance starts a **second `requestAnimationFrame` beside the view's**, and reads
-`getPartTransform(partName)` every frame, per part. The name is resolved once
-per animation, so the read is one call across the JSI boundary, and the shared
-value is written only when the pose changes. It is the one consumer-facing API
-that reintroduces the per-frame JS work the rest of the design removes.
-
-That is a fine price for a health bar pinned over a character's head. It is not
-a fine price for twenty parts, and it is worth knowing before you reach for it a
-second time. See [Part overrides & following](/usage/parts).
+`useSsPartTransform`, and so every `<SpriteStudioPartAnchor>`, reads its part
+on the frames the player shows: right after the view or the scene draws one,
+inside that same loop. Each read is one `getPartTransform` call across the JSI
+boundary (the name is resolved once per animation), and the shared value is
+written only when the pose changes. A player that stands still shows no new
+frame, so its followers cost nothing. In a scene, every member's followers are
+read whenever any member moves, because the scene redraws them all. See
+[Part overrides & following](/usage/parts).
 
 ## Loading is where the wait actually is
 
