@@ -7,7 +7,7 @@
 // still reported seven healthy writers. That is the failure this program exists
 // to make loud.
 //
-// Four checks, in order of how early they would catch a regression:
+// Five checks, in order of how early they would catch a regression:
 //
 //   1. **The SkSL compiles.** Runtime effects are ES2-restricted, so an ordinary
 //      -looking edit (a bitwise operator, a non-constant loop bound) fails at
@@ -26,6 +26,10 @@
 //      withheld / its transform zeroed / its polarity flipped as controls.
 //      **Skipped when its pack is not deployed** — it needs sample art this
 //      repository does not ship.
+//   5. **The coverage is kept while its writers stand still.** One frame drawn
+//      twice through one scratch must reuse the first coverage image and draw
+//      the same pixels as a fresh one; a new atlas must replace it. A kept
+//      image that went stale would mask with last frame's shapes.
 //
 // macOS only: it links the `libskia.a` that RN Skia ships for the host, which
 // has no Linux slice. Build and run: tools/check-mask.sh
@@ -932,6 +936,72 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
   }
 }
 
+// --- 5. the coverage is kept while its writers stand still -----------------
+
+void CheckCoverageKept(const char* ssabPath, const char* animation, int atFrame) {
+  Baked pack;
+  if (!pack.load(ssabPath, animation, atFrame)) return;
+  sscore::SsMaskPlan plan;
+  if (!plan.build(pack.fd, pack.baker, pack.flags.data(), pack.flags.size())) {
+    Fail("%s / %s has no mask writers at frame %d", ssabPath, animation, atFrame);
+    return;
+  }
+
+  SkPaint white;
+  white.setShader(WhiteAtlas());
+  SkPaint green;
+  green.setShader(GreenAtlas());
+
+  constexpr int kSize = 512;
+  const auto render = [&](SkPaint* paint, ::ssplayer::SsDrawScratch* scratch, SkBitmap* out) {
+    sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
+    SkCanvas* canvas = surface->getCanvas();
+    canvas->clear(SK_ColorBLACK);
+    canvas->translate(kSize / 2.0f, kSize / 2.0f);
+    canvas->scale(1.0f, -1.0f);
+    ::ssplayer::SsMaskInput input;
+    input.plan = &plan;
+    input.flags = pack.flags.data();
+    input.flagCount = pack.flags.size();
+    const ::ssplayer::SsPaintBinding binding{0u, paint};
+    ::ssplayer::DrawBakedFrame(canvas, &binding, 1, pack.baker, input, nullptr, scratch);
+    out->allocN32Pixels(kSize, kSize);
+    surface->readPixels(*out, 0, 0);
+  };
+  const auto keptImage = [](const ::ssplayer::SsDrawScratch& scratch) -> const SkImage* {
+    return scratch.coverage != nullptr ? scratch.coverage->image.get() : nullptr;
+  };
+
+  ::ssplayer::SsDrawScratch scratch;
+  SkBitmap first;
+  SkBitmap again;
+  SkBitmap fresh;
+  SkBitmap recoloured;
+  render(&white, &scratch, &first);
+  const SkImage* kept = keptImage(scratch);
+  if (kept == nullptr) {
+    Fail("the first frame kept no coverage");
+    return;
+  }
+  render(&white, &scratch, &again);
+  if (keptImage(scratch) != kept) Fail("an unchanged frame rebuilt its coverage");
+  render(&white, nullptr, &fresh);
+  size_t differing = 0;
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize; ++x) {
+      if (again.getColor(x, y) != fresh.getColor(x, y)) ++differing;
+    }
+  }
+  if (differing != 0) {
+    Fail("the kept coverage draws %zu px differently from a fresh one", differing);
+  }
+  render(&green, &scratch, &recoloured);
+  if (keptImage(scratch) == kept) Fail("a new atlas kept the old coverage");
+  std::printf("    kept across an unchanged frame (%zu px differ from a fresh build), "
+              "rebuilt for a new atlas\n",
+              differing);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -978,6 +1048,9 @@ int main(int argc, char** argv) {
   // where the mask takes roughly two thirds of the child.
   CheckInstanceInheritance("example/assets/ss/MaskInstance", "Walk_Gate.ssab", "Walk_gate",
                            "Instance_Maid.ssab", 150);
+
+  std::printf("==> the coverage is kept while its writers stand still\n");
+  CheckCoverageKept(ssab, animation, frame);
 
   if (g_failures > 0) {
     std::fprintf(stderr, "\nFAILED: %d problems\n", g_failures);

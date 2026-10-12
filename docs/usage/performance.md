@@ -27,6 +27,11 @@ things follow, and they are worth designing around:
   quads, so the same pixel is shaded over and over. The surface is the view's
   size times the device's pixel ratio, and nothing here decouples the two — a
   smaller view is less work.
+- **A mask that moves costs a render of its own.** A player draws its mask and
+  clipping parts into a coverage image first, as a separate render off the JS
+  thread. The image is kept while those parts hold still, so a fixed window
+  with an animation playing inside it pays once. A mask part that moves, or
+  changes its cell or texture, pays again on every frame it does.
 
 ::: warning There are no device numbers behind this page
 Nothing has been measured on a physical device: iOS Simulator and Android
