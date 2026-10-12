@@ -100,6 +100,7 @@ Android slice alone.
 | Mask drawing, and a mask crossing into an instance child | `pnpm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample |
 | Instance and effect slots keep stepping while out of the draw plan, and a hidden effect builds no particles | `pnpm run check-hidden` |
 | `ss-*` shaders compile, and their arithmetic | `pnpm run check-shader` (macOS) |
+| The Nitro glue compiles: `HybridSs*.cpp`, `SsAssets.cpp`, `SsRNSkiaInterop.cpp`, `SsPlayerJni.cpp`, `nitrogen/generated/` | `pnpm run check-glue` — a syntax check for iOS (macOS, Xcode) and Android (the NDK). Each half **reports itself skipped** without its toolchain, and the JNI units without the fbjni headers a Gradle build unpacks |
 | The web stub barrel imports clean, matches `index.ts` and throws | `pnpm run check-web-barrel` (any OS, no Brain) |
 | Nitro codegen is current | `pnpm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |

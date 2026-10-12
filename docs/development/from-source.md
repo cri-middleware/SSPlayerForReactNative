@@ -130,5 +130,6 @@ project of your own, and the optional `MaskInstance` sample are covered in
 | Mask drawing, and a mask crossing into an instance child (macOS) | `pnpm run check-mask` |
 | Instance and effect slots keep stepping while out of the draw plan, and a hidden effect builds no particles | `pnpm run check-hidden` |
 | `ss-*` shaders compile, and their arithmetic (macOS) | `pnpm run check-shader` |
+| The Nitro glue compiles for iOS (macOS, Xcode) and Android (the NDK) | `pnpm run check-glue` |
 | Web stub barrel imports clean and throws (any OS, no Brain) | `pnpm run check-web-barrel` |
 | Nitro codegen is current | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
