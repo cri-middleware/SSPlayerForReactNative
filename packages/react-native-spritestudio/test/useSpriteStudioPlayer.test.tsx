@@ -90,6 +90,59 @@ describe('the player’s lifetime', () => {
   })
 })
 
+describe('the transitionMs prop', () => {
+  // Track 0 switches through the one prop either way, so the prop can always
+  // return to where it was: ForWgpu's Bevy A-2, where a crossfade sent by
+  // command left the value on the old name and writing it back did nothing.
+  it('crossfades a change of animation instead of setting it up', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle', transitionMs: 250 })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 250 })
+    await harness.rerender({ source: PACK, animation: 'Idle', transitionMs: 250 })
+
+    expect(player.argsOf('crossfade')).toEqual([
+      [0, 'Walk', 250],
+      [0, 'Idle', 250],
+    ])
+    expect(player.names()).not.toContain('setAnimation')
+  })
+
+  // A crossfade is a switch, not a start: no rewind of the clip it brings in.
+  it('does not head out after a crossfade', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle', transitionMs: 250 })
+    const player = SpriteStudioPlayer.last()
+    const plays = player.argsOf('play').length
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 250 })
+
+    expect(player.argsOf('play')).toHaveLength(plays)
+  })
+
+  // There is nothing to fade from before the first clip is up.
+  it('sets the first animation of a load up outright', async () => {
+    SpriteStudioPlayer.holdLoads = true
+    const harness = await mount({ source: PACK, animation: 'Idle', transitionMs: 250 })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 250 })
+    await act(async () => player.finishLoad())
+
+    expect(player.names()).not.toContain('crossfade')
+    expect(player.currentAnimation).toBe('Walk')
+  })
+
+  it('switches outright at 0, as without the prop', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle' })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 0 })
+
+    expect(player.argsOf('setAnimation')).toEqual([['Walk']])
+    expect(player.names()).not.toContain('crossfade')
+  })
+})
+
 describe('the playing prop', () => {
   // `load` selects and poses; starting is a separate verb, so this leaves the
   // animation on its first frame without ever having played.

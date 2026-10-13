@@ -964,3 +964,246 @@ describe('the fallback clock', () => {
     expect(pendingFrames()).toBe(0)
   })
 })
+
+describe('animation mixing: switching track 0', () => {
+  // The Brain hands track 0 over when the crossfade begins, so the player has
+  // to as well — left on the outgoing name, everything keyed on it lied.
+  it('names the incoming animation from the crossfade call on', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    const changed = vi.fn()
+    const started = vi.fn()
+    player.onAnimationChanged = changed
+    player.onAnimationStarted = started
+
+    expect(player.crossfade(0, 'Walk', 300)).toBe(true)
+
+    expect(player.currentAnimation).toBe('Walk')
+    expect(changed.mock.calls).toEqual([['Walk']])
+    // A switch that keeps playing is not a `play()`.
+    expect(started).not.toHaveBeenCalled()
+  })
+
+  // ForGodot's A-2, where this started: `setAnimation` compared against the
+  // outgoing name, took the call for a re-selection and did nothing.
+  it('can go back to the animation a crossfade left', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.crossfade(0, 'Walk', 300)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    expect(player.setAnimation('Idle')).toBe(true)
+
+    expect(internal.names()).toContain('setupAnimation')
+    expect(player.currentAnimation).toBe('Idle')
+  })
+
+  // "Walk is already chosen" — the fade runs on.
+  it('leaves a fade alone when its incoming animation is selected again', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.crossfade(0, 'Walk', 300)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    expect(player.setAnimation('Walk')).toBe(true)
+    expect(internal.calls).toEqual([])
+  })
+
+  it('switches on a track-0 setTrackAnimation too, but not on another track', async () => {
+    const player = await loaded({ animation: 'Idle' })
+
+    player.setTrackAnimation(1, 'Walk')
+    expect(player.currentAnimation).toBe('Idle')
+
+    player.setTrackAnimation(0, 'Walk')
+    expect(player.currentAnimation).toBe('Walk')
+  })
+
+  // The Brain lays every animation looping forever; the host's count is the
+  // player's to put back, after each switch of track 0.
+  it('puts the loop count back on the incoming animation', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.setLoopCount(2)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    player.crossfade(0, 'Walk', 300)
+    player.setTrackAnimation(0, 'Idle')
+    player.setTrackAnimation(1, 'Walk')
+
+    expect(internal.argsOf('setLoopCount')).toEqual([[2], [2]])
+  })
+
+  it('reports the incoming animation finishing after the outgoing one had', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    const finished = vi.fn()
+    player.onAnimationFinished = finished
+    const internal = SsInternalPlayer.last()
+    player.play()
+    internal.isFinished = true
+    player.advance(16)
+
+    player.crossfade(0, 'Walk', 300)
+    internal.isFinished = false
+    player.advance(16)
+    internal.isFinished = true
+    player.advance(16)
+
+    expect(finished.mock.calls).toEqual([['Idle'], ['Walk']])
+  })
+
+  // No fade on a refusal, and nothing renamed.
+  it('keeps the name when the crossfade is refused', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded({ animation: 'Idle' })
+
+    expect(player.crossfade(0, 'Typo', 300)).toBe(false)
+    expect(player.currentAnimation).toBe('Idle')
+  })
+})
+
+describe('animation mixing: track 0 settings under their track names', () => {
+  // The track forms are the same settings, so the player's own record has to
+  // move with them — it is what a reload replays.
+  it('keeps what the track-0 forms set, for the next load to replay', async () => {
+    const player = await loaded()
+    player.setTrackSpeed(0, 2)
+    player.setTrackLoopCount(0, 3)
+    player.setTrackFrameSkipEnabled(0, false)
+    player.setTrackFrameRate(0, 24)
+    player.setTrackPlaybackDirection(0, SsPlaybackDirection.backward, SsPlaybackStyle.pingPong)
+
+    await player.load(PACK)
+
+    const internal = SsInternalPlayer.last()
+    expect(internal.speedScale).toBe(2)
+    expect(internal.loopCount).toBe(3)
+    expect(internal.frameSkipEnabled).toBe(false)
+    expect(internal.frameRate).toBe(24)
+    expect(internal.playbackDirection).toBe(SsPlaybackDirection.backward)
+    expect(internal.playbackStyle).toBe(SsPlaybackStyle.pingPong)
+  })
+
+  it('puts a loop count set through the track form back after a crossfade', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.setTrackLoopCount(0, 1)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    player.crossfade(0, 'Walk', 300)
+
+    expect(internal.argsOf('setLoopCount')).toEqual([[1]])
+  })
+
+  // Accepted before a load, the same as `setSpeedScale`: it is a setting the
+  // player keeps, not a command against a track that does not exist yet.
+  it('accepts the track-0 forms before a load', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = new SpriteStudioPlayer()
+
+    expect(player.setTrackSpeed(0, 2)).toBe(true)
+    expect(player.trackSpeed(0)).toBe(2)
+    expect(warn).not.toHaveBeenCalled()
+  })
+})
+
+describe('animation mixing: reporting', () => {
+  // A command that did nothing shows up as an animation that "will not blend";
+  // the bool alone is one nobody has to read.
+  it('says why a track command did nothing, naming the call and the pack', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.setTrackAnimation(1, 'Typo')).toBe(false)
+
+    const line = String(warn.mock.calls[0]?.[0])
+    expect(line).toContain("setTrackAnimation(1, 'Typo')")
+    expect(line).toContain(PACK)
+    expect(line).toContain('Animation not found')
+  })
+
+  // A state machine repeats its commands every frame.
+  it('says it once per call and target, and a second target on its own line', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    player.crossfade(1, 'Typo', 300)
+    player.crossfade(1, 'Typo', 300)
+    expect(warn).toHaveBeenCalledOnce()
+
+    player.crossfade(1, 'Other typo', 300)
+    expect(warn).toHaveBeenCalledTimes(2)
+  })
+
+  // Keyed on the target, not the value: a slider dragging a refused alpha.
+  it('does not say it again for each new value', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    player.setTrackAlpha(5, 0.1)
+    player.setTrackAlpha(5, 0.2)
+
+    expect(warn).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a track no index can be', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.setTrackAlpha(-1, 0.5)).toBe(false)
+    expect(SsInternalPlayer.last().names()).not.toContain('setTrackAlpha')
+    expect(warn).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a track command before a load, and says so', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = new SpriteStudioPlayer()
+
+    expect(player.setTrackAnimation(1, 'Walk')).toBe(false)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('no pack is loaded')
+  })
+
+  // A lookup may fail quietly.
+  it('reads nothing there as null, without a word', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.trackAlpha(3)).toBeNull()
+    expect(player.trackBlend(3)).toBeNull()
+    expect(player.trackFadeProgress(0)).toBeNull()
+    expect(player.trackLoopCount(3)).toBeNull()
+    expect(player.trackMainSource(3)).toBeNull()
+    expect(player.trackFrameSkipEnabled(3)).toBeNull()
+    expect(player.sourceWeight(7)).toBeNull()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('hands back the handle of an added source, or null', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.addTrackSource(1, 'Walk', 0.5)).toBe(101)
+    expect(player.addTrackSource(1, 'Typo')).toBeNull()
+  })
+})
+
+describe('animation mixing: the loop pulses', () => {
+  // The Brain's pulses stand until its next update, so a tick that did not
+  // reach it would report the previous tick's loop again.
+  it('reports no loop for a tick that did not run', async () => {
+    const player = await loaded({ animation: 'Walk' })
+    const internal = SsInternalPlayer.last()
+    player.play()
+    internal.justLooped = true
+    internal.loopedTracks.add(1)
+
+    player.advance(16)
+    expect(player.justLooped).toBe(true)
+    expect(player.trackJustLooped(1)).toBe(true)
+
+    // Nothing moves — Layer 1's `advances` said so — and no update ran.
+    internal.isPlaying = false
+    player.advance(16)
+    expect(player.justLooped).toBe(false)
+    expect(player.trackJustLooped(1)).toBe(false)
+  })
+})

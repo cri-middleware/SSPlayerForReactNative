@@ -92,6 +92,8 @@ namespace margelo::nitro::ssplayer {
       virtual bool getSkipFrames() = 0;
       virtual bool getSubFrame() = 0;
       virtual double getPassedEventCount() = 0;
+      virtual double getTrackCount() = 0;
+      virtual double getCurrentAnimationIndex() = 0;
 
     public:
       // Methods
@@ -128,6 +130,44 @@ namespace margelo::nitro::ssplayer {
       virtual bool setPartCell(double partIndex, double cellmapNameHash, double cellNameHash, double priority) = 0;
       virtual bool clearPartCell(double partIndex) = 0;
       virtual bool clearPartOverrides() = 0;
+      virtual bool setTrackAnimation(double track, const std::string& name) = 0;
+      virtual bool clearTrack(double track) = 0;
+      virtual bool crossfade(double track, const std::string& name, double durationMs) = 0;
+      virtual bool fadeTrack(double track, double targetAlpha, double durationMs) = 0;
+      virtual double getTrackFadeProgress(double track) = 0;
+      virtual bool cancelTrackFade(double track) = 0;
+      virtual bool setTrackAlpha(double track, double alpha) = 0;
+      virtual double getTrackAlpha(double track) = 0;
+      virtual bool setTrackBlend(double track, double blend) = 0;
+      virtual double getTrackBlend(double track) = 0;
+      virtual bool setTrackSync(double track, double sync) = 0;
+      virtual double getTrackSync(double track) = 0;
+      virtual bool setTrackFrame(double track, double frameNo) = 0;
+      virtual double getTrackFrame(double track) = 0;
+      virtual bool setTrackSpeed(double track, double speed) = 0;
+      virtual double getTrackSpeed(double track) = 0;
+      virtual bool setTrackFrameRate(double track, double fps) = 0;
+      virtual double getTrackFrameRate(double track) = 0;
+      virtual bool setTrackSkipFrames(double track, bool skip) = 0;
+      virtual bool getTrackSkipFrames(double track) = 0;
+      virtual bool setTrackPlaybackDirection(double track, double direction, double style) = 0;
+      virtual double getTrackPlaybackDirection(double track) = 0;
+      virtual double getTrackPlaybackStyle(double track) = 0;
+      virtual bool setTrackLoopCount(double track, double loops) = 0;
+      virtual double getTrackLoopCount(double track) = 0;
+      virtual bool isTrackFinished(double track) = 0;
+      virtual bool trackJustLooped(double track) = 0;
+      virtual bool setTrackOutgoingEventThreshold(double track, double threshold) = 0;
+      virtual double getTrackOutgoingEventThreshold(double track) = 0;
+      virtual double getTrackMainSource(double track) = 0;
+      virtual double addTrackSource(double track, const std::string& name, double weight) = 0;
+      virtual bool setSourceWeight(double source, double weight) = 0;
+      virtual double getSourceWeight(double source) = 0;
+      virtual bool setSourceFrame(double source, double frameNo) = 0;
+      virtual double getSourceFrame(double source) = 0;
+      virtual double getSourceAnimationIndex(double source) = 0;
+      virtual bool setSourceEventThreshold(double source, double threshold) = 0;
+      virtual double getSourceEventThreshold(double source) = 0;
       virtual std::vector<SsTextureInfo> getTextures() = 0;
       virtual std::shared_ptr<ArrayBuffer> copyEmbeddedTexture(double textureHash) = 0;
       virtual std::vector<std::string> getAnimationNames() = 0;

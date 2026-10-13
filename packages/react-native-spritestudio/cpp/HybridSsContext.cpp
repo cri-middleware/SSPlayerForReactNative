@@ -165,7 +165,6 @@ void HybridSsContext::release() noexcept {
   drawScratch_ = {};
   partCount_ = 0;
   frameNo_ = 0.0f;
-  animationIndex_ = -1;
   // Same signal an `update()` gives: anything JS is still holding from an
   // earlier frame is stale now. JS has one rule to follow, not a special case
   // for teardown.
@@ -202,7 +201,6 @@ bool HybridSsContext::setupAnimation(const std::string& name) {
   // stale. Bump the generation and republish.
   ++generation_;
   frameNo_ = 0.0f;
-  animationIndex_ = ssab().animationIndex(name);
   // A different animation has different `EventEffect` keys, so each slot's
   // memory of the last key it started is about a timeline that no longer
   // exists — without this the first key of the new animation is debounced as
@@ -251,8 +249,33 @@ void HybridSsContext::resync() {
 }
 
 bool HybridSsContext::advances() const {
-  if (ctx_ == nullptr || !ss_runtime_is_playing(ctx_)) return false;
-  return !ss_runtime_is_pausing(ctx_) || !effects_.empty() || !instances_.states().empty();
+  // The character's clock, not `ss_runtime_is_playing`: that one is track
+  // 0's and goes false when track 0 finishes, while the clock runs on for the
+  // other tracks and the fades.
+  if (ctx_ == nullptr || !ss_runtime_is_clock_playing(ctx_)) return false;
+  const bool pausing = ss_runtime_is_clock_pausing(ctx_);
+  if (ss_runtime_is_playing(ctx_)) {
+    return !pausing || !effects_.empty() || !instances_.states().empty();
+  }
+  // Track 0 has finished and the clock runs on. A finished track 0 holds its
+  // last frame and so do the slots stepped from it, so this player moves only
+  // if something on the stack still does — without the check an overlay or a
+  // crossfade froze the moment track 0 ended, and without the narrowing every
+  // finished one-track player would keep redrawing a frame that cannot change.
+  return !pausing && othersMove();
+}
+
+bool HybridSsContext::othersMove() const {
+  const uint32_t count = ss_runtime_get_track_count(ctx_);
+  for (uint32_t track = 0; track < count; ++track) {
+    if (!std::isnan(ss_runtime_get_track_fade_progress(ctx_, track))) return true;
+    if (track == 0) continue;
+    if (ss_runtime_get_track_main_source(ctx_, track) != SS_RUNTIME_INVALID_HANDLE &&
+        !ss_runtime_is_track_finished(ctx_, track)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void HybridSsContext::markStaleIfHeld() {
@@ -365,7 +388,7 @@ void HybridSsContext::resume() {
 
 void HybridSsContext::stop() {
   if (ctx_ == nullptr) return;
-  // Halts where it stands: `controller.stop()` only clears `is_playing`. No
+  // Halts where it stands: the whole clock, every track and fade with it. No
   // rewind, so no resync either.
   ss_runtime_stop(ctx_);
 }
@@ -509,7 +532,10 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
 }
 
 SsBox HybridSsContext::canvasBox() {
-  const std::array<float, 4> box = ssab().canvasBox(animationIndex_);
+  // What track 0 plays now, which a crossfade changes from the call on — so
+  // the canvas switches with it, as it does for a setup.
+  const std::array<float, 4> box =
+      ssab().canvasBox(ctx_ == nullptr ? -1 : ss_runtime_get_current_animation_index(ctx_));
   return SsBox(static_cast<double>(box[0]), static_cast<double>(box[1]),
                static_cast<double>(box[2]), static_cast<double>(box[3]));
 }
@@ -573,9 +599,24 @@ double HybridSsContext::getPassedEventCount() {
   return static_cast<double>(ss_runtime_get_passed_event_count(ctx_));
 }
 
+int32_t HybridSsContext::passedEventAnimation(int32_t i) const {
+  // The animation of the source that **fired** the event, not the one a setup
+  // selected: an event index addresses that source's `events`, and after a
+  // crossfade on track 0 — or with a second source firing — the two differ.
+  // Resolved against the setup's table, a key came back as some other key of
+  // the same index, or was dropped as out of range.
+  const uint32_t handle = ss_runtime_get_passed_event_source_handle(ctx_, i);
+  return ss_runtime_get_source_animation_index(ctx_, handle);
+}
+
+double HybridSsContext::passedEventSource(int32_t i) const {
+  const uint32_t handle = ss_runtime_get_passed_event_source_handle(ctx_, i);
+  return handle == SS_RUNTIME_INVALID_HANDLE ? -1.0 : static_cast<double>(handle);
+}
+
 std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
   std::vector<SsUserDataEvent> out;
-  if (ctx_ == nullptr || animationIndex_ < 0) return out;
+  if (ctx_ == nullptr) return out;
 
   const int32_t count = ss_runtime_get_passed_event_count(ctx_);
   if (count <= 0) return out;
@@ -585,8 +626,9 @@ std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
 
   for (int32_t i = 0; i < count; ++i) {
     const ss::format::EventsPerFrame* frame =
-        view.eventsAt(animationIndex_, ss_runtime_get_passed_event_index(ctx_, i));
+        view.eventsAt(passedEventAnimation(i), ss_runtime_get_passed_event_index(ctx_, i));
     if (frame == nullptr) continue;
+    const double source = passedEventSource(i);
     const auto* users = frame->users();
     if (users == nullptr) continue;
 
@@ -607,7 +649,7 @@ std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
       out.push_back(SsUserDataEvent(
           static_cast<double>(entry->part_index()),
           std::string(view.partName(entry->part_index())),
-          static_cast<double>(frame->frame_index()), integer != nullptr,
+          static_cast<double>(frame->frame_index()), source, integer != nullptr,
           integer != nullptr ? static_cast<double>(integer->value()) : 0.0, point != nullptr,
           point != nullptr ? static_cast<double>(point->v1()) : 0.0,
           point != nullptr ? static_cast<double>(point->v2()) : 0.0, rect != nullptr,
@@ -624,7 +666,7 @@ std::vector<SsUserDataEvent> HybridSsContext::getUserDataEvents() {
 
 std::vector<SsAudioEvent> HybridSsContext::getAudioEvents() {
   std::vector<SsAudioEvent> out;
-  if (ctx_ == nullptr || animationIndex_ < 0) return out;
+  if (ctx_ == nullptr) return out;
 
   const int32_t count = ss_runtime_get_passed_event_count(ctx_);
   if (count <= 0) return out;
@@ -634,8 +676,9 @@ std::vector<SsAudioEvent> HybridSsContext::getAudioEvents() {
 
   for (int32_t i = 0; i < count; ++i) {
     const ss::format::EventsPerFrame* frame =
-        view.eventsAt(animationIndex_, ss_runtime_get_passed_event_index(ctx_, i));
+        view.eventsAt(passedEventAnimation(i), ss_runtime_get_passed_event_index(ctx_, i));
     if (frame == nullptr) continue;
+    const double source = passedEventSource(i);
     // A frame carries whichever event tables were authored on it, so the count
     // that gated this call says "some event", not "an audio event" — every
     // frame here can legitimately have no `audios` at all.
@@ -659,7 +702,7 @@ std::vector<SsAudioEvent> HybridSsContext::getAudioEvents() {
       out.push_back(SsAudioEvent(
           static_cast<double>(entry->part_index()),
           std::string(view.partName(entry->part_index())),
-          static_cast<double>(frame->frame_index()),
+          static_cast<double>(frame->frame_index()), source,
           alias != nullptr ? alias->str() : std::string(),
           static_cast<double>(value->sound_list_name_hash()),
           static_cast<double>(value->sound_name_hash()),
@@ -673,7 +716,7 @@ std::vector<SsAudioEvent> HybridSsContext::getAudioEvents() {
 
 std::vector<SsSignalEvent> HybridSsContext::getSignalEvents() {
   std::vector<SsSignalEvent> out;
-  if (ctx_ == nullptr || animationIndex_ < 0) return out;
+  if (ctx_ == nullptr) return out;
 
   const int32_t count = ss_runtime_get_passed_event_count(ctx_);
   if (count <= 0) return out;
@@ -683,8 +726,9 @@ std::vector<SsSignalEvent> HybridSsContext::getSignalEvents() {
 
   for (int32_t i = 0; i < count; ++i) {
     const ss::format::EventsPerFrame* frame =
-        view.eventsAt(animationIndex_, ss_runtime_get_passed_event_index(ctx_, i));
+        view.eventsAt(passedEventAnimation(i), ss_runtime_get_passed_event_index(ctx_, i));
     if (frame == nullptr) continue;
+    const double source = passedEventSource(i);
     const auto* signals = frame->signals();
     if (signals == nullptr) continue;
 
@@ -753,7 +797,7 @@ std::vector<SsSignalEvent> HybridSsContext::getSignalEvents() {
       const auto* command = value->command_id();
       out.push_back(SsSignalEvent(static_cast<double>(entry->part_index()),
                                   std::string(view.partName(entry->part_index())),
-                                  static_cast<double>(frame->frame_index()),
+                                  static_cast<double>(frame->frame_index()), source,
                                   command != nullptr ? command->str() : std::string(),
                                   std::move(params)));
     }
@@ -823,6 +867,301 @@ bool HybridSsContext::clearPartOverrides() {
   const bool ok = ss_runtime_clear_all_part_overrides(ctx_);
   if (ok) markStaleIfHeld();
   return ok;
+}
+
+// --- animation mixing: the track stack -----------------------------------------
+//
+// Straight through, like the override layer and for the same reason: the Brain
+// owns the stack, and a copy up here would be a second answer to "what does
+// track 1 play". What this layer adds is the bookkeeping the Brain cannot do
+// for it — the playhead it caches, and the frame it published.
+
+namespace {
+
+/// A track or source number from JS, or false for one no `u32` can hold. A
+/// negative one cast straight across would wrap to a huge, valid-looking index.
+bool toIndex(double value, uint32_t& out) {
+  if (!(value >= 0.0) || value > static_cast<double>(std::numeric_limits<uint32_t>::max())) {
+    return false;
+  }
+  out = static_cast<uint32_t>(value);
+  return true;
+}
+
+/// The C ABI's "no such handle" as the -1 the spec promises.
+double handleOrMinusOne(uint32_t handle) {
+  return handle == SS_RUNTIME_INVALID_HANDLE ? -1.0 : static_cast<double>(handle);
+}
+
+}  // namespace
+
+void HybridSsContext::tracksChanged() {
+  // A crossfade or a new animation on track 0 hands its playhead to another
+  // animation from the call on, and `refreshFrame` reads the FrameData *at*
+  // `frameNo_` — which the Brain validates against track 0's range, so the old
+  // animation's playhead would fail on a shorter incoming one and draw nothing.
+  frameNo_ = ss_runtime_get_frame_no(ctx_);
+  // Rebuilt at the next read or draw, as an override is, so a player that does
+  // not advance shows the new pose and one that does costs nothing extra.
+  stale_ = true;
+}
+
+double HybridSsContext::getTrackCount() {
+  return ctx_ == nullptr ? 0.0 : static_cast<double>(ss_runtime_get_track_count(ctx_));
+}
+
+double HybridSsContext::getCurrentAnimationIndex() {
+  return ctx_ == nullptr ? -1.0 : static_cast<double>(ss_runtime_get_current_animation_index(ctx_));
+}
+
+bool HybridSsContext::setTrackAnimation(double track, const std::string& name) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  const bool ok = ss_runtime_set_track_animation(ctx_, t, name.c_str());
+  if (ok) tracksChanged();
+  return ok;
+}
+
+bool HybridSsContext::clearTrack(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  const bool ok = ss_runtime_clear_track(ctx_, t);
+  if (ok) tracksChanged();
+  return ok;
+}
+
+bool HybridSsContext::crossfade(double track, const std::string& name, double durationMs) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  const bool ok =
+      ss_runtime_crossfade(ctx_, t, name.c_str(), static_cast<float>(durationMs));
+  if (ok) tracksChanged();
+  return ok;
+}
+
+bool HybridSsContext::fadeTrack(double track, double targetAlpha, double durationMs) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_fade_track(ctx_, t, static_cast<float>(targetAlpha),
+                               static_cast<float>(durationMs));
+}
+
+double HybridSsContext::getTrackFadeProgress(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_track_fade_progress(ctx_, t));
+}
+
+bool HybridSsContext::cancelTrackFade(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_cancel_track_fade(ctx_, t);
+}
+
+bool HybridSsContext::setTrackAlpha(double track, double alpha) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  const bool ok = ss_runtime_set_track_alpha(ctx_, t, static_cast<float>(alpha));
+  if (ok) tracksChanged();
+  return ok;
+}
+
+double HybridSsContext::getTrackAlpha(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_track_alpha(ctx_, t));
+}
+
+bool HybridSsContext::setTrackBlend(double track, double blend) {
+  uint32_t t = 0;
+  uint32_t b = 0;
+  if (ctx_ == nullptr || !toIndex(track, t) || !toIndex(blend, b)) return false;
+  const bool ok = ss_runtime_set_track_blend(ctx_, t, b);
+  if (ok) tracksChanged();
+  return ok;
+}
+
+double HybridSsContext::getTrackBlend(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return -1.0;
+  return handleOrMinusOne(ss_runtime_get_track_blend(ctx_, t));
+}
+
+bool HybridSsContext::setTrackSync(double track, double sync) {
+  uint32_t t = 0;
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(track, t) || !toIndex(sync, s)) return false;
+  return ss_runtime_set_track_sync(ctx_, t, s);
+}
+
+double HybridSsContext::getTrackSync(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return -1.0;
+  return handleOrMinusOne(ss_runtime_get_track_sync(ctx_, t));
+}
+
+bool HybridSsContext::setTrackFrame(double track, double frameNo) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  const bool ok = ss_runtime_set_track_frame(ctx_, t, static_cast<float>(frameNo));
+  if (ok) tracksChanged();
+  return ok;
+}
+
+double HybridSsContext::getTrackFrame(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_track_frame(ctx_, t));
+}
+
+bool HybridSsContext::setTrackSpeed(double track, double speed) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_set_track_speed(ctx_, t, static_cast<float>(speed));
+}
+
+double HybridSsContext::getTrackSpeed(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_track_speed(ctx_, t));
+}
+
+bool HybridSsContext::setTrackFrameRate(double track, double fps) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_set_track_frame_rate(ctx_, t, static_cast<int>(fps));
+}
+
+double HybridSsContext::getTrackFrameRate(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return -1.0;
+  return static_cast<double>(ss_runtime_get_track_frame_rate(ctx_, t));
+}
+
+bool HybridSsContext::setTrackSkipFrames(double track, bool skip) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_set_track_skip_frames(ctx_, t, skip);
+}
+
+bool HybridSsContext::getTrackSkipFrames(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_get_track_skip_frames(ctx_, t);
+}
+
+bool HybridSsContext::setTrackPlaybackDirection(double track, double direction, double style) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_set_track_playback_direction(ctx_, t, static_cast<int>(direction),
+                                                 static_cast<int>(style));
+}
+
+double HybridSsContext::getTrackPlaybackDirection(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return -1.0;
+  return static_cast<double>(ss_runtime_get_track_playback_direction(ctx_, t));
+}
+
+double HybridSsContext::getTrackPlaybackStyle(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return -1.0;
+  return static_cast<double>(ss_runtime_get_track_playback_style(ctx_, t));
+}
+
+bool HybridSsContext::setTrackLoopCount(double track, double loops) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_set_track_loop_count(ctx_, t, static_cast<int>(loops));
+}
+
+double HybridSsContext::getTrackLoopCount(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return 0.0;
+  return static_cast<double>(ss_runtime_get_track_loop_count(ctx_, t));
+}
+
+bool HybridSsContext::isTrackFinished(double track) {
+  uint32_t t = 0;
+  return ctx_ != nullptr && toIndex(track, t) && ss_runtime_is_track_finished(ctx_, t);
+}
+
+bool HybridSsContext::trackJustLooped(double track) {
+  uint32_t t = 0;
+  return ctx_ != nullptr && toIndex(track, t) && ss_runtime_track_just_looped(ctx_, t);
+}
+
+bool HybridSsContext::setTrackOutgoingEventThreshold(double track, double threshold) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return false;
+  return ss_runtime_set_track_outgoing_event_threshold(ctx_, t, static_cast<float>(threshold));
+}
+
+double HybridSsContext::getTrackOutgoingEventThreshold(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_track_outgoing_event_threshold(ctx_, t));
+}
+
+double HybridSsContext::getTrackMainSource(double track) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return -1.0;
+  return handleOrMinusOne(ss_runtime_get_track_main_source(ctx_, t));
+}
+
+double HybridSsContext::addTrackSource(double track, const std::string& name, double weight) {
+  uint32_t t = 0;
+  if (ctx_ == nullptr || !toIndex(track, t)) return -1.0;
+  const uint32_t handle =
+      ss_runtime_add_track_source(ctx_, t, name.c_str(), static_cast<float>(weight));
+  if (handle != SS_RUNTIME_INVALID_HANDLE) tracksChanged();
+  return handleOrMinusOne(handle);
+}
+
+bool HybridSsContext::setSourceWeight(double source, double weight) {
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(source, s)) return false;
+  const bool ok = ss_runtime_set_source_weight(ctx_, s, static_cast<float>(weight));
+  if (ok) tracksChanged();
+  return ok;
+}
+
+double HybridSsContext::getSourceWeight(double source) {
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(source, s)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_source_weight(ctx_, s));
+}
+
+bool HybridSsContext::setSourceFrame(double source, double frameNo) {
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(source, s)) return false;
+  const bool ok = ss_runtime_set_source_frame(ctx_, s, static_cast<float>(frameNo));
+  if (ok) tracksChanged();
+  return ok;
+}
+
+double HybridSsContext::getSourceFrame(double source) {
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(source, s)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_source_frame(ctx_, s));
+}
+
+double HybridSsContext::getSourceAnimationIndex(double source) {
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(source, s)) return -1.0;
+  return static_cast<double>(ss_runtime_get_source_animation_index(ctx_, s));
+}
+
+bool HybridSsContext::setSourceEventThreshold(double source, double threshold) {
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(source, s)) return false;
+  return ss_runtime_set_source_event_threshold(ctx_, s, static_cast<float>(threshold));
+}
+
+double HybridSsContext::getSourceEventThreshold(double source) {
+  uint32_t s = 0;
+  if (ctx_ == nullptr || !toIndex(source, s)) return std::numeric_limits<double>::quiet_NaN();
+  return static_cast<double>(ss_runtime_get_source_event_threshold(ctx_, s));
 }
 
 sscore::SsAnimeBinaryView HybridSsContext::ssab() const {

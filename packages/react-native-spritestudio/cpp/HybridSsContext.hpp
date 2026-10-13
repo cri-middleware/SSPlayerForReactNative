@@ -138,6 +138,47 @@ class HybridSsContext final : public HybridSsContextSpec,
   bool clearPartCell(double partIndex) override;
   bool clearPartOverrides() override;
 
+  double getTrackCount() override;
+  double getCurrentAnimationIndex() override;
+  bool setTrackAnimation(double track, const std::string& name) override;
+  bool clearTrack(double track) override;
+  bool crossfade(double track, const std::string& name, double durationMs) override;
+  bool fadeTrack(double track, double targetAlpha, double durationMs) override;
+  double getTrackFadeProgress(double track) override;
+  bool cancelTrackFade(double track) override;
+  bool setTrackAlpha(double track, double alpha) override;
+  double getTrackAlpha(double track) override;
+  bool setTrackBlend(double track, double blend) override;
+  double getTrackBlend(double track) override;
+  bool setTrackSync(double track, double sync) override;
+  double getTrackSync(double track) override;
+  bool setTrackFrame(double track, double frameNo) override;
+  double getTrackFrame(double track) override;
+  bool setTrackSpeed(double track, double speed) override;
+  double getTrackSpeed(double track) override;
+  bool setTrackFrameRate(double track, double fps) override;
+  double getTrackFrameRate(double track) override;
+  bool setTrackSkipFrames(double track, bool skip) override;
+  bool getTrackSkipFrames(double track) override;
+  bool setTrackPlaybackDirection(double track, double direction, double style) override;
+  double getTrackPlaybackDirection(double track) override;
+  double getTrackPlaybackStyle(double track) override;
+  bool setTrackLoopCount(double track, double loops) override;
+  double getTrackLoopCount(double track) override;
+  bool isTrackFinished(double track) override;
+  bool trackJustLooped(double track) override;
+  bool setTrackOutgoingEventThreshold(double track, double threshold) override;
+  double getTrackOutgoingEventThreshold(double track) override;
+  double getTrackMainSource(double track) override;
+  double addTrackSource(double track, const std::string& name, double weight) override;
+  bool setSourceWeight(double source, double weight) override;
+  double getSourceWeight(double source) override;
+  bool setSourceFrame(double source, double frameNo) override;
+  double getSourceFrame(double source) override;
+  double getSourceAnimationIndex(double source) override;
+  bool setSourceEventThreshold(double source, double threshold) override;
+  double getSourceEventThreshold(double source) override;
+
   std::vector<SsTextureInfo> getTextures() override;
   std::shared_ptr<ArrayBuffer> copyEmbeddedTexture(double textureHash) override;
   std::vector<std::string> getAnimationNames() override;
@@ -264,8 +305,21 @@ class HybridSsContext final : public HybridSsContextSpec,
   void stepEffects(float dtMilliseconds, bool looped);
 
   /// Whether `update()` can change the frame. A pause moves only the parts that
-  /// keep their own clock, and only effect and instance parts can.
+  /// keep their own clock, and only effect and instance parts can. Once track 0
+  /// has finished, only another track or a fade still can.
   bool advances() const;
+  /// Whether anything but track 0's own playhead can still move: a fade in
+  /// flight on any track, or an animation on a track above 0 that has not
+  /// played its loops out.
+  bool othersMove() const;
+  /// After a track call the Brain accepted: track 0's playhead may now be
+  /// another animation's, and the pose is not the one `frame_` holds.
+  void tracksChanged();
+  /// The animation index each passed event is resolved in, read with the same
+  /// index as `ss_runtime_get_passed_event_index`.
+  int32_t passedEventAnimation(int32_t i) const;
+  /// The source that fired passed event `i`, or -1.
+  double passedEventSource(int32_t i) const;
   /// Without this an override on a player that does not advance never shows:
   /// Layer 3 sends it no `update()`. The rebuild waits for `refreshIfStale`, so
   /// a whole override map costs one build.
@@ -304,12 +358,6 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// point (the game engines default it off). `frameNo_` itself is never
   /// rounded — see `refreshFrame`.
   bool subFrame_ = true;
-  /// Index of the animation `setupAnimation` last selected, or -1.
-  ///
-  /// The Brain reports a passed event as a position in *that* animation's
-  /// `events` vector, so without this the indices cannot be resolved back to
-  /// the keys they name.
-  int32_t animationIndex_ = -1;
   size_t partCount_ = 0;
 
   /// The Brain's FrameData for `frameNo_`, read in place. A raw pointer on

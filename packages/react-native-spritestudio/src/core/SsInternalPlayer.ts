@@ -18,6 +18,8 @@ import {
   SsPlaybackDirection,
   SsPlaybackStyle,
   type SsRootTransform,
+  type SsTrackBlend,
+  type SsTrackSync,
 } from './types'
 
 /**
@@ -127,14 +129,19 @@ export class SsInternalPlayer {
   }
 
   /**
-   * The animation the Brain currently has set up, or null before the first
-   * successful `setupAnimation`.
+   * The animation track 0 plays, or null before the first successful
+   * `setupAnimation`.
    *
    * Tracked here, at the layer that owns the native context, so that "already
    * set up" cannot be confused with "the name the host most recently asked
    * for". A player is built per load, so this resets with the resource — which
    * is what keeps a second pack that names an animation the same way as the
    * first from being mistaken for one that is already selected.
+   *
+   * **A `crossfade` or `setTrackAnimation` on track 0 changes it from the
+   * call on**, as the Brain changes what track 0 plays from the call on. Left
+   * naming the outgoing animation, a `setupAnimation` back to it looked like a
+   * re-selection of the one already up, and could never return.
    */
   get currentAnimation(): string | null {
     return this.setUpAnimation
@@ -260,7 +267,8 @@ export class SsInternalPlayer {
   }
   /**
    * Whether {@link advance} can change the frame: playing, and not paused
-   * unless an effect or instance part keeps its own clock.
+   * unless an effect or instance part keeps its own clock. After track 0 has
+   * finished, while another track or a fade still moves — see the spec.
    */
   get advances(): boolean {
     return this.context?.advances ?? false
@@ -498,6 +506,146 @@ export class SsInternalPlayer {
   }
   clearPartOverrides(): boolean {
     return this.require().clearPartOverrides()
+  }
+
+  // --- animation mixing: the track stack -----------------------------------
+  //
+  // Straight through, with the C API's names and its sentinels: `NaN` for a
+  // missing float, `-1` for a missing integer or source handle. Turning those
+  // into `null` is Layer 3's, which is also where a refused call is reported.
+
+  /** Tracks that exist, silent ones included. */
+  get trackCount(): number {
+    return this.context?.trackCount ?? 0
+  }
+  /** Which animation track 0 plays, as an index into `getAnimationNames()`, or `-1`. */
+  get currentAnimationIndex(): number {
+    return this.context?.currentAnimationIndex ?? -1
+  }
+
+  setTrackAnimation(track: number, name: string): boolean {
+    const ok = this.require().setTrackAnimation(track, name)
+    if (ok && track === 0) this.setUpAnimation = name
+    return ok
+  }
+  clearTrack(track: number): boolean {
+    return this.require().clearTrack(track)
+  }
+  crossfade(track: number, name: string, durationMs: number): boolean {
+    const ok = this.require().crossfade(track, name, durationMs)
+    if (ok && track === 0) this.setUpAnimation = name
+    return ok
+  }
+  fadeTrack(track: number, targetAlpha: number, durationMs: number): boolean {
+    return this.require().fadeTrack(track, targetAlpha, durationMs)
+  }
+  getTrackFadeProgress(track: number): number {
+    return this.context?.getTrackFadeProgress(track) ?? NaN
+  }
+  cancelTrackFade(track: number): boolean {
+    return this.require().cancelTrackFade(track)
+  }
+  setTrackAlpha(track: number, alpha: number): boolean {
+    return this.require().setTrackAlpha(track, alpha)
+  }
+  getTrackAlpha(track: number): number {
+    return this.context?.getTrackAlpha(track) ?? NaN
+  }
+  setTrackBlend(track: number, blend: SsTrackBlend): boolean {
+    return this.require().setTrackBlend(track, blend)
+  }
+  getTrackBlend(track: number): number {
+    return this.context?.getTrackBlend(track) ?? -1
+  }
+  setTrackSync(track: number, sync: SsTrackSync): boolean {
+    return this.require().setTrackSync(track, sync)
+  }
+  getTrackSync(track: number): number {
+    return this.context?.getTrackSync(track) ?? -1
+  }
+  setTrackFrame(track: number, frameNo: number): boolean {
+    return this.require().setTrackFrame(track, frameNo)
+  }
+  getTrackFrame(track: number): number {
+    return this.context?.getTrackFrame(track) ?? NaN
+  }
+  setTrackSpeed(track: number, speed: number): boolean {
+    return this.require().setTrackSpeed(track, speed)
+  }
+  getTrackSpeed(track: number): number {
+    return this.context?.getTrackSpeed(track) ?? NaN
+  }
+  setTrackFrameRate(track: number, fps: number): boolean {
+    return this.require().setTrackFrameRate(track, fps)
+  }
+  getTrackFrameRate(track: number): number {
+    return this.context?.getTrackFrameRate(track) ?? -1
+  }
+  setTrackSkipFrames(track: number, skip: boolean): boolean {
+    return this.require().setTrackSkipFrames(track, skip)
+  }
+  getTrackSkipFrames(track: number): boolean {
+    return this.context?.getTrackSkipFrames(track) ?? false
+  }
+  setTrackPlaybackDirection(
+    track: number,
+    direction: SsPlaybackDirection,
+    style: SsPlaybackStyle
+  ): boolean {
+    return this.require().setTrackPlaybackDirection(track, direction, style)
+  }
+  getTrackPlaybackDirection(track: number): number {
+    return this.context?.getTrackPlaybackDirection(track) ?? -1
+  }
+  getTrackPlaybackStyle(track: number): number {
+    return this.context?.getTrackPlaybackStyle(track) ?? -1
+  }
+  setTrackLoopCount(track: number, loops: number): boolean {
+    return this.require().setTrackLoopCount(track, loops)
+  }
+  /** `-1` forever, `0` for a track with no animation. */
+  getTrackLoopCount(track: number): number {
+    return this.context?.getTrackLoopCount(track) ?? 0
+  }
+  isTrackFinished(track: number): boolean {
+    return this.context?.isTrackFinished(track) ?? false
+  }
+  /** The Brain's pulse, standing until its next update — see Layer 3. */
+  trackJustLooped(track: number): boolean {
+    return this.context?.trackJustLooped(track) ?? false
+  }
+  setTrackOutgoingEventThreshold(track: number, threshold: number): boolean {
+    return this.require().setTrackOutgoingEventThreshold(track, threshold)
+  }
+  getTrackOutgoingEventThreshold(track: number): number {
+    return this.context?.getTrackOutgoingEventThreshold(track) ?? NaN
+  }
+  getTrackMainSource(track: number): number {
+    return this.context?.getTrackMainSource(track) ?? -1
+  }
+  addTrackSource(track: number, name: string, weight: number): number {
+    return this.require().addTrackSource(track, name, weight)
+  }
+  setSourceWeight(source: number, weight: number): boolean {
+    return this.require().setSourceWeight(source, weight)
+  }
+  getSourceWeight(source: number): number {
+    return this.context?.getSourceWeight(source) ?? NaN
+  }
+  setSourceFrame(source: number, frameNo: number): boolean {
+    return this.require().setSourceFrame(source, frameNo)
+  }
+  getSourceFrame(source: number): number {
+    return this.context?.getSourceFrame(source) ?? NaN
+  }
+  getSourceAnimationIndex(source: number): number {
+    return this.context?.getSourceAnimationIndex(source) ?? -1
+  }
+  setSourceEventThreshold(source: number, threshold: number): boolean {
+    return this.require().setSourceEventThreshold(source, threshold)
+  }
+  getSourceEventThreshold(source: number): number {
+    return this.context?.getSourceEventThreshold(source) ?? NaN
   }
 
   /** Animation names in this pack, for feeding to `setupAnimation`. */

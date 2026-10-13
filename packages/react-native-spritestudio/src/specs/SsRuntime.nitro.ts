@@ -147,6 +147,13 @@ export interface SsUserDataEvent {
   partName: string
   /** The frame the key sits on, not the frame it was noticed on. */
   frameNo: number
+  /**
+   * The source that fired it — the handle `getTrackMainSource` and
+   * `addTrackSource` give out. With no animation mixing this is always track
+   * 0's main source; it tells two blended animations' keys apart once a second
+   * source fires too. `frameNo` is a frame of **that** source's animation.
+   */
+  source: number
 
   hasInteger: boolean
   integer: number
@@ -180,6 +187,8 @@ export interface SsAudioEvent {
   partName: string
   /** The frame the key sits on, not the frame it was noticed on. */
   frameNo: number
+  /** The source that fired it — see `SsUserDataEvent.source`. */
+  source: number
 
   /** The alias as authored — a name inside the sound list, not a file name. */
   soundName: string
@@ -264,6 +273,8 @@ export interface SsSignalEvent {
   partName: string
   /** The frame the key sits on, not the frame it was noticed on. */
   frameNo: number
+  /** The source that fired it — see `SsUserDataEvent.source`. */
+  source: number
 
   /** The authored command name. Uninterpreted. */
   commandId: string
@@ -340,6 +351,11 @@ export interface SsContext
    * for a paused one with no effect or instance part: a pause moves only the
    * parts that keep their own clock, and only those two kinds can. Layer 3
    * sends a player that does not advance no `update()`.
+   *
+   * **Not** `isPlaying`, which goes false when track 0 finishes: the Brain's
+   * clock runs on from `play()` until `stop()` or a setup, and an overlay on
+   * another track or a fade in flight still moves on it. So a finished track 0
+   * advances while one of those does, and only then.
    */
   readonly advances: boolean
 
@@ -726,6 +742,148 @@ export interface SsContext
 
   /** Drops every per-part override on this player at once. */
   clearPartOverrides(): boolean
+
+  // --- animation mixing: the track stack ------------------------------------
+  //
+  // Straight through to the Brain's track calls (`ss_runtime_set_track_*`,
+  // `ss_runtime_crossfade`, `ss_runtime_*_source_*`), with their names and their
+  // argument order. A **track** layers onto the pose the tracks below it made; a
+  // **source** is one animation blended within a track. Track 0 is the one
+  // `setupAnimation` lays, and `setupAnimation` collapses the stack back to it.
+  //
+  // The track-0 forms of the playback settings are the transport calls above:
+  // `setSpeedScale` is track 0's `setTrackSpeed`, and the Brain stores one value
+  // for both. A `crossfade` or `setTrackAnimation` on track 0 changes what track
+  // 0 plays **from the call on** — `frameNo`, `isPlaying` / `isFinished` /
+  // `justLooped`, `canvasBox` and `currentAnimationIndex` all answer for the
+  // incoming animation at once — and lays it looping forever, as a setup does.
+  //
+  // Every setter returns false when the Brain refused it, with the reason in
+  // `lastErrorMessage`. A read with nothing to report returns the C ABI's
+  // sentinel, translated only where the C one cannot cross as a number: `NaN`
+  // for a missing float, `-1` for a missing integer or source handle.
+  //
+  // A call that changes the pose marks the frame stale, so a player that does
+  // not advance still shows it, the same way an override does.
+
+  /** How many tracks exist, silent ones included. At least 1 once set up. */
+  readonly trackCount: number
+  /**
+   * Which animation track 0 plays, as an index into `getAnimationNames()`, or
+   * `-1` before anything is set up. Follows a track-0 `crossfade` from the call.
+   */
+  readonly currentAnimationIndex: number
+
+  /**
+   * Lays `name` on `track`, replacing what it played. Tracks grow on demand;
+   * track 0 must have been set up first. Cancels a fade in flight on the track.
+   */
+  setTrackAnimation(track: number, name: string): boolean
+  /** Silences `track` and cancels its fade. Track 0 cannot be cleared. */
+  clearTrack(track: number): boolean
+  /**
+   * Fades `track` over to `name` in `durationMs` — the same unit as `update`.
+   * Everything the track carried fades out together; a fade in flight is folded
+   * into the outgoing side where it stands.
+   */
+  crossfade(track: number, name: string, durationMs: number): boolean
+  /** Drives `track`'s alpha to `targetAlpha` over `durationMs`. */
+  fadeTrack(track: number, targetAlpha: number, durationMs: number): boolean
+  /** How far the fade in flight on `track` has got, `[0, 1]`; `NaN` when none. */
+  getTrackFadeProgress(track: number): number
+  /** Stops the fade on `track` where it stands. */
+  cancelTrackFade(track: number): boolean
+
+  /** How strongly `track` layers onto the pose below. Not clamped. */
+  setTrackAlpha(track: number, alpha: number): boolean
+  /** `NaN` for a track that does not exist. */
+  getTrackAlpha(track: number): number
+  /** `SsTrackBlend` wire value: 0 Mix, 1 Additive. */
+  setTrackBlend(track: number, blend: number): boolean
+  /** `SsTrackBlend` wire value, or `-1` for a track that does not exist. */
+  getTrackBlend(track: number): number
+  /**
+   * `SsTrackSync` wire value: 0 Free, 1 Start. Set it before laying an
+   * animation; a track with nothing on it is created for it.
+   */
+  setTrackSync(track: number, sync: number): boolean
+  /** `SsTrackSync` wire value, or `-1` for a track that does not exist. */
+  getTrackSync(track: number): number
+
+  /** Seeks the track's main animation. */
+  setTrackFrame(track: number, frameNo: number): boolean
+  /** `NaN` when the track has no animation. */
+  getTrackFrame(track: number): number
+  /**
+   * The track's speed — a track setting, so it holds for every animation laid
+   * on the track, a crossfade's both sides included. Track 0's is `speedScale`.
+   */
+  setTrackSpeed(track: number, speed: number): boolean
+  /** What was stored (a negative speed reads back as 0); `NaN` for no track. */
+  getTrackSpeed(track: number): number
+  /** Absolute fps override; `0` or less clears it. A track setting. */
+  setTrackFrameRate(track: number, fps: number): boolean
+  /**
+   * The rate the track's animation plays at: `0` with no animation and no
+   * override, `-1` for a track that does not exist.
+   */
+  getTrackFrameRate(track: number): number
+  /** A track setting. */
+  setTrackSkipFrames(track: number, skip: boolean): boolean
+  /** False for a track that does not exist. */
+  getTrackSkipFrames(track: number): boolean
+  /** Wire values as `setPlaybackDirection`. A track setting. */
+  setTrackPlaybackDirection(track: number, direction: number, style: number): boolean
+  /** `-1` for a track that does not exist. */
+  getTrackPlaybackDirection(track: number): number
+  /** `-1` for a track that does not exist. */
+  getTrackPlaybackStyle(track: number): number
+  /**
+   * How many times the track's animation plays before it holds its last frame;
+   * `0` or less loops forever. **The animation's**, not the track's: laying
+   * another one on the track starts it looping forever again.
+   */
+  setTrackLoopCount(track: number, loops: number): boolean
+  /** `-1` forever, `0` for a track with no animation. */
+  getTrackLoopCount(track: number): number
+  /** True once the track's animation has played its loops out. A state. */
+  isTrackFinished(track: number): boolean
+  /**
+   * True for the update in which the track's animation wrapped. A pulse, and
+   * the Brain's own: it stands until the next `update`, however long that is.
+   */
+  trackJustLooped(track: number): boolean
+  /**
+   * How far into a crossfade on `track` its outgoing side keeps firing events:
+   * while its share, `1 - t`, is at least `threshold`. Default `+∞`, silent from
+   * the moment the fade begins.
+   */
+  setTrackOutgoingEventThreshold(track: number, threshold: number): boolean
+  /** `NaN` for a track that does not exist. */
+  getTrackOutgoingEventThreshold(track: number): number
+
+  /**
+   * The handle of the source carrying the track's animation, or `-1` when it
+   * has none. Released handles are reused, so do not hold one across a fade.
+   */
+  getTrackMainSource(track: number): number
+  /** Adds another weighted source to `track`. The new handle, or `-1`. */
+  addTrackSource(track: number, name: string, weight: number): number
+  setSourceWeight(source: number, weight: number): boolean
+  /** `NaN` for a handle that names no source. */
+  getSourceWeight(source: number): number
+  setSourceFrame(source: number, frameNo: number): boolean
+  /** `NaN` for a handle that names no source. */
+  getSourceFrame(source: number): number
+  /**
+   * Which animation `source` plays, as an index into `getAnimationNames()`, or
+   * `-1` for a handle that names no source.
+   */
+  getSourceAnimationIndex(source: number): number
+  /** The weight at or above which `source` fires events. Default `+∞`. */
+  setSourceEventThreshold(source: number, threshold: number): boolean
+  /** `NaN` for a handle that names no source. */
+  getSourceEventThreshold(source: number): number
 
   // --- `.ssab` metadata ---------------------------------------------------
   //

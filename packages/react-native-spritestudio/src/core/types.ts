@@ -29,6 +29,24 @@ export const SsPlaybackStyle = {
 export type SsPlaybackStyle =
   (typeof SsPlaybackStyle)[keyof typeof SsPlaybackStyle]
 
+/** How a track layers onto the pose the tracks below it made. */
+export const SsTrackBlend = {
+  /** Lerp toward the track's pose by its alpha. */
+  mix: 0,
+  /** Add the track's offset from the setup pose — an overlay that displaces. */
+  additive: 1,
+} as const
+export type SsTrackBlend = (typeof SsTrackBlend)[keyof typeof SsTrackBlend]
+
+/** Where an animation laid on a track starts. */
+export const SsTrackSync = {
+  /** From the head of its section. */
+  free: 0,
+  /** At the phase track 0 stands at — once, when it is laid. */
+  start: 1,
+} as const
+export type SsTrackSync = (typeof SsTrackSync)[keyof typeof SsTrackSync]
+
 /**
  * Where the animation's world origin lands on the canvas, and how it is scaled
  * and mirrored.

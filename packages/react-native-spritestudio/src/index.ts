@@ -135,6 +135,8 @@ export {
 export {
   SsPlaybackDirection,
   SsPlaybackStyle,
+  SsTrackBlend,
+  SsTrackSync,
   SS_ROOT_TRANSFORM_IDENTITY,
   type SsRootTransform,
 } from './core/types'

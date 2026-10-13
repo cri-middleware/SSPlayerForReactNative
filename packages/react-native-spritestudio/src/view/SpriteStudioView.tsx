@@ -107,6 +107,7 @@ const OWN_PROPS: Record<
   source: true,
   textures: true,
   animation: true,
+  transitionMs: true,
   playing: true,
   speed: true,
   loop: true,
