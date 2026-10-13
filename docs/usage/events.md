@@ -24,6 +24,11 @@ optional slots, each with its own `has…` flag: `integer`, `pointX`/`pointY`,
 `rect` and `text`. Read the flag first; the value beside a false one is
 whatever zero looks like, not an authored zero.
 
+Each also carries `source`: the handle of the animation source that fired it. Without
+[motion blending](/usage/motion-blending#events) that is always track 0’s main animation, and
+`frameNo` is a frame of whichever animation fired. On a crossfade of track 0 the incoming
+animation’s keys fire from the moment the fade begins, and the outgoing one’s stop.
+
 Each is **a read, not a drain**: the runtime rebuilds its list on every
 collection, so calling twice in a tick returns the same events and never calling
 loses nothing.

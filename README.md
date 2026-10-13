@@ -18,6 +18,7 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 - **An ordinary view, drawn by native code.** Lay it out, clip it and animate it like any other view. The timeline, geometry and drawing run in native code under [Nitro Modules](https://nitro.margelo.com/), so no vertex passes through JavaScript and a frame costs no React render — and `<SpriteStudioScene>` draws a whole cast through one canvas and one clock.
 - **Smooth motion, not locked to a frame rate.** Each frame is built at the moment it is drawn, so motion follows your display's refresh rate and playback speed instead of the authored fps.
 - **The animation can talk back to your app.** Keys the artist placed on the timeline — user data, signals, audio cues — arrive as callbacks, so a footstep sound or a hit reaction is timed by the animation itself, not by a timer you keep in sync. Per-part overrides recolour, hide or swap a part at runtime.
+- **Blend animations instead of cutting between them.** Crossfade from a walk to a run, lay an aim or a blink on top of what is playing, or mix two animations by weight — from animations the artist authored separately. Set `transitionMs` and a change of `animation` crossfades.
 
 ## 📚 Documentation
 
