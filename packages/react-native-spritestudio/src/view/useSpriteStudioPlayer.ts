@@ -32,6 +32,20 @@ export interface SsPlayerProps {
   textures?: SsTextureSources
   /** Which animation in the pack. Omitted, the pack's first one plays. */
   animation?: string
+  /**
+   * Milliseconds to crossfade over when `animation` **changes**. Default `0`,
+   * which switches outright — re-posing and heading out, as `setAnimation`
+   * does. Above `0` the change is a `crossfade` on track 0 instead: the outgoing
+   * animation fades while the incoming one plays from its head, and the other
+   * tracks stay. The first animation of a load is always set up outright.
+   *
+   * With this prop in use, switch track 0 through `animation` rather than
+   * through the player's `crossfade(0, …)` / `setTrackAnimation(0, …)` /
+   * `setAnimation`: the prop only acts when it changes, so a clip reached behind
+   * its back is one the prop cannot then return from. The tracks above 0 are
+   * the player's alone.
+   */
+  transitionMs?: number
   /** Default `true`. `false` leaves it on its first frame. */
   playing?: boolean
   /** Multiplier on the authored frame rate. Default `1`. */
@@ -181,6 +195,10 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // would re-read the pack.
   const playingRef = useRef(playing)
   playingRef.current = playing
+  // Read when `animation` changes, never a trigger of its own: a new duration
+  // says how the *next* switch fades, not that one should happen now.
+  const transitionRef = useRef(props.transitionMs ?? 0)
+  transitionRef.current = props.transitionMs ?? 0
   // Bumped when a load lands, so that effect gets a second chance at a prop it
   // could not apply while the load was in flight.
   const [loadTick, setLoadTick] = useState(0)
@@ -252,9 +270,28 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // false while there is no resource yet — a prop that changed mid-load — and
   // `applied` is left alone so `loadTick` brings it back here when the load
   // lands.
+  //
+  // With `transitionMs`, a change of a clip already showing is a crossfade on
+  // track 0 rather than a setup. The player names the incoming animation from
+  // the call on, so a later change back to the one it left is a real switch.
+  // No `play()` after it: a crossfade keeps the clock as it is — a playing
+  // character plays into the new clip, a held one holds the fade too.
+  //
+  // Except on the run a load landing brings: what the load set up has not been
+  // shown yet, so there is nothing on screen to fade from — a change that
+  // arrived mid-load is the load's first animation, and is set up outright.
+  const landedTick = useRef(0)
   useEffect(() => {
+    const landing = loadTick !== landedTick.current
+    landedTick.current = loadTick
     if (player == null || animation == null) return
     if (applied.current === animation) return
+    const fade = landing ? 0 : transitionRef.current
+    if (fade > 0 && player.currentAnimation != null && player.isLoaded) {
+      if (player.currentAnimation !== animation && !player.crossfade(0, animation, fade)) return
+      applied.current = animation
+      return
+    }
     if (!player.setAnimation(animation)) return
     applied.current = animation
     // A switch selects and poses; it does not start. Head out into the new

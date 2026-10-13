@@ -172,6 +172,7 @@ export default withMermaid({
             items: [
               { text: 'Basic playback', link: '/usage/basic' },
               { text: 'Transport', link: '/usage/transport' },
+              { text: 'Motion blending', link: '/usage/motion-blending' },
               { text: 'Many animations: a scene', link: '/usage/scene' },
             ],
           },
@@ -258,6 +259,7 @@ export default withMermaid({
             items: [
               { text: '基本的な再生', link: '/ja/usage/basic' },
               { text: '再生の制御', link: '/ja/usage/transport' },
+              { text: 'モーションブレンディング', link: '/ja/usage/motion-blending' },
               { text: '複数アニメーション: シーン', link: '/ja/usage/scene' },
             ],
           },

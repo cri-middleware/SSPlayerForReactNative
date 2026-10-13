@@ -54,7 +54,7 @@ export function Character() {
 
 That is the whole integration. The textures come with it, playback starts on load and loops forever by default.
 
-For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw a whole cast through **one canvas and one clock**. Timeline keys arrive as `onUserData` / `onAudio` / `onSignal` callbacks, and the `parts` prop recolours, hides or swaps a part declaratively.
+For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw a whole cast through **one canvas and one clock**. Timeline keys arrive as `onUserData` / `onAudio` / `onSignal` callbacks, and the `parts` prop recolours, hides or swaps a part declaratively. `transitionMs` crossfades a change of `animation`, and the player layers animations on tracks — see Motion blending in the docs.
 
 ## Requirements
 

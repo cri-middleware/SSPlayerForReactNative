@@ -21,6 +21,8 @@ import {
   SsPlaybackDirection,
   SsPlaybackStyle,
   type SsRootTransform,
+  type SsTrackBlend,
+  type SsTrackSync,
 } from '../core/types'
 import { SsRuntimeModule } from '../runtime'
 import { frameShown } from './frames'
@@ -168,6 +170,16 @@ export interface SsMeasureRequest {
  */
 export const MAX_STEP_MS = 1000 / 15
 
+/** A Layer 2 read's `NaN` — or no player at all — as the `null` this layer reports. */
+function orNull(value: number | undefined): number | null {
+  return value == null || Number.isNaN(value) ? null : value
+}
+
+/** The same, for the reads whose "nothing there" is `-1`. */
+function orNullIfNegative(value: number | undefined): number | null {
+  return value == null || value < 0 ? null : value
+}
+
 /**
  * Layer 3 — the user-facing player: transport, clock and events.
  *
@@ -204,6 +216,19 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private animation: string | null = null
   private wasFinished = false
+  /**
+   * Whether the last {@link advance} reached the Brain. The loop pulses are the
+   * Brain's, and they stand until its next update — so a tick that did not run
+   * (a held player, a finished one) would otherwise report the previous tick's
+   * loop again. A tick that did not run reports nothing.
+   */
+  private ran = false
+  /**
+   * Track and source commands already reported as having done nothing, keyed by
+   * the call and what it named — so a state machine repeating a refused call
+   * every frame says so once, and a second track or name gets its own line.
+   */
+  private readonly reportedTrackFailures = new Set<string>()
 
   /**
    * Pending transport settings, replayed onto each newly set-up animation.
@@ -359,6 +384,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.instancePacks = packs
     const internal = new SsInternalPlayer(resource, this.textures)
     this.partIndices.clear()
+    this.ran = false
+    // A new pack is a new set of tracks and names; what failed on the last one
+    // says nothing about this one.
+    this.reportedTrackFailures.clear()
     // Before `setAnimation` below, which is what spawns the child players — a
     // pack bound after that has nothing left to reach.
     for (const pack of packs) internal.bindInstancePack(pack.resource)
@@ -572,10 +601,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /**
    * Whether the last {@link advance} crossed a loop boundary. A **pulse**, true
    * only inside the tick that crossed — take {@link onAnimationLooped} instead if you would
-   * rather have it delivered than polled.
+   * rather have it delivered than polled. False after a tick that did not run.
+   * Track 0's {@link trackJustLooped}.
    */
   get justLooped(): boolean {
-    return this.internalPlayer?.justLooped ?? false
+    return this.ran && (this.internalPlayer?.justLooped ?? false)
   }
   /**
    * Which way the playhead is actually travelling this frame.
@@ -665,6 +695,13 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * the playhead stays, the loop budget is not re-armed, and the overrides
    * survive. That makes it safe for a state machine to assert its current clip
    * every frame. To restart, call {@link play}.
+   *
+   * "Already set up" is what track 0 plays **now**: after `crossfade(0, 'run')`
+   * that is `run`, even mid-fade, so naming it does nothing and the fade runs
+   * on — while naming the animation the fade is leaving is a real switch. A
+   * real switch collapses the track stack back to track 0, ending every
+   * overlay and fade and every setting of the tracks above 0. Track 0's
+   * playback settings stay.
    */
   setAnimation(name: string): boolean {
     const internal = this.internalPlayer
@@ -1127,6 +1164,440 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     }
   }
 
+  // --- animation mixing --------------------------------------------------
+  //
+  // The Brain's track stack, under the family's names. A **track** layers onto
+  // the pose the tracks below it made, by its alpha and blend; a **source** is
+  // one animation blended within a track, and its handle is what
+  // `addTrackSource`, `trackMainSource` and every event's `source` give out.
+  // Track 0 is the one `setAnimation` lays, and `setAnimation` collapses the
+  // stack back to it.
+  //
+  // Commands return false when they did nothing and say why, once per call and
+  // target; reads return `null` for "nothing there". The playback settings of
+  // track 0 are the transport above under its own names — `setTrackSpeed(0, …)`
+  // is `setSpeedScale`, and both are kept here, so either survives a reload.
+
+  /** Tracks that exist, silent ones included. 0 before a load. */
+  get trackCount(): number {
+    return this.internalPlayer?.trackCount ?? 0
+  }
+
+  /**
+   * Lays `name` on `track`, replacing what it played, starting from its head
+   * (or at track 0's phase under {@link setTrackSync}). Tracks grow on demand.
+   *
+   * On **track 0** it is an animation switch with no fade: `currentAnimation`
+   * names it from the call, {@link onAnimationChanged} fires, and the loop count
+   * set with {@link setLoopCount} is put back on it — but unlike
+   * {@link setAnimation} the other tracks stay, and nothing is re-posed or
+   * restarted. A track above 0 that plays its loops out holds its last frame,
+   * still blended in, until you clear it or lay something else.
+   */
+  setTrackAnimation(track: number, name: string): boolean {
+    const internal = this.trackTarget('setTrackAnimation', track, name)
+    if (internal == null) return false
+    const ok = internal.setTrackAnimation(track, name)
+    if (ok && track === 0) this.trackZeroSwitched(internal, name)
+    return this.trackCommand(ok, 'setTrackAnimation', `${track}, '${name}'`)
+  }
+
+  /** Silences `track` and cancels its fade. Track 0 cannot be cleared — fade it instead. */
+  clearTrack(track: number): boolean {
+    const internal = this.trackTarget('clearTrack', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.clearTrack(track), 'clearTrack', `${track}`)
+  }
+
+  /**
+   * Fades `track` over to `name` in `durationMs` (the unit {@link advance}
+   * takes). Everything the track carries fades out together, and a crossfade
+   * started while one runs takes the pose over where it stands.
+   *
+   * On **track 0** the incoming animation takes over **from the call on**:
+   * `currentAnimation`, `isPlaying` / `isFinished` / `justLooped`, the frame,
+   * the events and the discrete attributes (cells, hiding, part colour) all
+   * belong to it at once, and the outgoing one only fades away — it no longer
+   * reports finishing, and by default fires no events
+   * ({@link setTrackOutgoingEventThreshold}). {@link onAnimationChanged} fires,
+   * {@link onAnimationStarted} does not: it is a switch, not a `play()`. The
+   * incoming animation plays at the track's speed, direction, frame rate and
+   * frame skip, and loops {@link setLoopCount} times; it starts from its head.
+   *
+   * Fades run on the playback clock, so on a paused or stopped player the fade
+   * waits for {@link resume} or {@link play}.
+   */
+  crossfade(track: number, name: string, durationMs: number): boolean {
+    const internal = this.trackTarget('crossfade', track, name)
+    if (internal == null) return false
+    const ok = internal.crossfade(track, name, durationMs)
+    if (ok && track === 0) this.trackZeroSwitched(internal, name)
+    return this.trackCommand(ok, 'crossfade', `${track}, '${name}'`, `${durationMs}`)
+  }
+
+  /**
+   * Drives `track`'s alpha to `alpha` over `durationMs`. Fading track 0 to 0
+   * brings the character to its setup pose.
+   */
+  fadeTrack(track: number, alpha: number, durationMs: number): boolean {
+    const internal = this.trackTarget('fadeTrack', track)
+    if (internal == null) return false
+    return this.trackCommand(
+      internal.fadeTrack(track, alpha, durationMs),
+      'fadeTrack',
+      `${track}`, `${alpha}, ${durationMs}`
+    )
+  }
+
+  /** How far the fade in flight on `track` has got, `0`–`1`; `null` when none is. */
+  trackFadeProgress(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackFadeProgress(track))
+  }
+
+  /** Stops the fade on `track` where it stands; the next crossfade takes what it left. */
+  cancelTrackFade(track: number): boolean {
+    const internal = this.trackTarget('cancelTrackFade', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.cancelTrackFade(track), 'cancelTrackFade', `${track}`)
+  }
+
+  /** How strongly `track` layers onto the pose below. Not clamped. */
+  setTrackAlpha(track: number, alpha: number): boolean {
+    const internal = this.trackTarget('setTrackAlpha', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackAlpha(track, alpha), 'setTrackAlpha', `${track}`, `${alpha}`)
+  }
+  trackAlpha(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackAlpha(track))
+  }
+
+  /** `mix` replaces the pose below by the track's alpha; `additive` adds its offset. */
+  setTrackBlend(track: number, blend: SsTrackBlend): boolean {
+    const internal = this.trackTarget('setTrackBlend', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackBlend(track, blend), 'setTrackBlend', `${track}`, `${blend}`)
+  }
+  trackBlend(track: number): SsTrackBlend | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackBlend(track)) as SsTrackBlend | null
+  }
+
+  /**
+   * Where an animation laid on `track` starts — set it **before** laying one.
+   * A track with nothing on it is created for it. Reset by {@link setAnimation}.
+   */
+  setTrackSync(track: number, sync: SsTrackSync): boolean {
+    const internal = this.trackTarget('setTrackSync', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackSync(track, sync), 'setTrackSync', `${track}`, `${sync}`)
+  }
+  trackSync(track: number): SsTrackSync | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackSync(track)) as SsTrackSync | null
+  }
+
+  /** Seeks `track`'s animation — how a modulation axis authored as an animation is driven. */
+  setTrackFrame(track: number, frameNo: number): boolean {
+    const internal = this.trackTarget('setTrackFrame', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackFrame(track, frameNo), 'setTrackFrame', `${track}`, `${frameNo}`)
+  }
+  trackFrame(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackFrame(track))
+  }
+
+  /**
+   * `track`'s speed multiplier. **A track setting**: it holds for every
+   * animation laid on the track, both sides of a crossfade included, and a
+   * track with nothing on it is created for it. Track 0's is
+   * {@link setSpeedScale}.
+   */
+  setTrackSpeed(track: number, speed: number): boolean {
+    if (track === 0) this.settings.speed = speed
+    const internal = this.settingTarget('setTrackSpeed', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(internal.setTrackSpeed(track, speed), 'setTrackSpeed', `${track}`, `${speed}`)
+  }
+  /** What was stored — a negative speed reads back as the stop it became. */
+  trackSpeed(track: number): number | null {
+    const internal = this.internalPlayer
+    if (internal == null) return track === 0 ? this.settings.speed : null
+    return orNull(internal.getTrackSpeed(track))
+  }
+
+  /** `track`'s absolute frame-rate override; `0` clears it. Track 0's is {@link setFrameRate}. */
+  setTrackFrameRate(track: number, fps: number): boolean {
+    if (track === 0) this.settings.frameRate = fps
+    const internal = this.settingTarget('setTrackFrameRate', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(internal.setTrackFrameRate(track, fps), 'setTrackFrameRate', `${track}`, `${fps}`)
+  }
+  /** The rate `track`'s animation plays at — `0` with no animation and no override. */
+  trackFrameRate(track: number): number | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackFrameRate(track))
+  }
+
+  /** Track 0's is {@link setFrameSkipEnabled}. */
+  setTrackFrameSkipEnabled(track: number, enabled: boolean): boolean {
+    if (track === 0) this.settings.skipFrames = enabled
+    const internal = this.settingTarget('setTrackFrameSkipEnabled', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(
+      internal.setTrackSkipFrames(track, enabled),
+      'setTrackFrameSkipEnabled',
+      `${track}`, `${enabled}`
+    )
+  }
+  trackFrameSkipEnabled(track: number): boolean | null {
+    const internal = this.internalPlayer
+    if (internal == null || !this.trackExists(internal, track)) return null
+    return internal.getTrackSkipFrames(track)
+  }
+
+  /** Track 0's is {@link setPlaybackDirection}. */
+  setTrackPlaybackDirection(
+    track: number,
+    direction: SsPlaybackDirection,
+    style: SsPlaybackStyle = SsPlaybackStyle.normal
+  ): boolean {
+    if (track === 0) {
+      this.settings.direction = direction
+      this.settings.style = style
+    }
+    const internal = this.settingTarget('setTrackPlaybackDirection', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(
+      internal.setTrackPlaybackDirection(track, direction, style),
+      'setTrackPlaybackDirection',
+      `${track}`, `${direction}, ${style}`
+    )
+  }
+  trackPlaybackDirection(track: number): SsPlaybackDirection | null {
+    return orNullIfNegative(
+      this.internalPlayer?.getTrackPlaybackDirection(track)
+    ) as SsPlaybackDirection | null
+  }
+  trackPlaybackStyle(track: number): SsPlaybackStyle | null {
+    return orNullIfNegative(
+      this.internalPlayer?.getTrackPlaybackStyle(track)
+    ) as SsPlaybackStyle | null
+  }
+
+  /**
+   * How many times `track`'s animation plays before it holds its last frame;
+   * `0` is forever. **The animation's**, unlike the other track settings:
+   * laying another one on a track above 0 starts it looping forever again.
+   * Track 0's is {@link setLoopCount}, which this player puts back on every
+   * animation track 0 switches to.
+   */
+  setTrackLoopCount(track: number, loops: number): boolean {
+    if (track === 0) this.settings.loops = loops
+    const internal = this.settingTarget('setTrackLoopCount', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(internal.setTrackLoopCount(track, loops), 'setTrackLoopCount', `${track}`, `${loops}`)
+  }
+  /** `-1` is forever; `null` for a track with no animation. */
+  trackLoopCount(track: number): number | null {
+    const loops = this.internalPlayer?.getTrackLoopCount(track) ?? 0
+    return loops === 0 ? null : loops
+  }
+
+  /**
+   * Whether `track`'s animation has played its loops out — a state, as
+   * {@link isFinished} is for track 0. A finished track above 0 holds its last
+   * frame; only track 0 finishing ends the character's playback.
+   */
+  isTrackFinished(track: number): boolean {
+    return this.internalPlayer?.isTrackFinished(track) ?? false
+  }
+
+  /**
+   * Whether the last {@link advance} wrapped `track`'s animation — a pulse, as
+   * {@link justLooped} is for track 0. False after a tick that did not run.
+   */
+  trackJustLooped(track: number): boolean {
+    return this.ran && (this.internalPlayer?.trackJustLooped(track) ?? false)
+  }
+
+  /**
+   * How far into a crossfade on `track` its outgoing side keeps firing events:
+   * while its share, `1 - progress`, is at least `threshold`. The default,
+   * `Infinity`, silences it from the moment the fade begins — the moment the
+   * incoming side starts firing. `0.5` keeps it firing through the first half.
+   */
+  setTrackOutgoingEventThreshold(track: number, threshold: number): boolean {
+    const internal = this.trackTarget('setTrackOutgoingEventThreshold', track)
+    if (internal == null) return false
+    return this.trackCommand(
+      internal.setTrackOutgoingEventThreshold(track, threshold),
+      'setTrackOutgoingEventThreshold',
+      `${track}`, `${threshold}`
+    )
+  }
+  trackOutgoingEventThreshold(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackOutgoingEventThreshold(track))
+  }
+
+  /**
+   * The source carrying `track`'s animation, or `null` when it has none. After
+   * a crossfade begins, the incoming one. A finished fade releases its outgoing
+   * sources and their handles are reused, so read this rather than keep one.
+   */
+  trackMainSource(track: number): number | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackMainSource(track))
+  }
+
+  /**
+   * Adds `name` to `track` as another weighted source — locomotion-style
+   * blending within one track — and returns its handle, or `null` when it was
+   * refused. `weight` only sets proportions among the track's sources.
+   */
+  addTrackSource(track: number, name: string, weight = 1): number | null {
+    const internal = this.trackTarget('addTrackSource', track, name)
+    if (internal == null) return null
+    const source = internal.addTrackSource(track, name, weight)
+    this.trackCommand(source >= 0, 'addTrackSource', `${track}, '${name}'`, `${weight}`)
+    return source >= 0 ? source : null
+  }
+
+  /** A source's share of its track, against the track's other sources. */
+  setSourceWeight(source: number, weight: number): boolean {
+    const internal = this.sourceTarget('setSourceWeight', source)
+    if (internal == null) return false
+    return this.trackCommand(internal.setSourceWeight(source, weight), 'setSourceWeight', `${source}`, `${weight}`)
+  }
+  sourceWeight(source: number): number | null {
+    return orNull(this.internalPlayer?.getSourceWeight(source))
+  }
+
+  setSourceFrame(source: number, frameNo: number): boolean {
+    const internal = this.sourceTarget('setSourceFrame', source)
+    if (internal == null) return false
+    return this.trackCommand(internal.setSourceFrame(source, frameNo), 'setSourceFrame', `${source}`, `${frameNo}`)
+  }
+  sourceFrame(source: number): number | null {
+    return orNull(this.internalPlayer?.getSourceFrame(source))
+  }
+
+  /**
+   * The weight at or above which `source` fires its events. The default,
+   * `Infinity`, leaves every source but track 0's main one silent; lower it to
+   * hear an overlay's events, each arriving with its `source`.
+   */
+  setSourceEventThreshold(source: number, threshold: number): boolean {
+    const internal = this.sourceTarget('setSourceEventThreshold', source)
+    if (internal == null) return false
+    return this.trackCommand(
+      internal.setSourceEventThreshold(source, threshold),
+      'setSourceEventThreshold',
+      `${source}`, `${threshold}`
+    )
+  }
+  sourceEventThreshold(source: number): number | null {
+    return orNull(this.internalPlayer?.getSourceEventThreshold(source))
+  }
+
+  /**
+   * What a switch of track 0 that is not a setup — a crossfade, or a
+   * `setTrackAnimation` — owes the rest of this player, run as soon as the
+   * Brain accepted it, because the Brain hands track 0 over from the call on.
+   *
+   * The name, first: left on the outgoing animation, a `setAnimation` back to it
+   * looked like the one already selected and did nothing. The finished latch,
+   * so the incoming animation's own end fires `onAnimationFinished`. The loop
+   * count, which the Brain resets on every animation it lays. `started` is not
+   * fired — a switch that keeps playing is not a `play()`.
+   *
+   * Not done: re-measuring an animation-scoped content box (measuring re-sets
+   * the animation up, which would collapse the stack), and replaying the part
+   * overrides (a crossfade keeps them; only a setup drops them).
+   */
+  private trackZeroSwitched(internal: SsInternalPlayer, name: string): void {
+    const previous = this.animation
+    this.animation = name
+    this.reportedMissingAnimation = null
+    this.wasFinished = false
+    internal.setLoopCount(this.settings.loops)
+    if (previous !== name) this.onAnimationChanged?.(name)
+    this.notify()
+  }
+
+  /**
+   * The Layer 2 player a track command on `track` can go to, or null after
+   * reporting why not — no pack yet, or a track no index can be.
+   */
+  private trackTarget(call: string, track: number, name?: string): SsInternalPlayer | null {
+    return this.commandTarget(call, track, 'track', name)
+  }
+
+  /**
+   * {@link trackTarget} for a playback setting, which on track 0 is the
+   * player's own and was already recorded: with no pack yet there is nothing
+   * to refuse, and the next load replays it.
+   */
+  private settingTarget(call: string, track: number): SsInternalPlayer | null {
+    if (track === 0 && this.internalPlayer == null) return null
+    return this.trackTarget(call, track)
+  }
+
+  private sourceTarget(call: string, source: number): SsInternalPlayer | null {
+    return this.commandTarget(call, source, 'source')
+  }
+
+  private commandTarget(
+    call: string,
+    index: number,
+    what: 'track' | 'source',
+    name?: string
+  ): SsInternalPlayer | null {
+    const subject = name == null ? `${index}` : `${index}, '${name}'`
+    if (!Number.isInteger(index) || index < 0) {
+      this.reportTrackFailure(
+        `${call}:${what}:${index}`,
+        `${call}(${subject}) did nothing — a ${what} is a whole number from 0`
+      )
+      return null
+    }
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) {
+      this.reportTrackFailure(
+        `${call}:unloaded`,
+        `${call}(${subject}) did nothing — no pack is loaded yet`
+      )
+      return null
+    }
+    return internal
+  }
+
+  /**
+   * Passes `ok` through, and says so the first time a call on a given target
+   * did nothing — a command that silently does nothing shows up only as an
+   * animation that "will not blend". Keyed by the call and its `target` (the
+   * track or source, and the name it was given), not by `values`, so a slider
+   * dragging a refused alpha is still one line.
+   */
+  private trackCommand(ok: boolean, call: string, target: string, values?: string): boolean {
+    if (ok) return true
+    // Read straight after the call that failed, which is the only moment it
+    // describes that call.
+    const reason = this.internalPlayer?.lastErrorMessage
+    this.reportTrackFailure(
+      `${call}:${target}`,
+      `${call}(${values == null ? target : `${target}, ${values}`}) did nothing on ` +
+        `'${this.resourceUri ?? 'the loaded pack'}'` +
+        (reason == null ? '' : ` — ${reason}`)
+    )
+    return false
+  }
+
+  private reportTrackFailure(key: string, message: string): void {
+    if (this.reportedTrackFailures.has(key)) return
+    this.reportedTrackFailures.add(key)
+    console.warn(`react-native-spritestudio: ${message}.`)
+  }
+
+  private trackExists(internal: SsInternalPlayer, track: number): boolean {
+    return Number.isInteger(track) && track >= 0 && track < internal.trackCount
+  }
+
   // --- runtime textures --------------------------------------------------
 
   /**
@@ -1285,7 +1756,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * A stopped player (never played, stopped, or finished) holds its frame:
    * nothing advances, its parts with independent playback included, as in
    * SSPlayerForWeb. A paused one still advances, so those keep running, unless
-   * it has no effect or instance part, in which case nothing could move.
+   * it has no effect or instance part, in which case nothing could move. A
+   * finished one still advances while another track or a fade moves: track 0
+   * ending does not stop the clock the rest of the stack runs on.
    *
    * `isFinished` is a *state* the Brain latches until the next play/setup, so
    * `onAnimationFinished` is fired off its rising edge — polling the state itself would
@@ -1293,10 +1766,12 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    */
   advance(dtMilliseconds: number): void {
     const internal = this.internalPlayer
+    this.ran = false
     if (internal == null || internal.isDisposed) return
     if (!internal.advances) return
 
     internal.advance(dtMilliseconds)
+    this.ran = true
 
     // Read once and shared by both notifications below: `currentAnimation` is
     // what each is about, and re-reading it would say the same thing twice.

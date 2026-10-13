@@ -122,6 +122,14 @@ export class SpriteStudioPlayer {
     return true
   }
 
+  /** Track 0 renames from the call, as the real one does. */
+  crossfade(track: number, name: string, durationMs: number): boolean {
+    this.record('crossfade', track, name, durationMs)
+    if (!this.isLoaded) return false
+    if (track === 0) this.currentAnimation = name
+    return true
+  }
+
   play(startFrame?: number): void {
     this.record('play', startFrame)
     this.isPlaying = true

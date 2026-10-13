@@ -18,9 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Playback** that follows the display's refresh rate and the speed you set, not the authored fps.
 - **Events**: user data, audio cues and signals as callbacks. Audio is reported, not played.
 - **Per-part overrides** to recolour, hide or swap a part at runtime, and `fit` / `align` placement.
+- **Motion blending**: layer animations on tracks and crossfade between them, through the player
+  (`crossfade`, `setTrackAnimation`, `addTrackSource`, per-track speed, loop count and the rest) or
+  the `transitionMs` prop. Every event carries the `source` that fired it.
 - **Platforms**: iOS 15.1+ and Android API 24+, on the New Architecture only, with an Expo config
   plugin. On the web the package imports safely but does not play.
 - **Documentation**: bilingual (EN/JA) documentation site.
+
+### Fixed
+- `justLooped` no longer reports the previous tick's loop after a tick that did not advance — a held,
+  stopped or finished player. `trackJustLooped` follows the same rule.
 
 ### Known Limitations
 - The API may change without notice while the package is in beta.

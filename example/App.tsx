@@ -1,18 +1,21 @@
 import { useState } from 'react'
 import { Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native'
 
+import { BlendingScreen } from './src/blending/BlendingScreen'
 import { PartFollowScreen } from './src/partfollow/PartFollowScreen'
 import { PlayerScreen } from './src/player/PlayerScreen'
 
 /**
- * Two screens, one at a time, chosen by the tab bar:
+ * Screens, one at a time, chosen by the tab bar:
  *
  *  * **Viewer** — every pack animating through the real `<SpriteStudioView>`
  *    API. This is what you open to check that a change still renders.
  *  * **Part follow** — a fish pinned to Ringo with `useSsPartTransform`, and the
  *    demo for `isPartSkinnedMesh`: which parts a follower can and cannot sit on.
+ *  * **Blending** — the track stack by hand: crossfades on track 0, an overlay
+ *    on track 1, and the playback settings each track keeps.
  *
- * Only the active screen is mounted, so the two never run frame loops or hold
+ * Only the active screen is mounted, so no two of them run frame loops or hold
  * native handles at the same time — which is what keeps the Viewer's own leak
  * check reading a clean baseline.
  *
@@ -20,7 +23,7 @@ import { PlayerScreen } from './src/player/PlayerScreen'
  * that drove Layer 1 directly to decide where the L1/L2 boundary belongs. It was
  * retired once the question was settled; it is in git history if ever needed.)
  */
-type Tab = 'viewer' | 'follow'
+type Tab = 'viewer' | 'follow' | 'blend'
 
 /**
  * Height to keep clear of Android's status bar, 0 elsewhere.
@@ -47,8 +50,15 @@ export default function App() {
         <View style={styles.tabs}>
           <TabButton label="Viewer" active={tab === 'viewer'} onPress={() => setTab('viewer')} />
           <TabButton label="Part follow" active={tab === 'follow'} onPress={() => setTab('follow')} />
+          <TabButton label="Blending" active={tab === 'blend'} onPress={() => setTab('blend')} />
         </View>
-        {tab === 'viewer' ? <PlayerScreen /> : <PartFollowScreen />}
+        {tab === 'viewer' ? (
+          <PlayerScreen />
+        ) : tab === 'follow' ? (
+          <PartFollowScreen />
+        ) : (
+          <BlendingScreen />
+        )}
       </View>
     </SafeAreaView>
   )

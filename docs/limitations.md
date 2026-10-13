@@ -10,12 +10,19 @@ description: What this port draws today, what it does not, and what it will not.
 Normal, Mesh, Shape, Instance and Effect parts; mask and clipping on Normal,
 Mesh and Shape targets; the full framebuffer blend table; PartColor; the thirteen `ss-*`
 integration shaders; the override layer; user-data, audio and signal events; the
-animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
+animation lifecycle; motion blending (tracks, crossfades, weighted sources); `fit`/`align` placement; the resource and atlas caches;
 `<SpriteStudioScene>`; the Expo config plugin.
 
 ## Not yet
 
 - **`Nines` and `Text`** parts.
+
+## Motion blending
+
+**Instance and effect children are not layered.** Tracks blend the character whose player you
+hold; a part that plays another animation runs its own playback from the frame the root
+composes, and which key drives it across a crossfade on track 0 is outside motion blending.
+See [Motion blending](/usage/motion-blending#two-limits).
 
 ## Masks
 

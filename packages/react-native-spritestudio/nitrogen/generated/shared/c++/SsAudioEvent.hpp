@@ -42,6 +42,7 @@ namespace margelo::nitro::ssplayer {
     double partIndex     SWIFT_PRIVATE;
     std::string partName     SWIFT_PRIVATE;
     double frameNo     SWIFT_PRIVATE;
+    double source     SWIFT_PRIVATE;
     std::string soundName     SWIFT_PRIVATE;
     double soundListNameHash     SWIFT_PRIVATE;
     double soundNameHash     SWIFT_PRIVATE;
@@ -52,7 +53,7 @@ namespace margelo::nitro::ssplayer {
 
   public:
     SsAudioEvent() = default;
-    explicit SsAudioEvent(double partIndex, std::string partName, double frameNo, std::string soundName, double soundListNameHash, double soundNameHash, double loopNum, std::string filePath, double totalMs, bool embedded): partIndex(partIndex), partName(partName), frameNo(frameNo), soundName(soundName), soundListNameHash(soundListNameHash), soundNameHash(soundNameHash), loopNum(loopNum), filePath(filePath), totalMs(totalMs), embedded(embedded) {}
+    explicit SsAudioEvent(double partIndex, std::string partName, double frameNo, double source, std::string soundName, double soundListNameHash, double soundNameHash, double loopNum, std::string filePath, double totalMs, bool embedded): partIndex(partIndex), partName(partName), frameNo(frameNo), source(source), soundName(soundName), soundListNameHash(soundListNameHash), soundNameHash(soundNameHash), loopNum(loopNum), filePath(filePath), totalMs(totalMs), embedded(embedded) {}
 
   public:
     friend bool operator==(const SsAudioEvent& lhs, const SsAudioEvent& rhs) = default;
@@ -71,6 +72,7 @@ namespace margelo::nitro {
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "partIndex"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "partName"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "frameNo"))),
+        JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "source"))),
         JSIConverter<std::string>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "soundName"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "soundListNameHash"))),
         JSIConverter<double>::fromJSI(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "soundNameHash"))),
@@ -85,6 +87,7 @@ namespace margelo::nitro {
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "partIndex"), JSIConverter<double>::toJSI(runtime, arg.partIndex));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "partName"), JSIConverter<std::string>::toJSI(runtime, arg.partName));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "frameNo"), JSIConverter<double>::toJSI(runtime, arg.frameNo));
+      obj.setProperty(runtime, PropNameIDCache::get(runtime, "source"), JSIConverter<double>::toJSI(runtime, arg.source));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "soundName"), JSIConverter<std::string>::toJSI(runtime, arg.soundName));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "soundListNameHash"), JSIConverter<double>::toJSI(runtime, arg.soundListNameHash));
       obj.setProperty(runtime, PropNameIDCache::get(runtime, "soundNameHash"), JSIConverter<double>::toJSI(runtime, arg.soundNameHash));
@@ -105,6 +108,7 @@ namespace margelo::nitro {
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "partIndex")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "partName")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "frameNo")))) return false;
+      if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "source")))) return false;
       if (!JSIConverter<std::string>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "soundName")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "soundListNameHash")))) return false;
       if (!JSIConverter<double>::canConvert(runtime, obj.getProperty(runtime, PropNameIDCache::get(runtime, "soundNameHash")))) return false;
