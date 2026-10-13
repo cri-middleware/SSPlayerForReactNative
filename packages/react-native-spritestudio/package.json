@@ -7,6 +7,7 @@
   "types": "lib/typescript/index.d.ts",
   "files": [
     "src",
+    "docs",
     "lib",
     "bin",
     "cpp",
@@ -31,8 +32,8 @@
     "nitrogen": "nitrogen",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
-    "prepack": "bob build && node scripts/prepack.mjs",
-    "build": "bob build"
+    "prepack": "bob build && node scripts/copy-docs.mjs && node scripts/prepack.mjs",
+    "build": "bob build && node scripts/copy-docs.mjs"
   },
   "//peerDependencies": [
     "One line per package: the oldest line the Nitro/Skia side was compiled",

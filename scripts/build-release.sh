@@ -540,14 +540,29 @@ if [ "$VERIFY" = "yes" ] && [ -f "$ENTRIES" ]; then
         has_entry "$f" || fail "${f} is missing"
     done
 
-    # 7. build output that rode along. `files` takes a directory whole.
+    # 7. the documentation. docs/README.md is the front door to the pages the
+    #    package carries (scripts/copy-docs.mjs); every page it links to is
+    #    looked up here, so renaming one fails the release instead of shipping a
+    #    link that goes nowhere.
+    front="${PKG_DIR}/docs/README.md"
+    if has_entry "docs/README.md" && [ -f "$front" ]; then
+        links=$(grep -oE ']\([^):#]+\.md' "$front" | sed 's/^](//' || true)
+        [ -n "$links" ] || fail "no page links parsed out of docs/README.md — the check proved nothing"
+        for link in $links; do
+            has_entry "docs/${link}" || fail "docs/README.md links to ${link}, which is not in the package"
+        done
+    else
+        fail "docs/README.md is not in the package (did scripts/copy-docs.mjs run?)"
+    fi
+
+    # 8. build output that rode along. `files` takes a directory whole.
     for bad in android/build/ android/.cxx/ node_modules/ example/; do
         if has_prefix "$bad"; then
             fail "'${bad}' is in the package — a files entry is taking a directory whole"
         fi
     done
 
-    # 8. what the archive says about itself. Only a real one can be asked.
+    # 9. what the archive says about itself. Only a real one can be asked.
     if [ -n "$PACKED" ]; then
         manifest="${WORK}/packed.json"
         tar -xzOf "$PACKED" package/package.json > "$manifest"

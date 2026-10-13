@@ -168,6 +168,11 @@ Brain or Rust — TypeDoc reads TypeScript and VitePress reads Markdown — whic
 checks out without submodules. The build fails on a dead page link but **does not check
 `#anchors`**: a link to a heading that does not exist still builds green, so verify those by hand.
 
+The English pages also ship in the package's `docs/`: `build` and `prepack` run
+`packages/react-native-spritestudio/scripts/copy-docs.mjs`, which turns the site paths between pages
+into relative links and adds `scripts/docs-README.md` beside it as the folder's front door. Renaming a
+page the front door links to means editing it too; `build-release` refuses a link that goes nowhere.
+
 ## Coding Standards
 
 ### TypeScript
@@ -308,6 +313,8 @@ pnpm run build-docs     # TypeDoc + VitePress を docs/.vitepress/dist へ
 `scripts/build-pages.sh` はこの 2 つをまとめたもので、`pages.yml` が実行するのもこれです。どちらも
 Brain も Rust も必要としません（TypeDoc は TypeScript を、VitePress は Markdown を読むだけです）。そのためこのワークフローは submodule 無しでチェックアウトします。リンク切れではビルドが失敗しますが、
 **`#anchor` は検査しません**。存在しない見出しへのリンクは緑のまま通るので、手で確認してください。
+
+英語のページはパッケージの `docs/` にも入ります。`build` と `prepack` が `packages/react-native-spritestudio/scripts/copy-docs.mjs` を実行し、ページ間のサイトのパスを相対リンクに書き換え、隣の `scripts/docs-README.md` を入口ページとして加えます。入口ページが指すページを改名したら入口ページも直してください（行き先の無いリンクは `build-release` が拒否します）。
 
 ## コーディング規約
 
