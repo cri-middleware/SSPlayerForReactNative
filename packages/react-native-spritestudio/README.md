@@ -9,7 +9,7 @@ Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.
 > [!WARNING]
 > Nothing here has run on a **physical device** — iOS simulator and Android emulator only.
 
-- 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference
+- 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference. The same pages for this version are in this package's `docs/` (start at `docs/README.md`), readable offline
 - 📦 **[Repository](https://github.com/cri-middleware/SSPlayerForReactNative)** — the long-form README, the roadmap and the example app
 - 🌐 **[SpriteStudio Docs (portal)](https://cri-middleware.github.io/SpriteStudio-Docs/)** — the SDK and every official player in one place
 

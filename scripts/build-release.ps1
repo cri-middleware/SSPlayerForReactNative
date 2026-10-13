@@ -495,12 +495,27 @@ if ($verify -eq "yes" -and (Test-Path $entriesFile)) {
         if (!(Test-Entry $f)) { Add-Failure "$f is missing" }
     }
 
-    # 7. build output that rode along. `files` takes a directory whole.
+    # 7. the documentation. docs/README.md is the front door to the pages the
+    #    package carries (scripts/copy-docs.mjs); every page it links to is
+    #    looked up here, so renaming one fails the release instead of shipping a
+    #    link that goes nowhere.
+    $front = Join-Path $pkgDir "docs/README.md"
+    if ((Test-Entry "docs/README.md") -and (Test-Path $front)) {
+        $links = @([regex]::Matches((Get-Content $front -Raw), '\]\(([^):#]+\.md)') | ForEach-Object { $_.Groups[1].Value })
+        if ($links.Count -eq 0) { Add-Failure "no page links parsed out of docs/README.md -- the check proved nothing" }
+        foreach ($link in $links) {
+            if (!(Test-Entry "docs/$link")) { Add-Failure "docs/README.md links to $link, which is not in the package" }
+        }
+    } else {
+        Add-Failure "docs/README.md is not in the package (did scripts/copy-docs.mjs run?)"
+    }
+
+    # 8. build output that rode along. `files` takes a directory whole.
     foreach ($bad in @("android/build/", "android/.cxx/", "node_modules/", "example/")) {
         if (Test-Prefix $bad) { Add-Failure "'$bad' is in the package -- a files entry is taking a directory whole" }
     }
 
-    # 8. what the archive says about itself. Only a real one can be asked.
+    # 9. what the archive says about itself. Only a real one can be asked.
     if ($packed) {
         Push-Location $work
         try {
