@@ -51,9 +51,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        # No submodules on purpose. `third_party/flatbuffers` is only needed to
-        # *compile* the C++, which happens in the consumer's build, and the SDK
-        # is private. Nothing below opens either.
+        # No submodules on purpose: nothing below opens `third_party/flatbuffers`
+        # or the SDK. They are for compiling the C++ and building the Brain, which
+        # the weekly tier's example apps do.
 
       - name: Setup pnpm
         # Before setup-node, whose pnpm cache needs the binary. The version is
@@ -70,8 +70,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        # Passes with no submodules, no `native/` and no SDK access — the
-        # property this whole workflow is built on.
+        # Passes with no submodules and no `native/` — the property this tier
+        # is built on.
         run: pnpm run typecheck
 
       - name: Unit tests
