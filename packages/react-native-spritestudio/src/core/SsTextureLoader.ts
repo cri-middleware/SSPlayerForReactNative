@@ -36,6 +36,25 @@ export interface SsTextureLoadReport {
 }
 
 /**
+ * What an owner that can start a second load before the first is done tells a
+ * pass in flight.
+ */
+export interface SsTextureLoadPass {
+  /**
+   * Asked after each decode, before the atlas goes in; false ends the pass. An
+   * atlas a replaced pass registers is one the live load finds in place and
+   * skips — and is then left without when the replaced pass is cleaned up.
+   */
+  isCurrent(): boolean
+  /**
+   * Where each hash goes as it is registered rather than at the end, so an owner
+   * replacing the load can take back what a pass still in flight has put in.
+   * Handed back as the report's `registered`.
+   */
+  registered: number[]
+}
+
+/**
  * Loads a pack's textures into an `SsTextureRegistry`, the way the sibling
  * Players do (`SSPlayerForFlutter`'s `texture_loader.dart` is the same routine).
  *
@@ -75,16 +94,20 @@ export class SsTextureLoader {
    * A hash already in `registry` is skipped, so several packs sharing one
    * registry (a root and its instance children routinely name the same atlas)
    * decode it once, and a caller-supplied texture wins over the pack's.
+   *
+   * `pass` is for an owner that can replace a load while this one is still
+   * decoding — see `SsTextureLoadPass`.
    */
   static async load(
     registry: SsTextureRegistry,
     textures: SsTextureInfo[],
     readEmbedded: (textureHash: number) => ArrayBuffer,
-    baseUri?: string
+    baseUri?: string,
+    pass?: SsTextureLoadPass
   ): Promise<SsTextureLoadReport> {
     const unresolved: string[] = []
     const imageKeys: string[] = []
-    const registered: number[] = []
+    const registered = pass?.registered ?? []
 
     // Sequential rather than concurrent: the skip-if-registered check is only
     // sound if the calls are ordered, and two cellmaps naming one atlas would
@@ -116,6 +139,9 @@ export class SsTextureLoader {
 
       if (image != null) {
         imageKeys.push(key)
+        // After the await, which is where a newer load can have started. The
+        // lease above is still reported, for the owner to give back.
+        if (pass != null && !pass.isCurrent()) break
         registered.push(texture.textureHash)
         // Sampling is the registry's (Linear + Clamp unless the caller registers
         // the atlas itself). The SpriteStudio filter and wrap are deliberately

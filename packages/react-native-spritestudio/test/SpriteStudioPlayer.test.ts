@@ -760,6 +760,45 @@ describe('an Embedded pack’s atlases', () => {
   })
 })
 
+describe('a load that replaces one still decoding', () => {
+  // Both loads name the same atlases, so the live one skips whatever the
+  // replaced pass has already registered. Losing one of those is silent: the
+  // report says nothing is missing.
+  it('keeps every atlas the live load needs, and the leases balance', async () => {
+    const body = embeddedTexture('body')
+    const face = embeddedTexture('face')
+    definePack(PACK, { animations: ['Idle'], textures: [body, face] })
+    const decode = SsRuntimeModule.decodeImage
+    let finishFace: (() => void) | null = null
+    vi.spyOn(SsRuntimeModule, 'decodeImage')
+      .mockImplementationOnce(decode)
+      .mockImplementationOnce(async (image) => {
+        await new Promise<void>((resolve) => (finishFace = resolve))
+        return decode(image)
+      })
+
+    const player = new SpriteStudioPlayer()
+    const first = player.load(PACK)
+    await vi.waitFor(() => expect(finishFace).not.toBeNull())
+    const second = player.load(PACK)
+    await vi.waitFor(() => expect(SsInternalPlayer.created).toHaveLength(2))
+    finishFace!()
+    await first
+    await second
+
+    const registry = player.textures as unknown as SsTextureRegistry
+    expect(registry.has(body.textureHash)).toBe(true)
+    expect(registry.has(face.textureHash)).toBe(true)
+    expect([...(player.lastTextureReport?.registered ?? [])].sort()).toEqual(
+      [body.textureHash, face.textureHash].sort()
+    )
+    expect(ssImageCache.size).toBe(2)
+
+    player.dispose()
+    expect(ssImageCache.size).toBe(0)
+  })
+})
+
 describe('the texture report', () => {
   // A missing texture is otherwise silent: `drawInto` skips a batch it has no
   // paint for, so the symptom is a part that is simply not there.
