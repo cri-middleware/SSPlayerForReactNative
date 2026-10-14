@@ -54,7 +54,9 @@ foreach ($arg in $ArgsList) {
         '^api=(.*)$'  { $apiLevel = $Matches[1] }
         '^-?-?Object$' { $emitObject = $true }
         '^(-h|--help|help)$' { Show-Usage; exit 0 }
-        default { Write-Error "$app`: unknown argument '$arg'"; Show-Usage; exit 2 }
+        # Plain stderr, not Write-Error: under the Stop preference that would
+        # end the script before `exit 2`, and bad usage would arrive as 1.
+        default { [Console]::Error.WriteLine("${app}: unknown argument '$arg'"); Show-Usage; exit 2 }
     }
 }
 

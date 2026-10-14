@@ -38,6 +38,15 @@ $platform = "all"
 $buildMode = "debug"
 $ndkOverride = ""
 
+# Plain stderr and an explicit code, rather than Write-Error: under a Stop
+# preference that terminates on the spot, so the exit code beside it never runs
+# and 2 (bad usage) arrives as 1.
+function Fail {
+    param([string] $Message, [int] $Code = 1)
+    [Console]::Error.WriteLine("${app}: $Message")
+    exit $Code
+}
+
 function Show-Usage {
     Write-Host "Usage: $app [options]"
     Write-Host "Options:"
@@ -52,17 +61,20 @@ foreach ($arg in $ArgsList) {
         '^build=(.*)$'    { $buildMode = $Matches[1] }
         '^ndk=(.*)$'      { $ndkOverride = $Matches[1] }
         '^(-h|--help|help)$' { Show-Usage; exit 0 }
-        default { Write-Error "$app`: unknown argument '$arg'"; Show-Usage; exit 2 }
+        default { [Console]::Error.WriteLine("${app}: unknown argument '$arg'"); Show-Usage; exit 2 }
     }
 }
 
 if ($buildMode -ne "debug" -and $buildMode -ne "release") {
-    Write-Error "$app`: build must be debug or release (got '$buildMode')"
-    exit 2
+    Fail "build must be debug or release (got '$buildMode')" 2
 }
 if ($platform -eq "ios") {
-    Write-Error "$app`: the iOS xcframework needs Xcode - use download-sdk.ps1 on Windows."
-    exit 2
+    Fail "the iOS xcframework needs Xcode - use download-sdk.ps1 on Windows." 2
+}
+# Refused, as build-runtime.sh refuses it: anything else used to build the
+# Android slice as though it had been asked for.
+if ($platform -ne "android" -and $platform -ne "all") {
+    Fail "platform must be android or all (got '$platform')" 2
 }
 
 $sdkDir = $env:SSSDK

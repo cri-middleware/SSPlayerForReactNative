@@ -41,7 +41,9 @@ foreach ($arg in $ArgsList) {
             Write-Host "  --force  re-install even when the pinned version is already installed"
             exit 0
         }
-        default { Write-Error "$app`: unknown argument '$arg'"; exit 2 }
+        # Plain stderr, not Write-Error: under the Stop preference that would
+        # end the script before `exit 2`, and bad usage would arrive as 1.
+        default { [Console]::Error.WriteLine("${app}: unknown argument '$arg'"); exit 2 }
     }
 }
 
