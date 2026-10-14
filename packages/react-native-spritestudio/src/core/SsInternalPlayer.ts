@@ -648,9 +648,9 @@ export class SsInternalPlayer {
     return this.context?.getSourceEventThreshold(source) ?? NaN
   }
 
-  /** Animation names in this pack, for feeding to `setupAnimation`. */
   /**
-   * Part names in part-index order, empty before an animation is set up.
+   * Part names in part-index order, read from the `.ssab` and so available
+   * before the first advance.
    *
    * An unnamed part holds its slot as `''`, so the list stays aligned with the
    * `partIndex` every event carries. `length` is the part count — {@link partCount}
@@ -673,6 +673,7 @@ export class SsInternalPlayer {
     return this.context?.cellNames(cellmapName) ?? []
   }
 
+  /** Animation names in this pack, for feeding to `setupAnimation`. */
   getAnimationNames(): string[] {
     return this.require().getAnimationNames()
   }

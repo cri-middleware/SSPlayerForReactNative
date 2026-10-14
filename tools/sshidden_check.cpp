@@ -155,8 +155,8 @@ struct Watch {
   std::vector<int> firstUnstepped;
 };
 
-/// Every `.ssab` an instance part can reach: this one, plus the siblings the
-/// pack's own manifest names. Keyed the way `packNameHash` addresses them.
+/// Every `.ssab` an instance part can reach: this one, plus the external packs
+/// its own manifest names. Keyed the way `packNameHash` addresses them.
 struct PackTable {
   struct Entry {
     uint32_t nameHash = 0;
@@ -354,7 +354,7 @@ int main(int argc, char** argv) {
     return 1;
   }
 
-  // The siblings an Instance part reaches, loaded the way the JS pack walk does
+  // The external packs an Instance part reaches, loaded the way the JS pack walk does
   // it: a name in the manifest is a path next to the `.ssab`.
   const std::string dir = DirectoryOf(ssabPath);
   for (const sscore::SsExternalPack& pack : view.externalInstancePacks()) {

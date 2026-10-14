@@ -8,7 +8,7 @@ const path = require('path')
  *
  * package.json scripts must not name a `.sh` directly — that breaks every Windows
  * contributor. Same shape as SSPlayerForWeb's shims, with the spawn logic in
- * one place so the four entry points beside this file stay one-liners.
+ * one place so the entry points beside this file stay one-liners.
  *
  * Extra arguments are forwarded **verbatim**. The `.ps1` scripts take
  * `[Parameter(ValueFromRemainingArguments)]` and parse the same `key=value` and

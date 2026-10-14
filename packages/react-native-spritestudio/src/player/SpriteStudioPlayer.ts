@@ -257,7 +257,6 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private root: SsRootTransform | null = null
 
-  /** What `load()` was asked to measure, kept so a later `setAnimation` can redo it. */
   /**
    * The last override map, replayed onto each newly loaded animation for the
    * same reason the transport settings are: `setupAnimation` is a fresh start,
@@ -267,6 +266,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /** Parts the last map touched, so dropping one from it can revert just that one. */
   private readonly overriddenParts = new Set<string>()
 
+  /** What `load()` was asked to measure, kept so a later `setAnimation` can redo it. */
   private measureRequest: SsMeasureRequest | null = null
   private contentBoxValue: SsBox | null = null
 
@@ -632,7 +632,6 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.partCount ?? 0
   }
 
-  /** See `SpriteStudioPlayerApi`. Empty before a load completes. */
   /** Resolve a part name to its index, or `-1` when the name is not in the animation. */
   findPartIndex(partName: string): number {
     const internal = this.internalPlayer
@@ -658,10 +657,6 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   }
 
   /**
-   * Cellmap names in the pack, without the `.ssce` extension — the namespace a
-   * cell override takes. Empty before a load completes.
-   */
-  /**
    * Part names in part-index order, empty before a load finishes.
    *
    * This is what turns the `partIndex` on an event back into something a human
@@ -672,6 +667,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.partNames() ?? []
   }
 
+  /**
+   * Cellmap names in the pack, without the `.ssce` extension — the namespace a
+   * cell override takes. Empty before a load completes.
+   */
   cellmapNames(): string[] {
     return this.internalPlayer?.cellmapNames() ?? []
   }
@@ -681,6 +680,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.cellNames(cellmapName) ?? []
   }
 
+  /** See `SpriteStudioPlayerApi`. Empty before a load completes. */
   getAnimationNames(): string[] {
     return this.internalPlayer?.getAnimationNames() ?? []
   }
@@ -923,7 +923,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.internalPlayer?.setSubFrameEnabled(enabled)
   }
 
-  /** See {@link setSubFrame}. */
+  /** See {@link setSubFrameEnabled}. */
   get subFrameEnabled(): boolean {
     return this.internalPlayer?.subFrameEnabled ?? this.settings.subFrame
   }

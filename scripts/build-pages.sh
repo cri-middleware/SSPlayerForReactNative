@@ -24,11 +24,9 @@
 # What this does NOT reproduce is the deploy job (actions/deploy-pages) -- there
 # is no local equivalent of publishing.
 #
-# Not a package.json script: the entries there are `.js` shims over a `.sh` +
-# `.ps1` pair, because naming a `.sh` there shuts Windows contributors out. This
-# script has no `.ps1` twin, so it stays out of package.json and pages.yml calls
-# it by path -- but both halves have one, so a Windows contributor runs them
-# directly (`pnpm run prepare-docs`, `pnpm run build-docs`).
+# Not a package.json script: the family's pair there is prepare-docs and
+# build-docs, and this is only the two in a row. pages.yml calls it by path, and
+# a Windows contributor runs build-pages.ps1, its twin, the same way.
 set -euo pipefail
 
 APP="$(basename "$0")"

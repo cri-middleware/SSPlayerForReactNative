@@ -432,17 +432,17 @@ export interface SsContext
   readonly startFrame: number
   readonly endFrame: number
   /**
-   * Configured loop count. `-1` is infinite, and it is what you read back for
-   * one: `setLoopCount` normalizes everything at or below zero to `-1`, so passing
-   * `0` asks for infinite but never comes back as `0`.
-   */
-  /**
    * The speed the Brain **stored**, which is not always the one that was passed:
    * `0` and negatives clamp to a stop, so a host that dragged a slider negative
    * can see the stop it actually got rather than assuming it got reverse.
    */
   readonly speedScale: number
 
+  /**
+   * Configured loop count. `-1` is infinite, and it is what you read back for
+   * one: `setLoopCount` normalizes everything at or below zero to `-1`, so passing
+   * `0` asks for infinite but never comes back as `0`.
+   */
   readonly loopCount: number
   readonly remainingLoops: number
   /** `SsPlaybackDirection` wire value. */
@@ -927,22 +927,23 @@ export interface SsContext
   getAnimationNames(): string[]
 
   /**
-   * Cellmap names in this pack, without the `.ssce` extension — the namespace
-   * `setPartCell` hashes against.
-   *
-   * Read from the `.ssab` rather than the texture table, because a cellmap
-   * whose atlas is embedded still has a name.
-   */
-  /**
-   * Part names in part-index order, empty before an animation is set up.
+   * Part names in part-index order, read from the `.ssab` and so available
+   * before the first `update()`.
    *
    * A part authored without a name holds its slot as `''` rather than being
    * skipped, so the list stays aligned with the `partIndex` every event carries
    * — turning one back into something a human reads is the point. `length` is
-   * the part count.
+   * the part count, which `partCount` reports only once a frame has run.
    */
   partNames(): string[]
 
+  /**
+   * Cellmap names in this pack, without the `.ssce` extension — the namespace
+   * `setPartCell` hashes against.
+   *
+   * Read from the `.ssab` rather than the texture table, because a cellmap
+   * inside an Embedded pack still has a name.
+   */
   cellmapNames(): string[]
 
   /**

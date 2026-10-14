@@ -83,7 +83,7 @@ react-native-spritestudio: instance pack 'Enemy' referenced by '…' could not b
 loaded — those parts will not draw.
 ```
 
-An Instance part reaches a **sibling pack by name**. Same rule as the textures:
+An Instance part reaches an **external pack by name**. Same rule as the textures:
 it has to be in the output directory beside the `.ssab` that names it.
 
 ## The sprite draws nothing and warns

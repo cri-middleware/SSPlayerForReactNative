@@ -252,7 +252,7 @@ const SUBJECTS = {
   Effect: { pack: 'overall', files: { Effect: CENTRED } },
   // 20 instance parts, every one of them mounting the **external** pack
   // `Instance_SourceAnime` — so this is the subject that says whether the
-  // sibling-pack walk ran at all. An empty canvas here means the walk found
+  // external-pack walk ran at all. An empty canvas here means the walk found
   // nothing; the parts themselves have no geometry of their own.
   //
   // The frame is composed rather than measured in one pass: the host tool bakes

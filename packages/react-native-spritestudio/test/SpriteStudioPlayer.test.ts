@@ -728,7 +728,7 @@ describe('dispose', () => {
   })
 })
 
-describe('embedded atlases', () => {
+describe('an Embedded pack’s atlases', () => {
   // The bytes cross JSI as a copy, which a second player of the pack has no use
   // for while the first one's decode is in the cache.
   it('are copied only when the cache does not hold the decode', async () => {
