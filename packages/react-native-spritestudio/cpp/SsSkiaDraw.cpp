@@ -258,10 +258,11 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   // does still matter is that it is **not null** — `DeferredFromPicture`
   // returns null outright for a null colour space, whatever its doc comment
   // says, and the whole mask then silently does nothing.
-  out.image = SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
-                                            SkISize::Make(pw * columns, ph * rows), nullptr,
-                                            nullptr, SkImages::BitDepth::kU8,
-                                            SkColorSpace::MakeSRGB());
+  SsSetMaskCoverageImage(
+      out, SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                         SkISize::Make(pw * columns, ph * rows), nullptr,
+                                         nullptr, SkImages::BitDepth::kU8,
+                                         SkColorSpace::MakeSRGB()));
   out.width = pw;
   out.height = ph;
   out.planeCount = planeCount;
