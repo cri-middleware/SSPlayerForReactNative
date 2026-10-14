@@ -61,6 +61,8 @@ export class SpriteStudioPlayer {
 
   /** Animations the loaded pack has. `setAnimation` answers from it. */
   animations = ['Idle', 'Walk']
+  /** Cellmaps the loaded pack has, which a bare `textures` source resolves against. */
+  cellmaps = ['common']
 
   onAnimationFinished: ((animation: string) => void) | null = null
   onAnimationLooped: ((animation: string) => void) | null = null
@@ -165,6 +167,17 @@ export class SpriteStudioPlayer {
 
   setLoopCount(loops: number): void {
     this.record('setLoopCount', loops)
+  }
+
+  /** Empty before a load, as the real one is. */
+  cellmapNames(): string[] {
+    return this.isLoaded ? [...this.cellmaps] : []
+  }
+
+  /** Refuses a name the loaded pack has no cellmap for, as the real one does. */
+  setCellmapTexture(name: string, image: unknown): boolean {
+    this.record('setCellmapTexture', name, image)
+    return !this.isLoaded || image == null || this.cellmaps.includes(name)
   }
 
   setPartOverrides(overrides: SsPartOverrides): void {

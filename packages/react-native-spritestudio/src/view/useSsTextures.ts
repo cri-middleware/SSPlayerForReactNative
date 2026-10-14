@@ -20,12 +20,12 @@ export type SsTextureSource = number | string | { uri: string }
  *
  * A bare source is the shorthand for a pack with one cellmap, which is the
  * common case and the one where the caller would otherwise have to know a name
- * only the `.ssab` carries — `drawInto` matches a single-entry texture table
- * unconditionally, so the name is genuinely not needed there.
+ * only the `.ssab` carries. The player resolves it to that cellmap once the pack
+ * has loaded, so the name is genuinely not needed there.
  */
 export type SsTextureSources = SsTextureSource | Record<string, SsTextureSource>
 
-/** The default key a bare source is registered under. */
+/** The key a bare source decodes under, for the player to resolve to the pack's one cellmap. */
 export const SS_DEFAULT_CELLMAP = ''
 
 /**

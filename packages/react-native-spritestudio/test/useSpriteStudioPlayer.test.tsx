@@ -199,6 +199,48 @@ describe('the transport props', () => {
   })
 })
 
+describe('the textures prop', () => {
+  /** What the hook last asked of each cellmap: an image, or null for the pack's own. */
+  const lastReplacement = (player: SpriteStudioPlayer): Map<string, unknown> =>
+    new Map(player.argsOf('setCellmapTexture').map(([name, image]) => [name as string, image]))
+
+  // The pack loads its own atlas into the same registry, so a bare source
+  // registered under the default key met a table of two and matched no batch.
+  it('replaces the pack’s one cellmap with a bare source', async () => {
+    const harness = await mount({ source: PACK, textures: 'ss/winter.png' })
+    await harness.flush()
+    const player = SpriteStudioPlayer.last()
+
+    expect([...lastReplacement(player).keys()]).toEqual(['common'])
+    expect(lastReplacement(player).get('common')).not.toBeNull()
+  })
+
+  it('leaves a bare source unapplied on a pack with several cellmaps, and says why', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    SpriteStudioPlayer.holdLoads = true
+    const harness = await mount({ source: PACK, textures: 'ss/winter.png' })
+    const player = SpriteStudioPlayer.last()
+    player.cellmaps = ['body', 'face']
+
+    await act(async () => player.finishLoad())
+    await harness.flush()
+
+    expect(player.argsOf('setCellmapTexture')).toEqual([])
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/Key the textures by cellmap name/)
+  })
+
+  // Declarative, like `parts`: the prop describes the atlases in effect.
+  it('puts the pack’s own atlas back when the prop goes away', async () => {
+    const harness = await mount({ source: PACK, textures: { common: 'ss/winter.png' } })
+    await harness.flush()
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK })
+
+    expect(lastReplacement(player).get('common')).toBeNull()
+  })
+})
+
 describe('the parts prop', () => {
   // Keyed on the map's contents, not its identity: a declarative prop is always
   // going to be written inline.
