@@ -225,6 +225,8 @@ double HybridSsContext::update(double dtMilliseconds) {
   frameNo_ = ss_runtime_update(ctx_, static_cast<float>(dtMilliseconds));
   ++generation_;
   refreshFrame();
+  // The steps below are the ones a track call left pending.
+  slotsStale_ = false;
   // Read *after* the update: `is_looped` is cleared at the top of each one, so
   // what it reports here is this tick's loop **edge**, which is what re-arms a
   // synced effect. Read before, it would be the previous tick's.
@@ -287,6 +289,15 @@ void HybridSsContext::refreshIfStale() {
   // Unbumped, `frameDrawn` would stay true and the view keep the old picture.
   ++generation_;
   refreshFrame();
+  // A track call can move track 0's playhead with no time passing, which is a
+  // seek, and the slots follow it the way `resync()` has them follow one. Left
+  // to the next `update()`, a held player — which gets none — drew its own
+  // parts at the new frame and its children and effects at the old one.
+  if (slotsStale_) {
+    slotsStale_ = false;
+    stepEffects(0.0f, false);
+    instances_.step(ctx_, frameNo_, 0.0f, false);
+  }
 }
 
 bool HybridSsContext::getFrameDrawn() {
@@ -902,8 +913,10 @@ void HybridSsContext::tracksChanged() {
   // animation's playhead would fail on a shorter incoming one and draw nothing.
   frameNo_ = ss_runtime_get_frame_no(ctx_);
   // Rebuilt at the next read or draw, as an override is, so a player that does
-  // not advance shows the new pose and one that does costs nothing extra.
+  // not advance shows the new pose and one that does costs nothing extra. The
+  // slots with it, onto the playhead just read.
   stale_ = true;
+  slotsStale_ = true;
 }
 
 double HybridSsContext::getTrackCount() {
