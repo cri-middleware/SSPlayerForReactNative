@@ -66,7 +66,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 | `children` | スプライト群。 |
 | `style` | キャンバスの箱。 |
 | `paused` | **すべての**スプライトのクロックを一度に止めます。 |
-| `onError` | |
+| `onError` | フレームループが止まったとき。渡していなければ、エラーは `console.error` に出ます。 |
 
 ## `<SpriteStudioSprite>`
 

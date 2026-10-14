@@ -16,6 +16,7 @@ import {
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia'
 
 import { MAX_STEP_MS, type SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { reportError } from './reportError'
 import { useFramePicture } from './useFramePicture'
 
 /** One player enrolled in a scene, in the shape the scene's tick consumes. */
@@ -51,6 +52,7 @@ export interface SpriteStudioSceneProps {
   style?: StyleProp<ViewStyle>
   /** Stops the whole scene's clock — every sprite in it, in one place. */
   paused?: boolean
+  /** The frame loop stopped. Without one, the error goes to `console.error` rather than nowhere. */
   onError?: (error: unknown) => void
 }
 
@@ -144,7 +146,7 @@ export function SpriteStudioScene({
         publish(recorder.finishRecordingAsPicture())
       } catch (error) {
         cancelAnimationFrame(raf)
-        errorRef.current?.(error)
+        reportError(errorRef.current, error, 'the scene’s frame loop stopped')
       }
     }
 
