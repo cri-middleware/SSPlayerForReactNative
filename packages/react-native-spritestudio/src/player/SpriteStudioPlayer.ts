@@ -1786,7 +1786,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
-    if (internal.justLooped) this.onAnimationLooped?.(animation)
+    // Gated like the events below: the pulse is a read across JSI, and most
+    // players have nobody listening for it.
+    if (this.onAnimationLooped != null && internal.justLooped) this.onAnimationLooped(animation)
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are

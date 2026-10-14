@@ -329,6 +329,17 @@ describe('advance', () => {
     expect(looped.mock.calls).toEqual([['Walk'], ['Walk']])
   })
 
+  it('does not ask whether it looped when nothing is listening', async () => {
+    const player = await loaded()
+    player.play()
+    const read = vi.fn(() => true)
+    Object.defineProperty(SsInternalPlayer.last(), 'justLooped', { get: read })
+
+    player.advance(16)
+
+    expect(read).not.toHaveBeenCalled()
+  })
+
   // Both gates are on the hot path: without them this is a vector allocation and
   // a Nitro array marshal per player per frame, almost always to report nothing.
   it('does not read the event lists when nothing is listening', async () => {
