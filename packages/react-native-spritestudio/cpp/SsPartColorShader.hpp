@@ -22,14 +22,13 @@
 /// unit square exactly as its positions are, so inverting that map is exact and
 /// costs two CPU subtractions and a determinant.
 
-#include <cstdio>
-
 #include "include/core/SkColorFilter.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkShader.h"
 #include "include/core/SkString.h"
 #include "include/effects/SkRuntimeEffect.h"
 
+#include "SsLog.hpp"
 #include "SsPartColor.hpp"
 
 namespace ssplayer {
@@ -87,8 +86,7 @@ inline SkRuntimeEffect* PartColorEffect() {
     SkRuntimeEffect::Result result =
         SkRuntimeEffect::MakeForShader(SkString(kPartColorSkSL));
     if (result.effect == nullptr) {
-      std::fprintf(stderr, "[SsPlayer] PartColor SkSL failed to compile: %s\n",
-                   result.errorText.c_str());
+      SsWarn("PartColor SkSL failed to compile: %s", result.errorText.c_str());
       return nullptr;
     }
     // Leaked deliberately: it lives for the process, and a function-local static

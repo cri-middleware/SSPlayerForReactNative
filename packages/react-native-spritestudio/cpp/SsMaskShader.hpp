@@ -53,8 +53,6 @@
 /// image keeps the pixel budget of one column — writers are bought with
 /// resolution, not memory.
 
-#include <cstdio>
-
 #include "include/core/SkImage.h"
 #include "include/core/SkSamplingOptions.h"
 #include "include/core/SkShader.h"
@@ -62,6 +60,7 @@
 #include "include/core/SkTileMode.h"
 #include "include/effects/SkRuntimeEffect.h"
 
+#include "SsLog.hpp"
 #include "SsMask.hpp"
 #include "SsPartColor.hpp"
 
@@ -196,8 +195,7 @@ half4 main(float2 coord) {
 inline SkRuntimeEffect* SsMaskEffect(const char* sksl, const char* what) {
   SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(SkString(sksl));
   if (result.effect == nullptr) {
-    std::fprintf(stderr, "[SsPlayer] %s SkSL failed to compile: %s\n", what,
-                 result.errorText.c_str());
+    SsWarn("%s SkSL failed to compile: %s", what, result.errorText.c_str());
     return nullptr;
   }
   // Leaked deliberately, as in SsPartColorShader.hpp: it lives for the process,

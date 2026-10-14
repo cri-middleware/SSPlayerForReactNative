@@ -4,11 +4,11 @@
 
 #include <atomic>
 #include <cmath>
-#include <cstdio>
 #include <limits>
 #include <stdexcept>
 
 #include "ssruntime.h"
+#include "SsLog.hpp"
 #include "SsSkiaDraw.hpp"
 
 namespace margelo::nitro::ssplayer {
@@ -1408,10 +1408,10 @@ size_t HybridSsContext::drawSubtree(void* canvas, const ::ssplayer::SsPaintBindi
     collectMaskTree(maskPlan_, kIdentity, -1.0f, sscore::SsMaskContext{}, true);
     if (maskPlan_.dropped() && !warnedDroppedWriters_) {
       warnedDroppedWriters_ = true;
-      std::fprintf(stderr,
-                   "[SsPlayer] more than %d mask writers at once (an instance counts again "
-                   "every time it is placed); the rest are ignored.\n",
-                   sscore::kSsMaxMaskWriters);
+      ::ssplayer::SsWarn(
+          "more than %d mask writers at once (an instance counts again every time it is "
+          "placed); the rest are ignored.",
+          sscore::kSsMaxMaskWriters);
     }
     if (maskPlan_.finish()) mask.plan = &maskPlan_;
   } else {
