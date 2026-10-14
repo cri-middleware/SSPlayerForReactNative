@@ -33,7 +33,7 @@ struct SsInstancePart {
   uint32_t partIndex = 0;
   /// `PartTypeInstance.ref_anime_pack` — the pack holding the child animation.
   /// May name this player's own pack (a same-file sub-animation, the common
-  /// case) or an external sibling listed in `external_instances`. **0 means the
+  /// case) or an external pack listed in `external_instances`. **0 means the
   /// author left it pack-less**, which resolves to the own pack.
   uint32_t packNameHash = 0;
   /// `PartTypeInstance.ref_anime_name` — the animation to select on the child.

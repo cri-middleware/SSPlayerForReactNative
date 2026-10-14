@@ -146,7 +146,7 @@ describe('resolveAgainst', () => {
   // Textures go through this today; an Instance part's external .ssab and a
   // .ssqb's ref_anime_pack are the same question, so the answer has to hold for
   // a pack naming a pack.
-  it('resolves a sibling pack, not just a texture', () => {
+  it('resolves an external pack, not just a texture', () => {
     expect(resolveAgainst('ss/overall/Instance.ssab', 'Instance_SourceAnime.ssab')).toBe(
       'ss/overall/Instance_SourceAnime.ssab'
     )

@@ -43,8 +43,8 @@ struct SsInstancePackEntry {
 /// stamped into every struct handed out; JS compares before it reads.
 ///
 /// The geometry no longer leaves C++ at all — `drawInto` bakes and
-/// draws in one call — so the only buffer still crossing is an embedded atlas on
-/// its way to Skia. The rule stays, because the next thing to cross will be
+/// draws in one call — so the only buffer still crossing is an Embedded pack's
+/// atlas on its way to Skia. The rule stays, because the next thing to cross will be
 /// subject to it too.
 
 class HybridSsContext final : public HybridSsContextSpec,

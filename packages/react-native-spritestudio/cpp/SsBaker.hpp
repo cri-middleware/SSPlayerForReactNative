@@ -11,8 +11,9 @@
 // quad per part, so they bake identically — a Mask part differs only in what the
 // *draw* path does with the result, which is to write coverage instead of
 // colour. Instance contributes no geometry of its own — it records a mount and
-// the child's bake supplies the rest. Nines and the SHDR shaders are still
-// Later work, once the kinds beyond Normal landed.
+// the child's bake supplies the rest. An SHDR shader rides on a Normal part's
+// quad, which records the shader for the draw path (`needsShader`). Nines is not
+// baked yet.
 
 #include <cstddef>
 #include <cstdint>

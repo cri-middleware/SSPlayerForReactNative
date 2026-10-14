@@ -36,7 +36,8 @@ buffer handling. Five are worth knowing before you start:
   A per-frame buffer is a member resized in place, like `SsBaker`'s, never a
   fresh vector or JS array.
 - **Layer 2 imports nothing from `react` / `react-native`**, so headless use and
-  react-native-web stay possible. Nothing enforces this — no lint rule, no test.
+  react-native-web stay possible. `pnpm run check-layers` holds it to that,
+  across this package's own import graph.
 - **A pack is a directory, not a file**, so `require()` is not a source and
   `assetExts` stays clean of `ssab` / `ssqb`.
 
@@ -102,6 +103,9 @@ Android slice alone.
 | `ss-*` shaders compile, and their arithmetic | `pnpm run check-shader` (macOS) |
 | The Nitro glue compiles: `HybridSs*.cpp`, `SsAssets.cpp`, `SsRNSkiaInterop.cpp`, `SsPlayerJni.cpp`, `nitrogen/generated/` | `pnpm run check-glue` — a syntax check for iOS (macOS, Xcode) and Android (the NDK). Each half **reports itself skipped** without its toolchain, and the JNI units without the fbjni headers a Gradle build unpacks |
 | The web stub barrel imports clean, matches `index.ts` and throws | `pnpm run check-web-barrel` (any OS, no Brain) |
+| Layer 2 imports nothing from `react` / `react-native`, directly or through another layer | `pnpm run check-layers` (any OS, no install) |
+| No line break between two Japanese characters in the Markdown | `pnpm run check-ja-breaks` (any OS, no install) |
+| The Skia-guarded draw path compiles on Windows | `tools/check-skia-compile.ps1` — `check-mask`'s stand-in where RN Skia ships no host libskia: it compiles with the NDK's clang, and links and runs nothing |
 | Nitro codegen is current | `pnpm run generate-nitro-code`, then `git diff --exit-code packages/*/nitrogen` |
 | Bake / mask plan / effect / instance / shader geometry | `tools/.build/ssbake_check <pack.ssab> <animation> 120` (ASan) |
 | Native build | `pnpm run run-ios` / `pnpm run run-android` — prebuild, a Release build and a launch on a simulator or device. The Android prebuild must log `dropped x86 from reactNativeArchitectures` |
@@ -127,11 +131,14 @@ a `src/**/*.test.ts` would land in the tarball. `typecheck` passes them through
 `check-web-barrel`, which runs a bare `tsc --rootDir src`.
 
 **A green CI is not a substitute for running these.** On a pull request CI checks
-out no submodules and has no macOS libskia, so it runs typecheck, the unit
-tests, the Nitro bindings check, `bob build`, the web barrel, script parsing and
-the `files` guard — and none of the host checks or `prepack`. The weekly run also
-builds the example app for Android and iOS on the Brain built from the submodule;
-it runs neither of those either.
+out no submodules, so it runs typecheck, the unit tests, the Nitro bindings
+check, `bob build`, the web barrel, `check-layers`, `check-ja-breaks`, script
+parsing and the `files` guard — none of the host checks, and not `prepack`. A
+pull request touching only Markdown runs none of it. The weekly run, a dispatch
+and the release pull request also run `check-shader` on macOS, build the example
+app for Android and iOS on the Brain built from the submodule, and run
+`check-hidden`, `check-mask`, `check-glue` and the asset manifest check on that
+Brain. `check-framedata` and `prepack` run in none of them.
 
 Rendering is verified by hand on the example's Player screen, one feature card per
 capability; [`example/README.md`](./example/README.md) says what each subject
@@ -230,14 +237,13 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
   ごとに決まっていて、頂点数によりません。頂点を JS 経由にする案は計測済みで、フレームレートの上限を作ります。
 - **再生中は毎フレームのヒープ確保をしません。** JSI のどちら側でも同じです。毎フレーム使うバッファは `SsBaker` のようにメンバーに持ってその場でサイズを変え、vector や JS の配列を毎フレーム新しく作らないでください。
 - **レイヤ 2 は `react` / `react-native` を一切 import しません。** ヘッドレス利用と
-  react-native-web を残すためです。**これを強制する仕組みはありません** — lint ルールもテストもありません。
+  react-native-web を残すためです。`pnpm run check-layers` が、このパッケージ自身の import のつながり全体でこれを確かめます。
 - **パックはファイルではなくディレクトリです。** そのため `require()` はソースになり得ず、
   `assetExts` に `ssab` / `ssqb` を足してはいけません。
 
 ### バグの報告
 
-[不具合の報告フォーム](https://github.com/cri-middleware/SSPlayerForReactNative/issues/new/choose)
-から Issue を作成してください。**業務データの `.sspj` は公開の場である Issue に添付しないでください** — 送付先はフォームに記載しています。使い方に関するご質問は Issue ではなくコミュニティへお願いします（[SUPPORT.md](./SUPPORT.md)）。
+[不具合の報告フォーム](https://github.com/cri-middleware/SSPlayerForReactNative/issues/new/choose)から Issue を作成してください。**業務データの `.sspj` は公開の場である Issue に添付しないでください** — 送付先はフォームに記載しています。使い方に関するご質問は Issue ではなくコミュニティへお願いします（[SUPPORT.md](./SUPPORT.md)）。
 
 ### プルリクエスト
 
@@ -257,8 +263,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 ## 開発環境のセットアップ
 
-前提条件と初回の手順は README の
-**[クイックスタート](./README.ja.md#-クイックスタート)** にあります。Node 20 以上と、`package.json` の `packageManager` が指す版の pnpm を使用します（`corepack enable` で入ります）。
+前提条件と初回の手順は README の[**クイックスタート**](./README.ja.md#-クイックスタート)にあります。Node 20 以上と、`package.json` の `packageManager` が指す版の pnpm を使用します（`corepack enable` で入ります）。
 
 ```bash
 pnpm install
@@ -272,7 +277,7 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 
 ### PR を出す前に実行するもの
 
-全体の表は英語版の [What to run before opening a PR](#what-to-run-before-opening-a-pr) にあります（各チェックが何を保証するかもそこに書いてあります）。最低限は次の 5 つです。
+全体の表は英語版の [What to run before opening a PR](#what-to-run-before-opening-a-pr) にあります（各チェックが何を保証するかもそこに書いてあります）。最低限は次の 7 つです。
 
 | | |
 |---|---|
@@ -280,9 +285,11 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 | `pnpm test` | `core/`・`player/`・`view/` のユニットテスト（OS 不問・Brain 不要） |
 | `pnpm run build` | パッケージが `lib/` にコンパイルされること |
 | `pnpm run check-web-barrel` | web スタブの barrel が import 可能なこと（OS 不問・Brain 不要） |
+| `pnpm run check-layers` | レイヤ 2 が、直接にも他のレイヤ経由でも `react` / `react-native` を import していないこと（OS 不問・インストール不要） |
+| `pnpm run check-ja-breaks` | Markdown で日本語の文字と文字の間に改行が無いこと（OS 不問・インストール不要） |
 | `pnpm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
 
-**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI はサブモジュールをチェックアウトせず、macOS の libskia も持たないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・スクリプトの構文・`files` ガードまでしか実行できず、ホスト側のチェックと `prepack` は動きません。週次の run は submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドしますが、こちらもその 2 つは実行しません。
+**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI はサブモジュールをチェックアウトしないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・`check-layers`・`check-ja-breaks`・スクリプトの構文・`files` ガードまでしか実行せず、ホスト側のチェックと `prepack` は動きません。Markdown だけのプルリクエストでは何も走りません。週次・手動実行・リリースのプルリクエストでは、さらに macOS で `check-shader` を実行し、submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドして、その Brain で `check-hidden`・`check-mask`・`check-glue` とアセットマニフェストのチェックを実行します。`check-framedata` と `prepack` は、どの run でも実行しません。
 
 描画の確認は example の Player 画面で手動で行います。機能ごとにカードが 1 枚あり、それぞれが何を証明するかは [`example/README.md`](./example/README.md) に記載しています。
 

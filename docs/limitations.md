@@ -9,13 +9,15 @@ description: What this port draws today, what it does not, and what it will not.
 
 Normal, Mesh, Shape, Instance and Effect parts; mask and clipping on Normal,
 Mesh and Shape targets; the full framebuffer blend table; PartColor; the thirteen `ss-*`
-integration shaders; the override layer; user-data, audio and signal events; the
+integration shaders on Normal parts; the override layer; user-data, audio and signal events; the
 animation lifecycle; motion blending (tracks, crossfades, weighted sources); `fit`/`align` placement; the resource and atlas caches;
 `<SpriteStudioScene>`; the Expo config plugin.
 
 ## Not yet
 
 - **`Nines` and `Text`** parts.
+- **A masked Effect** — an effect draws unmasked, where SpriteStudio clips its
+  particles.
 
 ## Motion blending
 
@@ -29,6 +31,12 @@ See [Motion blending](/usage/motion-blending#two-limits).
 **At most 96 mask writers at once.** Every mask and clipping part of an
 instance tree shares one budget, and an instance's count again each time it
 is placed. Past 96 the rest are ignored, with a warning.
+
+## Shaders
+
+**An `ss-*` shader applies to Normal parts only.** On a Mesh, Shape or Effect
+part it is ignored, and the part draws without it: the shader's arithmetic
+assumes one affinely transformed quad, which those kinds are not.
 
 ## Platforms
 

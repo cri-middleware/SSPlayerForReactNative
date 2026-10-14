@@ -65,8 +65,8 @@ export class SsTextureLoader {
   /**
    * Decodes and registers every texture in `textures`.
    *
-   * `readEmbedded` hands over an embedded atlas's encoded bytes —
-   * `SsInternalPlayer.copyEmbeddedTexture` for textures out of its
+   * `readEmbedded` hands over the encoded bytes of an atlas inside an Embedded
+   * pack — `SsInternalPlayer.copyEmbeddedTexture` for textures out of its
    * `getTextures()`. It is asked only for an atlas the image cache does not
    * already hold.
    *
@@ -93,8 +93,9 @@ export class SsTextureLoader {
       if (registry.has(texture.textureHash)) continue
 
       // Keyed by where the atlas came from, so two packs naming one sibling
-      // image decode it once. An embedded atlas has no URI of its own, so it is
-      // keyed by the pack it lives inside plus the hash it is stored under.
+      // image decode it once. An atlas inside an Embedded pack has no URI of its
+      // own, so it is keyed by the pack it lives inside plus the hash it is stored
+      // under.
       const key =
         texture.embeddedLength > 0 || texture.imagePath.length === 0 || baseUri == null
           ? `${baseUri ?? ''}#${texture.textureHash}`

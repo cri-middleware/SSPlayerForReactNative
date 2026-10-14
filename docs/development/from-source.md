@@ -72,8 +72,9 @@ layout, stamped `<tag>+submodule-<sha>` so the two can never be confused. It
 needs Rust. On Windows it covers the Android slice only — the iOS xcframework
 needs Xcode, so `download-sdk` is the complete answer there.
 
-Both scripts take `key=value` arguments and honour `$SSSDK`, which points at an
-SDK checkout other than the submodule:
+`build-runtime` takes `key=value` arguments and honours `$SSSDK`, which points
+at an SDK checkout other than the submodule. `download-sdk` reads no checkout,
+and its one option is `--force`:
 
 ```bash
 pnpm run build-runtime platform=ios build=release
@@ -132,4 +133,7 @@ project of your own, and the optional `MaskInstance` sample are covered in
 | `ss-*` shaders compile, and their arithmetic (macOS) | `pnpm run check-shader` |
 | The Nitro glue compiles for iOS (macOS, Xcode) and Android (the NDK) | `pnpm run check-glue` |
 | Web stub barrel imports clean and throws (any OS, no Brain) | `pnpm run check-web-barrel` |
+| Layer 2 imports nothing from `react` / `react-native` (any OS, no install) | `pnpm run check-layers` |
+| No line break between two Japanese characters in the Markdown (any OS, no install) | `pnpm run check-ja-breaks` |
+| The Skia-guarded draw path compiles, without linking (Windows, the NDK) | `tools/check-skia-compile.ps1` |
 | Nitro codegen is current | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |

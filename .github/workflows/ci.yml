@@ -1,23 +1,27 @@
 name: CI
 
 # Two tiers, as in SpriteStudio-SDK. Every pull request runs the checks below
-# with **no submodules**: typecheck, tests, the Nitro bindings, the package build,
-# the web stub, the scripts' syntax and the `files` guard. The weekly run, a
-# dispatch and the release PR (release/X.Y into main) also build the example app
-# for Android and iOS, on the Brain built from the SDK submodule, and build the
-# Pages site.
+# with **no submodules**: typecheck, tests, the Nitro bindings, the package
+# build, the web stub, Layer 2's imports, the Japanese line breaks, the scripts'
+# syntax and the `files` guard. The weekly run, a dispatch and the release PR
+# (release/X.Y into main) also run `check-shader` on macOS, build the example
+# app for Android and iOS on the Brain built from the SDK submodule, run the host
+# checks that need that Brain and the converted packs (`check-hidden`,
+# `check-mask`, `check-glue`, the asset manifest), and build the Pages site. A
+# pull request that touches only Markdown runs none of this.
 #
 # What the pull-request tier leaves out, so nobody mistakes a green tick for more
 # than it is:
 #
-#   * the host checks (`check-framedata`, `check-mask`, `check-shader`,
-#     `check-hidden`) — they build a host Brain out of the SDK submodule, and
-#     `check-mask` / `check-shader` also link the macOS-only libskia RN Skia
-#     ships. They want a macOS job with the SDK submodule.
+#   * the host checks: `check-framedata`, `check-mask` and `check-hidden` build a
+#     host Brain out of the SDK submodule, `check-glue` needs the Brain's header,
+#     and `check-shader` links the macOS-only libskia RN Skia ships. The weekly
+#     tier runs all but `check-framedata`.
 #   * `cpp/format/` being current — regenerating needs a `flatc` whose version
 #     matches the vendored headers, which `static_assert` on it. An
 #     apt-installed flatc would report a diff that means "wrong flatc", not
-#     "stale output". `pnpm run check-framedata` is where that check lives.
+#     "stale output". `pnpm run check-framedata` is where that check lives, and
+#     no tier here runs it.
 #   * anything that needs the Brain — `prepack`, and therefore `npm pack`.
 
 on:
@@ -107,6 +111,16 @@ jobs:
         # import-clean is the whole property.
         run: pnpm run check-web-barrel
 
+      - name: Layer 2 imports nothing from react or react-native
+        # Typecheck and the tests both pass a violation: vitest aliases
+        # `react-native` to a stub. Reads the source, so no build is needed.
+        run: pnpm run check-layers
+
+      - name: No line break between two Japanese characters
+        # Chrome renders one as a space. Reads the tracked Markdown, so no build
+        # is needed.
+        run: pnpm run check-ja-breaks
+
       - name: Both halves of every toolchain script parse
         # Each package.json script is a `.js` shim over a `.sh` + `.ps1` pair so Windows
         # contributors are not shut out — which only holds if the `.ps1` half is
@@ -115,7 +129,7 @@ jobs:
           for f in scripts/*.sh tools/*.sh; do bash -n "$f"; done
           pwsh -NoProfile -Command '
             $bad = 0
-            Get-ChildItem scripts/*.ps1 | ForEach-Object {
+            Get-ChildItem scripts/*.ps1, tools/*.ps1 | ForEach-Object {
               $errors = $null
               [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
               if ($errors) { Write-Host "::error file=$($_.Name)::$($errors[0].Message)"; $bad = 1 }
@@ -137,6 +151,37 @@ jobs:
 
   # The weekly tier. `github.base_ref == 'main'` is the release PR: under git-flow
   # only release/X.Y is merged into main.
+  #
+  # The one host check that needs neither the Brain nor a pack: no Rust, and of
+  # the two submodules only the flatbuffers headers `SsPartColor.hpp` includes.
+  # It links the host libskia RN Skia ships, which has a macOS slice only.
+  shader:
+    name: 🍎 ss-* shaders (macOS)
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The vendored flatbuffers headers
+        run: git submodule update --init --depth 1 -- packages/react-native-spritestudio/third_party/flatbuffers
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: The ss-* shaders compile, and their arithmetic holds
+        run: pnpm run check-shader
+
   android:
     name: 🤖 Example app (Android)
     if: github.event_name != 'pull_request' || github.base_ref == 'main'
@@ -193,6 +238,14 @@ jobs:
           bash scripts/build-runtime.sh platform=android build=release "ndk=${{ steps.ndk.outputs.ndk-path }}"
           bash scripts/deploy-examples.sh
 
+      # deploy-examples rewrites the manifest from the packs it converted. A
+      # runner has no example/SpriteStudio_Source/, so what it writes is the
+      # committed state, and any difference is a manifest nobody regenerated.
+      - name: The committed asset manifest is current
+        run: |
+          git diff --exit-code -- example/src/ss-assets.ts \
+            || { echo "::error::example/src/ss-assets.ts is stale — run 'pnpm run deploy-examples' and commit it"; exit 1; }
+
       # scripts/run-android.sh's prebuild, then a build instead of its
       # `expo run:android`, which wants a device. One ABI is enough to compile
       # and link the Nitro module against the Brain.
@@ -201,6 +254,20 @@ jobs:
         run: |
           pnpm exec expo prebuild --platform android --no-install
           cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+
+      # After the app build, which unpacks the fbjni headers the JNI units need;
+      # without them check-glue skips those units and still passes, so the log
+      # is read for a skip. The newest NDK the image carries, not the r23c the
+      # Brain is built with: the glue is C++20.
+      - name: The Nitro glue compiles for Android
+        shell: bash
+        run: |
+          ndk=$(ls -d "$ANDROID_HOME"/ndk/*/ | sort -V | tail -1)
+          pnpm run check-glue "ndk=${ndk%/}" | tee "$RUNNER_TEMP/glue.log"
+          if sed -n '/^==> Android/,$p' "$RUNNER_TEMP/glue.log" | grep -q SKIPPED; then
+            echo "::error::check-glue skipped part of its Android half"
+            exit 1
+          fi
 
   ios:
     name: 🍏 Example app (iOS)
@@ -241,6 +308,20 @@ jobs:
         run: |
           bash scripts/build-runtime.sh platform=ios build=release
           bash scripts/deploy-examples.sh
+
+      # On the submodule's Brain and the packs just converted. check-mask's
+      # instance half reports itself skipped here: the MaskInstance sample is
+      # third-party and never on a runner. check-glue's iOS half must not skip.
+      - name: Host checks
+        shell: bash
+        run: |
+          pnpm run check-hidden
+          pnpm run check-mask
+          pnpm run check-glue | tee "$RUNNER_TEMP/glue.log"
+          if sed -n '/^==> iOS/,/^==> Android/p' "$RUNNER_TEMP/glue.log" | grep -q SKIPPED; then
+            echo "::error::check-glue skipped its iOS half"
+            exit 1
+          fi
 
       # scripts/run-ios.sh's prebuild (with the pod install), then a device build
       # with no signing instead of its `expo run:ios`, which wants a simulator.
