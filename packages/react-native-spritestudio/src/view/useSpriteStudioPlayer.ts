@@ -14,7 +14,7 @@ import {
 import { sourceUriOf, type SsSource } from '../player/source'
 import type { SsFit, SsFrameScope } from '../core/fit'
 import { reportError } from './reportError'
-import { useSsTextures, type SsTextureSources } from './useSsTextures'
+import { SS_DEFAULT_CELLMAP, useSsTextures, type SsTextureSources } from './useSsTextures'
 
 /**
  * Everything about *which animation and how it plays* — as opposed to where it
@@ -118,6 +118,28 @@ export interface SsPlayerState {
   ready: boolean
 }
 
+function sameBox(a: SsBox | null, b: SsBox | null): boolean {
+  if (a == null || b == null) return a === b
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
+
+/**
+ * The cellmap a bare `textures` source replaces, or null while the pack has not
+ * loaded — or has several, which the shorthand cannot choose between.
+ */
+function soleCellmapOf(player: SpriteStudioPlayer): string | null {
+  const names = player.cellmapNames()
+  if (names.length === 1) return names[0]!
+  if (__DEV__ && names.length > 1) {
+    console.warn(
+      `react-native-spritestudio: a bare textures source is the shorthand for a pack ` +
+        `with one cellmap, and this one has ${names.length} (${names.join(', ')}). ` +
+        `Key the textures by cellmap name.`
+    )
+  }
+  return null
+}
+
 /**
  * Owns one Layer 3 player for a component: loads it, keeps the transport props
  * on it, and reports when it is drawable.
@@ -127,11 +149,6 @@ export interface SsPlayerState {
  * components: a `<SpriteStudioView>` runs its own frame loop, while every
  * `<SpriteStudioSprite>` in a scene is advanced by the one loop the scene owns.
  */
-function sameBox(a: SsBox | null, b: SsBox | null): boolean {
-  if (a == null || b == null) return a === b
-  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
-}
-
 export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   const {
     source,
@@ -232,9 +249,14 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     next.setLoopCount(loop)
 
     applied.current = animation
+    // Set by the cleanup. A load this effect no longer wants still resolves —
+    // `dispose()` makes it drop what it built, not reject — so without this
+    // the callbacks below would start a disposed player and hand it to `onLoad`.
+    let cancelled = false
     next
       .load(sourceUri, { animation, measure })
       .then(() => {
+        if (cancelled) return
         // `load` selects and poses; starting is a separate verb, so the first
         // play happens here. `playing={false}` therefore leaves the animation on
         // its first frame without ever having played — which is what the prop
@@ -243,10 +265,13 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
         setLoadTick((tick) => tick + 1)
         callbacks.current.onLoad?.(next)
       })
-      .catch((error: unknown) =>
-        reportError(callbacks.current.onError, error, `'${sourceUri}' did not load`)
-      )
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          reportError(callbacks.current.onError, error, `'${sourceUri}' did not load`)
+        }
+      })
     return () => {
+      cancelled = true
       // Explicit teardown, never GC: every buffer Layer 1 handed out is a borrow
       // of memory this player owns (the lifetime rule in `specs/SsRuntime.nitro.ts`).
       // It also hands back the cache leases, which is what lets the pack be freed
@@ -300,12 +325,27 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   }, [player, animation, loadTick])
 
   // --- textures -----------------------------------------------------------
+  //
+  // Through `setCellmapTexture` rather than straight into the registry. The
+  // pack's own atlases land in that same registry, so a bare source registered
+  // under `SS_DEFAULT_CELLMAP` met a table of two and matched no batch: the
+  // shorthand drew the pack's atlas. The replacement seam keys by name, holds
+  // one set before the load until the pack lands, and puts the pack's own atlas
+  // back when the prop drops it.
+  //
+  // `loadTick` because the shorthand names the pack's one cellmap, which only a
+  // loaded pack can say.
   useEffect(() => {
     if (player == null || images == null) return
-    for (const [name, image] of Object.entries(images)) {
-      player.textures.register(name, image)
+    const replaced: string[] = []
+    for (const [key, image] of Object.entries(images)) {
+      const name = key === SS_DEFAULT_CELLMAP ? soleCellmapOf(player) : key
+      if (name != null && player.setCellmapTexture(name, image)) replaced.push(name)
     }
-  }, [player, images])
+    return () => {
+      for (const name of replaced) player.setCellmapTexture(name, null)
+    }
+  }, [player, images, loadTick])
 
   // --- transport ----------------------------------------------------------
   //

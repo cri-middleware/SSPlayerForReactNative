@@ -101,6 +101,13 @@ jobs:
         # as "wrong flatc", not "stale output".
         run: brew install flatbuffers
 
+      # check-hidden, check-mask and check-framedata read packs converted from
+      # the SDK submodule's projects, which are gitignored, so a fresh checkout
+      # has none to read. A runner has no example/SpriteStudio_Source/, so the
+      # manifest this rewrites comes out as committed.
+      - name: Convert the example packs
+        run: bash scripts/deploy-examples.sh
+
       # scripts/build-release.sh IS the release build, and the tarball it packs and
       # checks is the file attached and published below. Every option is spelled
       # out, so a release cannot change because a default did; release.sh spells

@@ -299,6 +299,15 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
     const float partAlpha = state != nullptr ? state->alpha() : 1.0f;
     const uint32_t color =
         WhiteWithAlpha((hasPartColor ? info.partColor.lt.a : partAlpha) * alphaScale);
+    // The tint shader draws with no vertex colours, so the instance chain's
+    // `alphaScale` has to ride in the corner alphas or a tinted mesh inside a
+    // faded instance stays opaque — as on a Normal quad, above. A tint implies a
+    // PartColor, whose corners already carry the part's own alpha.
+    if (info.needsPartColorShader) {
+      SsPartColorCorner* corners[4] = {&info.partColor.lt, &info.partColor.rt,
+                                       &info.partColor.lb, &info.partColor.rb};
+      for (SsPartColorCorner* corner : corners) corner->a *= alphaScale;
+    }
 
     const uint16_t base = static_cast<uint16_t>(positions_.size() / 2 - desc.vertexOffset);
     const uint32_t indexCount = i1 - i0;

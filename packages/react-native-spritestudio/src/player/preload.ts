@@ -1,4 +1,4 @@
-import { ssImageCache } from '../core/caches'
+import { onCachesCleared, ssImageCache } from '../core/caches'
 import { SpriteStudioPlayer } from './SpriteStudioPlayer'
 import {
   preloadResource,
@@ -12,6 +12,8 @@ import {
  * exactly those and not another pack's.
  */
 const preloaded = new Map<string, string[]>()
+// `ssClearCaches` gives back every lease this map stands for, so it goes too.
+onCachesCleared(() => preloaded.clear())
 
 /**
  * Loads a pack and its atlases ahead of the mount that needs them.

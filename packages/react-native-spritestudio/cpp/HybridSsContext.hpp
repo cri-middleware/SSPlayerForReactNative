@@ -313,7 +313,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// played its loops out.
   bool othersMove() const;
   /// After a track call the Brain accepted: track 0's playhead may now be
-  /// another animation's, and the pose is not the one `frame_` holds.
+  /// another animation's, and neither the pose nor the slots are where `frame_`
+  /// and the last step left them.
   void tracksChanged();
   /// The animation index each passed event is resolved in, read with the same
   /// index as `ss_runtime_get_passed_event_index`.
@@ -352,6 +353,10 @@ class HybridSsContext final : public HybridSsContextSpec,
   double generation_ = 0;
   double drawnGeneration_ = -1;
   bool stale_ = false;
+  /// Set by a track call, cleared once the instance and effect slots have been
+  /// stepped onto the playhead it left: by `refreshIfStale`, or by `update()`,
+  /// which steps them anyway.
+  bool slotsStale_ = false;
   float frameNo_ = 0.0f;
   /// Whether the DISPLAY frame keeps its fraction. On by default: this Player
   /// draws for applications, where interpolating between authored frames is the

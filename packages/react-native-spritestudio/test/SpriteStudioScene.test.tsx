@@ -230,3 +230,43 @@ describe('SpriteStudioSprite', () => {
     ])
   })
 })
+
+describe('an error in the scene’s frame loop', () => {
+  // A throwing tick would otherwise throw once per frame, forever.
+  it('stops the loop and reports the first error it hits', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'draw').mockImplementation(() => {
+      throw new Error('boom')
+    })
+    const onError = vi.fn()
+    const { renderer } = await render(
+      <SpriteStudioScene onError={onError}>
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+
+    await act(async () => stepFrame(16))
+
+    expect(onError).toHaveBeenCalledOnce()
+    expect(pendingFrames()).toBe(0)
+  })
+
+  // A frozen scene with nothing in the log reads as a renderer fault.
+  it('goes to console.error when nobody handles it', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'draw').mockImplementation(() => {
+      throw new Error('boom')
+    })
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { renderer } = await render(
+      <SpriteStudioScene>
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+
+    await act(async () => stepFrame(16))
+
+    expect(error).toHaveBeenCalledOnce()
+    expect(String(error.mock.calls[0]?.[0])).toContain('frame loop stopped')
+  })
+})

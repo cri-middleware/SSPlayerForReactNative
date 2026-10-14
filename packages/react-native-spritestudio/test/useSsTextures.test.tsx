@@ -21,7 +21,7 @@ const decode = (sources: SsTextureSources | null | undefined) =>
 
 describe('useSsTextures', () => {
   // The shorthand for a pack with one cellmap, whose name only the `.ssab`
-  // carries — `drawInto` matches a single-entry table unconditionally.
+  // carries — the player resolves it once the pack has loaded.
   it('puts a bare source under the default cellmap', async () => {
     const harness = await decode('ss/overall/atlas.png')
 

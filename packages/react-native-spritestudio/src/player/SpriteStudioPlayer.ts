@@ -269,6 +269,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /** What `load()` was asked to measure, kept so a later `setAnimation` can redo it. */
   private measureRequest: SsMeasureRequest | null = null
   private contentBoxValue: SsBox | null = null
+  /**
+   * The animation the last measurement walked, so the `setAnimation` that
+   * follows `load()`'s own measurement does not walk the same frames again.
+   */
+  private measuredFor: string | null = null
 
   private clock: ReturnType<typeof requestAnimationFrame> | null = null
 
@@ -413,7 +418,12 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // happen while there is still a `setupAnimation` to come. Storing the
     // request as well as the result is what lets an *animation*-scoped box be
     // re-measured when the animation changes.
+    //
+    // Cleared first: a box measured over the last pack says nothing about this
+    // one, and a load that asks for none must not inherit it.
     this.measureRequest = options?.measure ?? null
+    this.contentBoxValue = null
+    this.measuredFor = null
     if (this.measureRequest != null && requested != null) {
       this.remeasure(requested)
     }
@@ -722,7 +732,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // An animation-scoped box describes *this* animation, so switching makes it
     // stale. A pack-scoped one is the union over the whole file and does not
     // change — which is the point of asking for it.
-    if (this.measureRequest?.scope === 'animation' && this.contentBoxValue != null) {
+    if (this.measureRequest?.scope === 'animation' && this.measuredFor !== name) {
       this.remeasure(name)
     }
 
@@ -1726,6 +1736,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       request.scope === 'pack' ? internal.getAnimationNames() : [animation]
     if (names.length === 0) return
     const box = internal.measureContentBox(names, request.maxFrames ?? 0)
+    this.measuredFor = animation
     // A zero-sized box means nothing drew — keep null rather than publishing a
     // box that a fit would divide by.
     this.contentBoxValue = box.width > 0 && box.height > 0 ? box : null

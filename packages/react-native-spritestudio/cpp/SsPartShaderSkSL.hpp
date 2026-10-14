@@ -25,7 +25,6 @@
 /// work in normalised cell space.
 
 #include <algorithm>
-#include <cstdio>
 #include <mutex>
 
 #include "include/core/SkImage.h"
@@ -34,6 +33,7 @@
 #include "include/core/SkTileMode.h"
 #include "include/effects/SkRuntimeEffect.h"
 
+#include "SsLog.hpp"
 #include "SsPartColor.hpp"
 #include "SsPartShader.hpp"
 
@@ -555,8 +555,7 @@ inline SkRuntimeEffect* SsShaderEffect(sscore::SsShaderId id) {
     source.append(body);
     SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(source);
     if (result.effect == nullptr) {
-      std::fprintf(stderr, "[SsPlayer] ss-shader %d failed to compile: %s\n", i,
-                   result.errorText.c_str());
+      SsWarn("ss-shader %d failed to compile: %s", i, result.errorText.c_str());
       return;
     }
     // Leaked deliberately, as `PartColorEffect()` is: it lives for the process,

@@ -70,7 +70,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 | `children` | The sprites. |
 | `style` | The canvas's box. |
 | `paused` | Stops the clock for **every** sprite at once. |
-| `onError` | |
+| `onError` | The frame loop stopped. Without one, the error goes to `console.error`. |
 
 ## `<SpriteStudioSprite>`
 

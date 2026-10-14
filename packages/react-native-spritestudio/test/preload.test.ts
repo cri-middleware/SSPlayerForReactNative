@@ -110,6 +110,20 @@ describe('ssUnload', () => {
     expect(ssImageCache.size).toBe(0)
   })
 
+  // `ssClearCaches` is documented as balancing every preload at once. A record
+  // that outlived it made the next preload of the pack a no-op against a cold
+  // cache.
+  it('forgets every preload when the caches are cleared', async () => {
+    await ssPreload(PACK)
+
+    ssClearCaches()
+    expect(ssPreloadedSources()).toEqual([])
+
+    await ssPreload(PACK)
+    expect(loadResource).toHaveBeenCalledTimes(2)
+    expect(ssImageCache.size).toBe(1)
+  })
+
   it('is a no-op for a source nothing preloaded', () => {
     ssUnload('ss/never.ssab')
     expect(unloadResource).not.toHaveBeenCalled()
