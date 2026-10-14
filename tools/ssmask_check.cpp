@@ -263,10 +263,11 @@ ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int 
   // Non-null, because a null colour space makes `DeferredFromPicture` return
   // null outright — whatever its doc comment says — and the whole mask then
   // silently does nothing.
-  out.image = SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
-                                            SkISize::Make(w * columns, h * rows), nullptr,
-                                            nullptr, SkImages::BitDepth::kU8,
-                                            SkColorSpace::MakeSRGB());
+  ssplayer::SsSetMaskCoverageImage(
+      out, SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                         SkISize::Make(w * columns, h * rows), nullptr,
+                                         nullptr, SkImages::BitDepth::kU8,
+                                         SkColorSpace::MakeSRGB()));
   out.width = w;
   out.height = h;
   out.planeCount = planeCount;

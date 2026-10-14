@@ -249,12 +249,33 @@ inline float SsMaskBitAlpha(int32_t bit) {
 /// rather than the image size for that reason — see the shader's `uPlaneSize`.
 struct SsMaskCoverage {
   sk_sp<SkImage> image;
+  /// `image` as the replay samples it. Made once with the image, by
+  /// `SsSetMaskCoverageImage`, rather than in every replay: a masked frame
+  /// replays once per target part, and the coverage outlives the frames whose
+  /// writers stand still.
+  sk_sp<SkShader> shader;
   int width = 0;
   int height = 0;
   int planeCount = 0;
 
-  bool valid() const { return image != nullptr && width > 0 && height > 0 && planeCount > 0; }
+  bool valid() const {
+    return image != nullptr && shader != nullptr && width > 0 && height > 0 && planeCount > 0;
+  }
 };
+
+/// Sets `coverage`'s image, and the shader the replay reads it through.
+inline void SsSetMaskCoverageImage(SsMaskCoverage& coverage, sk_sp<SkImage> image) {
+  // Nearest is required, not a preference: with linear filtering adjacent bits
+  // blend and decode as writers that never covered the pixel — and
+  // with the planes stacked it would blend across a plane boundary too.
+  // kDecal keeps a sample that escapes the bounds check transparent rather than
+  // repeating the edge.
+  coverage.shader = image == nullptr
+                        ? nullptr
+                        : image->makeShader(SkTileMode::kDecal, SkTileMode::kDecal,
+                                            SkSamplingOptions(SkFilterMode::kNearest));
+  coverage.image = std::move(image);
+}
 
 /// The shader that writes `writer`'s bit, sampling `atlas` for the cutout.
 inline sk_sp<SkShader> MakeMaskWriteShader(const sscore::SsMaskWriter& writer,
@@ -284,15 +305,6 @@ inline sk_sp<SkShader> MakeMaskReplayShader(sk_sp<SkShader> inner, const SsMaskC
   sscore::SsUvInverse inv;
   sscore::SsMakeUvInverse(uv, &inv);
 
-  // Nearest is required, not a preference: with linear filtering adjacent bits
-  // blend and decode as writers that never covered the pixel — and
-  // with the planes stacked it would blend across a plane boundary too.
-  // kDecal keeps a sample that escapes the bounds check transparent rather than
-  // repeating the edge.
-  sk_sp<SkShader> covShader = coverage.image->makeShader(
-      SkTileMode::kDecal, SkTileMode::kDecal, SkSamplingOptions(SkFilterMode::kNearest));
-  if (covShader == nullptr) return nullptr;
-
   static_assert(sscore::kSsMaskPlaneCount == 12,
                 "the replay SkSL reads exactly twelve planes, as three float4s per set");
   const auto planes = [](const uint32_t* set, int first) {
@@ -304,7 +316,7 @@ inline sk_sp<SkShader> MakeMaskReplayShader(sk_sp<SkShader> inner, const SsMaskC
 
   SkRuntimeShaderBuilder builder(sk_ref_sp(effect));
   builder.child("inner") = std::move(inner);
-  builder.child("coverage") = std::move(covShader);
+  builder.child("coverage") = coverage.shader;
   builder.uniform("uPlaneSize") =
       SkV2{static_cast<float>(coverage.width), static_cast<float>(coverage.height)};
   builder.uniform("uUvOrigin") = SkV2{inv.origin[0], inv.origin[1]};

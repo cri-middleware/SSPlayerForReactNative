@@ -458,34 +458,29 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // After `notify()` on purpose — the animation is usable the moment the
     // context exists, and holding the load open for a texture fetch would delay
     // the first frame for no reason. It simply draws nothing until they arrive.
+    //
+    // The registry entries go into `registeredTextures` as they are made, so the
+    // `releaseNative` of a load that replaces this one — or `dispose` — takes
+    // back what this pass had put in by then. A replaced pass must not take them
+    // back itself: the hash is the cellmap name's, so the live load may have
+    // found the same atlas in place and skipped it.
     const report = await SsTextureLoader.load(
       this.textures,
       textureInfos,
       (hash) => internal.copyEmbeddedTexture(hash),
-      uri
+      uri,
+      {
+        isCurrent: () => token === this.loadToken && !this.disposed,
+        registered: this.registeredTextures,
+      }
     )
     if (token !== this.loadToken || this.disposed) {
       // The leases this pass took belong to a load that is no longer wanted.
       for (const key of report.imageKeys) ssImageCache.release(key)
-      // So do its registry entries: the loader registers as it decodes, which is
-      // before this check, so a superseded pass has already put its paints in.
-      // `releaseNative` cannot take them back — it ran before this pass recorded
-      // anything — so they would otherwise stay for the life of the player.
-      //
-      // Skipping what the *current* load registered matters when the two packs
-      // share a cellmap name: the hash is the same, and dropping it would take
-      // the live pack's atlas with it.
-      if (this.ownsTextures) {
-        const live = new Set(this.registeredTextures)
-        for (const hash of report.registered) {
-          if (!live.has(hash)) this.textures.unregister(hash)
-        }
-      }
       return
     }
     this.lastTextureReport = report
     this.imageKeys = report.imageKeys
-    this.registeredTextures = report.registered
 
     // A missing texture is otherwise **silent**: `drawInto` skips a batch it has
     // no paint for, so the symptom is a part that is simply not there, and a
@@ -548,7 +543,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private textureReport: SsTextureLoadReport | null = null
   /** Atlas cache leases taken by the last load, given back on teardown. */
   private imageKeys: string[] = []
-  /** Registry entries the last load added, taken back out on teardown. */
+  /**
+   * Registry entries the last load added, taken back out on teardown. Filled by
+   * the loader as it registers, so it includes a load still in flight.
+   */
   private registeredTextures: number[] = []
 
   /**
@@ -1788,7 +1786,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
-    if (internal.justLooped) this.onAnimationLooped?.(animation)
+    // Gated like the events below: the pulse is a read across JSI, and most
+    // players have nobody listening for it.
+    if (this.onAnimationLooped != null && internal.justLooped) this.onAnimationLooped(animation)
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are
