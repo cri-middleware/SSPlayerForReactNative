@@ -139,6 +139,7 @@ void HybridSsContext::release() noexcept {
     // the resource can still leave the shared_ptr held. Dropping it here keeps
     // "released" meaning the same thing on every path.
     resource_.reset();
+    instancePacks_.clear();
     return;
   }
 
@@ -177,6 +178,10 @@ void HybridSsContext::release() noexcept {
   // Brain unwinds it. This is also the release that makes the resource's own
   // refcount reach zero when the player owned the only reference.
   resource_.reset();
+  // The external packs with it, for the same reason. Their handles are JS's to
+  // dispose; this only keeps a released context from holding the objects until
+  // the collector reaches it.
+  instancePacks_.clear();
 }
 
 void HybridSsContext::dispose() { release(); }
