@@ -18,8 +18,7 @@ git submodule update --init --recursive
 pnpm install
 ```
 
-submodule は `SpriteStudio-SDK/` — リポジトリ全体で **Brain** と呼んでいる Rust コアです。
-ワークスペースは pnpm で、版は `package.json` の `packageManager` が決めます（`corepack enable` で入ります）。
+submodule は `SpriteStudio-SDK/` — リポジトリ全体で **Brain** と呼んでいる Rust コアです。ワークスペースは pnpm で、版は `package.json` の `packageManager` が決めます（`corepack enable` で入ります）。
 
 ## clone した中身
 
@@ -66,7 +65,7 @@ pnpm run build-runtime build=release
 `<tag>+submodule-<sha>` と刻印するので両者が混同されることはありません。Rust が必要です。
 Windows では Android スライスのみを対象とします（iOS の xcframework には Xcode が必要）ので、そこでの完全な答えは `download-sdk` です。
 
-どちらのスクリプトも `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを指す `$SSSDK` を尊重します。
+`build-runtime` は `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを指す `$SSSDK` を尊重します。`download-sdk` はチェックアウトを読まず、オプションは `--force` だけです。
 
 ```bash
 pnpm run build-runtime platform=ios build=release
@@ -115,4 +114,7 @@ pnpm run run-ios         # または: pnpm run run-android
 | `ss-*` シェーダーがコンパイルでき、その演算が正しいこと（macOS） | `pnpm run check-shader` |
 | Nitro まわりの C++ が iOS（macOS・Xcode）と Android（NDK）向けにコンパイルできること | `pnpm run check-glue` |
 | web スタブバレルが import 可能で throw すること（OS 不問、Brain 不要） | `pnpm run check-web-barrel` |
+| レイヤ 2 が `react` / `react-native` を import していないこと（OS 不問、インストール不要） | `pnpm run check-layers` |
+| Markdown で日本語の文字と文字の間に改行が無いこと（OS 不問、インストール不要） | `pnpm run check-ja-breaks` |
+| Skia を使う描画パスがコンパイルできること。リンクはしない（Windows、NDK） | `tools/check-skia-compile.ps1` |
 | Nitro のコード生成が最新であること | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |

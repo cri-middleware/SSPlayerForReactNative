@@ -60,9 +60,7 @@ graph LR
 
 ::: tip 手元に `.sspj` がまだ無いときは
 [SpriteStudio 公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら
-[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら
-[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)
-が手頃です。ダウンロードしたプロジェクトは、下のどのコンバータにもそのまま渡せます。
+[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)が手頃です。ダウンロードしたプロジェクトは、下のどのコンバータにもそのまま渡せます。
 :::
 
 | ツール | 向いている場面 | 入手方法 |
@@ -77,8 +75,7 @@ Firefox と Safari では動作しません。パックは出口だけでなく�
 :::
 
 ::: tip 変換そのものは、全プレイヤー共通で 1 か所に書かれています
-[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)
-がこのパッケージの取る経路で、ツールの選び方とビルドや CI パイプラインへの組み込みを扱っています。[アセットの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/conversion/)は全体像です — 一部のエンジンが取り込み時に変換し、これがそうしない理由も含みます。
+[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)がこのパッケージの取る経路で、ツールの選び方とビルドや CI パイプラインへの組み込みを扱っています。[アセットの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/conversion/)は全体像です — 一部のエンジンが取り込み時に変換し、これがそうしない理由も含みます。
 :::
 
 ## パックはファイルではなくディレクトリです

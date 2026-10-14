@@ -58,9 +58,7 @@ ref.current?.player?.setCellmapTexture('Ringo', null)          // パック本�
 
 アバターシステムはこれを土台にできます — 衣装ごとに書き出しを分けるのではなく、1 つのアニメーションと、切り替えるアトラスの一式を持つだけです。`null` を渡すとパック本来のアトラスへ**復元**されます — 自分で読み込みを管理する必要はありません。`getCellmapTexture(name)` は効いている差し替え（上書き値のみで、パック本来のものは返しません）を読み出し、`getReplaceableTextureNames()` は渡せる名前一覧 — セルマップ名と、オーサリングされたテクスチャ変更が指すテクスチャ*ファイル*名の両方 — を返します。
 
-知っておく価値のある 3 点。いずれも SDK 自身の
-[実行時のテクスチャの差し替え](https://github.com/cri-middleware/SpriteStudio-SDK/blob/develop/libs/ssruntime/docs/50_features/30_external_resources.ja.md#3-実行時のテクスチャの差し替え)
-仕様に由来します。
+知っておく価値のある 3 点。いずれも SDK 自身の[実行時のテクスチャの差し替え](https://github.com/cri-middleware/SpriteStudio-SDK/blob/develop/libs/ssruntime/docs/50_features/30_external_resources.ja.md#3-実行時のテクスチャの差し替え)仕様に由来します。
 
 - **インスタンスの子にも効きます。** ここではプレイヤーツリー全体が 1 つのテクスチャ表を通して描画されるので、同じセルマップを参照する子パートも差し替えを拾います — 子に別途設定するものはありません。（ここが、子が自分の表を持つ Godot 版プレイヤーとの違いです。）
 - **`source` の変更をまたいで残ります。** 名前をキーに新しいパックへ再適用されます。`null`
