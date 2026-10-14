@@ -56,10 +56,11 @@ inline const float* SsPartColorCoef(int32_t blendType) {
 /// The affine that takes a quad's UV back to unit-square `(s,t)`:
 /// `(s,t) = m . (uv - origin)`.
 ///
-/// A sprite quad's UV corners are an affine image of the unit square exactly as
-/// its positions are, so this inverse is exact — which is what lets the PartColor
-/// shader reconstruct the corner gradient from the texcoord alone, with no
-/// dependence on the canvas matrix. Skia-free so the host harness can check the
+/// A sprite quad's UV corners are an affine image of the unit square — a
+/// deformation moves its positions, never its UVs — so this inverse is exact,
+/// which is what lets the PartColor shader reconstruct the corner gradient from
+/// the texcoord alone, with no dependence on the canvas matrix or on the
+/// deformation. Skia-free so the host harness can check the
 /// round-trip; `SsPartColorShader.hpp` only feeds the result to a uniform.
 struct SsUvInverse {
   float origin[2] = {0.0f, 0.0f};
@@ -89,6 +90,47 @@ inline bool SsMakeUvInverse(const float* uv, SsUvInverse* out) {
   out->m[3] = e1x * inv;
   return true;
 }
+
+/// `ssFanWeights(st)`: what each corner contributes at `(s,t)` when the quad is
+/// drawn as `SsBaker`'s fan of four triangles around its centre, as
+/// `(lt, rt, lb, rb)`. Prepended to every SkSL program that rebuilds a
+/// per-corner value from `(s,t)` — the PartColor tint, the `SHDR` bodies and
+/// the mask replay — in place of a bilinear `mix(mix(…))`, which shades along
+/// neither the fan nor the two triangles and so disagrees with the geometry it
+/// is drawn on.
+///
+/// Exact for a deformed part too, because `(s,t)` comes from the UV rather than
+/// the position: the centre's UV is the middle of the UV rectangle, so each
+/// triangle of the fan is an affine image of the matching triangle here,
+/// whatever the corners' positions. The centre's own value is the corners'
+/// mean, so its share is split evenly between them — which is also the
+/// centre's colour the bake gives the vertex.
+inline const char* kSsFanWeightsSkSL = R"SKSL(
+float4 ssFanWeights(float2 st) {
+    float s = st.x;
+    float t = st.y;
+    float hub;
+    float4 w;
+    if (t <= s && t <= 1.0 - s) {
+        // Top: lt, rt and the centre.
+        hub = 2.0 * t;
+        w = float4(1.0 - s - t, s - t, 0.0, 0.0);
+    } else if (t >= s && t >= 1.0 - s) {
+        // Bottom: lb, rb and the centre.
+        hub = 2.0 - 2.0 * t;
+        w = float4(0.0, 0.0, t - s, s + t - 1.0);
+    } else if (s <= t) {
+        // Left: lt, lb and the centre.
+        hub = 2.0 * s;
+        w = float4(1.0 - s - t, 0.0, t - s, 0.0);
+    } else {
+        // Right: rt, rb and the centre.
+        hub = 2.0 - 2.0 * s;
+        w = float4(0.0, s - t, 0.0, s + t - 1.0);
+    }
+    return w + float4(0.25 * hub);
+}
+)SKSL";
 
 inline SsPartColorCorner SsReadPartColorCorner(
     const ss::runtime::SsAttributePartColorKeyValueColor& c) {

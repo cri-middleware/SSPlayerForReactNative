@@ -12,7 +12,9 @@
 // So this one compiles every body that exists, then runs `ss-sepia` through a
 // real raster surface and checks its output against the SS6 formula it cites.
 // The arithmetic is the point: "it compiled" would still pass with the weights
-// transposed.
+// transposed. Last, the four-corner gradient the bodies and the PartColor tint
+// both rebuild from `(s,t)` is checked against the fan the part is drawn as,
+// pixel by pixel.
 //
 // macOS only, for the same reason as check-mask.sh — it links the host libskia
 // RN Skia ships.
@@ -37,6 +39,7 @@
 #include "include/effects/SkRuntimeEffect.h"
 
 #include "../packages/react-native-spritestudio/cpp/SsPartColor.hpp"
+#include "../packages/react-native-spritestudio/cpp/SsPartColorShader.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsPartShader.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsPartShaderSkSL.hpp"
 
@@ -476,6 +479,111 @@ void CheckAlphaAndFallback() {
   }
 }
 
+// --- 5. the corner gradient follows the fan ----------------------------------
+
+/// What the bake's fan gives a per-corner value `v` (lt, rt, lb, rb) at
+/// `(s,t)`, worked out the long way: find the fan triangle holding the point
+/// and interpolate barycentrically, the centre carrying the corners' mean.
+/// Independent of `ssFanWeights` on purpose — a transcription of it would agree
+/// with whatever it computes.
+float FanAt(const float v[4], float s, float t) {
+  const float corner[4][2] = {{0, 0}, {1, 0}, {0, 1}, {1, 1}};
+  const int tri[4][2] = {{0, 1}, {1, 3}, {3, 2}, {2, 0}};  // `kFanIndices` past the centre
+  const float centre = (v[0] + v[1] + v[2] + v[3]) * 0.25f;
+  const float px = s - 0.5f;
+  const float py = t - 0.5f;
+  for (const auto& e : tri) {
+    const float ax = corner[e[0]][0] - 0.5f, ay = corner[e[0]][1] - 0.5f;
+    const float bx = corner[e[1]][0] - 0.5f, by = corner[e[1]][1] - 0.5f;
+    const float det = ax * by - bx * ay;
+    const float a = (px * by - bx * py) / det;
+    const float b = (ax * py - px * ay) / det;
+    if (a >= -1e-6f && b >= -1e-6f && a + b <= 1.0f + 1e-6f) {
+      return centre + a * (v[e[0]] - centre) + b * (v[e[1]] - centre);
+    }
+  }
+  return centre;
+}
+
+/// The whole surface drawn through `shader`, read back as straight alpha.
+bool RenderGrid(sk_sp<SkShader> shader, SkBitmap* out) {
+  if (shader == nullptr) return false;
+  sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
+  SkCanvas* canvas = surface->getCanvas();
+  canvas->clear(SK_ColorTRANSPARENT);
+  SkPaint paint;
+  paint.setShader(std::move(shader));
+  paint.setAntiAlias(false);
+  canvas->drawVertices(Quad(kSize, kSize), SkBlendMode::kModulate, paint);
+  out->allocN32Pixels(kSize, kSize);
+  return surface->readPixels(*out, 0, 0);
+}
+
+void CheckFanGradient() {
+  // Diagonal corners alike, lt = rb = 1 and rt = lb = 0: the case where a fan
+  // and a bilinear differ most. At (s,t) = (0.25, 0.25) the fan gives 0.75
+  // and a bilinear 0.625; this grid's pixel centres sit at (i + 0.5) / 8, so it
+  // is read at every one of them instead.
+  const float diagonal[4] = {1.0f, 0.0f, 0.0f, 1.0f};
+  const float uv[8] = {0, 0, kSize, 0, 0, kSize, kSize, kSize};
+  const float* mix = sscore::SsPartColorCoef(0);
+
+  // The colour, then the rate. Mix at rate 1 returns the part colour itself,
+  // so the colour reads straight off a white atlas; a white part colour over a
+  // black atlas returns the rate.
+  for (int which = 0; which < 2; ++which) {
+    const bool rate = which == 1;
+    sscore::SsPartColor pc;
+    for (int i = 0; i < 4; ++i) pc.coef[i] = mix[i];
+    sscore::SsPartColorCorner* corners[4] = {&pc.lt, &pc.rt, &pc.lb, &pc.rb};
+    for (int c = 0; c < 4; ++c) {
+      const float value = rate ? 1.0f : diagonal[c];
+      corners[c]->r = corners[c]->g = corners[c]->b = value;
+      corners[c]->a = 1.0f;
+      corners[c]->rate = rate ? diagonal[c] : 1.0f;
+    }
+    const Rgba atlas = rate ? Rgba{0, 0, 0, 1} : Rgba{1, 1, 1, 1};
+
+    sscore::SsPartShader passthrough;
+    passthrough.id = sscore::SsShaderId::Sepia;  // power 0 hands the texel through
+    const struct {
+      const char* what;
+      sk_sp<SkShader> shader;
+    } kPaths[] = {
+        {"PartColor", ssplayer::MakePartColorShader(
+                          pc, uv, SolidAtlas(atlas.r, atlas.g, atlas.b, atlas.a))},
+        {"ss-sepia's PartColor tail",
+         ssplayer::MakePartShaderShader(passthrough, pc, uv,
+                                        SolidAtlas(atlas.r, atlas.g, atlas.b, atlas.a))},
+    };
+    for (const auto& path : kPaths) {
+      SkBitmap bm;
+      if (!RenderGrid(path.shader, &bm)) {
+        Fail("%s: the shader would not build", path.what);
+        continue;
+      }
+      int wrong = 0;
+      for (int y = 0; y < kSize; ++y) {
+        for (int x = 0; x < kSize; ++x) {
+          const float want = FanAt(diagonal, (x + 0.5f) / kSize, (y + 0.5f) / kSize);
+          const float got = SkColorGetR(bm.getColor(x, y)) / 255.0f;
+          if (Near(got, want)) continue;
+          if (wrong++ < 3) {
+            Fail("%s %s at pixel (%d, %d): got %.3f, want the fan's %.3f", path.what,
+                 rate ? "rate" : "colour", x, y, got, want);
+          }
+        }
+      }
+      if (wrong > 3) Fail("%s %s: %d more pixels off the fan", path.what, rate ? "rate" : "colour",
+                          wrong - 3);
+      if (wrong == 0) {
+        std::printf("    %-26s %s follows the fan at all %d pixels\n", path.what,
+                    rate ? "rate  " : "colour", kSize * kSize);
+      }
+    }
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -497,6 +605,9 @@ int main() {
 
   std::printf("==> alpha and the unported fallback\n");
   CheckAlphaAndFallback();
+
+  std::printf("==> the corner gradient follows the fan\n");
+  CheckFanGradient();
 
   if (gFailures > 0) {
     std::fprintf(stderr, "\nFAILED: %d problem%s\n", gFailures, gFailures == 1 ? "" : "s");

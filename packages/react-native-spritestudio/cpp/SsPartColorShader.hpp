@@ -19,8 +19,8 @@
 /// in texture-pixel space already — which is independent of the canvas matrix,
 /// so the root transform, the device pixel ratio and any enclosing scale drop
 /// out of the problem. The quad's four UV corners are an affine image of the
-/// unit square exactly as its positions are, so inverting that map is exact and
-/// costs two CPU subtractions and a determinant.
+/// unit square even when a deformation has moved its positions, so inverting
+/// that map is exact and costs two CPU subtractions and a determinant.
 
 #include "include/core/SkColorFilter.h"
 #include "include/core/SkPaint.h"
@@ -53,8 +53,9 @@ half4 main(float2 coord) {
     float s = clamp(uUvInv.x * d.x + uUvInv.y * d.y, 0.0, 1.0);
     float t = clamp(uUvInv.z * d.x + uUvInv.w * d.y, 0.0, 1.0);
 
-    float4 col = mix(mix(uColLT, uColRT, s), mix(uColLB, uColRB, s), t);
-    float rate = mix(mix(uRate.x, uRate.y, s), mix(uRate.z, uRate.w, s), t);
+    float4 w = ssFanWeights(float2(s, t));
+    float4 col = w.x * uColLT + w.y * uColRT + w.z * uColLB + w.w * uColRB;
+    float rate = dot(w, uRate);
 
     // Sampled at the raw UV: the atlas shader is the very one the batched path
     // uses, so this samples identically.
@@ -83,8 +84,9 @@ half4 main(float2 coord) {
 /// better failure than a missing one, and the log line says which it is.
 inline SkRuntimeEffect* PartColorEffect() {
   static SkRuntimeEffect* effect = [] () -> SkRuntimeEffect* {
-    SkRuntimeEffect::Result result =
-        SkRuntimeEffect::MakeForShader(SkString(kPartColorSkSL));
+    SkString source(sscore::kSsFanWeightsSkSL);
+    source.append(kPartColorSkSL);
+    SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(source);
     if (result.effect == nullptr) {
       SsWarn("PartColor SkSL failed to compile: %s", result.errorText.c_str());
       return nullptr;

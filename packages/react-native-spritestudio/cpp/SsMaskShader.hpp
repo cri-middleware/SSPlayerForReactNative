@@ -143,10 +143,16 @@ half4 main(float2 coord) {
     float2 d = coord - uUvOrigin;
     float s = clamp(uUvInv.x * d.x + uUvInv.y * d.y, 0.0, 1.0);
     float t = clamp(uUvInv.z * d.x + uUvInv.w * d.y, 0.0, 1.0);
-    // The coverage UV of each corner is computed on the CPU, so this one
-    // bilinear step covers the whole local -> coverage map: the quad's own
-    // deformation, the player-local box, and the bitmap normalisation together.
-    float2 cuv = mix(mix(uCovA.xy, uCovA.zw, s), mix(uCovB.xy, uCovB.zw, s), t);
+    // The coverage UV of each corner is computed on the CPU, so this one step
+    // covers the whole local -> coverage map: the quad's own deformation, the
+    // player-local box, and the bitmap normalisation together. Over the fan,
+    // not bilinear: the coverage UV is affine in the position, so it follows
+    // the triangles the part is drawn as, and the centre's is the corners' mean
+    // because the centre is. Bilinear would read a deformed part's mask from
+    // where it is not drawn. The Shape and Mesh routes pass the unit square
+    // twice, which either weighting maps to `(s,t)` itself.
+    float4 w = ssFanWeights(float2(s, t));
+    float2 cuv = w.x * uCovA.xy + w.y * uCovA.zw + w.z * uCovB.xy + w.w * uCovB.zw;
 
     bool masked = false;
     // Outside the box counts as "no writer". Without this, sampling at the
@@ -189,11 +195,13 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// Compiles `sksl` once, reporting a failure once. Null degrades to the
-/// unmasked draw — a part that ignores its mask is a far better failure than a
-/// missing one, and the log line says which it is.
-inline SkRuntimeEffect* SsMaskEffect(const char* sksl, const char* what) {
-  SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(SkString(sksl));
+/// Compiles `prelude` then `sksl` once, reporting a failure once. Null degrades
+/// to the unmasked draw — a part that ignores its mask is a far better failure
+/// than a missing one, and the log line says which it is.
+inline SkRuntimeEffect* SsMaskEffect(const char* prelude, const char* sksl, const char* what) {
+  SkString source(prelude);
+  source.append(sksl);
+  SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(source);
   if (result.effect == nullptr) {
     SsWarn("%s SkSL failed to compile: %s", what, result.errorText.c_str());
     return nullptr;
@@ -205,12 +213,13 @@ inline SkRuntimeEffect* SsMaskEffect(const char* sksl, const char* what) {
 }
 
 inline SkRuntimeEffect* SsMaskWriteEffect() {
-  static SkRuntimeEffect* effect = SsMaskEffect(kSsMaskWriteSkSL, "mask coverage");
+  static SkRuntimeEffect* effect = SsMaskEffect("", kSsMaskWriteSkSL, "mask coverage");
   return effect;
 }
 
 inline SkRuntimeEffect* SsMaskReplayEffect() {
-  static SkRuntimeEffect* effect = SsMaskEffect(kSsMaskReplaySkSL, "mask replay");
+  static SkRuntimeEffect* effect =
+      SsMaskEffect(sscore::kSsFanWeightsSkSL, kSsMaskReplaySkSL, "mask replay");
   return effect;
 }
 

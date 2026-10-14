@@ -7,14 +7,34 @@ namespace sscore {
 
 namespace {
 
-/// A part's four corners in `localVertices` / `localUvs`, as float-pair indices.
-/// The Brain writes `lt, rt, lb, rb, center`; the centre is only needed for the
-/// Mesh/Shape paths, so the quad bake reads the first four.
-constexpr int kCornerFloat[4] = {0, 2, 4, 6};
+/// A part's vertices in `localVertices` / `localUvs`, as float-pair indices: the
+/// Brain writes `lt, rt, lb, rb, center`.
+constexpr int kVertexFloat[5] = {0, 2, 4, 6, 8};
 
-/// Two triangles over the corner order above (lt, rt, lb, rb). Skia does not
-/// cull, so the winding is free — this order matches SSPlayerForFlutter's.
+/// Two triangles over the corners (lt, rt, lb, rb), for a part drawn without
+/// its centre. Skia does not cull, so the winding is free.
 constexpr uint16_t kQuadIndices[6] = {0, 1, 2, 1, 3, 2};
+
+/// Four triangles around the centre (vertex 4), in the winding the two above
+/// have, for a part that `NeedsCentre`.
+constexpr uint16_t kFanIndices[12] = {4, 0, 1, 4, 1, 3, 4, 3, 2, 4, 2, 0};
+
+/// Whether a Normal or Mask part is drawn as `kFanIndices` around its centre
+/// vertex rather than as `kQuadIndices`: when it carries a vertex deformation or
+/// a PartColor.
+///
+/// Two triangles cut the quad along one diagonal, so a deformed part would bend
+/// along it and a four-corner PartColor would shade along it. Without either
+/// attribute the part is a parallelogram of one colour, which the two triangles
+/// draw identically, so the fifth vertex is only spent where it changes a pixel.
+/// The Brain counts a Normal batch's `vertex_count` / `index_count` by this same
+/// test, and `ssbake_check` holds the bake to those counts.
+bool NeedsCentre(const ss::runtime::PartState* state) {
+  if (state == nullptr) return false;
+  const auto flags = static_cast<uint64_t>(state->update_flag());
+  return (flags & (ss::runtime::UpdateAttributeFlags_AttributeVertex |
+                   ss::runtime::UpdateAttributeFlags_AttributePartColor)) != 0;
+}
 
 /// `0xAARRGGBB` (an unpremultiplied `SkColor`) from an alpha in 0..1, white.
 uint32_t WhiteWithAlpha(float alpha) {
@@ -190,18 +210,24 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
         const float partAlpha = state != nullptr ? state->alpha() : 1.0f;
         const SsPartColorCorner* corners[4] = {&info.partColor.lt, &info.partColor.rt,
                                                &info.partColor.lb, &info.partColor.rb};
+        // The centre's alpha is the corners' mean, as its colour is in the
+        // shaders' `ssFanWeights`; a vertex colour carries no RGB to average.
+        float alphas[5];
+        for (int c = 0; c < 4; ++c) alphas[c] = hasPartColor ? corners[c]->a : partAlpha;
+        alphas[4] = (alphas[0] + alphas[1] + alphas[2] + alphas[3]) * 0.25f;
+        const bool fan = NeedsCentre(state);
+        const int vertexCount = fan ? 5 : 4;
 
         // Column-major 4x4, 2D slice: x' = m0*x + m4*y + m12.
         const uint16_t base = static_cast<uint16_t>(positions_.size() / 2 - desc.vertexOffset);
-        for (int c = 0; c < 4; ++c) {
-          const float x = lv[kCornerFloat[c]];
-          const float y = lv[kCornerFloat[c] + 1];
+        for (int c = 0; c < vertexCount; ++c) {
+          const float x = lv[kVertexFloat[c]];
+          const float y = lv[kVertexFloat[c] + 1];
           positions_.push_back(m[0] * x + m[4] * y + m[12]);
           positions_.push_back(m[1] * x + m[5] * y + m[13]);
-          texCoords_.push_back(uv[kCornerFloat[c]]);
-          texCoords_.push_back(uv[kCornerFloat[c] + 1]);
-          colors_.push_back(
-              WhiteWithAlpha((hasPartColor ? corners[c]->a : partAlpha) * alphaScale));
+          texCoords_.push_back(uv[kVertexFloat[c]]);
+          texCoords_.push_back(uv[kVertexFloat[c] + 1]);
+          colors_.push_back(WhiteWithAlpha(alphas[c] * alphaScale));
         }
         // Both shader paths draw with **no vertex colours** — each carries alpha
         // itself as `a = texel.a * col.a` — so everything the loop above just
@@ -216,11 +242,13 @@ void SsBaker::bake(const ss::runtime::FrameData* fd, const SsSoAPointers& soa,
             corner->a = (hasPartColor ? corner->a : partAlpha) * alphaScale;
           }
         }
-        for (int i = 0; i < 6; ++i) {
-          indices_.push_back(static_cast<uint16_t>(base + kQuadIndices[i]));
+        const uint16_t* quad = fan ? kFanIndices : kQuadIndices;
+        const int indexCount = fan ? 12 : 6;
+        for (int i = 0; i < indexCount; ++i) {
+          indices_.push_back(static_cast<uint16_t>(base + quad[i]));
         }
-        info.vertexCount = 4;
-        info.indexCount = 6;
+        info.vertexCount = vertexCount;
+        info.indexCount = indexCount;
         parts_.push_back(info);
       }
     } else if (kind == ss::runtime::DrawBatchKind_Shape) {
@@ -286,7 +314,7 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
 
     // A mesh's PartColor is **whole-only** — `lt`'s colour and rate go to
     // every vertex. Copying it into all four corners is what lets the existing
-    // shader serve a mesh: with the corners equal its bilinear collapses to a
+    // shader serve a mesh: with the corners equal its weighting collapses to a
     // constant, so the UV reconstruction it would otherwise need drops out.
     const bool hasPartColor = SsReadPartColor(fd, state, &info.partColor);
     if (hasPartColor) {
