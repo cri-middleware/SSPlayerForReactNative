@@ -540,6 +540,23 @@ describe('the content box', () => {
     expect(player.contentBox).toBeNull()
   })
 
+  // Each measurement is a bake of every frame it walks, and the switch that
+  // follows the load's own measurement is to the animation just measured.
+  it('measures an animation-scoped box once on a load', async () => {
+    await loaded({ animation: 'Idle', measure: { scope: 'animation' } })
+
+    expect(SsInternalPlayer.last().argsOf('measureContentBox')).toEqual([[['Idle'], 0]])
+  })
+
+  it('drops the last pack’s box on a load that measures nothing', async () => {
+    const player = await loaded({ measure: { scope: 'pack' } })
+    expect(player.contentBox).not.toBeNull()
+
+    await player.load(PACK)
+
+    expect(player.contentBox).toBeNull()
+  })
+
   it('re-measures an animation-scoped box on a switch', async () => {
     const player = await loaded({ animation: 'Idle', measure: { scope: 'animation' } })
     const internal = SsInternalPlayer.last()
