@@ -40,7 +40,8 @@
 namespace ssplayer {
 
 /// Shared by all 13 programs: the uniform block, the `(s,t)` reconstruction,
-/// the straight-alpha sampler and the PartColor tail.
+/// the straight-alpha sampler and the PartColor tail. `sscore::kSsFanWeightsSkSL`
+/// goes in ahead of it.
 ///
 /// `uUvOrigin`/`uUvInv` are `SsMakeUvInverse`'s output, exactly as
 /// `SsPartColorShader.hpp` uses them — the quad's four UV corners are an affine
@@ -68,14 +69,15 @@ float2 ssLocal(float2 coord) {
                   clamp(uUvInv.z * d.x + uUvInv.w * d.y, 0.0, 1.0));
 }
 
-// Godot's `partcolor_color`, rebuilt: bilinear over the four corners.
+// Godot's `partcolor_color`, rebuilt over the fan the part is drawn as.
 float4 ssColorAt(float2 st) {
-    return mix(mix(uColLT, uColRT, st.x), mix(uColLB, uColRB, st.x), st.y);
+    float4 w = ssFanWeights(st);
+    return w.x * uColLT + w.y * uColRT + w.z * uColLB + w.w * uColRB;
 }
 
 // Godot's `partcolor_varg.w`-adjacent strength, rebuilt the same way.
 float ssRateAt(float2 st) {
-    return mix(mix(uRate.x, uRate.y, st.x), mix(uRate.z, uRate.w, st.x), st.y);
+    return dot(ssFanWeights(st), uRate);
 }
 
 // Godot's `ss_input_texture`. Skia hands back premultiplied; the SS maths
@@ -551,7 +553,8 @@ inline SkRuntimeEffect* SsShaderEffect(sscore::SsShaderId id) {
     const char* body = SsShaderBodies()[i];
     if (body == nullptr) return;
 
-    SkString source(kSsShaderPreamble);
+    SkString source(sscore::kSsFanWeightsSkSL);
+    source.append(kSsShaderPreamble);
     source.append(body);
     SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(source);
     if (result.effect == nullptr) {

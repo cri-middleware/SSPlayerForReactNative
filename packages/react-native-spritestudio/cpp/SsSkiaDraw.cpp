@@ -56,10 +56,11 @@ const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t te
   return nullptr;
 }
 
-/// Indices per quad. `SsBaker` emits exactly one quad per Normal part, which is
-/// what makes peeling a single part out of a batch arithmetic rather than a
-/// second bake — the kinds that are not quads carry their own ranges instead.
-constexpr int kIndicesPerQuad = 6;
+/// The most indices one quad has: twelve when `SsBaker` draws it as a fan
+/// around its centre, six otherwise. One quad per Normal part is what makes
+/// peeling a single part out of a batch arithmetic rather than a second bake —
+/// the kinds that are not quads carry their own ranges instead.
+constexpr int kMaxQuadIndices = 12;
 
 /// `drawVertices`'s own mode blends the shader against *vertex colours*, and
 /// Skia ignores it when there are none — which is always, here. `kModulate` is
@@ -86,14 +87,15 @@ SkPaint PaintForPass(const SkPaint& base, const BlendPass& pass) {
   return paint;
 }
 
-/// A quad's six indices, rebased onto its own four vertices.
+/// A quad's indices, rebased onto its own vertices.
 ///
-/// Read back from the baker rather than assumed: the winding is `{0,1,2,1,3,2}`
-/// today, and reading it keeps this correct if that ever changes.
-/// `quadIndices` points at the quad's own six entries; `vertexBase` is its first
-/// vertex relative to the batch, which is what the baker's values are relative to.
-void RebaseQuadIndices(const uint16_t* quadIndices, int vertexBase, uint16_t* out) {
-  for (int i = 0; i < kIndicesPerQuad; ++i) {
+/// Read back from the baker rather than assumed: whether a part is a fan or two
+/// triangles is the baker's call, per part and per frame.
+/// `quadIndices` points at the quad's own `count` entries; `vertexBase` is its
+/// first vertex relative to the batch, which is what the baker's values are
+/// relative to.
+void RebaseQuadIndices(const uint16_t* quadIndices, int count, int vertexBase, uint16_t* out) {
+  for (int i = 0; i < count; ++i) {
     out[i] = static_cast<uint16_t>(quadIndices[i] - vertexBase);
   }
 }
@@ -615,14 +617,14 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       const int indexBase = info.indexOffset - batch.indexOffset;
       const float* partUv = texCoords.data() + static_cast<size_t>(info.vertexOffset) * 2;
 
-      // A quad's six indices are rebased onto its own four vertices; a mesh's
-      // are already part-local plus the batch base, so the same subtraction
-      // serves both — it is the general form, not a quad special case.
-      uint16_t localIdx[kIndicesPerQuad];
+      // A quad's indices are rebased onto its own vertices; a mesh's are
+      // already part-local plus the batch base, so the same subtraction serves
+      // both — it is the general form, not a quad special case.
+      uint16_t localIdx[kMaxQuadIndices];
       const uint16_t* useIdx = idx + indexBase;
       std::vector<uint16_t>& meshIdx = scratch.indices;
-      if (info.indexCount == kIndicesPerQuad && info.quadShaped) {
-        RebaseQuadIndices(idx + indexBase, base, localIdx);
+      if (info.quadShaped && info.indexCount <= kMaxQuadIndices) {
+        RebaseQuadIndices(idx + indexBase, info.indexCount, base, localIdx);
         useIdx = localIdx;
       } else {
         meshIdx.resize(static_cast<size_t>(info.indexCount));
@@ -719,9 +721,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       if (partMasked) {
         // The unit square, twice over. `SsMakeUvInverse` turns the first into
         // the identity, so the shader's `(s, t)` *is* the interpolated
-        // texcoord, and bilinear-ing the second by it gives back `(s, t)`
-        // again. Net effect: the coverage is sampled exactly where the texcoord
-        // says — which is what the branch below writes there.
+        // texcoord, and weighting the second's corners at it gives back
+        // `(s, t)` again. Net effect: the coverage is sampled exactly where the
+        // texcoord says — which is what the branch below writes there.
         static constexpr float kUnitSquare[8] = {0.0f, 0.0f, 1.0f, 0.0f,
                                                  0.0f, 1.0f, 1.0f, 1.0f};
         const float* replayUv = partUv;

@@ -7,7 +7,7 @@
 // still reported seven healthy writers. That is the failure this program exists
 // to make loud.
 //
-// Five checks, in order of how early they would catch a regression:
+// Six checks, in order of how early they would catch a regression:
 //
 //   1. **The SkSL compiles.** Runtime effects are ES2-restricted, so an ordinary
 //      -looking edit (a bitwise operator, a non-constant loop bound) fails at
@@ -16,6 +16,10 @@
 //      an 8-bit image and a colour-managed sampler, and any transfer function
 //      between the two decodes as writers that never covered the pixel. Checked
 //      for all 96 bits, through the real write *and* replay shaders.
+//   2b. **A deformed target reads the coverage where it is drawn.** Its corners
+//      are not a parallelogram, so the replay has to weight their coverage UVs
+//      over the fan the part is drawn as; any other weighting reads the mask a
+//      few pixels from the part.
 //   3. **The whole path still masks something.** The real `DrawBakedFrame` over
 //      a real `.ssab`, rendered twice — with the mask input and without — and
 //      the two framebuffers must differ. This is the one that catches "the
@@ -36,6 +40,7 @@
 // has no Linux slice. Build and run: tools/check-mask.sh
 
 #include <algorithm>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -165,7 +170,7 @@ sk_sp<SkShader> GreenAtlas() {
 
 /// The `[x0, x1) x [0, h)` slice of a box as `SkVertices`, positions and
 /// texcoords equal, so the replay's `(s,t)` reconstruction is the identity on
-/// the unit box and the coverage UV bilinear is exercised without a cell's UV
+/// the unit box and the coverage UV weighting is exercised without a cell's UV
 /// layout in the way.
 sk_sp<SkVertices> SliceQuad(float x0, float x1, float h) {
   const SkPoint pos[4] = {{x0, 0}, {x1, 0}, {x0, h}, {x1, h}};
@@ -178,18 +183,21 @@ sk_sp<SkVertices> UnitQuad(float w, float h) { return SliceQuad(0.0f, w, h); }
 // --- 1. the shaders compile ------------------------------------------------
 
 void CheckShadersCompile() {
+  // Through the effects the draw path calls, not a private compile of the SkSL
+  // text: the replay only compiles with `ssFanWeights` ahead of it, and those
+  // functions are where that is put together.
   const struct {
     const char* name;
-    const char* sksl;
+    SkRuntimeEffect* (*effect)();
   } kAll[] = {
-      {"mask-write", ssplayer::kSsMaskWriteSkSL},
-      {"mask-replay", ssplayer::kSsMaskReplaySkSL},
+      {"mask-write", ssplayer::SsMaskWriteEffect},
+      {"mask-replay", ssplayer::SsMaskReplayEffect},
   };
   for (const auto& s : kAll) {
-    SkRuntimeEffect::Result r = SkRuntimeEffect::MakeForShader(SkString(s.sksl));
-    if (r.effect == nullptr) {
-      Fail("%s did not compile (runtime effects are ES2 — no bitwise ops):\n%s", s.name,
-           r.errorText.c_str());
+    if (s.effect() == nullptr) {
+      Fail("%s did not compile (runtime effects are ES2 — no bitwise ops) — see the "
+           "[SsPlayer] line above",
+           s.name);
     }
   }
 }
@@ -402,6 +410,99 @@ void CheckPlaneIsolation(const char* label, sk_sp<SkColorSpace> dstCs) {
            c.wantRight ? "was dropped" : "survived");
     }
   }
+}
+
+// --- 2b. a deformed target reads the coverage where it is drawn -------------
+
+/// One target whose corners are not a parallelogram — `rb` pulled in, as a
+/// vertex deformation does — drawn as the bake's fan over a coverage that
+/// covers the left of the box. The coverage UV is the position over the box,
+/// so every pixel's answer follows from where it is: kept left of the seam,
+/// dropped right of it. A bilinear replay got 12 of this target's pixels wrong,
+/// inside the part and clear of the seam: it read the mask from where the part
+/// was not drawn.
+void CheckDeformedTarget() {
+  constexpr int kN = 64;
+  constexpr float kSeam = 24.0f;
+  const ssplayer::SsMaskCoverage coverage =
+      BuildCoverage({{0, 0.0f, kSeam / kN, false}}, kN, kN);
+  if (!coverage.valid()) {
+    Fail("deformed target: coverage image is null");
+    return;
+  }
+
+  // lt, rt, lb, rb, then the centre at the corners' mean, which is where the
+  // Brain puts a deformed part's fifth vertex. The texcoords are the cell's,
+  // which a deformation does not move.
+  SkPoint pos[5] = {{0, 0}, {kN, 0}, {0, kN}, {24, 48}, {0, 0}};
+  pos[4] = {(pos[0].fX + pos[1].fX + pos[2].fX + pos[3].fX) * 0.25f,
+            (pos[0].fY + pos[1].fY + pos[2].fY + pos[3].fY) * 0.25f};
+  const SkPoint tex[5] = {{0, 0}, {kN, 0}, {0, kN}, {kN, kN}, {kN * 0.5f, kN * 0.5f}};
+  const uint16_t fan[12] = {4, 0, 1, 4, 1, 3, 4, 3, 2, 4, 2, 0};
+  const float uv[8] = {0, 0, kN, 0, 0, kN, kN, kN};
+  float covUv[8];
+  for (int c = 0; c < 4; ++c) {
+    covUv[c * 2] = pos[c].fX / kN;
+    covUv[c * 2 + 1] = pos[c].fY / kN;
+  }
+
+  sscore::SsMaskBits bits;
+  bits.set(0, false);
+  bits.visibleInside = true;
+  sk_sp<SkShader> replay =
+      ssplayer::MakeMaskReplayShader(WhiteAtlas(), coverage, bits, uv, covUv);
+  if (replay == nullptr) {
+    Fail("deformed target: replay shader would not build");
+    return;
+  }
+
+  sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kN, kN));
+  SkCanvas* canvas = surface->getCanvas();
+  canvas->clear(SK_ColorTRANSPARENT);
+  SkPaint paint;
+  paint.setShader(std::move(replay));
+  paint.setAntiAlias(false);
+  canvas->drawVertices(
+      SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode, 5, pos, tex, nullptr, 12, fan),
+      SkBlendMode::kModulate, paint);
+  SkBitmap out;
+  out.allocN32Pixels(kN, kN);
+  surface->readPixels(out, 0, 0);
+
+  // The outline, lt -> rt -> rb -> lb. A pixel within a pixel of it, or of the
+  // seam, is left out: what is asked is where the mask is read, not how an
+  // edge rasterises.
+  const SkPoint ring[4] = {pos[0], pos[1], pos[3], pos[2]};
+  const auto deepInside = [&](float x, float y) {
+    for (int e = 0; e < 4; ++e) {
+      const SkPoint a = ring[e];
+      const SkPoint b = ring[(e + 1) % 4];
+      const float cross = (b.fX - a.fX) * (y - a.fY) - (b.fY - a.fY) * (x - a.fX);
+      if (cross / SkPoint::Length(b.fX - a.fX, b.fY - a.fY) < 1.0f) return false;
+    }
+    return true;
+  };
+  int checked = 0;
+  int wrong = 0;
+  for (int y = 0; y < kN; ++y) {
+    for (int x = 0; x < kN; ++x) {
+      const float cx = x + 0.5f;
+      const float cy = y + 0.5f;
+      if (!deepInside(cx, cy) || std::fabs(cx - kSeam) < 1.0f) continue;
+      ++checked;
+      const bool kept = SkColorGetA(out.getColor(x, y)) != 0;
+      if (kept != (cx < kSeam)) {
+        if (wrong < 4) {
+          Fail("deformed target: pixel (%d, %d) %s — the mask was read from where the part "
+               "is not drawn",
+               x, y, kept ? "survived right of the seam" : "was dropped left of it");
+        }
+        ++wrong;
+      }
+    }
+  }
+  if (wrong > 4) Fail("deformed target: %d more pixels like these", wrong - 4);
+  if (wrong == 0) std::printf("    %d pixels, each read at its own position\n", checked);
 }
 
 // --- a loaded, baked pack --------------------------------------------------
@@ -1057,6 +1158,9 @@ int main(int argc, char** argv) {
   CheckPlaneIsolation("unmanaged dst", nullptr);
   CheckPlaneIsolation("sRGB dst", SkColorSpace::MakeSRGB());
   CheckPlaneIsolation("Display P3 dst", p3);
+
+  std::printf("==> a deformed target reads the coverage where it is drawn\n");
+  CheckDeformedTarget();
 
   std::printf("==> the whole draw path still masks\n");
   CheckEndToEnd(ssab, animation, frame);

@@ -31,9 +31,10 @@ namespace sscore {
 /// What the draw path needs to know about one baked part, beyond its geometry.
 ///
 /// One entry per part actually baked, in bake order. The **ranges are carried
-/// rather than derived**: a Normal or Mask part is always four vertices and six
-/// indices, but a Mesh part is however many the Brain skinned, so multiplying by
-/// four stopped being an answer the moment Mesh arrived.
+/// rather than derived**: a Normal or Mask part is four vertices and six indices,
+/// or five and twelve when it is drawn around its centre, and a Mesh part is
+/// however many the Brain skinned, so multiplying by four stopped being an
+/// answer the moment Mesh arrived.
 struct SsPartDraw {
   /// Which part this is, and where it sits in `draw_order`.
   ///
@@ -52,7 +53,8 @@ struct SsPartDraw {
   int32_t indexOffset = 0;
   int32_t indexCount = 0;
 
-  /// Whether the four vertices are a sprite quad in `lt, rt, lb, rb` order.
+  /// Whether the vertices are a sprite quad: `lt, rt, lb, rb`, then the centre
+  /// when the part is drawn as a fan around it.
   ///
   /// False for Mesh and for Effect, and everything that reconstructs a corner
   /// gradient from the UV depends on it: the PartColor shader and the mask replay
