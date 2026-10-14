@@ -413,6 +413,21 @@ describe('the load’s outcome', () => {
     expect(onLoad).toHaveBeenCalledWith(SpriteStudioPlayer.last())
   })
 
+  // `dispose()` makes an abandoned load drop what it built and resolve, so the
+  // hook has to know it no longer wants the result.
+  it('neither starts nor hands over a player its unmount abandoned', async () => {
+    SpriteStudioPlayer.holdLoads = true
+    const onLoad = vi.fn()
+    const harness = await mount({ source: PACK, onLoad })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.unmount()
+    await act(async () => player.finishLoad())
+
+    expect(onLoad).not.toHaveBeenCalled()
+    expect(player.names('play')).toEqual([])
+  })
+
   it('goes to onError when there is one', async () => {
     vi.spyOn(SpriteStudioPlayer.prototype, 'load').mockRejectedValue(new Error('404'))
     const onError = vi.fn()

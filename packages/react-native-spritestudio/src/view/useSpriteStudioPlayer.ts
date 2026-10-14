@@ -249,9 +249,14 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     next.setLoopCount(loop)
 
     applied.current = animation
+    // Set by the cleanup. A load this effect no longer wants still resolves —
+    // `dispose()` makes it drop what it built, not reject — so without this
+    // the callbacks below would start a disposed player and hand it to `onLoad`.
+    let cancelled = false
     next
       .load(sourceUri, { animation, measure })
       .then(() => {
+        if (cancelled) return
         // `load` selects and poses; starting is a separate verb, so the first
         // play happens here. `playing={false}` therefore leaves the animation on
         // its first frame without ever having played — which is what the prop
@@ -260,10 +265,13 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
         setLoadTick((tick) => tick + 1)
         callbacks.current.onLoad?.(next)
       })
-      .catch((error: unknown) =>
-        reportError(callbacks.current.onError, error, `'${sourceUri}' did not load`)
-      )
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          reportError(callbacks.current.onError, error, `'${sourceUri}' did not load`)
+        }
+      })
     return () => {
+      cancelled = true
       // Explicit teardown, never GC: every buffer Layer 1 handed out is a borrow
       // of memory this player owns (the lifetime rule in `specs/SsRuntime.nitro.ts`).
       // It also hands back the cache leases, which is what lets the pack be freed
