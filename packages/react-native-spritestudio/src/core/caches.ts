@@ -29,6 +29,20 @@ export const ssResourceCache = new SsRefCache<SsResource>({
  */
 export const ssImageCache = new SsRefCache<SkImage>()
 
+/** Records kept above this layer of what the caches hold — see {@link onCachesCleared}. */
+const clearHooks = new Set<() => void>()
+
+/**
+ * Has `hook` run whenever {@link ssClearCaches} empties the caches.
+ *
+ * For a layer above that keeps its own record of what is in them: `ssPreload`
+ * remembers which packs it holds, and a record that outlived the entries made a
+ * later preload of the same pack a no-op against a cold cache.
+ */
+export function onCachesCleared(hook: () => void): void {
+  clearHooks.add(hook)
+}
+
 /**
  * Empties both caches.
  *
@@ -39,4 +53,5 @@ export const ssImageCache = new SsRefCache<SkImage>()
 export function ssClearCaches(): void {
   ssResourceCache.clear()
   ssImageCache.clear()
+  for (const hook of clearHooks) hook()
 }
