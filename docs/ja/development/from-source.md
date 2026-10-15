@@ -40,7 +40,7 @@ SSPlayerForReactNative/
 │   ├── bin/                            <- npx react-native-spritestudio assets
 │   ├── nitrogen/                       <- [生成物・コミット対象・手で編集しない]
 │   └── native/                         <- [gitignore] libssruntime とヘッダ
-├── example/                            <- Expo アプリ: プレイヤー画面
+├── example/                            <- Expo アプリ: Viewer・Part follow・Blending の 3 画面
 ├── tools/                              <- ホスト側チェック（FrameData、ベイカー、マスク、hidden、シェーダー）
 └── docs/                               <- このサイト
 ```
@@ -73,7 +73,7 @@ pnpm run download-sdk --force
 ```
 
 ::: warning 計測の前に release でビルドしてください
-`build=debug` の Brain は他のすべてのコストを覆い隠し、ベンチマークが見つけようとしている差を平坦にします。実際にここで誤った結論を生んだことがあります。
+`build=debug` の Brain は他のすべてのコストを覆い隠し、ベンチマークが見つけようとしている差を平坦にします。
 
 2 つのインストールは意図的に区別されています。`download-sdk` は `native/VERSION` と
 `native/BUILD_MODE` を書き、`build-runtime` はどちらも書かず後者を削除します。これにより

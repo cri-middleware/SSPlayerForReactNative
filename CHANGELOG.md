@@ -25,10 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   plugin. On the web the package imports safely but does not play.
 - **Documentation**: bilingual (EN/JA) documentation site.
 
-### Fixed
-- `justLooped` no longer reports the previous tick's loop after a tick that did not advance — a held,
-  stopped or finished player. `trackJustLooped` follows the same rule.
-
 ### Known Limitations
 - The API may change without notice while the package is in beta.
 - `Nines` and `Text` parts are not drawn, and a masked Effect draws unmasked. These and the other

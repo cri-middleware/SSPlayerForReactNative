@@ -67,11 +67,11 @@ npx react-native run-ios     # または run-android
 
 どちらの場合も、autolinking が両プラットフォームでパッケージを拾います。
 
-::: warning bare のルートは未完成です
+::: warning bare アプリでは plugin の 2 つの仕事を自分で行います
 Expo config plugin が bare アプリでは代わりにやってくれない仕事が 2 つあります。**パックのディレクトリをネイティブアセットとして同梱すること**、そしてネイティブコアが提供しない 32 ビット `x86` スライスをビルドが要求しなくなるよう
-**`reactNativeArchitectures` を絞ること**です。どちらも文書化と検証が
+**`reactNativeArchitectures` を絞ること**です。bare アプリではこの 2 つを手で行います。その手順の文書化は
 [ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
-の未着手項目として残っています。それまでは自力で解決する必要があると考えてください。
+で追跡しています。
 :::
 
 次は[アセットの準備](/ja/setup/assets)です。何かを再生する前に、パックが端末に届いている必要があります。

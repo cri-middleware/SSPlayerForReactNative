@@ -86,14 +86,13 @@ npx react-native run-ios     # or run-android
 
 Autolinking picks the package up on both platforms either way.
 
-::: warning The bare route is not finished
+::: warning In a bare app, the plugin's two jobs are yours
 The Expo config plugin does two things nothing does for you in a bare app: it
 **ships your pack directories as native assets**, and it **narrows
 `reactNativeArchitectures`** so the build stops asking for the 32-bit `x86`
-slice the native core does not provide. Writing both down and verifying them is
-still an open
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
-item — until then, expect to work them out yourself.
+slice the native core does not provide. A bare app does both by hand; written
+steps for them are tracked in the
+[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).
 :::
 
 Next: [Preparing assets](/setup/assets), because a pack has to reach the device

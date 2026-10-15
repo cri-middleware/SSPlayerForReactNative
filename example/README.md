@@ -1,9 +1,10 @@
 # Example app
 
-The Expo app this repository verifies rendering on. Two screens, switched by a
+The Expo app this repository verifies rendering on. Three screens, switched by a
 tab bar. The **Viewer** is one player and a *Subject* picker that steps through a
 feature card per SpriteStudio capability; **Part follow** pins a fish to Ringo
-with `useSsPartTransform`.
+with `useSsPartTransform`; **Blending** drives the track stack by hand —
+crossfades, an overlay track, speed and loop count.
 
 **This is not a standalone project.** It consumes the workspace package, and it
 needs the native core and the converted packs before it can show anything — both
