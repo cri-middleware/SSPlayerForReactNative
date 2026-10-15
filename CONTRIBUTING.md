@@ -55,7 +55,7 @@ community forum rather than the tracker; see [SUPPORT.md](./SUPPORT.md).
 3. Run what CI cannot — see [Development Environment](#development-environment).
 4. Keep the change scoped to one thing.
 5. Describe what you verified, and on which platform. iOS and Android diverge:
-   the only platform-specific defect the example's Player screen has ever caught
+   the only platform-specific defect the example's Viewer screen has ever caught
    was iOS-only.
 
 ### Branching & releases
@@ -140,7 +140,7 @@ app for Android and iOS on the Brain built from the submodule, and run
 `check-hidden`, `check-mask`, `check-glue` and the asset manifest check on that
 Brain. `check-framedata` and `prepack` run in none of them.
 
-Rendering is verified by hand on the example's Player screen, one feature card per
+Rendering is verified by hand on the example's Viewer screen, one feature card per
 capability; [`example/README.md`](./example/README.md) says what each subject
 proves.
 

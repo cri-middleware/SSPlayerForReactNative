@@ -61,7 +61,7 @@ $projects = @(
 # every .ssab that names it, and its two atlases are 1.9 MB and 2.8 MB across 41
 # packs - roughly 150 MB of app assets, against 5.2 MB for the reference
 # conversion, to exercise a route the other three subjects already cover. The
-# Player screen disables the toggle for that subject and says why.
+# Viewer screen disables the toggle for that subject and says why.
 $embeddedProjects = @(
     @{ Dir = "overall"; Sspj = "overall.sspj"; Out = "overall-embedded" }
     @{ Dir = "Ringo"; Sspj = "Ringo.sspj"; Out = "Ringo-embedded" }
@@ -75,7 +75,7 @@ $embeddedProjects = @(
 # example\SpriteStudio_Source\ is not in this repository, and everything in it
 # is optional: the example, the asset manifest and check-mask all work without
 # it. It is where a project goes to be looked at on a device - put its folder
-# there, run this, and the Player screen offers it as local/<directory name>
+# there, run this, and the Viewer screen offers it as local/<directory name>
 # with every .ssab it converted to. Nothing in the app names it.
 #
 # One of them is named here, as directory -> output dir name, because a card and

@@ -82,7 +82,7 @@ jobs:
         # `core/`, `player/` and `view/`. Nitro, Skia and Reanimated are aliased
         # to stubs and the Brain is faked at the package's own module boundary,
         # so none of it needs a device — what is left to the host checks and the
-        # example's Player screen is the drawing, which a fake cannot judge.
+        # example's Viewer screen is the drawing, which a fake cannot judge.
         run: pnpm test
 
       - name: The Nitro bindings are current
