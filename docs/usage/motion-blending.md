@@ -23,7 +23,7 @@ crossfades instead of cutting.
 ```
 
 With `transitionMs` at `0` (the default) a change sets the new animation up outright and heads
-out into it, as before. The first animation of a load is always set up outright — there is
+out into it. The first animation of a load is always set up outright — there is
 nothing on screen yet to fade from.
 
 ::: warning Switch track 0 through one route

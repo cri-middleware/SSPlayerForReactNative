@@ -14,7 +14,7 @@ and no vertex ever crosses the JSI boundary.
 
 Those calls are synchronous, though. Advancing the timeline, building the
 geometry and recording the Skia draw calls all happen inside them, in the Rust
-core and the C++ beside it, so that time is spent on the JS thread as well. Two
+core and the C++ beside it, so that time is spent on the JS thread as well. Three
 things follow, and they are worth designing around:
 
 - **The JS thread's cost scales with how many players are on screen and with

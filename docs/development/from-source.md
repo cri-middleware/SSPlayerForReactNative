@@ -44,7 +44,7 @@ SSPlayerForReactNative/
 │   ├── bin/                            <- npx react-native-spritestudio assets
 │   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
 │   └── native/                         <- [gitignored] libssruntime + headers
-├── example/                            <- Expo app: the player screen
+├── example/                            <- Expo app: Viewer, Part follow and Blending screens
 ├── tools/                              <- host-side checks (FrameData, baker, mask, hidden, shader)
 └── docs/                               <- this site
 ```
@@ -83,7 +83,7 @@ pnpm run download-sdk --force
 
 ::: warning Build release before measuring anything
 A `build=debug` Brain swamps every other cost and flattens the differences a
-benchmark exists to find. It has produced a wrong conclusion here before.
+benchmark exists to find.
 
 The two installs are also told apart on purpose: `download-sdk` writes
 `native/VERSION` and `native/BUILD_MODE`, `build-runtime` writes neither and

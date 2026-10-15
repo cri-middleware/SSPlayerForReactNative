@@ -19,7 +19,7 @@ Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.
 npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go does not work** — the package contains native code, so a prebuild (CNG) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. A bare React Native app works too; autolinking picks it up on both platforms.
+**Expo Go does not work** — the package contains native code, so a prebuild (CNG) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. In a bare React Native app autolinking picks it up on both platforms too, but the config plugin's two jobs — shipping your pack directories as native assets and dropping the 32-bit `x86` ABI — are yours to do by hand ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
 
 ## Ship your packs
 
