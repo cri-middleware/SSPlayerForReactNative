@@ -48,7 +48,9 @@ npx expo install react-native-spritestudio @shopify/react-native-skia react-nati
 its own binary, with this package compiled into it. In a managed app that is
 `npx expo prebuild` then `npx expo run:ios` / `run:android`; in a bare app you
 already have the native projects, so rebuild them instead. Autolinking picks the
-package up either way. [Installation](docs/setup/install.md) has the detail.
+package up either way, but in a bare app the config plugin's two jobs — shipping
+your pack directories as native assets and dropping the 32-bit `x86` ABI — are
+yours to do by hand. [Installation](docs/setup/install.md) has the detail.
 
 ### See it running first
 
