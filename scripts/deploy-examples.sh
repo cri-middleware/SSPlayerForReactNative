@@ -56,7 +56,7 @@ PROJECTS=(
 # `example/SpriteStudio_Source/` is not in this repository, and everything in it
 # is **optional**: the example, the asset manifest and `check-mask` all work
 # without it. It is where a project goes to be looked at on a device — put its
-# folder there, run this, and the Player screen offers it as `local/<directory
+# folder there, run this, and the Viewer screen offers it as `local/<directory
 # name>` with every `.ssab` it converted to. Nothing in the app names it.
 #
 # One of them is named here, as "<directory>|<output dir name>", because a card
@@ -81,7 +81,7 @@ LOCAL_DEPLOYED=()
 # a `require()` names — so reference is the mode with a loading path to get
 # wrong, and embedded is the one that is self-contained everywhere. Keeping both
 # means the example exercises both branches of `SsTextureLoader`, and it has to
-# be per pack rather than once overall: the Player screen's texture toggle
+# be per pack rather than once overall: the Viewer screen's texture toggle
 # applies to whichever subject is selected, so a pack with only one conversion
 # would make that toggle silently do nothing for it.
 #
@@ -89,7 +89,7 @@ LOCAL_DEPLOYED=()
 # every `.ssab` that names it, and its two atlases are 1.9 MB and 2.8 MB across
 # 41 packs — roughly 150 MB of app assets, against 5.2 MB for the reference
 # conversion, to exercise a route the other three subjects already cover. The
-# Player screen disables the toggle for that subject and says why, rather than
+# Viewer screen disables the toggle for that subject and says why, rather than
 # offering it and pointing at a directory nothing produced.
 EMBEDDED_PROJECTS=(
     "overall|overall.sspj|overall-embedded"
