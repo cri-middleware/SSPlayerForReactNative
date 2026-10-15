@@ -19,8 +19,7 @@ description: 公開されている名前のうち実際に必要なものと、�
 ## プレイヤー自体が必要になったら
 
 `SpriteStudioPlayer` は描画バックエンドを持たないトランスポートです。ref
-（`ref.current.player`）から到達して、シーク、アニメーションの切り替え、コンテンツボックスの読み取りを命令的に行えます。これが interface として規定されているのは意図的で、
-react-native-web のルートが同じ API を別の実装から提供できるようにするためです。
+（`ref.current.player`）から到達して、シーク、アニメーションの切り替え、コンテンツボックスの読み取りを命令的に行えます。
 
 prop を持たない、命令的にしか呼べない操作もここにあります。ランタイムのテクスチャ差し替えはその 1 つです。`setCellmapTexture(name, image)` はセルマップが描画に使うアトラスを差し替え（`null` でパック本来のものへ復元）、`getCellmapTexture(name)` は差し替え値を読み出し、
 `getReplaceableTextureNames()` は渡せる名前を列挙します。[テクスチャ](/ja/usage/textures#from-code-at-runtime)を参照してください。

@@ -21,8 +21,7 @@ need, and in roughly the order you will need it.
 
 `SpriteStudioPlayer` is the transport, with no drawing backend in it. Reach it
 through a ref (`ref.current.player`) to seek, switch animation or read the
-content box imperatively. It is stated as an interface on purpose, so that a
-different implementation — a react-native-web route, say — could serve the same API.
+content box imperatively.
 
 It is also where the imperative-only calls live — the ones with no prop. Runtime
 texture replacement is one: `setCellmapTexture(name, image)` swaps the atlas a
