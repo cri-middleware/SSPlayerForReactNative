@@ -33,11 +33,8 @@ Three things are worth designing around:
   with an animation playing inside it pays once. A mask part that moves, or
   changes its cell or texture, pays again on every frame it does.
 
-::: warning There are no device numbers behind this page
-Nothing has been measured on a physical device: iOS Simulator and Android
-emulator only, on a host whose CPU flatters the very side a phone struggles
-with. Treat this as a cost model, not a benchmark — and measure a **release**
-build, since a debug bundle swamps everything described here.
+::: warning This is a cost model, not a benchmark
+Measure a **release** build: a debug bundle swamps everything described here.
 :::
 
 ## Many animations: one scene, not many views
