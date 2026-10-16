@@ -111,6 +111,7 @@ pnpm run run-ios         # または: pnpm run run-android
 | FlatBuffers アクセサが最新かつ読み取りパスが健全（`flatc` が必要） | `pnpm run check-framedata` |
 | マスク描画、およびインスタンスの子へまたがるマスク（macOS） | `pnpm run check-mask` |
 | 描画プランから外れている間もインスタンスとエフェクトのスロットが進み続け、非表示のエフェクトはパーティクルを作らないこと | `pnpm run check-hidden` |
+| トラックスタックが姿勢を動かしているあいだはプレイヤーが tick を続け、それ以外では止まること | `pnpm run check-motion` |
 | `ss-*` シェーダーがコンパイルでき、その演算が正しいこと（macOS） | `pnpm run check-shader` |
 | Nitro まわりの C++ が iOS（macOS・Xcode）と Android（NDK）向けにコンパイルできること | `pnpm run check-glue` |
 | web スタブバレルが import 可能で throw すること（OS 不問、Brain 不要） | `pnpm run check-web-barrel` |

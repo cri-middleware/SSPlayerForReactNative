@@ -359,6 +359,7 @@ if stage checks "typecheck and the host checks"; then
     fi
 
     pnpm run check-hidden
+    pnpm run check-motion
 
     # Both link the host libskia RN Skia ships, which has no Linux slice.
     if [ "$HOST" = "Darwin" ]; then

@@ -313,7 +313,7 @@ if (Invoke-Stage "checks" "typecheck and the checks that run here") {
     Invoke-Checked "pnpm run check-web-barrel" { & pnpm run check-web-barrel }
     # The other four are bash, and two of them link a host libskia RN Skia
     # ships for macOS alone. Run them there before releasing.
-    Write-Host "   check-framedata / check-mask / check-shader / check-hidden SKIPPED (macOS or Linux only)"
+    Write-Host "   check-framedata / check-mask / check-shader / check-hidden / check-motion SKIPPED (macOS or Linux only)"
 }
 
 # --- the pack --------------------------------------------------------------

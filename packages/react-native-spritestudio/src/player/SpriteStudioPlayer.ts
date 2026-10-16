@@ -1766,8 +1766,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * nothing advances, its parts with independent playback included, as in
    * SSPlayerForWeb. A paused one still advances, so those keep running, unless
    * it has no effect or instance part, in which case nothing could move. A
-   * finished one still advances while another track or a fade moves: track 0
-   * ending does not stop the clock the rest of the stack runs on.
+   * finished one still advances while the rest of the stack moves the pose:
+   * track 0 ending does not stop the clock that runs on — see
+   * `SsContext.advances`.
    *
    * `isFinished` is a *state* the Brain latches until the next play/setup, so
    * `onAnimationFinished` is fired off its rising edge — polling the state itself would

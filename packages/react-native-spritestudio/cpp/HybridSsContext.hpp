@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -306,12 +307,11 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   /// Whether `update()` can change the frame. A pause moves only the parts that
   /// keep their own clock, and only effect and instance parts can. Once track 0
-  /// has finished, only another track or a fade still can.
+  /// has finished, only the rest of the stack still can. See `SsAdvances`.
   bool advances() const;
-  /// Whether anything but track 0's own playhead can still move: a fade in
-  /// flight on any track, or an animation on a track above 0 that has not
-  /// played its loops out.
-  bool othersMove() const;
+  /// Whether this player has an effect or instance part: one keeps its own
+  /// clock through a pause, and moves on a tick that leaves the frame alone.
+  bool hasSlots() const;
   /// After a track call the Brain accepted: track 0's playhead may now be
   /// another animation's, and neither the pose nor the slots are where `frame_`
   /// and the last step left them.
@@ -321,10 +321,11 @@ class HybridSsContext final : public HybridSsContextSpec,
   int32_t passedEventAnimation(int32_t i) const;
   /// The source that fired passed event `i`, or -1.
   double passedEventSource(int32_t i) const;
-  /// Without this an override on a player that does not advance never shows:
-  /// Layer 3 sends it no `update()`. The rebuild waits for `refreshIfStale`, so
-  /// a whole override map costs one build.
-  void markStaleIfHeld();
+  /// Without this an override never shows: a player that does not advance gets
+  /// no `update()`, and one that does rebuilds only when the pose moves. The
+  /// rebuild waits for `refreshIfStale` or the next `update()`, so a whole
+  /// override map costs one build.
+  void markStale();
   void refreshIfStale();
 
   /// Re-reads the playhead from the Brain and republishes the frame.
@@ -366,9 +367,14 @@ class HybridSsContext final : public HybridSsContextSpec,
   size_t partCount_ = 0;
 
   /// The Brain's FrameData for `frameNo_`, read in place. A raw pointer on
-  /// purpose: it is a borrow into a buffer `libssruntime` recycles on the next
-  /// `update()`, and null whenever there is no frame to read.
+  /// purpose: it is a borrow into a buffer `libssruntime` rewrites on the next
+  /// `ss_runtime_get_frame_data`, and null whenever there is no frame to read.
+  /// `ss_runtime_update` leaves it alone, which is what lets `update()` keep it
+  /// when the pose has not moved.
   const ss::runtime::FrameData* frame_ = nullptr;
+  /// The display frame `frame_` was built at; NaN before the first build, so
+  /// it matches nothing.
+  float builtFrame_ = std::numeric_limits<float>::quiet_NaN();
   sscore::SsSoAPointers soa_;
 
   sscore::SsBaker baker_;

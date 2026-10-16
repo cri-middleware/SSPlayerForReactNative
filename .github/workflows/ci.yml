@@ -7,16 +7,16 @@ name: CI
 # (release/X.Y into main) also run `check-shader` on macOS, build the example
 # app for Android and iOS on the Brain built from the SDK submodule, run the host
 # checks that need that Brain and the converted packs (`check-hidden`,
-# `check-mask`, `check-glue`, the asset manifest), and build the Pages site. A
+# `check-motion`, `check-mask`, `check-glue`, the asset manifest), and build the Pages site. A
 # pull request that touches only Markdown runs none of this.
 #
 # What the pull-request tier leaves out, so nobody mistakes a green tick for more
 # than it is:
 #
-#   * the host checks: `check-framedata`, `check-mask` and `check-hidden` build a
-#     host Brain out of the SDK submodule, `check-glue` needs the Brain's header,
-#     and `check-shader` links the macOS-only libskia RN Skia ships. The weekly
-#     tier runs all but `check-framedata`.
+#   * the host checks: `check-framedata`, `check-mask`, `check-hidden` and
+#     `check-motion` build a host Brain out of the SDK submodule, `check-glue`
+#     needs the Brain's header, and `check-shader` links the macOS-only libskia
+#     RN Skia ships. The weekly tier runs all but `check-framedata`.
 #   * `cpp/format/` being current — regenerating needs a `flatc` whose version
 #     matches the vendored headers, which `static_assert` on it. An
 #     apt-installed flatc would report a diff that means "wrong flatc", not
@@ -316,6 +316,7 @@ jobs:
         shell: bash
         run: |
           pnpm run check-hidden
+          pnpm run check-motion
           pnpm run check-mask
           pnpm run check-glue | tee "$RUNNER_TEMP/glue.log"
           if sed -n '/^==> iOS/,/^==> Android/p' "$RUNNER_TEMP/glue.log" | grep -q SKIPPED; then

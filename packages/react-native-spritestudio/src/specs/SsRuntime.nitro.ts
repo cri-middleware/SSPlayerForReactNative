@@ -338,11 +338,13 @@ export interface SsContext
   /**
    * Whether the last `drawInto` drew the frame as it stands.
    *
-   * False after anything that changes what would be drawn: an `update()`, a
-   * call that moves the playhead, a new animation, a sub-frame switch, or an
-   * override on a player that does not advance. A view that finds it true,
-   * with the same texture table and transform as last time, can keep the
-   * picture it has.
+   * False after anything that changes what would be drawn: an `update()` that
+   * moves the pose, a call that moves the playhead, a new animation, a
+   * sub-frame switch, an override, or a track call. An `update()` that lands on
+   * the pose already drawn leaves it true — a frame that lasts several ticks,
+   * or a pause, unless an effect or instance part moves on its own clock. A
+   * view that finds it true, with the same texture table and transform as last
+   * time, can keep the picture it has.
    */
   readonly frameDrawn: boolean
 
@@ -353,9 +355,11 @@ export interface SsContext
    * sends a player that does not advance no `update()`.
    *
    * **Not** `isPlaying`, which goes false when track 0 finishes: the Brain's
-   * clock runs on from `play()` until `stop()` or a setup, and an overlay on
-   * another track or a fade in flight still moves on it. So a finished track 0
-   * advances while one of those does, and only then.
+   * clock runs on from `play()` until `stop()` or a setup, and the rest of the
+   * stack still moves on it — a fade in flight, or a source other than track
+   * 0's main one, track 0's own included, still playing where it is heard. So
+   * a finished track 0 advances while the Brain says one of those does, and
+   * only then. A pause holds them as it holds track 0.
    */
   readonly advances: boolean
 
