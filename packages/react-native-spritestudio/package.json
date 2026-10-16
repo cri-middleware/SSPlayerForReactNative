@@ -92,10 +92,6 @@
   "bin": {
     "react-native-spritestudio": "./bin/spritestudio.js"
   },
-  "//publishConfig": "npm tags whatever is published as `latest` regardless of the prerelease identifier, so a 7.0.0-beta.1 with no tag here would be what a bare `npm i react-native-spritestudio` installs. `beta` matches the identifier in the version and what SSPlayerForWgpu publishes under.",
-  "publishConfig": {
-    "tag": "beta"
-  },
   "module": "lib/module/index.js",
   "react-native": "src/index.ts",
   "source": "src/index.ts",
