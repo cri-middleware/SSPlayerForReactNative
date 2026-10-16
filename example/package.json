@@ -7,10 +7,10 @@
     "app is built against: react, react-native, @shopify/react-native-skia,",
     "react-native-reanimated, react-native-worklets. Expo's compatibility table",
     "is the reference, and one moves by hand once the native side has been built",
-    "against it, so Dependabot is told to skip them. The package names them as",
-    "peers and pnpm resolves those peers to these, so there is one copy of each:",
-    "a second would be a second pod/prefab fighting over one JSI registration.",
-    "The rest are ordinary."
+    "against it, so Dependabot and npm-check-updates (.ncurc.json) are told to",
+    "skip them. The package names them as peers and pnpm resolves those peers to",
+    "these, so there is one copy of each: a second would be a second pod/prefab",
+    "fighting over one JSI registration. The rest are ordinary."
   ],
   "dependencies": {
     "@shopify/react-native-skia": "2.13.1",

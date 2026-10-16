@@ -1,0 +1,10 @@
+{
+  "reject": [
+    "react",
+    "react-native",
+    "@shopify/react-native-skia",
+    "react-native-reanimated",
+    "react-native-worklets",
+    "react-test-renderer"
+  ]
+}
