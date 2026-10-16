@@ -135,7 +135,7 @@ npm view react-native-spritestudio dist-tags      # the version just published, 
 
 ### 7. Publish the Release
 
-Edit the notes, choose **Set as a pre-release** or **Set as the latest release** (a tag with a `-` can be either), and **Publish release**. Publishing also starts `pages.yml`, which deploys the [documentation site](https://cri-middleware.github.io/SSPlayerForReactNative/). Watch the run through, then open the site: a failed run leaves the Release published and the site as it was. Once the cause is fixed, re-run it; a re-run builds the same tag.
+Edit the notes and **Publish release** as the draft is marked: `scripts/release-channel.sh` made it a pre-release when a full release is already tagged, and left it to become Latest otherwise. Publishing also starts `pages.yml`, which, for a Release that becomes Latest, deploys the [documentation site](https://cri-middleware.github.io/SSPlayerForReactNative/). Watch the run through, then open the site: a failed run leaves the Release published and the site as it was. Once the cause is fixed, re-run it; a re-run builds the same tag.
 
 ```bash
 RUN=$(gh run list -w pages.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json databaseId -q '.[0].databaseId')
@@ -311,7 +311,7 @@ npm view react-native-spritestudio dist-tags      # いま出したバージョ�
 
 ### 7. Release を公開する
 
-リリースノートを編集し、**Set as a pre-release** か **Set as the latest release** を選んで（`-` を含むタグはどちらも選べます）、**Publish release** を押します。公開すると `pages.yml` が動き、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/) をデプロイします。run を最後まで見届けてから、サイトを開いて確かめます。run が失敗しても Release は公開されたままで、サイトは元のまま残ります。原因を直したら run を再実行します。再実行は同じタグをビルドします。
+リリースノートを編集し、下書きの印のまま **Publish release** を押します。`scripts/release-channel.sh` が、正式版のタグがすでにあれば pre-release にし、なければ Latest になるようにしてあります。公開すると `pages.yml` が動き、Latest になる Release なら [ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/) をデプロイします。run を最後まで見届けてから、サイトを開いて確かめます。run が失敗しても Release は公開されたままで、サイトは元のまま残ります。原因を直したら run を再実行します。再実行は同じタグをビルドします。
 
 ```bash
 RUN=$(gh run list -w pages.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json databaseId -q '.[0].databaseId')

@@ -81,7 +81,8 @@ if gh release view "$TAG" >/dev/null 2>&1; then
     echo "${APP}: ${TAG} already has a Release — nothing to draft."
 else
     args=(--verify-tag --title "SpriteStudio Player for React Native ${TAG}" --generate-notes --draft)
-    case "$TAG" in *-*) args+=(--prerelease) ;; esac
+    channel="$("${SCRIPTDIR}/release-channel.sh" "$TAG")"
+    [ "$channel" != prerelease ] || args+=(--prerelease)
     gh release create "$TAG" "$TGZ" "${OUT}/SHA256SUMS" "${args[@]}"
     echo "${APP}: drafted ${TAG}."
 fi
