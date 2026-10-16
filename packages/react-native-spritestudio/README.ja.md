@@ -60,7 +60,7 @@ export function Character() {
 
 | | |
 |---|---|
-| React Native | `^0.88.0-rc.1` — **New Architecture 専用** |
+| React Native | `^0.88.0` — **New Architecture 専用** |
 | React | `^19.3.0` |
 | Peer deps | `@shopify/react-native-skia` `^2.11.2`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — および `react-native-worklets` `^0.12.2`（Reanimated 4 が自身の peer として要求するもの） |
 | iOS | 15.1+ |
