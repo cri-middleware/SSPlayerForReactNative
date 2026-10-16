@@ -197,8 +197,10 @@ if (player.isTrackFinished(2)) {
 
 `trackJustLooped(track)` is the per-tick pulse, as `justLooped` is for track 0; both read false
 after a tick that did not run. Neither a track above 0 finishing nor looping fires a callback;
-only track 0's end is `onAnimationFinished`. While another track or a fade still moves, the player
-keeps ticking after track 0 has finished.
+only track 0's end is `onAnimationFinished`. While the rest of the stack still moves the pose, the
+player keeps ticking after track 0 has finished: a fade, or a source other than track 0's main one
+still playing where it is heard, one added to track 0 included. A track that is cleared, finished,
+at alpha 0, weighted to 0 or at speed 0 does not keep it ticking.
 
 ## Scrubbing a track
 

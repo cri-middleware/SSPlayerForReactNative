@@ -58,6 +58,13 @@ changes it: a seek, another animation, an override, a texture swap or a new
 placement. A screen of still poses costs the JS thread a couple of cheap reads
 per player a frame, and the UI thread nothing.
 
+A playing player builds and draws a frame only when its pose moves. With
+`subFrameEnabled` on (the default) every tick lands between two authored frames,
+so every tick is a new pose. With it off, an animation authored at 30 fps on a
+60 Hz display is drawn on every other tick and a held frame once, unless an
+effect or instance part moves on its own clock or the track stack is mid-fade or
+blending in another source.
+
 A paused player with an effect or instance part still advances, because parts
 with independent playback keep running in a pause. `playing={false}` pauses; if
 the pose is all you need, call `stop()` on the player through the ref instead.

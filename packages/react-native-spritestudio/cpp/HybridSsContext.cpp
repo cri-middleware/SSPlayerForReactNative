@@ -10,6 +10,7 @@
 #include "ssruntime.h"
 #include "SsLog.hpp"
 #include "SsSkiaDraw.hpp"
+#include "SsTick.hpp"
 
 namespace margelo::nitro::ssplayer {
 
@@ -225,11 +226,24 @@ bool HybridSsContext::setupAnimation(const std::string& name) {
 
 double HybridSsContext::update(double dtMilliseconds) {
   if (ctx_ == nullptr) return 0.0;
+  // Before the update, as `advances()` is read: the tick that completes a fade
+  // still moves the pose, and after it the stack reports at rest.
+  const bool stackMoves = ::ssplayer::SsStackMovesPose(ctx_);
   // Passed through unconverted: the C-API's delta is milliseconds, and so is
   // this spec's, deliberately — see the spec comment.
   frameNo_ = ss_runtime_update(ctx_, static_cast<float>(dtMilliseconds));
-  ++generation_;
-  refreshFrame();
+  // Rebuilt only when the pose can differ from the one built last. Rebuilding
+  // regardless re-evaluated and redrew the same pose on every tick of a frame
+  // that lasts several, and on every tick of a pause.
+  const float drawFrame = subFrame_ ? frameNo_ : std::floor(frameNo_);
+  if (stale_ || stackMoves || frame_ == nullptr || drawFrame != builtFrame_) {
+    ++generation_;
+    refreshFrame();
+  } else if (hasSlots()) {
+    // Same pose, but an effect or instance part steps below on a clock of its
+    // own, so the picture still moves.
+    ++generation_;
+  }
   // The steps below are the ones a track call left pending.
   slotsStale_ = false;
   // Read *after* the update: `is_looped` is cleared at the top of each one, so
@@ -256,37 +270,15 @@ void HybridSsContext::resync() {
 }
 
 bool HybridSsContext::advances() const {
-  // The character's clock, not `ss_runtime_is_playing`: that one is track
-  // 0's and goes false when track 0 finishes, while the clock runs on for the
-  // other tracks and the fades.
-  if (ctx_ == nullptr || !ss_runtime_is_clock_playing(ctx_)) return false;
-  const bool pausing = ss_runtime_is_clock_pausing(ctx_);
-  if (ss_runtime_is_playing(ctx_)) {
-    return !pausing || !effects_.empty() || !instances_.states().empty();
-  }
-  // Track 0 has finished and the clock runs on. A finished track 0 holds its
-  // last frame and so do the slots stepped from it, so this player moves only
-  // if something on the stack still does — without the check an overlay or a
-  // crossfade froze the moment track 0 ended, and without the narrowing every
-  // finished one-track player would keep redrawing a frame that cannot change.
-  return !pausing && othersMove();
+  return ::ssplayer::SsAdvances(ctx_, hasSlots());
 }
 
-bool HybridSsContext::othersMove() const {
-  const uint32_t count = ss_runtime_get_track_count(ctx_);
-  for (uint32_t track = 0; track < count; ++track) {
-    if (!std::isnan(ss_runtime_get_track_fade_progress(ctx_, track))) return true;
-    if (track == 0) continue;
-    if (ss_runtime_get_track_main_source(ctx_, track) != SS_RUNTIME_INVALID_HANDLE &&
-        !ss_runtime_is_track_finished(ctx_, track)) {
-      return true;
-    }
-  }
-  return false;
+bool HybridSsContext::hasSlots() const {
+  return !effects_.empty() || !instances_.states().empty();
 }
 
-void HybridSsContext::markStaleIfHeld() {
-  if (ctx_ != nullptr && !advances()) stale_ = true;
+void HybridSsContext::markStale() {
+  if (ctx_ != nullptr) stale_ = true;
 }
 
 void HybridSsContext::refreshIfStale() {
@@ -833,14 +825,14 @@ bool HybridSsContext::setPartVisibility(double partIndex, double force, bool cas
   const bool ok = ss_runtime_set_part_visibility_override(
       ctx_, static_cast<uint32_t>(partIndex), static_cast<unsigned char>(force),
       cascade ? 1 : 0);
-  if (ok) markStaleIfHeld();
+  if (ok) markStale();
   return ok;
 }
 
 bool HybridSsContext::clearPartVisibility(double partIndex) {
   if (ctx_ == nullptr || partIndex < 0) return false;
   const bool ok = ss_runtime_clear_part_visibility_override(ctx_, static_cast<uint32_t>(partIndex));
-  if (ok) markStaleIfHeld();
+  if (ok) markStale();
   return ok;
 }
 
@@ -850,14 +842,14 @@ bool HybridSsContext::setPartColor(double partIndex, double blendOp, double rgba
   const bool ok = ss_runtime_set_part_color_override(
       ctx_, static_cast<uint32_t>(partIndex), static_cast<unsigned char>(blendOp),
       static_cast<uint32_t>(rgba), static_cast<unsigned char>(priority));
-  if (ok) markStaleIfHeld();
+  if (ok) markStale();
   return ok;
 }
 
 bool HybridSsContext::clearPartColor(double partIndex) {
   if (ctx_ == nullptr || partIndex < 0) return false;
   const bool ok = ss_runtime_clear_part_color_override(ctx_, static_cast<uint32_t>(partIndex));
-  if (ok) markStaleIfHeld();
+  if (ok) markStale();
   return ok;
 }
 
@@ -867,21 +859,21 @@ bool HybridSsContext::setPartCell(double partIndex, double cellmapNameHash,
   const bool ok = ss_runtime_set_part_cell_override(
       ctx_, static_cast<uint32_t>(partIndex), static_cast<uint32_t>(cellmapNameHash),
       static_cast<uint32_t>(cellNameHash), static_cast<unsigned char>(priority));
-  if (ok) markStaleIfHeld();
+  if (ok) markStale();
   return ok;
 }
 
 bool HybridSsContext::clearPartCell(double partIndex) {
   if (ctx_ == nullptr || partIndex < 0) return false;
   const bool ok = ss_runtime_clear_part_cell_override(ctx_, static_cast<uint32_t>(partIndex));
-  if (ok) markStaleIfHeld();
+  if (ok) markStale();
   return ok;
 }
 
 bool HybridSsContext::clearPartOverrides() {
   if (ctx_ == nullptr) return false;
   const bool ok = ss_runtime_clear_all_part_overrides(ctx_);
-  if (ok) markStaleIfHeld();
+  if (ok) markStale();
   return ok;
 }
 
@@ -1312,6 +1304,7 @@ void HybridSsContext::refreshFrame() {
   // frame. Flooring it here is the whole of what turning sub-frame off does.
   const float drawFrame = subFrame_ ? frameNo_ : std::floor(frameNo_);
   ss_runtime_get_frame_data(ctx_, drawFrame, &fdPtr, &fdLen);
+  builtFrame_ = drawFrame;
   // No `flatbuffers::Verifier` here: it walks the whole buffer, and this runs
   // once per player per frame. The producer is the Brain, not untrusted input,
   // and `tools/ssbake_check.cpp` verifies every frame on the host under ASan —

@@ -100,6 +100,7 @@ Android slice alone.
 | FlatBuffers accessors current + read path sound | `pnpm run check-framedata` (needs `flatc`) |
 | Mask drawing, and a mask crossing into an instance child | `pnpm run check-mask` (macOS). The instance half **reports itself skipped** without the optional `MaskInstance` sample |
 | Instance and effect slots keep stepping while out of the draw plan, and a hidden effect builds no particles | `pnpm run check-hidden` |
+| A player keeps ticking while its track stack moves the pose, and only then | `pnpm run check-motion` |
 | `ss-*` shaders compile, and their arithmetic | `pnpm run check-shader` (macOS) |
 | The Nitro glue compiles: `HybridSs*.cpp`, `SsAssets.cpp`, `SsRNSkiaInterop.cpp`, `SsPlayerJni.cpp`, `nitrogen/generated/` | `pnpm run check-glue` — a syntax check for iOS (macOS, Xcode) and Android (the NDK). Each half **reports itself skipped** without its toolchain, and the JNI units without the fbjni headers a Gradle build unpacks |
 | The web stub barrel imports clean, matches `index.ts` and throws | `pnpm run check-web-barrel` (any OS, no Brain) |
@@ -137,7 +138,7 @@ parsing and the `files` guard — none of the host checks, and not `prepack`. A
 pull request touching only Markdown runs none of it. The weekly run, a dispatch
 and the release pull request also run `check-shader` on macOS, build the example
 app for Android and iOS on the Brain built from the submodule, and run
-`check-hidden`, `check-mask`, `check-glue` and the asset manifest check on that
+`check-hidden`, `check-motion`, `check-mask`, `check-glue` and the asset manifest check on that
 Brain. `check-framedata` and `prepack` run in none of them.
 
 Rendering is verified by hand on the example's Viewer screen, one feature card per
@@ -289,7 +290,7 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 | `pnpm run check-ja-breaks` | Markdown で日本語の文字と文字の間に改行が無いこと（OS 不問・インストール不要） |
 | `pnpm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
 
-**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI はサブモジュールをチェックアウトしないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・`check-layers`・`check-ja-breaks`・スクリプトの構文・`files` ガードまでしか実行せず、ホスト側のチェックと `prepack` は動きません。Markdown だけのプルリクエストでは何も走りません。週次・手動実行・リリースのプルリクエストでは、さらに macOS で `check-shader` を実行し、submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドして、その Brain で `check-hidden`・`check-mask`・`check-glue` とアセットマニフェストのチェックを実行します。`check-framedata` と `prepack` は、どの run でも実行しません。
+**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI はサブモジュールをチェックアウトしないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・`check-layers`・`check-ja-breaks`・スクリプトの構文・`files` ガードまでしか実行せず、ホスト側のチェックと `prepack` は動きません。Markdown だけのプルリクエストでは何も走りません。週次・手動実行・リリースのプルリクエストでは、さらに macOS で `check-shader` を実行し、submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドして、その Brain で `check-hidden`・`check-motion`・`check-mask`・`check-glue` とアセットマニフェストのチェックを実行します。`check-framedata` と `prepack` は、どの run でも実行しません。
 
 描画の確認は example の Player 画面で手動で行います。機能ごとにカードが 1 枚あり、それぞれが何を証明するかは [`example/README.md`](./example/README.md) に記載しています。
 

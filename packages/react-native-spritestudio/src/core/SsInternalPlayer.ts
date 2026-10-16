@@ -157,18 +157,16 @@ export class SsInternalPlayer {
    * conversion, and a missed conversion is a silent 1000x, not an error.
    */
   advance(dtMilliseconds: number): number {
-    const frameNo = this.require().update(dtMilliseconds)
-    this.advanced = true
-    return frameNo
+    return this.require().update(dtMilliseconds)
   }
 
   /**
    * Whether {@link draw} would draw something other than what it last drew:
    * the frame changed, or the texture table, or the root transform.
    *
-   * An `advance` always changes the frame, so it answers true without asking
-   * the context. Anything else that changes the frame (a seek, a new
-   * animation, an override on a stopped player) is caught by `frameDrawn`.
+   * The frame is the context's to judge, through `frameDrawn`: an `advance`
+   * that lands on the pose already drawn leaves it true, so a frame that lasts
+   * several ticks, or a pause, is drawn once.
    */
   get needsDraw(): boolean {
     const context = this.context
@@ -189,10 +187,9 @@ export class SsInternalPlayer {
     // With no textures, `draw` never reaches `drawInto`, so the context's frame
     // is never drawn; and nothing would show anyway.
     if (bindings.length === 0) return false
-    return this.advanced || !context.frameDrawn
+    return !context.frameDrawn
   }
 
-  private advanced = false
   private drawnBindings: SsTextureBinding[] | null = null
   private drawnTransform: SsRootTransform = { ...SS_ROOT_TRANSFORM_IDENTITY }
 
@@ -212,7 +209,6 @@ export class SsInternalPlayer {
     const bindings = this.textures.bindings()
     const t = this.rootTransform
     const d = this.drawnTransform
-    this.advanced = false
     // Only when it changed: the table is an array marshalled across JSI.
     if (bindings !== this.drawnBindings) context.setTextures(bindings)
     this.drawnBindings = bindings
