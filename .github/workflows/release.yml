@@ -48,14 +48,16 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write # the draft Release; the version and the tag are a maintainer's
-  id-token: write # trusted publishing on npm
+  contents: read
 
 jobs:
   release:
     name: 🍎 Release (macOS)
     runs-on: macos-latest
     timeout-minutes: 60
+    permissions:
+      contents: write # the draft Release; the version and the tag are a maintainer's
+      id-token: write # trusted publishing on npm
 
     steps:
       - name: Checkout (with both submodules)
