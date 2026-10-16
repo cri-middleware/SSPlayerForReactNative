@@ -15,9 +15,9 @@ name: Release
 # On a v* tag, with or without upload_release, publish_npm stages the tarball
 # the build checked on npm through trusted publishing, unless npm already has
 # that version, staged or published, under the dist-tag its version names: the
-# prerelease's word, or `latest` for a full release, which publishConfig.tag
-# would otherwise put under `beta`. Nothing is public until a maintainer approves
-# it with 2FA, on npmjs.com or with `npm stage approve` (RELEASING.md, step 6).
+# prerelease's word, or `latest` for a full release. Nothing is public until a
+# maintainer approves it with 2FA, on npmjs.com or with `npm stage approve`
+# (RELEASING.md, step 6).
 # Off, the Release alone carries the tarball. That is how the package's first
 # version ships: npm sets up a trusted publisher only for a package it already
 # has, so a maintainer publishes that version by hand from the tarball.

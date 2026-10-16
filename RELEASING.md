@@ -115,12 +115,13 @@ npm stage approve <stage-id>
 npm view react-native-spritestudio dist-tags      # the version just approved, under its dist-tag
 ```
 
-A release the run did not stage — the package's first, one dispatched with `publish_npm=false`, one cut on a Mac, or one whose **Stage on npm** failed — is published by hand instead, from the same tarball. `--tag` is the prerelease's word (`beta`). A full release takes `--tag latest`, since the package's `publishConfig.tag` would otherwise put it under `beta` as well. Until npm can take the package, skip this: the Release alone carries the tarball, and these lines publish it from there later.
+A release the run did not stage — the package's first, one dispatched with `publish_npm=false`, one cut on a Mac, or one whose **Stage on npm** failed — is published by hand instead, from the same tarball. The block takes the dist-tag from the version: the prerelease's word (`beta`), or `latest` for a full release. Until npm can take the package, skip this: the Release alone carries the tarball, and these lines publish it from there later.
 
 ```bash
 dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
-npm publish "$dir"/*.tgz --tag beta               # a full release: --tag latest
-npm view react-native-spritestudio dist-tags      # beta: the version just published
+version=${TAG#v}; case "$version" in *-*) dist=${version#*-}; dist=${dist%%.*} ;; *) dist=latest ;; esac
+npm publish "$dir"/*.tgz --tag "$dist"
+npm view react-native-spritestudio dist-tags      # the version just published, under its dist-tag
 ```
 
 ### 7. Publish the Release
@@ -281,12 +282,13 @@ npm stage approve <stage-id>
 npm view react-native-spritestudio dist-tags      # いま承認したバージョンと、その dist-tag
 ```
 
-run が stage しなかったリリースは、同じ tarball を手作業で publish します。パッケージの最初のバージョン、`publish_npm=false` で実行したもの、Mac で切ったもの、**Stage on npm** が失敗したものがこれにあたります。`--tag` はプレリリースの語（`beta`）です。正式版では `--tag latest` を付けます。付けないと、パッケージの `publishConfig.tag` に従って正式版も `beta` の下に出てしまいます。npm に出せるようになるまでは、ここは飛ばします。tarball は Release だけが持ち、あとで同じコマンドでそこから publish できます。
+run が stage しなかったリリースは、同じ tarball を手作業で publish します。パッケージの最初のバージョン、`publish_npm=false` で実行したもの、Mac で切ったもの、**Stage on npm** が失敗したものがこれにあたります。ブロックは dist-tag をバージョンから決めます。プレリリースならその語（`beta`）、正式版なら `latest` です。npm に出せるようになるまでは、ここは飛ばします。tarball は Release だけが持ち、あとで同じコマンドでそこから publish できます。
 
 ```bash
 dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
-npm publish "$dir"/*.tgz --tag beta               # 正式版は --tag latest
-npm view react-native-spritestudio dist-tags      # beta: いま出したバージョン
+version=${TAG#v}; case "$version" in *-*) dist=${version#*-}; dist=${dist%%.*} ;; *) dist=latest ;; esac
+npm publish "$dir"/*.tgz --tag "$dist"
+npm view react-native-spritestudio dist-tags      # いま出したバージョンと、その dist-tag
 ```
 
 ### 7. Release を公開する
