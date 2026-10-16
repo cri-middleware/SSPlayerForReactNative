@@ -14,7 +14,7 @@ overrides:
   "@shopify/react-native-skia": "2.13.1"
   react-native-reanimated: "4.7.0"
   react-native-worklets: "0.13.0"
-  react-native: "0.88.0-rc.1"
+  react-native: "0.88.0"
   react: "19.3.0"
 
 # vitepress-plugin-mermaid 2.0.17 is the latest and its peer range stops at 11,
@@ -34,22 +34,35 @@ allowBuilds:
 # else needs it: drop each entry once its version has aged out.
 minimumReleaseAgeExclude:
   - "@shopify/react-native-skia@2.13.1"
-  - "@vitest/mocker@5.0.3"
-  - "@vitest/spy@5.0.3"
-  - vitest@5.0.3
-  - "@expo/cli@58.1.1"
+  - "@vitest/mocker@5.0.5"
+  - "@vitest/spy@5.0.5"
+  - vitest@5.0.5
+  - "@expo/cli@58.1.10"
   - "@expo/log-box@58.0.8"
-  - "@expo/metro-config@58.0.7"
-  - "@expo/prebuild-config@58.0.7"
-  - "@expo/router-server@58.0.6"
-  - babel-preset-expo@58.0.8
-  - expo-asset@58.0.10
+  - "@expo/metro-config@58.0.14"
+  - "@expo/prebuild-config@58.0.14"
+  - "@expo/router-server@58.0.14"
+  - babel-preset-expo@58.0.16
+  - expo-asset@58.0.16
   - expo-file-system@58.0.5
   - expo-font@58.0.5
   - expo-keep-awake@58.0.3
   - expo-modules-autolinking@58.0.7
-  - expo-modules-core@58.0.11
-  - expo-modules-jsi@58.0.7
-  - expo@58.0.2
+  - expo-modules-core@58.0.20
+  - expo-modules-jsi@58.0.14
+  - expo@58.0.12
   - react-is@19.3.1
   - react-test-renderer@19.3.1
+  - "@expo/package-manager@1.14.2"
+  - "@react-native/asset-utils@0.88.0"
+  - "@react-native/babel-plugin-codegen@0.88.0"
+  - "@react-native/codegen@0.88.0"
+  - "@react-native/debugger-frontend@0.88.0"
+  - "@react-native/debugger-shell@0.88.0"
+  - "@react-native/dev-middleware@0.88.0"
+  - "@react-native/js-polyfills@0.88.0"
+  - "@react-native/normalize-colors@0.88.0"
+  - "@react-native/community-cli-plugin@0.88.0"
+  - "@react-native/gradle-plugin@0.88.0"
+  - "@react-native/virtualized-lists@0.88.0"
+  - react-native@0.88.0

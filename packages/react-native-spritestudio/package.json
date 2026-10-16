@@ -42,16 +42,15 @@
     "is the same or newer; `expo install` gives users Expo's own, which is also",
     "inside the range. Move the overrides by hand, not when the registry does;",
     "that is why Dependabot is told to leave these five alone.",
-    "The caret does the right thing on both shapes: ^0.88.0-rc.1 is the 0.88",
-    "line, its release candidates included (a caret locks the minor below 1.0.0),",
-    "^2.11.2 and ^4.6.0 span their majors.",
+    "The caret does the right thing on both shapes: ^0.88.0 is the 0.88 line",
+    "(a caret locks the minor below 1.0.0), ^2.11.2 and ^4.6.0 span their majors.",
     "`expo` is the exception: optional, and only the config plugin loads it."
   ],
   "peerDependencies": {
     "@shopify/react-native-skia": "^2.11.2",
     "expo": "*",
     "react": "^19.3.0",
-    "react-native": "^0.88.0-rc.1",
+    "react-native": "^0.88.0",
     "react-native-nitro-modules": "^0.37.0",
     "react-native-reanimated": "^4.6.0"
   },
@@ -71,13 +70,13 @@
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-test-renderer": "^19.3.0",
-    "expo": "^58.0.2",
+    "expo": "^58.0.12",
     "nitrogen": "^0.37.1",
     "react-native-builder-bob": "^0.43.2",
     "react-native-nitro-modules": "^0.37.1",
     "react-test-renderer": "19.3.1",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.5"
   },
   "repository": {
     "type": "git",

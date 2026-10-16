@@ -13,7 +13,7 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 
 | | |
 |---|---|
-| React Native | `0.88.0-rc.1` 以上、**New Architecture** |
+| React Native | `0.88.0` 以上、**New Architecture** |
 | React | `19.3.0` 以上 |
 | Expo | SDK 58、または bare React Native |
 | iOS | 15.1+ |
