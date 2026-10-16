@@ -26,7 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Documentation**: bilingual (EN/JA) documentation site.
 
 ### Known Limitations
-- The API may change without notice while the package is in beta.
 - `Nines` and `Text` parts are not drawn, and a masked Effect draws unmasked. These and the other
   constraints are listed in [Limitations & Scope](./docs/limitations.md).
 - Constraints inherited from the shared runtime are documented in
