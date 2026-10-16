@@ -3,20 +3,6 @@ packages:
   - "example"
   - "docs"
 
-# One copy of each native module, at the version example/ builds and runs
-# against. Expo's compatibility table sets it; moving one ahead of the table is
-# a by-hand call, made once the native side has been built against it. Skia is
-# at the table's 2.13.1. The package names these as peers, and a peer
-# resolved on its own can land a second copy beside the app's: two autolinked
-# pods/prefabs fighting over one JSI registration, not a duplicated dependency.
-# Bump them together.
-overrides:
-  "@shopify/react-native-skia": "2.13.1"
-  react-native-reanimated: "4.7.0"
-  react-native-worklets: "0.13.0"
-  react-native: "0.88.0"
-  react: "19.3.0"
-
 # vitepress-plugin-mermaid 2.0.17 is the latest and its peer range stops at 11,
 # but the three calls it makes into mermaid (initialize, render,
 # registerExternalDiagrams) are the same in 12. Drop this once its range widens.
@@ -38,21 +24,16 @@ minimumReleaseAgeExclude:
   - "@vitest/spy@5.0.5"
   - vitest@5.0.5
   - "@expo/cli@58.1.10"
-  - "@expo/log-box@58.0.8"
   - "@expo/metro-config@58.0.14"
   - "@expo/prebuild-config@58.0.14"
   - "@expo/router-server@58.0.14"
   - babel-preset-expo@58.0.16
   - expo-asset@58.0.16
-  - expo-file-system@58.0.5
-  - expo-font@58.0.5
   - expo-keep-awake@58.0.3
-  - expo-modules-autolinking@58.0.7
   - expo-modules-core@58.0.20
   - expo-modules-jsi@58.0.14
   - expo@58.0.12
   - react-is@19.3.1
-  - react-test-renderer@19.3.1
   - "@expo/package-manager@1.14.2"
   - "@react-native/asset-utils@0.88.0"
   - "@react-native/babel-plugin-codegen@0.88.0"

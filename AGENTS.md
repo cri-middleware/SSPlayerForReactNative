@@ -74,8 +74,8 @@ These have no code site:
     Autolinking reads `SsPlayerPackage.kt` with a whole-file regex, first match wins, so prose naming a
     type before `ReactPackage` becomes the class name.
 *   **Peer dependencies stay single-copy**: two copies of a native module are two pods fighting over one
-    JSI registration. The `overrides` in `pnpm-workspace.yaml` pin each to the version `example/` builds
-    against; bump them together, by hand.
+    JSI registration. `example/package.json` pins each to the exact version it builds against, and pnpm
+    resolves the package's peers to those; move them by hand.
 *   **RN Skia coupling lives only in `SsRNSkiaInterop`.** `RNSkia` in a name is the fragile dependency,
     `Skia` the stable one, and they never share a file, so `grep -rl 'RNSkia::' cpp/` lists what a Skia
     bump can break. The floor is 2.11.
