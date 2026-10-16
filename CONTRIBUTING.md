@@ -119,7 +119,7 @@ together. **Measure in release, and check the animation is actually playing**: `
 leaves the transport stopped.
 
 `pnpm test` covers all three layers above Layer 1 on any machine. `vitest.config.mts` aliases
-`react-native`, `@shopify/react-native-skia` and `react-native-reanimated` to stubs under
+`react-native`, `react-native-skia` and `react-native-reanimated` to stubs under
 `test/support/stubs/`, because they are reached transitively and a Layer 3 test that never mentions
 Skia could not otherwise import. The behaviour under test is faked one layer in, at the package's
 own modules, and the rule the files follow is **fake the layer below, keep the layer under test

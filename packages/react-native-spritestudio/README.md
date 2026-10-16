@@ -16,10 +16,10 @@ Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.
 ## Install
 
 ```bash
-npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go does not work** — the package contains native code, so a prebuild (CNG) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. In a bare React Native app autolinking picks it up on both platforms too, but the config plugin's two jobs — shipping your pack directories as native assets and dropping the 32-bit `x86` ABI — are yours to do by hand ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
+**Expo Go does not work** — the package contains native code, so a prebuild (CNG) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. In a bare React Native app autolinking picks it up on both platforms too, but the config plugin's two jobs — shipping your pack directories as native assets and dropping the 32-bit `x86` ABI — are yours to do by hand. On Android, `minSdkVersion` has to be 26 ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
 
 ## Ship your packs
 
@@ -62,11 +62,11 @@ For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw
 |---|---|
 | React Native | `^0.88.0` — **New Architecture only** |
 | React | `^19.3.0` |
-| Peer deps | `@shopify/react-native-skia` `^2.11.2`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — plus `react-native-worklets` `^0.12.2`, which Reanimated 4 declares as a peer of its own |
+| Peer deps | `react-native-skia` `^3.6.1`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — plus `react-native-worklets` `^0.12.2`, which Reanimated 4 declares as a peer of its own |
 | iOS | 15.1+ |
-| Android | API 24+ |
+| Android | API 26+, with Vulkan |
 
-The Skia floor is real: 2.11 is where the API objects moved onto the `jsi::NativeState` pattern, and this package unwraps them the new way. **Keep every peer single-copy** — two copies of a native module is two autolinked pods fighting over one JSI registration.
+React Native Skia is `react-native-skia` 3, which renders with Skia Graphite and sets the Android floor; `@shopify/react-native-skia` (v2) does not stand in for it and cannot be installed beside it. **Keep every peer single-copy** — two copies of a native module is two autolinked pods fighting over one JSI registration.
 
 Windows, tvOS and visionOS are out of scope. **This package does not play animations on web**; for SpriteStudio on the web use [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb). What ships here is a web *stub* so an app that targets web **as well as** native can still build its web bundle.
 

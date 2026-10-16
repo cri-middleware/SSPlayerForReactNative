@@ -1,4 +1,4 @@
-import { Skia } from '@shopify/react-native-skia'
+import { Skia } from 'react-native-skia'
 
 /**
  * A colour as the C-API's packed `0xRRGGBBAA`.

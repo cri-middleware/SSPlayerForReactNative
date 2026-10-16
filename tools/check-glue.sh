@@ -48,8 +48,8 @@ done
 resolve_pkg() { (cd "$2" && node -p "require('path').dirname(require.resolve('$1/package.json'))" 2> /dev/null) || true; }
 NITRO=$(resolve_pkg react-native-nitro-modules "$PKG_DIR")
 RN=$(resolve_pkg react-native "$PKG_DIR")
-RNSKIA=$(resolve_pkg @shopify/react-native-skia "$PKG_DIR")
-for pair in "react-native-nitro-modules:$NITRO" "react-native:$RN" "@shopify/react-native-skia:$RNSKIA"; do
+RNSKIA=$(resolve_pkg react-native-skia "$PKG_DIR")
+for pair in "react-native-nitro-modules:$NITRO" "react-native:$RN" "react-native-skia:$RNSKIA"; do
   [ -n "${pair#*:}" ] || { echo "check-glue.sh: ${pair%%:*} is not installed — run pnpm install" >&2; exit 1; }
 done
 [ -f "$PKG_DIR/native/include/ssruntime.h" ] || {
@@ -81,7 +81,10 @@ COMMON=(
   -I"$RN/ReactCommon/jsi" -I"$RN/ReactCommon" -I"$RN/ReactCommon/callinvoker"
 )
 # The three directories both platform builds add for RN Skia.
-SKIA_ON=(-DSSPLAYER_ENABLE_SKIA_DIRECT=1 -I"$RNSKIA/cpp" -I"$RNSKIA/cpp/api" -I"$RNSKIA/cpp/skia")
+# The include paths and defines the podspec and CMakeLists.txt add with Skia on.
+SKIA_ON=(-DSSPLAYER_ENABLE_SKIA_DIRECT=1
+         -DSK_GRAPHITE=1 -DSK_IMAGE_READ_PIXELS_DISABLE_LEGACY_API=1 -DSK_DISABLE_LEGACY_SHAPER_FACTORY=1
+         -I"$RNSKIA/cpp" -I"$RNSKIA/cpp/api" -I"$RNSKIA/cpp/skia" -I"$RNSKIA/cpp/dawn/include")
 SKIA_OFF=(-DSSPLAYER_ENABLE_SKIA_DIRECT=0)
 
 CPP_UNITS=(HybridSsContext HybridSsResource HybridSsRuntime SsAssets SsRNSkiaInterop)
@@ -153,8 +156,8 @@ if [ -n "$NDK_CXX" ]; then
   while IFS= read -r define; do
     GEN_DEFINES+=("$define")
   done < <(grep -o -e '-D[A-Za-z_][A-Za-z0-9_]*\(=[0-9]*\)\{0,1\}' "$GEN_DIR/android/SsPlayer+autolinking.cmake")
-  # The API level CMakeLists.txt inherits from the app is at least 24.
-  ANDROID=("$NDK_CXX" --target=aarch64-linux-android24 "${COMMON[@]}" "${GEN_DEFINES[@]}"
+  # The API level CMakeLists.txt inherits from the app is at least 26.
+  ANDROID=("$NDK_CXX" --target=aarch64-linux-android26 "${COMMON[@]}" "${GEN_DEFINES[@]}"
            -I"$BUILD_DIR/android")
   for unit in "${CPP_UNITS[@]}"; do
     check "android $unit.cpp (Skia on)" "${ANDROID[@]}" "${SKIA_ON[@]}" "$PKG_DIR/cpp/$unit.cpp"

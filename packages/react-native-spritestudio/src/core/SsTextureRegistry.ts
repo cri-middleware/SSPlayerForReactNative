@@ -5,7 +5,7 @@ import {
   TileMode,
   type SkImage,
   type SkPaint,
-} from '@shopify/react-native-skia'
+} from 'react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
 import type { SsTextureBinding } from '../specs/SsRuntime.nitro'

@@ -20,18 +20,19 @@ PKG_DIR="$ROOT_DIR/packages/react-native-spritestudio"
 # Resolved as Node would from the package: under pnpm neither RN Skia nor its
 # macOS binaries sit in the root node_modules.
 resolve_pkg() { (cd "$2" && node -p "require('path').dirname(require.resolve('$1/package.json'))" 2> /dev/null) || true; }
-RNSKIA=$(resolve_pkg @shopify/react-native-skia "$PKG_DIR")
+RNSKIA=$(resolve_pkg react-native-skia "$PKG_DIR")
 
 [ "$(uname)" = "Darwin" ] || { echo "check-shader.sh: macOS only (RN Skia ships no host libskia for this platform)" >&2; exit 1; }
 
-[ -n "$RNSKIA" ] || { echo "check-shader.sh: @shopify/react-native-skia is not installed — run pnpm install" >&2; exit 1; }
+[ -n "$RNSKIA" ] || { echo "check-shader.sh: react-native-skia is not installed — run pnpm install" >&2; exit 1; }
 
-# Two places, because RN Skia 2.11 moved the binaries out of the main package:
-# `react-native-skia-apple-macos` is RN Skia's own dependency, and the podspec copies it
-# into `@shopify/react-native-skia/libs/macos/` — so that copy exists only once a
-# `pod install` has run. Prefer it anyway, so the check links what the app links.
+# Two places, because RN Skia keeps its binaries out of the main package:
+# `react-native-skia-graphite-apple-macos` is RN Skia's own dependency, and the
+# podspec copies it into `react-native-skia/libs/macos/` — so that copy exists
+# only once a `pod install` has run. Prefer it anyway, so the check links what
+# the app links.
 SKIA_LIB="$RNSKIA/libs/macos/libskia.xcframework/macos-arm64_x86_64/libskia.a"
-SKIA_PKG="$(resolve_pkg react-native-skia-apple-macos "$RNSKIA")/libs/libskia.xcframework/macos-arm64_x86_64/libskia.a"
+SKIA_PKG="$(resolve_pkg react-native-skia-graphite-apple-macos "$RNSKIA")/libs/libskia.xcframework/macos-arm64_x86_64/libskia.a"
 [ -f "$SKIA_LIB" ] || SKIA_LIB="$SKIA_PKG"
 [ -f "$SKIA_LIB" ] || { echo "check-shader.sh: no host libskia at $SKIA_PKG — run pnpm install" >&2; exit 1; }
 
@@ -41,7 +42,10 @@ echo "==> compiling ssshader_check"
 # The vendored flatbuffers headers: `SsPartColor.hpp` reads its coefficient row
 # out of `format/framedata.h`, so the FrameData accessors are on the path even
 # though this check never opens a `.ssab`.
+# The defines RN Skia builds libskia with, so this unit declares Skia the way
+# the library was compiled.
 clang++ -std=c++20 -O1 -g \
+  -DSK_GRAPHITE=1 -DSK_IMAGE_READ_PIXELS_DISABLE_LEGACY_API=1 -DSK_DISABLE_LEGACY_SHAPER_FACTORY=1 \
   -I"$RNSKIA/cpp/skia" \
   -I"$PKG_DIR/third_party/flatbuffers/include" \
   -I"$PKG_DIR/cpp" \

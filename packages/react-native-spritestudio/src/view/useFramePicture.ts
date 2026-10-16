@@ -1,4 +1,4 @@
-import { Skia, type SkPicture } from '@shopify/react-native-skia'
+import { Skia, type SkPicture } from 'react-native-skia'
 import { useCallback, useMemo, useRef } from 'react'
 import {
   runOnJS,
@@ -27,7 +27,8 @@ export interface SsFramePicture {
  * does not see every one: two pictures published between its turns reach it
  * as the second alone. So each picture is numbered, the UI thread reports the
  * number it has reached, and every picture published before that one is
- * disposed here, the skipped ones included.
+ * disposed here, the skipped ones included. Disposing drops only this side's
+ * reference: the canvas keeps its own while it replays a picture.
  */
 export function useFramePicture(): SsFramePicture {
   const empty = useMemo(() => {

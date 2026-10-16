@@ -23,7 +23,7 @@ producing a native build of your app that contains it. Both halves are below.
 | React | `19.3.0` or newer |
 | Expo | SDK 58, or bare React Native |
 | iOS | 15.1+ |
-| Android | API 24+ |
+| Android | API 26+, with Vulkan |
 
 Not supported: **Expo Go** (see step 3) and Windows / tvOS / visionOS.
 
@@ -35,7 +35,7 @@ Full detail in [Limitations & Scope](/limitations).
 ## 2. Install
 
 ```bash
-npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
 Four of those five are peer dependencies you install alongside the package — the
@@ -86,6 +86,22 @@ npx react-native run-ios     # or run-android
 
 Autolinking picks the package up on both platforms either way.
 
+**Android's `minSdkVersion` has to be 26**, React Native Skia 3's floor, and
+React Native projects default lower. In a managed app, set it with
+`expo-build-properties` (`npx expo install expo-build-properties`):
+
+```json
+{
+  "expo": {
+    "plugins": [
+      ["expo-build-properties", { "android": { "minSdkVersion": 26 } }]
+    ]
+  }
+}
+```
+
+In a bare app, set `minSdkVersion = 26` in `android/build.gradle`.
+
 ::: warning In a bare app, the plugin's two jobs are yours
 The Expo config plugin does two things nothing does for you in a bare app: it
 **ships your pack directories as native assets**, and it **narrows
@@ -104,7 +120,7 @@ before anything can play it.
 
 **Two copies of a native module.** This is the common one, and it is not a
 duplicated dependency — it is two autolinked pods fighting over one JSI
-registration. Check with `npm ls @shopify/react-native-skia`; in a monorepo, pin
+registration. Check with `npm ls react-native-skia`; in a monorepo, pin
 every peer at the root.
 
 **`react-native-worklets` is missing.** Reanimated 4 declares it as a peer of
@@ -115,9 +131,9 @@ command in step 2 already does.
 
 ::: details Why these version floors
 
-`@shopify/react-native-skia` `2.11` is where its API objects moved onto the
-`jsi::NativeState` pattern, and this package unwraps them the new way — an older
-Skia does not link.
+`react-native-skia` `3` renders with Skia Graphite, and this package compiles
+against its headers with the defines it builds with. `@shopify/react-native-skia`
+(v2) does not stand in for it.
 
 `react-native-nitro-modules` `0.37.0` matches the generated bindings committed
 in the repository.

@@ -4,7 +4,7 @@
   "main": "index.ts",
   "//dependencies": [
     "Five of these are the app's native line, each at the exact version this",
-    "app is built against: react, react-native, @shopify/react-native-skia,",
+    "app is built against: react, react-native, react-native-skia,",
     "react-native-reanimated, react-native-worklets. Expo's compatibility table",
     "is the reference, and one moves by hand once the native side has been built",
     "against it, so Dependabot and npm-check-updates (.ncurc.json) are told to",
@@ -13,9 +13,9 @@
     "fighting over one JSI registration. The rest are ordinary."
   ],
   "dependencies": {
-    "@shopify/react-native-skia": "2.13.1",
     "expo": "^58.0.12",
     "expo-audio": "^58.0.9",
+    "expo-build-properties": "~58.0.10",
     "expo-dev-client": "^58.0.13",
     "expo-file-system": "~58.0.9",
     "expo-status-bar": "^58.0.3",
@@ -23,6 +23,7 @@
     "react-native": "0.88.0",
     "react-native-nitro-modules": "^0.37.1",
     "react-native-reanimated": "4.7.1",
+    "react-native-skia": "3.6.1",
     "react-native-spritestudio": "workspace:*",
     "react-native-worklets": "0.13.0"
   },

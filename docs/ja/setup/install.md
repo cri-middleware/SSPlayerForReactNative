@@ -17,7 +17,7 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 | React | `19.3.0` 以上 |
 | Expo | SDK 58、または bare React Native |
 | iOS | 15.1+ |
-| Android | API 24+ |
+| Android | API 26+、Vulkan |
 
 対象外：**Expo Go**（手順 3 を参照）と Windows / tvOS / visionOS。
 
@@ -26,7 +26,7 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 ## 2. インストールする
 
 ```bash
-npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
 5 つのうち 4 つは、パッケージと一緒に入れる peer 依存です — 描画バックエンド、JSI
@@ -67,6 +67,20 @@ npx react-native run-ios     # または run-android
 
 どちらの場合も、autolinking が両プラットフォームでパッケージを拾います。
 
+**Android の `minSdkVersion` は 26 にします。** React Native Skia 3 の下限で、React Native のプロジェクトの既定値はこれより低いためです。managed アプリでは `expo-build-properties`（`npx expo install expo-build-properties`）で設定します。
+
+```json
+{
+  "expo": {
+    "plugins": [
+      ["expo-build-properties", { "android": { "minSdkVersion": 26 } }]
+    ]
+  }
+}
+```
+
+bare アプリでは `android/build.gradle` で `minSdkVersion = 26` にします。
+
 ::: warning bare アプリでは plugin の 2 つの仕事を自分で行います
 Expo config plugin が bare アプリでは代わりにやってくれない仕事が 2 つあります。**パックのディレクトリをネイティブアセットとして同梱すること**、そしてネイティブコアが提供しない 32 ビット `x86` スライスをビルドが要求しなくなるよう
 **`reactNativeArchitectures` を絞ること**です。bare アプリではこの 2 つを手で行います。その手順の文書化は
@@ -82,7 +96,7 @@ Expo config plugin が bare アプリでは代わりにやってくれない仕�
 
 **ネイティブモジュールが 2 つある。** これがよくある原因で、依存の重複ではありません。
 **1 つの JSI 登録を 2 つの autolink された pod が奪い合っている**状態です。
-`npm ls @shopify/react-native-skia` で確認してください。モノレポではすべての peer をルートで固定します。
+`npm ls react-native-skia` で確認してください。モノレポではすべての peer をルートで固定します。
 
 **`react-native-worklets` が入っていない。** Reanimated 4 が依存ではなく*自身の* peer
 として宣言しているため、インストールするのはアプリ側の役目です。手順 2 のコマンドには既に含まれています。
@@ -91,8 +105,7 @@ Expo config plugin が bare アプリでは代わりにやってくれない仕�
 
 ::: details バージョン下限の理由
 
-`@shopify/react-native-skia` の `2.11` は、API オブジェクトが `jsi::NativeState`
-パターンへ移ったバージョンで、このパッケージは新しい方法でそれを取り出します。これより古い Skia ではリンクできません。
+`react-native-skia` の `3` は Skia Graphite で描画します。このパッケージは、そのヘッダーと、React Native Skia 自身のビルドと同じ define でコンパイルします。`@shopify/react-native-skia`（v2）は代わりになりません。
 
 `react-native-nitro-modules` の `0.37.0` は、リポジトリにコミットされている生成済みバインディングと対応するバージョンです。
 

@@ -3,7 +3,7 @@
 // Nitro `CustomType` interop for RN Skia's `SkCanvas` / `SkPaint` JS objects.
 //
 // Named for **RN Skia**, not Skia: the coupling here is to
-// `@shopify/react-native-skia`'s JSI object model, which carries no
+// `react-native-skia`'s JSI object model, which carries no
 // compatibility promise and has already broken once. `SsSkiaDraw` is the other
 // half and depends only on Skia's public API, which is stable — grep `RNSkia`
 // to find what an RN Skia bump can break.

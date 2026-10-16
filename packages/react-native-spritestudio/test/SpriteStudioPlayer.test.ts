@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SkImage } from '@shopify/react-native-skia'
+import type { SkImage } from 'react-native-skia'
 
 import { ssClearCaches, ssImageCache } from '../src/core/caches'
 import { SsOverridePriority } from '../src/core/parts'

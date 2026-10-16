@@ -16,10 +16,10 @@
 ## インストール
 
 ```bash
-npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go では動きません** — ネイティブコードを含むため prebuild（CNG）が必要です。`npx expo prebuild` の後に `npx expo run:ios` / `run:android` を実行してください。素の React Native アプリでも autolinking が両プラットフォームで拾いますが、config plugin が担う 2 つの作業（パックのディレクトリをネイティブアセットとして同梱すること、32 ビット `x86` の ABI を外すこと）は自分で行います（[インストール](https://cri-middleware.github.io/SSPlayerForReactNative/ja/setup/install)）。
+**Expo Go では動きません** — ネイティブコードを含むため prebuild（CNG）が必要です。`npx expo prebuild` の後に `npx expo run:ios` / `run:android` を実行してください。素の React Native アプリでも autolinking が両プラットフォームで拾いますが、config plugin が担う 2 つの作業（パックのディレクトリをネイティブアセットとして同梱すること、32 ビット `x86` の ABI を外すこと）は自分で行います。Android の `minSdkVersion` は 26 にします（[インストール](https://cri-middleware.github.io/SSPlayerForReactNative/ja/setup/install)）。
 
 ## パックを配置する
 
@@ -62,11 +62,11 @@ export function Character() {
 |---|---|
 | React Native | `^0.88.0` — **New Architecture 専用** |
 | React | `^19.3.0` |
-| Peer deps | `@shopify/react-native-skia` `^2.11.2`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — および `react-native-worklets` `^0.12.2`（Reanimated 4 が自身の peer として要求するもの） |
+| Peer deps | `react-native-skia` `^3.6.1`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — および `react-native-worklets` `^0.12.2`（Reanimated 4 が自身の peer として要求するもの） |
 | iOS | 15.1+ |
-| Android | API 24+ |
+| Android | API 26+、Vulkan |
 
-Skia の下限は実質的な制約です。2.11 で API オブジェクトが `jsi::NativeState` パターンへ移り、このパッケージは新しい方法で取り出しています。**peer 依存は必ず単一コピーに保ってください** — ネイティブモジュールが 2 つあるのは依存の重複ではなく、**1 つの JSI 登録を 2 つの autolink された pod が奪い合っている**状態です。
+React Native Skia は `react-native-skia` の 3 です。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。**peer 依存は必ず単一コピーに保ってください** — ネイティブモジュールが 2 つあるのは依存の重複ではなく、**1 つの JSI 登録を 2 つの autolink された pod が奪い合っている**状態です。
 
 Windows・tvOS・visionOS は対象外です。**このパッケージは web ではアニメーションを再生しません**。web 上の SpriteStudio には [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。ここに含まれるのは web 用の*スタブ*で、native に**加えて** web も対象とするアプリが web バンドルをビルドできるようにするためのものです。
 

@@ -6,13 +6,11 @@
 // has not wired the Skia include paths still builds: the module keeps working,
 // and only `drawInto()` reports that it is unavailable.
 //
-// Targets RN Skia **2.11+**, which moved its API objects off `jsi::HostObject`
-// onto the `jsi::NativeState` pattern (`JsiSkNativeObject`): methods now live on
-// a shared prototype and the C++ instance hangs off the JS object as native
-// state. `asHostObject<JsiSkCanvas>` no longer compiles at all — the classes are
-// not `HostObject`s any more — so the unwrapping goes through the
-// `tryGetJsiObject` / `getJsiObject` helpers instead. That is the peer range the
-// package declares.
+// Targets react-native-skia **3**, whose API objects use the `jsi::NativeState`
+// pattern (`JsiSkNativeObject`): methods live on a shared prototype and the C++
+// instance hangs off the JS object as native state, so the unwrapping goes
+// through the `tryGetJsiObject` / `getJsiObject` helpers. That is the peer range
+// the package declares.
 #if SSPLAYER_ENABLE_SKIA_DIRECT
 #include "JsiSkCanvas.h"
 #include "JsiSkImage.h"

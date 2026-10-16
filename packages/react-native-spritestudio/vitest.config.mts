@@ -18,7 +18,7 @@ export default defineConfig({
   resolve: {
     alias: {
       'react-native': stub('react-native'),
-      '@shopify/react-native-skia': stub('skia'),
+      'react-native-skia': stub('skia'),
       'react-native-reanimated': stub('reanimated'),
     },
   },

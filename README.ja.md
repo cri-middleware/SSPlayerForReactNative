@@ -34,10 +34,10 @@
 ### インストール
 
 ```bash
-npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go はこのパッケージを実行できません。** あなたのアプリには **development build** — このパッケージをコンパイルして組み込んだ自前のバイナリ — が必要です。managed なら `npx expo prebuild` の後に `npx expo run:ios` / `run:android`、bare なら既にネイティブプロジェクトがあるのでリビルドします。どちらでも autolinking がパッケージを拾いますが、bare では config plugin が担う 2 つの作業（パックのディレクトリをネイティブアセットとして同梱すること、32 ビット `x86` の ABI を外すこと）は自分で行います。詳細は [インストール](docs/ja/setup/install.md) にあります。
+**Expo Go はこのパッケージを実行できません。** あなたのアプリには **development build** — このパッケージをコンパイルして組み込んだ自前のバイナリ — が必要です。managed なら `npx expo prebuild` の後に `npx expo run:ios` / `run:android`、bare なら既にネイティブプロジェクトがあるのでリビルドします。どちらでも autolinking がパッケージを拾いますが、bare では config plugin が担う 2 つの作業（パックのディレクトリをネイティブアセットとして同梱すること、32 ビット `x86` の ABI を外すこと）は自分で行います。Android の `minSdkVersion` は 26 にします。詳細は [インストール](docs/ja/setup/install.md) にあります。
 
 ### まず動くところを見る
 
@@ -108,11 +108,11 @@ export function Character() {
 |---|---|
 | React Native | **New Architecture 専用** |
 | iOS | 15.1+ |
-| Android | API 24+ |
-| Peer deps | `react-native`、`react`、`@shopify/react-native-skia`、`react-native-nitro-modules`、`react-native-reanimated` — および `react-native-worklets`（Reanimated 4 が依存ではなく自身の peer として要求するもの）。それぞれ必要なバージョンは [`peerDependencies`](packages/react-native-spritestudio/package.json) にあり、インストール時にパッケージマネージャが検証します |
+| Android | API 26+、Vulkan |
+| Peer deps | `react-native`、`react`、`react-native-skia`、`react-native-nitro-modules`、`react-native-reanimated` — および `react-native-worklets`（Reanimated 4 が依存ではなく自身の peer として要求するもの）。それぞれ必要なバージョンは [`peerDependencies`](packages/react-native-spritestudio/package.json) にあり、インストール時にパッケージマネージャが検証します |
 | SpriteStudio-SDK | [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) で固定 |
 
-Skia の下限は実質的な制約です。2.11 で API オブジェクトが `jsi::NativeState` パターンへ移り、このパッケージは新しい方法で取り出しています。Windows・tvOS・visionOS は対象外です — 理由は [ROADMAP.md](ROADMAP.md#distribution--verification)（Windows）と [ROADMAP.md](ROADMAP.md#needs-sdk)（tvOS・visionOS）を参照してください。
+描画は React Native Skia 3（パッケージ名 `react-native-skia`）を通ります。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。Windows・tvOS・visionOS は対象外です — 理由は [ROADMAP.md](ROADMAP.md#distribution--verification)（Windows）と [ROADMAP.md](ROADMAP.md#needs-sdk)（tvOS・visionOS）を参照してください。
 
 ### Web について
 

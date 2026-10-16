@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Motion blending**: layer animations on tracks and crossfade between them, through the player
   (`crossfade`, `setTrackAnimation`, `addTrackSource`, per-track speed, loop count and the rest) or
   the `transitionMs` prop. Every event carries the `source` that fired it.
-- **Platforms**: iOS 15.1+ and Android API 24+, on the New Architecture only, with an Expo config
+- **Platforms**: iOS 15.1+ and Android API 26+ with Vulkan, on the New Architecture only, with an Expo config
   plugin. On the web the package imports safely but does not play.
 - **Documentation**: bilingual (EN/JA) documentation site.
 

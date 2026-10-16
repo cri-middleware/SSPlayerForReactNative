@@ -137,7 +137,7 @@ opacity: transform.value.valid ? 1 : 0
 ### Two copies of a native module
 
 Two copies is not a duplicated dependency — it is **two autolinked pods fighting
-over one JSI registration**. Check with `npm ls @shopify/react-native-skia`, and
+over one JSI registration**. Check with `npm ls react-native-skia`, and
 in a monorepo pin every peer at the root.
 
 ### Android, on an x86 emulator
