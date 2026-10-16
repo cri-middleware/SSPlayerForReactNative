@@ -6,9 +6,6 @@
 
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
 
-> [!WARNING]
-> **実機での動作確認はまだありません** — iOS シミュレータと Android エミュレータのみです。現時点で何が描けるかは [docs/ja/limitations.md](docs/ja/limitations.md) を、何がいつ入るかは [ROADMAP.md](ROADMAP.md) を参照してください。
-
 ## ✨ SpriteStudio を React Native で使うメリット
 
 - **キャラクターも、画面全体も“生きる”。** 呼吸・まばたき、なびく髪や衣装、斬撃・魔法のエフェクト、さらに動く HUD まで——動きは専用エディタ（SpriteStudio）でビジュアルに作り込み、`<SpriteStudioView>` はそれを再生するだけ。ボーン・メッシュ変形・マスク・パーティクルにも対応し、パーツごとに `Animated` や Reanimated のタイムラインを組む必要はありません。

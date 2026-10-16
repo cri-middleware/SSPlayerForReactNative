@@ -6,11 +6,6 @@
 
 A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
 
-> [!WARNING]
-> Nothing here has run on a **physical device** — iOS simulator and Android
-> emulator only. See [docs/limitations.md](docs/limitations.md) for what draws
-> today and [ROADMAP.md](ROADMAP.md) for what lands when.
-
 ## ✨ Why use SpriteStudio with React Native?
 
 - **Bring your sprites — and whole screens — to life.** Breathing and blinking, swaying hair and clothes, flashy slash and magic effects, even an animated HUD: the motion is built visually in a dedicated editor (SpriteStudio) and `<SpriteStudioView>` just plays it — bone rigs, mesh deformation, masks and particles included. No `Animated` or Reanimated timeline to wire up per part.
