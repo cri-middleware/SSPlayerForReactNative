@@ -11,20 +11,29 @@ Both workflow runs, the QA build in step 3 and the Release in step 5, can run on
 A release is a tag on `main`, pushed first and built second. The version is `version` in `packages/react-native-spritestudio/package.json`, and it is **lockstep with the SDK**: `scripts/SDK_VERSION.txt` pins the SpriteStudio-SDK release the package is built against, and the package carries the same version. The tag is `v` followed by it, and the release build refuses a tag that disagrees. Branches follow git-flow: `develop` integrates, `main` holds released commits only, and `release/X.Y` lives for one release — cut from `develop` for a new `X.Y`, or from the line's latest tag for a patch, and deleted once the release is out.
 
 ```bash
-VERSION=7.0.1                                       # what is being released: the SDK release it ships
-BRANCH=release/$(echo "$VERSION" | cut -d. -f1,2)   # release/7.0
+VERSION=<version>
+BRANCH=release/$(echo "${VERSION:?}" | cut -d. -f1,2)
 ```
 
-Later blocks read these two and the `TAG` step 4 sets, so a new shell needs them set again. Where an empty variable would not stop a command by itself, the command refuses one: an empty `VERSION` in step 2 writes a bare `v` into `scripts/SDK_VERSION.txt`.
+`<version>` is the version being released, which is the SDK release it ships, as in `7.0.1`: fill it in. Left as it is, the line stops with a syntax error. Later blocks read these two and the `TAG` step 4 sets, so a new shell needs them set again. Where an empty variable would not stop a command by itself, the command refuses one: an empty `VERSION` in step 2 writes a bare `v` into `scripts/SDK_VERSION.txt`.
 
 ### 1. Branch
 
 A new `X.Y` is cut from `develop`. A patch release is cut from the line's latest tag, whether or not an earlier `release/X.Y` is still there, and its fixes are committed or cherry-picked onto it.
 
+For a new `X.Y`:
+
 ```bash
 git fetch origin
-git switch -c "$BRANCH" origin/develop           # a new X.Y
-git switch -C "$BRANCH" v7.0.0                   # a patch release: the line's latest tag
+git switch -c "${BRANCH:?}" origin/develop
+```
+
+For a patch:
+
+```bash
+git fetch origin --tags
+BASE=$(git -c versionsort.suffix=- tag --list "v${BRANCH#release/}.*" --sort=-v:refname | head -n 1)   # the line's latest tag
+git switch -C "${BRANCH:?}" "${BASE:?}"
 ```
 
 ### 2. SDK, version and changelog
@@ -178,20 +187,29 @@ It runs anywhere, but off macOS it skips `check-mask` and `check-shader`, which 
 リリースは `main` 上のタグです。先にタグを push し、ビルドはその後です。バージョンは `packages/react-native-spritestudio/package.json` の `version` で、**SDK とロックステップ**です。`scripts/SDK_VERSION.txt` がビルド対象の SpriteStudio-SDK のリリースを固定し、パッケージも同じバージョンを名乗ります。タグはその頭に `v` を付けたもので、食い違うタグはリリースビルドが拒否します。ブランチは git-flow です。`develop` が統合ブランチで、`main` にはリリース済みのコミットだけが入ります。`release/X.Y` は 1 回のリリースの間だけ使います。新しい `X.Y` なら `develop` から、パッチならその系統の最新のタグから切り、リリースが済んだら消します。
 
 ```bash
-VERSION=7.0.1                                       # リリースするバージョン（同梱する SDK のリリース）
-BRANCH=release/$(echo "$VERSION" | cut -d. -f1,2)   # release/7.0
+VERSION=<version>
+BRANCH=release/$(echo "${VERSION:?}" | cut -d. -f1,2)
 ```
 
-後のブロックはこの 2 つと、手順 4 で設定する `TAG` を使います。新しいシェルでは設定し直してください。変数が空でも止まらないコマンドは、空のときに実行を拒否します。手順 2 の `VERSION` が空だと `scripts/SDK_VERSION.txt` に `v` だけが書かれるためです。
+`<version>` にはリリースするバージョン、つまり同梱する SDK のリリース（`7.0.1` など）を入れます。そのままだと、その行は構文エラーで止まります。後のブロックはこの 2 つと、手順 4 で設定する `TAG` を使います。新しいシェルでは設定し直してください。変数が空でも止まらないコマンドは、空のときに実行を拒否します。手順 2 の `VERSION` が空だと `scripts/SDK_VERSION.txt` に `v` だけが書かれるためです。
 
 ### 1. ブランチ
 
 新しい `X.Y` は `develop` から切ります。パッチリリースは、以前の `release/X.Y` が残っているかどうかに関係なく、その系統の最新のタグから切り、修正をそこへコミットするか cherry-pick します。
 
+新しい `X.Y` のとき:
+
 ```bash
 git fetch origin
-git switch -c "$BRANCH" origin/develop           # 新しい X.Y
-git switch -C "$BRANCH" v7.0.0                   # パッチリリース: その系統の最新のタグ
+git switch -c "${BRANCH:?}" origin/develop
+```
+
+パッチのとき:
+
+```bash
+git fetch origin --tags
+BASE=$(git -c versionsort.suffix=- tag --list "v${BRANCH#release/}.*" --sort=-v:refname | head -n 1)   # その系統の最新のタグ
+git switch -C "${BRANCH:?}" "${BASE:?}"
 ```
 
 ### 2. SDK、バージョン、CHANGELOG

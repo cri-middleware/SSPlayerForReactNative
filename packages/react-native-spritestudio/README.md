@@ -59,7 +59,7 @@ For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw
 |---|---|
 | React Native | `^0.88.0` — **New Architecture only** |
 | React | `^19.3.0` |
-| Peer deps | `react-native-skia` `^3.6.1`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — plus `react-native-worklets` `^0.12.2`, which Reanimated 4 declares as a peer of its own |
+| Peer deps | `react-native-skia` `^3.6.1`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — plus `react-native-worklets`, at the version your Reanimated declares as a peer of its own |
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
 
