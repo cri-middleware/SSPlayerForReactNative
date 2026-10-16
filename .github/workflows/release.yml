@@ -69,13 +69,20 @@ jobs:
           fetch-depth: 0
 
       # A v* tag releases -- a draft, npm, or both -- so it has to name the
-      # version they carry. A branch releases nothing and has nothing to check.
-      - name: The tag names this version
+      # version they carry, and that version is lockstep with the SDK release
+      # scripts/SDK_VERSION.txt pins. A branch releases nothing and has nothing
+      # to check.
+      - name: The tag names this version and its SDK
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           version="$(node -p "require('./packages/react-native-spritestudio/package.json').version")"
           if [ "$GITHUB_REF_NAME" != "v${version}" ]; then
             echo "::error::tag ${GITHUB_REF_NAME} does not match the package version (v${version})."
+            exit 1
+          fi
+          sdk="$(tr -d '[:space:]' < scripts/SDK_VERSION.txt)"
+          if [ "$GITHUB_REF_NAME" != "$sdk" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match scripts/SDK_VERSION.txt (${sdk}); the package version is the SDK release it ships."
             exit 1
           fi
 
