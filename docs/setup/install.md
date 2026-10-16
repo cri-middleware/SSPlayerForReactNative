@@ -27,12 +27,6 @@ producing a native build of your app that contains it. Both halves are below.
 
 Not supported: **Expo Go** (see step 3) and Windows / tvOS / visionOS.
 
-**Drawing goes through React Native Skia 3**, published as `react-native-skia`.
-An app that already uses `@shopify/react-native-skia` (v2) moves to it first:
-the two ship the same native module and cannot be installed side by side. Its
-[migration guide](https://wcandillon.github.io/react-native-skia/docs/getting-started/migration)
-covers the move.
-
 **On web nothing draws** — but adding this package does not break a web build,
 so an app shipping web as well as native is fine. For SpriteStudio on the web
 use [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) instead.

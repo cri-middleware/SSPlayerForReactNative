@@ -21,8 +21,6 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 
 対象外：**Expo Go**（手順 3 を参照）と Windows / tvOS / visionOS。
 
-**描画は React Native Skia 3 を通ります。** パッケージ名は `react-native-skia` です。すでに `@shopify/react-native-skia`（v2）を使っているアプリは、先にこちらへ移ってください。2 つは同じネイティブモジュールを持つため、同時には入れられません。移行の手順は React Native Skia の[移行ガイド](https://wcandillon.github.io/react-native-skia/docs/getting-started/migration)にあります。
-
 **web では何も描画されません** — ただしこのパッケージを追加しても web ビルドは壊れないので、native に加えて web も出荷するアプリで問題は起きません。web 上の SpriteStudio には代わりに [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。詳細は[制約と適用範囲](/ja/limitations)にあります。
 
 ## 2. インストールする
