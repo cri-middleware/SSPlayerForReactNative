@@ -13,7 +13,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { Canvas, Picture, Skia } from '@shopify/react-native-skia'
+import { Canvas, Picture, Skia } from 'react-native-skia'
 
 import { MAX_STEP_MS, type SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
 import { reportError } from './reportError'

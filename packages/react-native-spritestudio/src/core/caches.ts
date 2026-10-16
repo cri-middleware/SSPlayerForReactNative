@@ -1,4 +1,4 @@
-import type { SkImage } from '@shopify/react-native-skia'
+import type { SkImage } from 'react-native-skia'
 
 import type { SsResource } from '../specs/SsRuntime.nitro'
 import { SsRefCache } from './SsRefCache'

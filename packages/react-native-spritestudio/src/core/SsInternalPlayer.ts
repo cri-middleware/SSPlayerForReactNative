@@ -1,4 +1,4 @@
-import type { SkCanvas } from '@shopify/react-native-skia'
+import type { SkCanvas } from 'react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
 import type {

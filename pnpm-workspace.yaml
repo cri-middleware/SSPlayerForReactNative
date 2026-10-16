@@ -19,7 +19,6 @@ allowBuilds:
 # pnpm adds an entry when a version is inside its minimum release age. Nothing
 # else needs it: drop each entry once its version has aged out.
 minimumReleaseAgeExclude:
-  - "@shopify/react-native-skia@2.13.1"
   - "@vitest/mocker@5.0.5"
   - "@vitest/spy@5.0.5"
   - vitest@5.0.5
@@ -47,3 +46,4 @@ minimumReleaseAgeExclude:
   - "@react-native/gradle-plugin@0.88.0"
   - "@react-native/virtualized-lists@0.88.0"
   - react-native@0.88.0
+  - react-native-skia@3.6.1

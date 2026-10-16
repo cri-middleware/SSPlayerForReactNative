@@ -1,4 +1,4 @@
-import type { SkCanvas, SkImage } from '@shopify/react-native-skia'
+import type { SkCanvas, SkImage } from 'react-native-skia'
 
 import { ssImageCache } from '../core/caches'
 import type { SsFrameScope } from '../core/fit'

@@ -1,4 +1,4 @@
-import { Skia, type SkData, type SkImage } from '@shopify/react-native-skia'
+import { Skia, type SkData, type SkImage } from 'react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
 import type { SsTextureInfo } from '../specs/SsRuntime.nitro'
@@ -188,8 +188,9 @@ export class SsTextureLoader {
 
 /**
  * `image`, decoded on a worker. Left encoded, it decodes the first time a
- * canvas draws it — on the UI thread, which a large atlas stalls for tens of
- * milliseconds. A build that cannot decode natively keeps it encoded.
+ * canvas draws it, and a large atlas stalls the thread rendering that canvas
+ * for tens of milliseconds. A build that cannot decode natively keeps it
+ * encoded.
  */
 async function decodeOffThread(image: SkImage): Promise<SkImage> {
   try {

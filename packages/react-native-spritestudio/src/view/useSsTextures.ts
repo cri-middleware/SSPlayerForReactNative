@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Image } from 'react-native'
-import { Skia, type SkImage } from '@shopify/react-native-skia'
+import { Skia, type SkImage } from 'react-native-skia'
 
 import { normalizeUri } from '../core/assets'
 import { loadImageData } from '../core/SsTextureLoader'

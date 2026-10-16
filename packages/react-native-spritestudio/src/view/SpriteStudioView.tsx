@@ -16,7 +16,7 @@ import {
   type ViewProps,
   type ViewStyle,
 } from 'react-native'
-import { Canvas, Picture, Skia } from '@shopify/react-native-skia'
+import { Canvas, Picture, Skia } from 'react-native-skia'
 
 import { resolveRootTransform, type SsAlign } from '../core/fit'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
@@ -251,7 +251,7 @@ export const SpriteStudioView = forwardRef<
       try {
         player.advance(dtMs)
         // A stopped player whose frame, textures and placement have not changed
-        // would record the same picture again, and have the UI thread redraw it.
+        // would record the same picture again, and have the canvas redraw it.
         if (!player.needsDraw) return
         const canvas = recorder.beginRecording()
         player.draw(canvas)

@@ -26,7 +26,7 @@ param (
 #   ndk      : Android NDK root  (default: $env:ANDROID_NDK_HOME, else the
 #              newest under $env:ANDROID_HOME\ndk — the same resolution
 #              scripts/build-runtime.ps1 does)
-#   api      : Android API level to target (default: 24)
+#   api      : Android API level to target (default: 26)
 #   -Object  : emit an object file (full codegen) instead of -fsyntax-only;
 #              slower, but exercises the back end too
 
@@ -37,7 +37,7 @@ $rootDir = Split-Path -Parent $scriptDir
 $app = Split-Path -Leaf $PSCommandPath
 
 $ndkOverride = ""
-$apiLevel = "24"
+$apiLevel = "26"
 $emitObject = $false
 
 function Show-Usage {
@@ -91,7 +91,7 @@ if (-not (Test-Path $clang)) {
 # the root node_modules.
 Push-Location (Join-Path $rootDir "packages/react-native-spritestudio")
 try {
-    $rnskiaRoot = & node -p "require('path').dirname(require.resolve('@shopify/react-native-skia/package.json'))" 2> $null
+    $rnskiaRoot = & node -p "require('path').dirname(require.resolve('react-native-skia/package.json'))" 2> $null
 } finally {
     Pop-Location
 }
@@ -114,7 +114,7 @@ $commonArgs = @(
     "-std=c++20",
     "-DSSPLAYER_ENABLE_SKIA_DIRECT=1",
     # The Skia build flags RN Skia's own CMakeLists sets for the Android slice.
-    "-DSK_BUILD_FOR_ANDROID", "-DSK_GL", "-DSK_GANESH",
+    "-DSK_BUILD_FOR_ANDROID", "-DSK_GRAPHITE",
     "-DSK_DISABLE_LEGACY_SHAPER_FACTORY", "-DSK_IMAGE_READ_PIXELS_DISABLE_LEGACY_API",
     "-I$rnskia",
     "-I$flatbuffers",

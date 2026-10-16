@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 
 /**
- * Stands in for `@shopify/react-native-skia` under vitest.
+ * Stands in for `react-native-skia` under vitest.
  *
  * Recording rather than inert: a `<SpriteStudioView>` or a `<SpriteStudioScene>`
  * tick is "record one picture, hand it to the canvas", so the picture is the

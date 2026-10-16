@@ -41,7 +41,7 @@ lands when.
 ### Install
 
 ```bash
-npx expo install react-native-spritestudio @shopify/react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
 **Expo Go cannot run this package**, so your app needs a **development build** —
@@ -50,7 +50,8 @@ its own binary, with this package compiled into it. In a managed app that is
 already have the native projects, so rebuild them instead. Autolinking picks the
 package up either way, but in a bare app the config plugin's two jobs — shipping
 your pack directories as native assets and dropping the 32-bit `x86` ABI — are
-yours to do by hand. [Installation](docs/setup/install.md) has the detail.
+yours to do by hand. On Android, `minSdkVersion` has to be 26.
+[Installation](docs/setup/install.md) has the detail.
 
 ### See it running first
 
@@ -148,12 +149,13 @@ this port supports is handled without extra wiring —
 |---|---|
 | React Native | **New Architecture only** |
 | iOS | 15.1+ |
-| Android | API 24+ |
-| Peer deps | `react-native`, `react`, `@shopify/react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — and `react-native-worklets`, which Reanimated 4 requires as a peer of its own rather than depending on. The version each one needs lives in [`peerDependencies`](packages/react-native-spritestudio/package.json), and your package manager enforces it at install |
+| Android | API 26+, with Vulkan |
+| Peer deps | `react-native`, `react`, `react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — and `react-native-worklets`, which Reanimated 4 requires as a peer of its own rather than depending on. The version each one needs lives in [`peerDependencies`](packages/react-native-spritestudio/package.json), and your package manager enforces it at install |
 | SpriteStudio-SDK | pinned in [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) |
 
-The Skia lower bound is real: 2.11 moved its API objects onto the
-`jsi::NativeState` pattern, and the package unwraps them the new way. Windows,
+Drawing goes through React Native Skia 3, published as `react-native-skia`; it
+renders with Skia Graphite and sets the Android floor. `@shopify/react-native-skia`
+(v2) does not stand in for it and cannot be installed beside it. Windows,
 tvOS and visionOS are out of scope — see [ROADMAP.md](ROADMAP.md#distribution--verification) (Windows) and
 [ROADMAP.md](ROADMAP.md#needs-sdk) (tvOS and visionOS) for why.
 

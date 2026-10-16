@@ -78,7 +78,8 @@ These have no code site:
     resolves the package's peers to those; move them by hand.
 *   **RN Skia coupling lives only in `SsRNSkiaInterop`.** `RNSkia` in a name is the fragile dependency,
     `Skia` the stable one, and they never share a file, so `grep -rl 'RNSkia::' cpp/` lists what a Skia
-    bump can break. The floor is 2.11.
+    bump can break. The floor is 3. RN Skia's own build defines `SK_GRAPHITE` and two more, which the
+    podspec, `CMakeLists.txt` and the `tools/check-*` scripts repeat; a bump that changes them changes all.
 *   **pnpm is isolated: nothing is hoisted.** A module is declared by the workspace that loads it — the
     example's Babel preset, the config plugin's `expo`.
 *   **`.gitignore` inherits NuGet's `**/[Pp]ackages/*` from the gibo template**, which would swallow the

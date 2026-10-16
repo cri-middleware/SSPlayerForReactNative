@@ -1083,8 +1083,8 @@ export interface SsRuntime
    * decoded pixels into it.
    *
    * `Skia.Image.MakeImageFromEncoded` returns an image that decodes the first
-   * time it is drawn, and a canvas draws on the UI thread, which a large atlas
-   * stalls for tens of milliseconds. Decoded here, the image keeps its pixels
+   * time it is drawn, and a large atlas stalls the thread rendering the canvas
+   * for tens of milliseconds. Decoded here, the image keeps its pixels
    * (width × height × 4 bytes) for as long as it lives. Leave the image alone
    * until the promise settles.
    */

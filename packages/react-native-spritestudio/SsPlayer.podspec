@@ -17,14 +17,14 @@ sdk_version = File.exist?(version_file) ? File.read(version_file).strip : "unkno
 skia_dir = nil
 probe = __dir__
 while probe != "/" && skia_dir.nil?
-  candidate = File.join(probe, "node_modules", "@shopify", "react-native-skia")
+  candidate = File.join(probe, "node_modules", "react-native-skia")
   skia_dir = candidate if File.directory?(File.join(candidate, "cpp", "skia", "include"))
   probe = File.dirname(probe)
 end
 
 skia_direct = !skia_dir.nil?
 unless skia_direct
-  Pod::UI.warn "[react-native-spritestudio] @shopify/react-native-skia not found — " \
+  Pod::UI.warn "[react-native-spritestudio] react-native-skia not found — " \
                "building without drawInto(), which is the only way to draw."
 end
 
@@ -82,15 +82,22 @@ Pod::Spec.new do |s|
       "\"#{skia_dir}/cpp\"",       # JsiSkCanvas.h, JsiSkPaint.h
       "\"#{skia_dir}/cpp/api\"",   # their siblings, included unqualified
       "\"#{skia_dir}/cpp/skia\"",  # satisfies RN Skia's "include/core/..." includes
+      "\"#{skia_dir}/cpp/dawn/include\"",  # webgpu_cpp.h, which JsiSkImage.h reaches through RNDawnContext.h
     ]
     s.dependency "react-native-skia"
   end
+
+  # The defines react-native-skia compiles its own sources with. Skia's headers
+  # declare the Graphite API only under SK_GRAPHITE, and the RN Skia headers
+  # above include it, so every unit here sees Skia the way RN Skia does.
+  skia_defines = skia_direct ?
+    " SK_GRAPHITE=1 SK_IMAGE_READ_PIXELS_DISABLE_LEGACY_API=1 SK_DISABLE_LEGACY_SHAPER_FACTORY=1" : ""
 
   s.pod_target_xcconfig = {
     "HEADER_SEARCH_PATHS" => header_search_paths.join(" "),
     "GCC_PREPROCESSOR_DEFINITIONS" =>
       "$(inherited) SSPLAYER_SDK_VERSION=\\\"#{sdk_version}\\\" " \
-      "SSPLAYER_ENABLE_SKIA_DIRECT=#{skia_direct ? 1 : 0}",
+      "SSPLAYER_ENABLE_SKIA_DIRECT=#{skia_direct ? 1 : 0}#{skia_defines}",
     # RN Skia's headers are C++17; Nitro's are C++20. C++20 compiles both.
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
     # Xcode's Release default is -Os, which leaves the bake's copy loops
