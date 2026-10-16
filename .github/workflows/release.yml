@@ -14,10 +14,9 @@ name: Release
 #
 # On a v* tag, with or without upload_release, publish_npm stages the tarball
 # the build checked on npm through trusted publishing, unless npm already has
-# that version, staged or published, under the dist-tag its version names: the
-# prerelease's word, or `latest` for a full release. Nothing is public until a
-# maintainer approves it with 2FA, on npmjs.com or with `npm stage approve`
-# (RELEASING.md, step 6).
+# that version, staged or published, under the dist-tag scripts/npm-dist-tag.sh
+# picks. Nothing is public until a maintainer approves it with 2FA, on
+# npmjs.com or with `npm stage approve` (RELEASING.md, step 6).
 # Off, the Release alone carries the tarball. That is how the package's first
 # version ships: npm sets up a trusted publisher only for a package it already
 # has, so a maintainer publishes that version by hand from the tarball.
@@ -154,10 +153,7 @@ jobs:
             echo "::notice::react-native-spritestudio@${version} is already on npm — skipping."
             exit 0
           fi
-          case "$version" in
-            *-*) dist_tag="${version#*-}"; dist_tag="${dist_tag%%.*}" ;;
-            *)   dist_tag="latest" ;;
-          esac
+          dist_tag="$(scripts/npm-dist-tag.sh react-native-spritestudio "$version")"
           if ! out="$(npm stage publish release-dist/npm/*.tgz --tag "$dist_tag" 2>&1)"; then
             echo "$out"
             if grep -qE "409 Conflict.*previously (published|staged) version \"${version}\"" <<< "$out"; then

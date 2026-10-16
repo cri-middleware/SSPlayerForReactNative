@@ -94,7 +94,7 @@ RUN=$(gh run list -w release.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json dat
 gh run watch "$RUN" --exit-status                 # RUN is empty, or an earlier run, for the few seconds before the run appears
 ```
 
-A tag that does not match the package version fails the run. A tag that already has a Release, draft or published, keeps it as it is, so delete a draft before dispatching again ([Undoing a release](#undoing-a-release)). The run then stages the tarball on npm, under the dist-tag its version names, where it waits for step 6. A version npm cannot stage yet — the package's first — is dispatched with `-f publish_npm=false` added, and step 6 publishes it by hand. The two inputs are independent: `-f upload_release=false` stages on npm without touching the Release, and with both off a run from the tag only builds.
+A tag that does not match the package version fails the run. A tag that already has a Release, draft or published, keeps it as it is, so delete a draft before dispatching again ([Undoing a release](#undoing-a-release)). The run then stages the tarball on npm, under the dist-tag `scripts/npm-dist-tag.sh` picks, where it waits for step 6. A version npm cannot stage yet — the package's first — is dispatched with `-f publish_npm=false` added, and step 6 publishes it by hand. The two inputs are independent: `-f upload_release=false` stages on npm without touching the Release, and with both off a run from the tag only builds.
 
 On a Mac, the same script makes the same draft without the workflow, and stages nothing: step 6 publishes by hand. It refuses anything but a clean checkout of the tag that `origin` has, and requires `flatc`, so that no check is skipped.
 
@@ -115,12 +115,12 @@ npm stage approve <stage-id>
 npm view react-native-spritestudio dist-tags      # the version just approved, under its dist-tag
 ```
 
-A release the run did not stage — the package's first, one dispatched with `publish_npm=false`, one cut on a Mac, or one whose **Stage on npm** failed — is published by hand instead, from the same tarball. The block takes the dist-tag from the version: the prerelease's word (`beta`), or `latest` for a full release. Until npm can take the package, skip this: the Release alone carries the tarball, and these lines publish it from there later.
+A release the run did not stage — the package's first, one dispatched with `publish_npm=false`, one cut on a Mac, or one whose **Stage on npm** failed — is published by hand instead, from the same tarball. `scripts/npm-dist-tag.sh` picks the dist-tag: `latest` for a full release, and for a prerelease while the package's `latest` is not yet a full release; the prerelease's word (`beta`, `rc`) after that. Until npm can take the package, skip this: the Release alone carries the tarball, and these lines publish it from there later.
 
 ```bash
 dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
-version=${TAG#v}; case "$version" in *-*) dist=${version#*-}; dist=${dist%%.*} ;; *) dist=latest ;; esac
-npm publish "$dir"/*.tgz --tag "$dist"
+dist=$(scripts/npm-dist-tag.sh react-native-spritestudio "${TAG#v}")
+npm publish "$dir"/*.tgz --tag "${dist:?}"
 npm view react-native-spritestudio dist-tags      # the version just published, under its dist-tag
 ```
 
@@ -261,7 +261,7 @@ RUN=$(gh run list -w release.yml -c "$(git rev-parse "$TAG^{}")" -L 1 --json dat
 gh run watch "$RUN" --exit-status                 # run が一覧に出るまでの数秒間は、RUN が空か前の run になる
 ```
 
-パッケージのバージョンと食い違うタグからの実行は失敗します。Release がすでにあるタグでは、下書きでも公開済みでも、その Release に触れないので、もう一度実行するときは先に下書きを消します（[リリースの取り消し](#リリースの取り消し)）。run は続けて、バージョンが示す dist-tag で tarball を npm に stage します。stage したものは手順 6 を待ちます。npm がまだ stage できないバージョン（パッケージの最初のバージョン）は、`-f publish_npm=false` を足して実行し、手順 6 で手作業で publish します。2 つの入力は独立しています。`-f upload_release=false` なら Release に触れずに npm にだけ stage し、両方を外せばタグからの実行でもビルドだけを行います。
+パッケージのバージョンと食い違うタグからの実行は失敗します。Release がすでにあるタグでは、下書きでも公開済みでも、その Release に触れないので、もう一度実行するときは先に下書きを消します（[リリースの取り消し](#リリースの取り消し)）。run は続けて、`scripts/npm-dist-tag.sh` が決める dist-tag で tarball を npm に stage します。stage したものは手順 6 を待ちます。npm がまだ stage できないバージョン（パッケージの最初のバージョン）は、`-f publish_npm=false` を足して実行し、手順 6 で手作業で publish します。2 つの入力は独立しています。`-f upload_release=false` なら Release に触れずに npm にだけ stage し、両方を外せばタグからの実行でもビルドだけを行います。
 
 Mac では、同じスクリプトがワークフロー無しで同じ下書きを作ります。npm には何も stage しないので、手順 6 で手作業で publish します。`origin` にあるタグをそのままチェックアウトした、変更の無い作業ツリーでしか動きません。検査を 1 つも飛ばさないよう、`flatc` も必須です。
 
@@ -282,12 +282,12 @@ npm stage approve <stage-id>
 npm view react-native-spritestudio dist-tags      # いま承認したバージョンと、その dist-tag
 ```
 
-run が stage しなかったリリースは、同じ tarball を手作業で publish します。パッケージの最初のバージョン、`publish_npm=false` で実行したもの、Mac で切ったもの、**Stage on npm** が失敗したものがこれにあたります。ブロックは dist-tag をバージョンから決めます。プレリリースならその語（`beta`）、正式版なら `latest` です。npm に出せるようになるまでは、ここは飛ばします。tarball は Release だけが持ち、あとで同じコマンドでそこから publish できます。
+run が stage しなかったリリースは、同じ tarball を手作業で publish します。パッケージの最初のバージョン、`publish_npm=false` で実行したもの、Mac で切ったもの、**Stage on npm** が失敗したものがこれにあたります。dist-tag は `scripts/npm-dist-tag.sh` が決めます。正式版は `latest` です。プレリリースも、パッケージの `latest` がまだ正式版でなければ `latest`、正式版になった後はその語（`beta`・`rc`）です。npm に出せるようになるまでは、ここは飛ばします。tarball は Release だけが持ち、あとで同じコマンドでそこから publish できます。
 
 ```bash
 dir=$(mktemp -d) && gh release download "${TAG:?}" -D "$dir"
-version=${TAG#v}; case "$version" in *-*) dist=${version#*-}; dist=${dist%%.*} ;; *) dist=latest ;; esac
-npm publish "$dir"/*.tgz --tag "$dist"
+dist=$(scripts/npm-dist-tag.sh react-native-spritestudio "${TAG#v}")
+npm publish "$dir"/*.tgz --tag "${dist:?}"
 npm view react-native-spritestudio dist-tags      # いま出したバージョンと、その dist-tag
 ```
 
