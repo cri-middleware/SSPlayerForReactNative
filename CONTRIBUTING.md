@@ -64,10 +64,9 @@ This repository follows **git-flow**: `develop` integrates, and a pull request g
 into it; `main` holds released commits only, and moves only through a
 maintainer's release branch.
 
-The package version is **lockstep with the SDK** — `scripts/SDK_VERSION.txt` pins
-the Brain release the package is built against, and the package carries the
-matching version — so there is one version line. That differs from
-SSPlayerForWeb, whose packages are versioned independently and released from
+The package has one version line, its own: `scripts/SDK_VERSION.txt` pins the
+Brain release it is built against separately. That differs from SSPlayerForWeb,
+whose packages are versioned independently of each other and released from
 `main`: the branch model follows the versioning model.
 
 Cutting a release is maintainer work — see [RELEASING.md](./RELEASING.md).
@@ -258,7 +257,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 このリポジトリは **git-flow** です。`develop` が統合ブランチで、プルリクエストはそこへ出します。`main` にはリリース済みのコミットだけが入り、メンテナーのリリースブランチを通してだけ進みます。
 
-パッケージのバージョンは **SDK とロックステップ**です。`scripts/SDK_VERSION.txt` がビルド対象の Brain のリリースを固定し、パッケージ側も同じバージョンを名乗るので、バージョンの系統は 1 つです。パッケージを個別にバージョニングし `main` から出す SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
+パッケージのバージョンの系統は、パッケージ自身の 1 つです。ビルド対象の Brain のリリースは、それとは別に `scripts/SDK_VERSION.txt` で固定します。パッケージごとに個別にバージョニングし `main` から出す SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
 
 リリース作業はメンテナーが行います（[RELEASING.md](./RELEASING.md) を参照）。
 
