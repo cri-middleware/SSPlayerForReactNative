@@ -22,16 +22,16 @@ minimumReleaseAgeExclude:
   - "@vitest/mocker@5.0.5"
   - "@vitest/spy@5.0.5"
   - vitest@5.0.5
-  - "@expo/cli@58.1.10"
+  - "@expo/cli@58.1.11"
   - "@expo/metro-config@58.0.14"
   - "@expo/prebuild-config@58.0.14"
   - "@expo/router-server@58.0.14"
-  - babel-preset-expo@58.0.16
+  - babel-preset-expo@58.0.17
   - expo-asset@58.0.16
   - expo-keep-awake@58.0.3
-  - expo-modules-core@58.0.20
-  - expo-modules-jsi@58.0.14
-  - expo@58.0.12
+  - expo-modules-core@58.0.22
+  - expo-modules-jsi@58.0.15
+  - expo58.0.14
   - react-is@19.3.1
   - "@expo/package-manager@1.14.2"
   - "@react-native/asset-utils@0.88.0"
@@ -47,3 +47,7 @@ minimumReleaseAgeExclude:
   - "@react-native/virtualized-lists@0.88.0"
   - react-native@0.88.0
   - react-native-skia@3.6.1
+  - "@expo/schema-utils@58.0.2"
+  - expo-build-properties@58.0.11
+  - expo-dev-client@58.0.14
+  - expo-dev-launcher@58.0.14
