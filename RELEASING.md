@@ -8,7 +8,7 @@ Anyone with the Write role on this repository can cut a release: every step is a
 
 Both workflow runs, the QA build in step 3 and the Release in step 5, can run on a Mac instead: besides converting the example packs, the workflow runs nothing but the scripts those steps name. They run the host checks, so that route needs what those need besides: Rust, to build a host Brain, `flatc`, and the example packs `pnpm run deploy-examples` converts ([CONTRIBUTING.md](./CONTRIBUTING.md) lists the checks).
 
-A release is a tag on `main`, pushed first and built second. The version is `version` in `packages/react-native-spritestudio/package.json`. The SDK it ships is pinned on its own, in `scripts/SDK_VERSION.txt`. The tag is `v` followed by the version, and the release build refuses a tag that disagrees. Branches follow git-flow: `develop` integrates, `main` holds released commits only, and `release/X.Y` lives for one release — cut from `develop` for a new `X.Y`, or from the line's latest tag for a patch, and deleted once the release is out.
+A release is a tag on `main`, pushed first and built second. The version is `version` in `packages/react-native-spritestudio/package.json`. The SDK it ships is pinned on its own, in `scripts/SDK_VERSION.txt`. The tag is `v` followed by the version, and the release build refuses a tag that disagrees. Branches follow git-flow: `develop` integrates, `main` holds released commits only, and `release/X.Y` lives for one release — cut from `develop` when the release ships `develop`'s work, or from the line's latest tag when it ships only fixes on top of it, and deleted once the release is out.
 
 ```bash
 VERSION=<version>
@@ -19,13 +19,13 @@ BRANCH=release/$(echo "${VERSION:?}" | cut -d. -f1,2)
 
 ### 1. Branch
 
-A new `X.Y` is cut from `develop`. A patch release is cut from the line's latest tag, whether or not an earlier `release/X.Y` is still there, and its fixes are committed or cherry-picked onto it.
+A release that ships `develop`'s work is cut from `develop`: a new `X.Y`, or `7.0.0` after `7.0.0-beta.1`. A patch release ships only fixes: it is cut from the line's latest tag, and its fixes are committed or cherry-picked onto it. Either way, an earlier `release/X.Y` that is still there is replaced.
 
-For a new `X.Y`:
+For `develop`'s work:
 
 ```bash
 git fetch origin
-git switch -c "${BRANCH:?}" origin/develop
+git switch -C "${BRANCH:?}" origin/develop
 ```
 
 For a patch:
@@ -38,12 +38,14 @@ git switch -C "${BRANCH:?}" "${BASE:?}"
 
 ### 2. SDK, version and changelog
 
-In one commit. Pin the SpriteStudio-SDK release this one ships in both places it is read from: `scripts/SDK_VERSION.txt`, the tag `download-sdk` installs the Brain by, and the `SpriteStudio-SDK` submodule, which the host checks build against. A release that keeps its SDK pins the tag `scripts/SDK_VERSION.txt` already holds. When the SDK's `.fbs` schemas changed, regenerate `cpp/format/`. Then set the package's `version` to `<version>`, and date the version's heading in `CHANGELOG.md` as `## [X.Y.Z] - YYYY-MM-DD`, adding the heading on a patch release.
+In one commit. Pin the SpriteStudio-SDK release this one ships in both places it is read from: `scripts/SDK_VERSION.txt`, the tag `download-sdk` installs the Brain by, and the `SpriteStudio-SDK` submodule, which the host checks build against. A new checkout has not initialized the submodule, and until it does, `git -C` on that directory reaches this repository instead, so the block initializes it first and goes no further if that fails. A release that keeps its SDK pins the tag `scripts/SDK_VERSION.txt` already holds. When the SDK's `.fbs` schemas changed, regenerate `cpp/format/`. Then set the package's `version` to `<version>`, and date the version's heading in `CHANGELOG.md` as `## [X.Y.Z] - YYYY-MM-DD`, adding the heading on a patch release.
 
 ```bash
 SDK_TAG=<sdk-tag>
-printf '%s\n' "${SDK_TAG:?}" > scripts/SDK_VERSION.txt
-git -C SpriteStudio-SDK fetch --tags origin && git -C SpriteStudio-SDK checkout "$SDK_TAG"
+git submodule update --init SpriteStudio-SDK &&
+  git -C SpriteStudio-SDK fetch --tags origin &&
+  git -C SpriteStudio-SDK checkout "${SDK_TAG:?}" &&
+  printf '%s\n' "$SDK_TAG" > scripts/SDK_VERSION.txt
 pnpm run generate-fbs-code                       # only when the SDK's schema changed
 # set "version" in packages/react-native-spritestudio/package.json to <version> and date the heading in CHANGELOG.md, then:
 git add scripts/SDK_VERSION.txt SpriteStudio-SDK packages/react-native-spritestudio CHANGELOG.md
@@ -88,10 +90,10 @@ Merge with a merge commit, never a squash or a rebase, so that `main` keeps the 
 
 ```bash
 gh pr merge "${BRANCH:?}" --merge
-git switch main && git pull --ff-only
-git diff --stat HEAD^2 HEAD                       # must print nothing
-TAG="v$(node -p "require('./packages/react-native-spritestudio/package.json').version")" && echo "$TAG"
-git tag -a "$TAG" -m "$TAG" && git push origin "$TAG"
+git switch main && git pull --ff-only &&
+  git diff --exit-code --stat HEAD^2 HEAD &&   # must print nothing
+  TAG="v$(node -p "require('./packages/react-native-spritestudio/package.json').version")" && echo "$TAG" &&
+  git tag -a "$TAG" -m "$TAG" && git push origin "$TAG"
 ```
 
 ### 5. Build the Release
@@ -185,7 +187,7 @@ It runs anywhere, but off macOS it skips `check-mask` and `check-shader`, which 
 
 ワークフローの 2 つの実行、手順 3 の QA ビルドと手順 5 の Release は、どちらも代わりに Mac の手元で実行できます。ワークフローが実行するのは、サンプルパックの変換を除けば、その手順が名前を挙げるスクリプトだけだからです。それらのスクリプトはホストチェックを実行するので、この経路にはその検査に要るもの、つまりホスト用の Brain をビルドする Rust と `flatc`、それに `pnpm run deploy-examples` で変換したサンプルパックも必要です（検査の一覧は [CONTRIBUTING.md](./CONTRIBUTING.md) にあります）。
 
-リリースは `main` 上のタグです。先にタグを push し、ビルドはその後です。バージョンは `packages/react-native-spritestudio/package.json` の `version` です。同梱する SDK は、それとは別に `scripts/SDK_VERSION.txt` で固定します。タグはバージョンの頭に `v` を付けたもので、食い違うタグはリリースビルドが拒否します。ブランチは git-flow です。`develop` が統合ブランチで、`main` にはリリース済みのコミットだけが入ります。`release/X.Y` は 1 回のリリースの間だけ使います。新しい `X.Y` なら `develop` から、パッチならその系統の最新のタグから切り、リリースが済んだら消します。
+リリースは `main` 上のタグです。先にタグを push し、ビルドはその後です。バージョンは `packages/react-native-spritestudio/package.json` の `version` です。同梱する SDK は、それとは別に `scripts/SDK_VERSION.txt` で固定します。タグはバージョンの頭に `v` を付けたもので、食い違うタグはリリースビルドが拒否します。ブランチは git-flow です。`develop` が統合ブランチで、`main` にはリリース済みのコミットだけが入ります。`release/X.Y` は 1 回のリリースの間だけ使います。`develop` の作業を出すリリースなら `develop` から、タグの上に修正だけを載せるリリースならその系統の最新のタグから切り、リリースが済んだら消します。
 
 ```bash
 VERSION=<version>
@@ -196,13 +198,13 @@ BRANCH=release/$(echo "${VERSION:?}" | cut -d. -f1,2)
 
 ### 1. ブランチ
 
-新しい `X.Y` は `develop` から切ります。パッチリリースは、以前の `release/X.Y` が残っているかどうかに関係なく、その系統の最新のタグから切り、修正をそこへコミットするか cherry-pick します。
+`develop` の作業を出すリリースは `develop` から切ります。新しい `X.Y` や、`7.0.0-beta.1` の後の `7.0.0` がこれに当たります。パッチリリースは修正だけを出すもので、その系統の最新のタグから切り、修正をそこへコミットするか cherry-pick します。どちらの場合も、以前の `release/X.Y` が残っていれば置き換えます。
 
-新しい `X.Y` のとき:
+`develop` の作業を出すとき:
 
 ```bash
 git fetch origin
-git switch -c "${BRANCH:?}" origin/develop
+git switch -C "${BRANCH:?}" origin/develop
 ```
 
 パッチのとき:
@@ -215,12 +217,14 @@ git switch -C "${BRANCH:?}" "${BASE:?}"
 
 ### 2. SDK、バージョン、CHANGELOG
 
-1 コミットで行います。同梱する SpriteStudio-SDK のリリースを、読まれる 2 か所の両方で固定します。`download-sdk` が Brain を導入するときに使うタグ `scripts/SDK_VERSION.txt` と、ホストチェックがビルドに使う `SpriteStudio-SDK` submodule です。SDK を変えないリリースでは、`scripts/SDK_VERSION.txt` にいまあるタグを固定します。SDK の `.fbs` スキーマが変わったときは `cpp/format/` を生成し直します。続けてパッケージの `version` を `<version>` にし、`CHANGELOG.md` のそのバージョンの見出しに日付を入れて `## [X.Y.Z] - YYYY-MM-DD` とします。パッチリリースでは見出しを足します。
+1 コミットで行います。同梱する SpriteStudio-SDK のリリースを、読まれる 2 か所の両方で固定します。`download-sdk` が Brain を導入するときに使うタグ `scripts/SDK_VERSION.txt` と、ホストチェックがビルドに使う `SpriteStudio-SDK` submodule です。新しいチェックアウトでは submodule が初期化されておらず、初期化するまではそのディレクトリへの `git -C` がこのリポジトリに届いてしまいます。そのためブロックは先に初期化し、失敗したらそこで止まります。SDK を変えないリリースでは、`scripts/SDK_VERSION.txt` にいまあるタグを固定します。SDK の `.fbs` スキーマが変わったときは `cpp/format/` を生成し直します。続けてパッケージの `version` を `<version>` にし、`CHANGELOG.md` のそのバージョンの見出しに日付を入れて `## [X.Y.Z] - YYYY-MM-DD` とします。パッチリリースでは見出しを足します。
 
 ```bash
 SDK_TAG=<sdk-tag>
-printf '%s\n' "${SDK_TAG:?}" > scripts/SDK_VERSION.txt
-git -C SpriteStudio-SDK fetch --tags origin && git -C SpriteStudio-SDK checkout "$SDK_TAG"
+git submodule update --init SpriteStudio-SDK &&
+  git -C SpriteStudio-SDK fetch --tags origin &&
+  git -C SpriteStudio-SDK checkout "${SDK_TAG:?}" &&
+  printf '%s\n' "$SDK_TAG" > scripts/SDK_VERSION.txt
 pnpm run generate-fbs-code                       # SDK のスキーマが変わったときだけ
 # packages/react-native-spritestudio/package.json の "version" を <version> にし、CHANGELOG.md の見出しに日付を入れてから:
 git add scripts/SDK_VERSION.txt SpriteStudio-SDK packages/react-native-spritestudio CHANGELOG.md
@@ -265,10 +269,10 @@ git push origin "$BRANCH" &&
 
 ```bash
 gh pr merge "${BRANCH:?}" --merge
-git switch main && git pull --ff-only
-git diff --stat HEAD^2 HEAD                       # 何も出力されないこと
-TAG="v$(node -p "require('./packages/react-native-spritestudio/package.json').version")" && echo "$TAG"
-git tag -a "$TAG" -m "$TAG" && git push origin "$TAG"
+git switch main && git pull --ff-only &&
+  git diff --exit-code --stat HEAD^2 HEAD &&   # 何も出力されないこと
+  TAG="v$(node -p "require('./packages/react-native-spritestudio/package.json').version")" && echo "$TAG" &&
+  git tag -a "$TAG" -m "$TAG" && git push origin "$TAG"
 ```
 
 ### 5. Release のビルド
