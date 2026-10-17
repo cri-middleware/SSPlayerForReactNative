@@ -57,9 +57,8 @@ export function Character() {
 
 | | |
 |---|---|
-| React Native | `^0.88.0` — **New Architecture 専用** |
-| React | `^19.3.0` |
-| Peer deps | `react-native-skia` `^3.6.1`, `react-native-nitro-modules` `^0.37.0`, `react-native-reanimated` `^4.6.0` — および `react-native-worklets`（Reanimated が自身の peer として要求する版） |
+| React Native | **New Architecture 専用** |
+| Peer deps | `react-native`, `react`, `react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — および `react-native-worklets`（Reanimated が自身の peer として要求する版）。範囲はこのパッケージの `peerDependencies` にあります |
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
 
