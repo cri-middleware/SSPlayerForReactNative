@@ -1,8 +1,8 @@
 name: Docs
 
-# Builds the documentation the way pages.yml publishes it, both locales
-# --strict, so a broken link or nav entry surfaces before a release
-# publishes it.
+# Builds the documentation the way pages.yml publishes it, one VitePress
+# build for both locales, which a dead link fails, so it surfaces before a
+# release publishes it.
 #
 # A pull request that touches the site's sources runs this on its own. ci.yml
 # calls it as well, for the weekly run, a dispatch and the release PR: that PR

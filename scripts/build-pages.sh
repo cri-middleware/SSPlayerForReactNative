@@ -6,7 +6,7 @@
 #   scripts/build-pages.sh              # the tree pages.yml uploads
 #   scripts/build-pages.sh serve=yes    # ... and serve it, base and all
 #   scripts/build-pages.sh api=no       # prose only; keep the docs/api already there
-#   scripts/build-pages.sh prepare=yes  # the install first, as CI does
+#   scripts/build-pages.sh prepare=yes  # the install first
 #
 # **This script implements nothing.** It is prepare-docs.sh then build-docs.sh,
 # which are the pair every repository in the SpriteStudio family spells the same
