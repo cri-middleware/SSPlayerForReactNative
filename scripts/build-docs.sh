@@ -16,9 +16,7 @@
 #
 # TypeDoc fails the build on an error and VitePress fails on a dead link, so a
 # page pointing at a heading somebody renamed does not reach the site. **Neither
-# checks #anchors**, and nothing builds the docs on a pull request (pages.yml
-# runs on a published release and on dispatch), so this run is the only gate
-# there is.
+# checks #anchors**.
 #
 # **No base= option, unlike SSPlayerForWeb's twin.** `base` is written into
 # docs/.vitepress/config.mts rather than read from the environment, so every
@@ -63,8 +61,7 @@ usage () {
   echo "  -h | --help             Show this help"
   echo ""
   echo "Output: $DIST -- both locales in the one build, English at the root and Japanese"
-  echo "under /ja/. A dead link fails the build, which is the only gate there is: nothing"
-  echo "builds the docs on a pull request. #anchors are checked by nobody."
+  echo "under /ja/. A dead link fails the build; #anchors are checked by nobody."
   echo ""
   echo "There is no base= option: docs/.vitepress/config.mts writes the base path itself."
   echo ""

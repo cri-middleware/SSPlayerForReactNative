@@ -13,9 +13,9 @@ param (
 # One build, both locales. VitePress resolves docs/ja through its own i18n
 # support, so unlike the Zensical siblings there is no locale option here.
 #
-# TypeDoc fails the build on an error and VitePress fails on a dead link.
-# NEITHER CHECKS #anchors, and nothing builds the docs on a pull request, so
-# this run is the only gate there is.
+# TypeDoc fails the build on an error and VitePress fails on a dead link, so a
+# page pointing at a heading somebody renamed does not reach the site. NEITHER
+# CHECKS #anchors.
 #
 # NO base= OPTION, unlike SSPlayerForWeb's twin. `base` is written into
 # docs/.vitepress/config.mts rather than read from the environment, so every
@@ -68,8 +68,7 @@ function Show-Usage {
     Write-Host "  -h | --help             Show this help"
     Write-Host ""
     Write-Host "Output: $dist -- both locales in the one build, English at the root and Japanese"
-    Write-Host "under /ja/. A dead link fails the build, which is the only gate there is: nothing"
-    Write-Host "builds the docs on a pull request. #anchors are checked by nobody."
+    Write-Host "under /ja/. A dead link fails the build; #anchors are checked by nobody."
     Write-Host ""
     Write-Host "There is no base= option: docs/.vitepress/config.mts writes the base path itself."
     Write-Host ""
