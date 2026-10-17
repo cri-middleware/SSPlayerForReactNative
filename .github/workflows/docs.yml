@@ -1,0 +1,55 @@
+name: Docs
+
+# Builds the documentation the way pages.yml publishes it, both locales
+# --strict, so a broken link or nav entry surfaces before a release
+# publishes it.
+#
+# A pull request that touches the site's sources runs this on its own. ci.yml
+# calls it as well, for the weekly run, a dispatch and the release PR: that PR
+# targets main, which the trigger below leaves to ci.yml so it does not run
+# twice. ci.yml cannot carry the pull-request half itself, because it ignores a
+# change to Markdown alone, and the docs are almost nothing else.
+on:
+  pull_request:
+    branches-ignore:
+      - main
+    paths:
+      - 'docs/**'
+      - 'scripts/prepare-docs.*'
+      - 'scripts/build-docs.*'
+      - 'scripts/build-pages.*'
+      - '.github/workflows/docs.yml'
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 📚 Pages site
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the Pages tree
+        run: ./scripts/build-pages.sh prepare=no api=yes serve=no
