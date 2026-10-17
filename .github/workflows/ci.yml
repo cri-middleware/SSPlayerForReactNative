@@ -342,8 +342,9 @@ jobs:
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO build
 
-  # docs.yml, the build pages.yml publishes, both locales --strict. A pull
-  # request into anything but main that touches the docs runs it on its own.
+  # docs.yml, the build pages.yml publishes: both locales in one VitePress
+  # build. A pull request into anything but main that touches the docs runs it
+  # on its own.
   docs:
     name: 📚 Pages site
     if: github.event_name != 'pull_request' || github.base_ref == 'main'
