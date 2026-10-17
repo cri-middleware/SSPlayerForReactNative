@@ -83,6 +83,13 @@ else
     args=(--verify-tag --title "SpriteStudio Player for React Native ${TAG}" --generate-notes --draft)
     channel="$("${SCRIPTDIR}/release-channel.sh" "$TAG")"
     [ "$channel" != prerelease ] || args+=(--prerelease)
+    # A patch to an earlier line: the notes start from the full release before
+    # it in that line, not from the newest release.
+    if [ "$channel" = old ]; then
+        previous=$(git -C "$ROOTDIR" tag --list "${TAG%.*}.*" --sort=v:refname |
+            awk -v tag="$TAG" '$0 == tag { print previous; exit } $0 !~ /-|[0-9](a|b|rc)[0-9]+$/ { previous = $0 }')
+        [ -z "$previous" ] || args+=(--notes-start-tag "$previous")
+    fi
     gh release create "$TAG" "$TGZ" "${OUT}/SHA256SUMS" "${args[@]}"
     echo "${APP}: drafted ${TAG}."
 fi
