@@ -20,7 +20,20 @@ npx expo install react-native-spritestudio react-native-skia react-native-nitro-
 
 ## Ship your packs
 
-A `.ssab` names its textures and its external packs **by paths relative to itself**, so **a pack is a directory, not a file** — and Metro ships a dependency graph rather than directories. Pack directories go in as native app assets through the Expo config plugin:
+A `.ssab` names its textures and its external packs **by paths relative to itself**, so **a pack is a directory, not a file** — and Metro ships a dependency graph rather than directories. Pack directories go in as native app assets through the Expo config plugin. Put each converter's
+output folder in `assets/ss/` and point the plugin at it:
+
+```
+my-app/
+├── app.json
+├── App.tsx               ← source="ss/Ringo/Ringo.ssab"
+└── assets/
+    └── ss/               ← shipped into the app as ss/
+        └── Ringo/        ← the converter's output folder
+            ├── Ringo.ssab
+            ├── Ringo.png
+            └── …
+```
 
 ```json
 {
@@ -30,7 +43,7 @@ A `.ssab` names its textures and its external packs **by paths relative to itsel
 }
 ```
 
-`.sspj` → `.ssab` conversion happens on your machine with the SDK's `ssconverter-cli` or the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI). No converter is bundled.
+`.sspj` → `.ssab` conversion happens on your machine — in the browser with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/), with the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI), or with the SDK's `ssconverter-cli`. No converter is bundled. No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is; [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
 
 ## Play
 
@@ -40,8 +53,8 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 export function Character() {
   return (
     <SpriteStudioView
-      source="ss/overall/Basic.ssab"
-      animation="anime_1"
+      source="ss/Ringo/Ringo.ssab"
+      animation="wait1"
       fit="contain"
       style={{ flex: 1 }}
     />

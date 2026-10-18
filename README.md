@@ -25,118 +25,82 @@ A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)*
 
 ## 🚀 Quick Start
 
-**Using it in your app?** Read on — install, prepare assets, play. Everything after
+**Using it in your app?** Read on — install, convert, play. Everything after
 that (events, part overrides, custom textures) is the same path further in, on the
 [documentation site](https://cri-middleware.github.io/SSPlayerForReactNative/).
 **Working on the player, or the Rust core under it?**
-[Working from a checkout](docs/development/from-source.md), then
+[Working on the player](#%EF%B8%8F-working-on-the-player) below, then
 [CONTRIBUTING.md](CONTRIBUTING.md) before changing anything; [ROADMAP.md](ROADMAP.md) is what
 lands when.
 
-### Install
+You need a React Native app on the **New Architecture**, run as a **development build** — Expo Go
+cannot load native code — and a project made in **SpriteStudio 7.5 or later**. The versions are
+under [Requirements](#-requirements).
 
-```bash
-npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
-```
+1. **Install** the package and its peers:
 
-**Expo Go cannot run this package**, so your app needs a **development build** —
-its own binary, with this package compiled into it. In a managed app that is
-`npx expo prebuild` then `npx expo run:ios` / `run:android`; in a bare app you
-already have the native projects, so rebuild them instead. Autolinking picks the
-package up either way, but in a bare app the config plugin's two jobs — shipping
-your pack directories as native assets and dropping the 32-bit `x86` ABI — are
-yours to do by hand. On Android, `minSdkVersion` has to be 26.
-[Installation](docs/setup/install.md) has the detail.
+   ```bash
+   npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+   ```
 
-### See it running first
+   On Android, `minSdkVersion` has to be 26 — [Installation](docs/setup/install.md#3-build-your-app)
+   has the `expo-build-properties` line.
+2. **Convert** your `.sspj` with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)
+   in Chrome or Edge, the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI),
+   or the SDK's `ssconverter-cli`. Each writes a folder named after the project, with the `.ssab`
+   and its textures inside. Put that folder in `assets/ss/`, and point the config plugin at
+   `assets/ss` in `app.json`:
 
-Nothing of yours is needed to watch this work: the example app in this repository
-plays the SDK's own test animations, converted from the `SpriteStudio-SDK`
-submodule. [Working from a checkout](docs/development/from-source.md) is the path
-from clone to running app, and [the example app](example/README.md) says what each
-subject on its screen proves.
+   ```
+   my-app/
+   ├── app.json
+   ├── App.tsx               ← source="ss/Ringo/Ringo.ssab"
+   └── assets/
+       └── ss/               ← shipped into the app as ss/
+           └── Ringo/        ← the converter's output folder
+               ├── Ringo.ssab
+               ├── Ringo.png
+               └── …
+   ```
 
-> Converting those packs needs a Rust toolchain, because `deploy-examples`
-> builds the SDK's `ssconverter-cli` from source.
+   ```json
+   {
+     "expo": {
+       "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
+     }
+   }
+   ```
 
-### Preparing assets (`.sspj` → `.ssab`)
+   The folder travels as a native app asset rather than through Metro, so a changed pack needs a
+   native build — [Preparing assets](docs/setup/assets.md) explains why.
+3. **Play** it. Build the app — `npx expo prebuild`, then `npx expo run:ios` or `run:android` — and
+   name the pack by its path inside the shipped folder:
 
-Animations are authored in SpriteStudio — **7.5 or later**, which is what the
-format this reads is defined against — and converted on your machine with the
-SDK's `ssconverter-cli` (or the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)).
-No converter is bundled and nothing converts at runtime — this is a step you run before the assets ship. [Converting with a standalone tool](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/) covers picking a tool and putting it in a build pipeline.
+   ```tsx
+   import { SpriteStudioView } from 'react-native-spritestudio'
 
-**A pack is a directory, not a file.** A `.ssab` names its textures, the
-external packs its Instance parts reach and — through a `.ssqb` — the packs it
-sequences, all by paths relative to itself. So `ssconverter-cli`'s **output
-directory** is what has to reach the device intact.
+   export function Character() {
+     return (
+       <SpriteStudioView
+         source="ss/Ringo/Ringo.ssab"
+         animation="wait1"
+         fit="contain"
+         style={{ flex: 1 }}
+       />
+     )
+   }
+   ```
 
-Metro cannot carry one: it bundles only what a `require()` names and never walks
-a directory, and Android's packager then flattens what it did name into `res/`.
-So pack directories are shipped as **native app assets** instead. Point the Expo
-config plugin at yours:
+   Playback starts on load and loops forever; `loop={1}` plays once.
 
-```json
-{
-  "expo": {
-    "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
-  }
-}
-```
+In a bare app there is no `prebuild`: rebuild your native projects, and do by hand the config
+plugin's two jobs — shipping the pack folders, and dropping the 32-bit `x86` ABI
+([Installation](docs/setup/install.md#3-build-your-app)).
 
-The plugin re-copies on every build, so re-running the converter needs only a
-rebuild — not a fresh `prebuild`. Changing an asset does mean a native build,
-though: assets do not Fast Refresh.
+No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is — the page is in Japanese, the downloads are not. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
 
-### Play it
-
-Address a pack by its path inside that asset root:
-
-```tsx
-import { SpriteStudioView } from 'react-native-spritestudio'
-
-export function Character() {
-  return (
-    <SpriteStudioView
-      source="ss/overall/Basic.ssab"
-      animation="anime_1"
-      fit="contain"
-      style={{ flex: 1 }}
-    />
-  )
-}
-```
-
-That is the whole integration. The textures come with it — for a **Reference**
-pack the loader resolves each `image_path` next to the `.ssab`, and for an
-**Embedded** one (`--embedded`) it reads the atlas out of the file. Playback starts on load and loops
-forever by default (`playing`, `speed` and `loop` are props; `loop={1}` plays
-once).
-
-A `source` can also be a filesystem path or `file://` URI (a download, an
-unpacked bundle) or an `http(s)` URL (a dev server, a CDN); siblings resolve the
-same way in all three. A `require()`d module is **not** a source — that is the
-form with no directory behind it.
-
-Prefer not to hand-write those strings? `npx react-native-spritestudio assets`
-writes a typed manifest of the packs your app ships, so a wrong key is a **type
-error** rather than a blank canvas.
-
-### Going further
-
-| You want to… | Reach for |
-|---|---|
-| React to keys the artist placed on the timeline | `onUserData`, `onAudio`, `onSignal` |
-| Know when an animation started, changed, looped or finished | `onAnimationStarted`, `onAnimationChanged`, `onAnimationLooped`, `onAnimationFinished` |
-| Recolour, hide or swap a part at runtime | the `parts` prop — declarative, so removing an entry reverts it |
-| Draw a whole cast on one canvas and one clock | `<SpriteStudioScene>` + `<SpriteStudioSprite>` |
-| Attach a React view to a part (a health bar over a head) | `<SpriteStudioPartAnchor>` in the view's children — or `useSsPartTransform` for a style of your own |
-| Pay the load cost before the mount | `ssPreload` / `ssUnload` |
-| Drive the transport imperatively | the ref's `player` — a `SpriteStudioPlayer` |
-
-The `.ssab` decides which of these are available, and every part type and key
-this port supports is handled without extra wiring —
-[docs/limitations.md](docs/limitations.md) is the list.
+**Read next:** [Basic playback](docs/usage/basic.md) · [Components at a glance](docs/components.md) ·
+[Limitations & Scope](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## 📋 Requirements
 
@@ -169,6 +133,14 @@ this package.
 the answer is [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb)
 — `@spritestudio/ssplayer-webgl` renders the same `.ssab` with no React Native
 in the way.
+
+## ⚙️ Working on the player
+
+The example app in this repository plays the SDK's own test animations, converted from the
+`SpriteStudio-SDK` submodule. [Working from a checkout](docs/development/from-source.md) is the path
+from clone to running app, and [the example app](example/README.md) says what each subject on its
+screen proves. Converting those packs needs a Rust toolchain, because `deploy-examples` builds the
+SDK's `ssconverter-cli` from source.
 
 ## 🔗 Related Repositories
 

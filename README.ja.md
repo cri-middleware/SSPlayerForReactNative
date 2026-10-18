@@ -25,79 +25,65 @@
 
 ## 🚀 クイックスタート
 
-**アプリで使う場合**はこのまま下へ。入れる → アセットを準備する → 再生する。その先（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。**プレイヤー自体や、その下の Rust コアを変更する場合**は[チェックアウトから動かす](docs/ja/development/from-source.md)、変更前に読む作業ガイドが
-[CONTRIBUTING.md](CONTRIBUTING.md) です（何がいつ入るかは [ROADMAP.md](ROADMAP.md)）。
+**アプリで使う場合**はこのまま下へ。入れる → 変換する → 再生する、の順です。その先（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。**プレイヤー自体や、その下の Rust コアを変更する場合**は下の[プレイヤーを開発する場合](#%EF%B8%8F-プレイヤーを開発する場合)、変更前に読む作業ガイドが [CONTRIBUTING.md](CONTRIBUTING.md) です（何がいつ入るかは [ROADMAP.md](ROADMAP.md)）。
 
-### インストール
+**New Architecture** の React Native アプリを **development build** で動かす必要があります（Expo Go はネイティブコードを読み込めません）。SpriteStudio のプロジェクトは **7.5 以上**で作成したものです。バージョンは[要件](#-要件)にあります。
 
-```bash
-npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
-```
+1. **導入**: パッケージと peer をインストールします。
 
-**Expo Go はこのパッケージを実行できません。** あなたのアプリには **development build** — このパッケージをコンパイルして組み込んだ自前のバイナリ — が必要です。managed なら `npx expo prebuild` の後に `npx expo run:ios` / `run:android`、bare なら既にネイティブプロジェクトがあるのでリビルドします。どちらでも autolinking がパッケージを拾いますが、bare では config plugin が担う 2 つの作業（パックのディレクトリをネイティブアセットとして同梱すること、32 ビット `x86` の ABI を外すこと）は自分で行います。Android の `minSdkVersion` は 26 にします。詳細は [インストール](docs/ja/setup/install.md) にあります。
+   ```bash
+   npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+   ```
 
-### まず動くところを見る
+   Android の `minSdkVersion` は 26 にします。`expo-build-properties` の書き方は [インストール](docs/ja/setup/install.md#3-アプリをビルドする) にあります。
+2. **変換**: `.sspj` を、Chrome か Edge で開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを書き出し、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
 
-自分の素材は要りません。このリポジトリのサンプルアプリが、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順は [チェックアウトから動かす](docs/ja/development/from-source.md) に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。
+   ```
+   my-app/
+   ├── app.json
+   ├── App.tsx               ← source="ss/Ringo/Ringo.ssab"
+   └── assets/
+       └── ss/               ← アプリに ss/ として入る
+           └── Ringo/        ← コンバータが書き出したフォルダ
+               ├── Ringo.ssab
+               ├── Ringo.png
+               └── …
+   ```
 
-> このパックの変換には Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。
+   ```json
+   {
+     "expo": {
+       "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
+     }
+   }
+   ```
 
-### アセットの準備（`.sspj` → `.ssab`）
+   このフォルダは Metro ではなくネイティブのアプリアセットとして運ばれるので、パックを変えたらネイティブビルドが必要です。理由は [アセットの準備](docs/ja/setup/assets.md) にあります。
+3. **再生**: アプリをビルドし（`npx expo prebuild` の後に `npx expo run:ios` か `run:android`）、同梱したフォルダの中のパスでパックを指定します。
 
-アニメーションは SpriteStudio で作成します（対応するのは **7.5 以上**で作成されたプロジェクトです）。変換は手元のマシンで SDK の `ssconverter-cli`（またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)）を使って変換します。コンバータは同梱しておらず、実行時に変換されることもありません — アセットを同梱する前に自分で実行する手順です。ツールの選び方とビルドパイプラインへの組み込みは[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)にあります。
+   ```tsx
+   import { SpriteStudioView } from 'react-native-spritestudio'
 
-**パックはファイルではなくディレクトリです。** `.ssab` は、テクスチャ、Instance パーツが参照する外部パック、そして `.ssqb` を通じてシーケンスするパックを、すべて自身からの相対パスで指定します。したがって `ssconverter-cli` の**出力ディレクトリ**がそのまま端末に届く必要があります。
+   export function Character() {
+     return (
+       <SpriteStudioView
+         source="ss/Ringo/Ringo.ssab"
+         animation="wait1"
+         fit="contain"
+         style={{ flex: 1 }}
+       />
+     )
+   }
+   ```
 
-Metro はこれを運べません。`require()` が名指ししたものだけをバンドルし、ディレクトリを走査することはなく、さらに Android のパッケージャが名指しされたものを `res/` に平坦化してしまいます。そこでパックのディレクトリは代わりに**ネイティブのアプリアセット**として同梱します。Expo config plugin に自分のディレクトリを指定してください。
+   再生はロード時に始まり、既定では無限にループします。`loop={1}` なら 1 回だけ再生します。
 
-```json
-{
-  "expo": {
-    "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
-  }
-}
-```
+bare のアプリには `prebuild` がありません。ネイティブプロジェクトをリビルドし、config plugin が担う 2 つの作業（パックのフォルダを同梱すること、32 ビット `x86` の ABI を外すこと）を自分で行います（[インストール](docs/ja/setup/install.md#3-アプリをビルドする)）。
 
-プラグインはビルドのたびに再コピーするので、コンバータを再実行した後はリビルドだけで済み、`prebuild` のやり直しは不要です。ただしアセットの変更にはネイティブビルドが必要です — アセットは Fast Refresh されません。
+SpriteStudio のデータが手元に無くても始められます。[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
 
-### 再生する
-
-パックは、そのアセットルート内のパスで指定します。
-
-```tsx
-import { SpriteStudioView } from 'react-native-spritestudio'
-
-export function Character() {
-  return (
-    <SpriteStudioView
-      source="ss/overall/Basic.ssab"
-      animation="anime_1"
-      fit="contain"
-      style={{ flex: 1 }}
-    />
-  )
-}
-```
-
-統合はこれで全部です。テクスチャは付いてきます — Reference パックならローダーが各 `image_path` を `.ssab` の隣で解決し、`--embedded` で変換された Embedded パックならファイル内から読み出します。再生はロード時に始まり、既定では無限にループします（`playing`・`speed`・`loop` は prop で、`loop={1}` なら 1 回だけ再生します）。
-
-`source` にはファイルシステムのパスや `file://` URI（ダウンロード、展開済みバンドル）、`http(s)` URL（開発サーバー、CDN）も指定できます。兄弟ファイルの解決はいずれの形式でも同じです。`require()` したモジュールは source としては**使えません** — 背後にディレクトリを持たない唯一の形式だからです。
-
-これらの文字列を手書きしたくない場合は、`npx react-native-spritestudio assets` がアプリの同梱するパックの型付きマニフェストを書き出します。キーの間違いが空白のキャンバスではなく**型エラー**になります。
-
-### さらに進む
-
-| やりたいこと | 使うもの |
-|---|---|
-| アーティストがタイムラインに置いたキーに反応する | `onUserData`、`onAudio`、`onSignal` |
-| アニメーションの開始・変更・ループ・終了を知る | `onAnimationStarted`、`onAnimationChanged`、`onAnimationLooped`、`onAnimationFinished` |
-| 実行時にパーツを色変え・非表示・差し替えする | `parts` prop — 宣言的なので、エントリを外せば元に戻ります |
-| キャスト全体をキャンバス 1 枚・クロック 1 つで描く | `<SpriteStudioScene>` + `<SpriteStudioSprite>` |
-| React のビューをパーツに追従させる（頭の上の HP バーなど） | ビューの children に置いた `<SpriteStudioPartAnchor>` — 自前のスタイルなら `useSsPartTransform` |
-| ロードのコストをマウント前に払う | `ssPreload` / `ssUnload` |
-| トランスポートを命令的に操作する | ref の `player`（`SpriteStudioPlayer`） |
-
-どれが使えるかは `.ssab` が決めます。この移植版が対応するパーツ種別とキーは追加の配線なしですべて扱われます — 一覧は [docs/ja/limitations.md](docs/ja/limitations.md) にあります。
+**次に読む:** [基本的な再生](docs/ja/usage/basic.md) · [コンポーネント早見](docs/ja/components.md) ·
+[制約と適用範囲](docs/ja/limitations.md) · [トラブルシューティング](docs/ja/troubleshooting.md)
 
 ## 📋 要件
 
@@ -116,6 +102,10 @@ export function Character() {
 **このパッケージを追加しても web ビルドは壊れません。** react-native-web の下で `react-native-spritestudio` を import しても安全で、そのバンドルはビルドできます。web が解決するエントリポイントが*スタブ*だからです — native に**加えて** web も出荷し、SpriteStudio は native 側でだけ再生するアプリのために持っています。配置の計算、パスのヘルパー、語彙の enum は両プラットフォームで実装そのものであり、スタブになっているのは Skia かネイティブランタイムを必要とする部分だけです。そこでプレイヤーを描画しようとしたときだけ、このパッケージ名を含むエラーが投げられます。
 
 **行わないのは、web でのアニメーション再生です。** web 上の SpriteStudio に対する答えは [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です — `@spritestudio/ssplayer-webgl` が同じ `.ssab` を、React Native を挟まずに描画します。
+
+## ⚙️ プレイヤーを開発する場合
+
+このリポジトリのサンプルアプリは、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順は [チェックアウトから動かす](docs/ja/development/from-source.md) に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。このパックの変換には Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。
 
 ## 🔗 関連リポジトリ
 

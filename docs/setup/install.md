@@ -24,6 +24,7 @@ producing a native build of your app that contains it. Both halves are below.
 | Expo | SDK 58, or bare React Native |
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
+| SpriteStudio | projects made in 7.5 or later |
 
 Not supported: **Expo Go** (see step 3) and Windows / tvOS / visionOS.
 
