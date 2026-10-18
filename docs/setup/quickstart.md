@@ -21,8 +21,22 @@ if you want effects.
 
 Animations are authored in SpriteStudio and converted on your machine to a
 `.ssab` **directory** — see [Preparing assets](/setup/assets), which is the part
-that surprises people. Point the config plugin at the directory holding your
-packs:
+that surprises people. Put the converter's output folder in a directory the config
+plugin ships — `assets/ss/` here:
+
+```
+my-app/
+├── app.json
+├── App.tsx               ← source="ss/Ringo/Ringo.ssab"
+└── assets/
+    └── ss/               ← shipped into the app as ss/
+        └── Ringo/        ← the converter's output folder
+            ├── Ringo.ssab
+            ├── Ringo.png
+            └── …
+```
+
+and point the plugin at it:
 
 ```json
 {
@@ -32,7 +46,13 @@ packs:
 }
 ```
 
+Adding the plugin changes the native projects, so build the app again: `npx expo prebuild`,
+then `npx expo run:ios` or `run:android`.
+
 ## 2. Play it
+
+A pack is named by its path inside the shipped folder, starting with that folder's name:
+`assets/ss/Ringo/Ringo.ssab` is `ss/Ringo/Ringo.ssab`.
 
 ```tsx
 import { SpriteStudioView } from 'react-native-spritestudio'
@@ -40,8 +60,8 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 export function Character() {
   return (
     <SpriteStudioView
-      source="ss/overall/Basic.ssab"
-      animation="anime_1"
+      source="ss/Ringo/Ringo.ssab"
+      animation="wait1"
       fit="contain"
       style={{ flex: 1 }}
     />
@@ -69,7 +89,7 @@ npx react-native-spritestudio assets --out src/ss-assets.ts
 ```tsx
 import { SsAssets } from './ss-assets'
 
-<SpriteStudioView source={SsAssets['overall/Basic']} />
+<SpriteStudioView source={SsAssets['Ringo/Ringo']} />
 ```
 
 `--check` fails when the manifest is out of date, which is what CI wants.

@@ -18,6 +18,7 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 | Expo | SDK 58、または bare React Native |
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
+| SpriteStudio | 7.5 以上で作成したプロジェクト |
 
 対象外：**Expo Go**（手順 3 を参照）と Windows / tvOS / visionOS。
 
