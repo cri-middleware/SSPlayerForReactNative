@@ -7,8 +7,8 @@ description: The props on SpriteStudioView, what a source may be, and how the ar
 
 ```tsx
 <SpriteStudioView
-  source="ss/overall/Basic.ssab"
-  animation="anime_1"
+  source="ss/Ringo/Ringo.ssab"
+  animation="wait1"
   fit="contain"
   style={{ flex: 1 }}
 />
@@ -25,7 +25,7 @@ clocks.
 
 | Form | Example |
 |---|---|
-| a path inside your asset root | `"ss/overall/Basic.ssab"` |
+| a path inside your asset root | `"ss/Ringo/Ringo.ssab"` |
 | a filesystem path or `file://` URI | a download, an unpacked bundle |
 | an `http(s)` URL | a dev server, a CDN |
 

@@ -7,8 +7,8 @@ description: SpriteStudioView の prop、source に指定できるもの、そ�
 
 ```tsx
 <SpriteStudioView
-  source="ss/overall/Basic.ssab"
-  animation="anime_1"
+  source="ss/Ringo/Ringo.ssab"
+  animation="wait1"
   fit="contain"
   style={{ flex: 1 }}
 />
@@ -21,7 +21,7 @@ description: SpriteStudioView の prop、source に指定できるもの、そ�
 
 | 形式 | 例 |
 |---|---|
-| アセットルート内のパス | `"ss/overall/Basic.ssab"` |
+| アセットルート内のパス | `"ss/Ringo/Ringo.ssab"` |
 | ファイルシステムのパス、`file://` URI | ダウンロード、展開済みバンドル |
 | `http(s)` URL | 開発サーバー、CDN |
 
