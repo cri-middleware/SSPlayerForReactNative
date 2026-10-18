@@ -20,7 +20,19 @@ npx expo install react-native-spritestudio react-native-skia react-native-nitro-
 
 ## パックを配置する
 
-`.ssab` はテクスチャや外部パックを**自身からの相対パス**で参照します。つまり**パックはファイルではなくディレクトリ**であり、Metro が運ぶのは依存グラフであってディレクトリではありません。そのためパックのディレクトリは、Expo config plugin を通じてネイティブのアプリアセットとして同梱します。
+`.ssab` はテクスチャや外部パックを**自身からの相対パス**で参照します。つまり**パックはファイルではなくディレクトリ**であり、Metro が運ぶのは依存グラフであってディレクトリではありません。そのためパックのディレクトリは、Expo config plugin を通じてネイティブのアプリアセットとして同梱します。コンバータが書き出したフォルダを `assets/ss/` に置き、プラグインにそこを指定します。
+
+```
+my-app/
+├── app.json
+├── App.tsx               ← source="ss/Ringo/Ringo.ssab"
+└── assets/
+    └── ss/               ← アプリに ss/ として入る
+        └── Ringo/        ← コンバータが書き出したフォルダ
+            ├── Ringo.ssab
+            ├── Ringo.png
+            └── …
+```
 
 ```json
 {
@@ -30,7 +42,7 @@ npx expo install react-native-spritestudio react-native-skia react-native-nitro-
 }
 ```
 
-`.sspj` → `.ssab` の変換は手元のマシンで、SDK の `ssconverter-cli` またはデスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI) で行います。コンバータは同梱していません。
+`.sspj` → `.ssab` の変換は手元のマシンで、ブラウザ上の [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で行います。コンバータは同梱していません。SpriteStudio のデータが手元に無くても、[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
 
 ## 再生する
 
@@ -40,8 +52,8 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 export function Character() {
   return (
     <SpriteStudioView
-      source="ss/overall/Basic.ssab"
-      animation="anime_1"
+      source="ss/Ringo/Ringo.ssab"
+      animation="wait1"
       fit="contain"
       style={{ flex: 1 }}
     />
