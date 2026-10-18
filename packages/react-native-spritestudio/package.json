@@ -83,11 +83,20 @@
     "url": "git+https://github.com/cri-middleware/SSPlayerForReactNative.git"
   },
   "keywords": [
-    "react-native",
     "spritestudio",
+    "spritestudio7",
     "animation",
+    "2d",
+    "sprite",
+    "skeletal-animation",
+    "gamedev",
+    "react-native",
+    "expo",
     "skia",
-    "nitro"
+    "react-native-skia",
+    "nitro",
+    "ios",
+    "android"
   ],
   "bin": {
     "react-native-spritestudio": "./bin/spritestudio.js"
