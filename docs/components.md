@@ -22,8 +22,8 @@ canvas and a frame loop inside it.
 import { SpriteStudioView } from 'react-native-spritestudio'
 
 <SpriteStudioView
-  source="ss/overall/Basic.ssab"
-  animation="anime_1"
+  source="ss/Ringo/Ringo.ssab"
+  animation="wait1"
   fit="contain"
   style={{ flex: 1 }}
 />
