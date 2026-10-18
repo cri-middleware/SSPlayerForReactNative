@@ -35,7 +35,8 @@ workspace that drives the Rust `libssruntime` over **Nitro Modules (JSI)** and d
 
 | Question | File |
 |---|---|
-| Use | [README.md](./README.md), the [docs site](./docs/) |
+| Using it: every API | the [docs site](./docs/) |
+| Install, convert, first frame, where to read next | [README.md](./README.md) and the package's, per `SpriteStudio-SDK/MAINTAINING_PLAYERS.md` |
 | What does and does not draw | [docs/limitations.md](./docs/limitations.md), the single list |
 | Constraints, setup, build, test, the docs site | [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/development/](./docs/development/) |
 | Releases, maintainers only | [RELEASING.md](./RELEASING.md) |
