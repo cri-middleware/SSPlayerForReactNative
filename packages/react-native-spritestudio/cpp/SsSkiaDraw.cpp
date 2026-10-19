@@ -512,7 +512,40 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     }
   };
 
-  for (const sscore::SsBatchDesc& batch : baker.batches()) {
+  // A batch survives as one draw only if nothing in it needs peeling. The
+  // three reasons peel to the same shape — one part at a time — but they are
+  // independent: the blend plan is a property of the batch, while a PartColor
+  // tint and a mask test are each a property of one part inside it.
+  const auto batchPeels = [&](const sscore::SsBatchDesc& b) {
+    const bool mesh = b.kind == ss::runtime::DrawBatchKind_Mesh;
+    for (int p = 0; p < b.partCount; ++p) {
+      const sscore::SsPartDraw& info = parts[b.partOffset + p];
+      sscore::SsMaskBits bits;
+      // A pure mask forces the peel too — the batched draw has no way to leave
+      // one part out, and leaving it in is the bug this exists to prevent. A
+      // hidden target is the same case.
+      if (info.needsPartColorShader || info.needsShader || pureMaskOf(info) ||
+          maskRouteOf(info, mesh, &bits) != MaskRoute::kPlain)
+        return true;
+    }
+    return false;
+  };
+  const auto mergeableKind = [](int32_t kind) {
+    return kind == ss::runtime::DrawBatchKind_Normal || kind == ss::runtime::DrawBatchKind_Mesh ||
+           kind == ss::runtime::DrawBatchKind_Effect;
+  };
+  // Merged batches keep their triangles in order inside one draw, which a single
+  // coefficient pass composites exactly as it would draw by draw.
+  const auto coefficientBlend = [](int32_t blendType) {
+    const BlendPlan p = BlendPlanFor(blendType);
+    if (p.multiPass()) return false;
+    const SkBlendMode m = p.passes[0].mode;
+    return m == SkBlendMode::kSrcOver || m == SkBlendMode::kPlus || m == SkBlendMode::kScreen;
+  };
+
+  const std::vector<sscore::SsBatchDesc>& batches = baker.batches();
+  for (size_t bi = 0; bi < batches.size(); ++bi) {
+    const sscore::SsBatchDesc& batch = batches[bi];
     drawMountsBefore(batch.startRank);
     if (batch.vertexCount == 0 || batch.indexCount == 0) continue;
     // A pure mask writes coverage and draws no colour. Its geometry was
@@ -554,19 +587,61 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
     const BlendPlan plan = BlendPlanFor(batch.blendType);
 
-    // A batch survives as one draw only if nothing in it needs peeling. The
-    // three reasons peel to the same shape — one part at a time — but they are
-    // independent: the blend plan is a property of the batch, while a PartColor
-    // tint and a mask test are each a property of one part inside it.
-    bool anyPeel = false;
-    for (int p = 0; p < batch.partCount && !anyPeel; ++p) {
-      const sscore::SsPartDraw& info = parts[batch.partOffset + p];
-      sscore::SsMaskBits bits;
-      // A pure mask forces the peel too — the batched draw has no way to leave
-      // one part out, and leaving it in is the bug this exists to prevent. A
-      // hidden target is the same case.
-      anyPeel = info.needsPartColorShader || info.needsShader || pureMaskOf(info) ||
-                maskRouteOf(info, isMesh, &bits) != MaskRoute::kPlain;
+    const bool anyPeel = batchPeels(batch);
+
+    if (!plan.multiPass() && !anyPeel && mergeableKind(batch.kind) && coefficientBlend(batch.blendType)) {
+      // The Brain cuts a batch wherever the part kind changes, so a Normal run
+      // and a Mesh run on the same texture and blend arrive as two. Following
+      // batches join this draw while they share its paint, carry straight on in
+      // the bake, and have no instance mounted between them.
+      size_t last = bi;
+      int32_t vertexEnd = batch.vertexOffset + batch.vertexCount;
+      int32_t indexEnd = batch.indexOffset + batch.indexCount;
+      for (size_t next = bi + 1; next < batches.size(); ++next) {
+        const sscore::SsBatchDesc& nb = batches[next];
+        if (nb.vertexCount == 0 || nb.indexCount == 0) {
+          if (nb.kind == ss::runtime::DrawBatchKind_Mask) break;
+          continue;
+        }
+        if (!mergeableKind(nb.kind) || nb.textureHash != batch.textureHash ||
+            nb.blendType != batch.blendType)
+          break;
+        if (nb.vertexOffset != vertexEnd || nb.indexOffset != indexEnd) break;
+        if (nb.vertexOffset + nb.vertexCount - batch.vertexOffset > 65535) break;
+        if (instances != nullptr && nextMount < mounts.size() &&
+            mounts[nextMount].drawRank < nb.startRank)
+          break;
+        if (batchPeels(nb)) break;
+        last = next;
+        vertexEnd = nb.vertexOffset + nb.vertexCount;
+        indexEnd = nb.indexOffset + nb.indexCount;
+      }
+      if (last > bi) {
+        const int32_t vertexCount = vertexEnd - batch.vertexOffset;
+        const int32_t indexCount = indexEnd - batch.indexOffset;
+        // Each batch's indices are relative to its own first vertex; rebase them
+        // onto this draw's.
+        std::vector<uint16_t>& merged = scratch.indices;
+        merged.resize(static_cast<size_t>(indexCount));
+        for (size_t m = bi; m <= last; ++m) {
+          const sscore::SsBatchDesc& mb = batches[m];
+          if (mb.vertexCount == 0 || mb.indexCount == 0) continue;
+          const auto shift = static_cast<uint16_t>(mb.vertexOffset - batch.vertexOffset);
+          const uint16_t* src = indices.data() + mb.indexOffset;
+          uint16_t* dst = merged.data() + (mb.indexOffset - batch.indexOffset);
+          for (int32_t i = 0; i < mb.indexCount; ++i) dst[i] = static_cast<uint16_t>(src[i] + shift);
+        }
+        sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
+            SkVertices::kTriangles_VertexMode, vertexCount, pos, uv,
+            reinterpret_cast<const SkColor*>(col), indexCount, merged.data());
+        if (vertices != nullptr) {
+          const SkPaint passPaint = PaintForPass(*paint, plan.passes[0]);
+          canvas->drawVertices(vertices, kVertexColorBlend, passPaint);
+          drawn += static_cast<size_t>(vertexCount);
+        }
+        bi = last;
+        continue;
+      }
     }
 
     if (!plan.multiPass() && !anyPeel) {
