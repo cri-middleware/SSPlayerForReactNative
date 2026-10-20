@@ -22,7 +22,7 @@ minimumReleaseAgeExclude:
   - "@vitest/mocker@5.0.5"
   - "@vitest/spy@5.0.5"
   - vitest@5.0.5
-  - "@expo/cli@58.1.11"
+  - "@expo/cli@58.1.13"
   - "@expo/metro-config@58.0.14"
   - "@expo/prebuild-config@58.0.14"
   - "@expo/router-server@58.0.14"
@@ -51,3 +51,4 @@ minimumReleaseAgeExclude:
   - expo-build-properties@58.0.11
   - expo-dev-client@58.0.14
   - expo-dev-launcher@58.0.14
+  - typedoc-plugin-markdown@4.14.1
