@@ -79,11 +79,15 @@ struct SsInstanceChild {
   virtual void instanceStop() = 0;
 
   /// Re-arms the child's own slot debounces, recursively — the head-out half of
-  /// `instancePlay`, without touching playback.
+  /// `instancePlay`, without touching playback. Called on every transition as
+  /// well as on the host's head-out, so a restarted child restarts its subtree.
   virtual void instanceResetSlots() = 0;
 
   /// Drives the child's *own* per-frame slots (its effects and its nested
   /// instances) at the frame the Brain just stepped it to.
+  ///
+  /// `dtMilliseconds` is already scaled by the speed the slot stepped the child
+  /// at, so the subtree runs at the child's pace rather than the parent's.
   ///
   /// The child's animation clock belongs to `ss_instance_slot_step`, so this
   /// must **not** run `ss_runtime_update` on the child.

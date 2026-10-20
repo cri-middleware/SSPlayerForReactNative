@@ -1347,10 +1347,11 @@ void HybridSsContext::refreshFrame() {
 
 void HybridSsContext::instancePlay() {
   if (ctx_ == nullptr) return;
-  // Deliberately *not* this class's `play()`: that one also rewinds the slots,
-  // and the slot that just reported the transition is the caller. What is wanted
-  // here is only the Brain-side head-out that `ss_instance_slot_step` has
-  // configured and left un-started.
+  // Deliberately *not* this class's `play()`: that one also resyncs, reading the
+  // clock back and stepping the slots at it, which puts a synced child at its
+  // section start for this tick. What is wanted here is only the Brain-side
+  // head-out that `ss_instance_slot_step` has configured and left un-started;
+  // the caller rewinds this player's slots separately.
   ss_runtime_play(ctx_);
 }
 
