@@ -942,8 +942,9 @@ example/android/
 # `!packages/**` line above would otherwise let it in — the same NuGet-template
 # trap this section exists to undo.
 packages/react-native-spritestudio/lib/
-# The documentation the package carries, copied by its build (scripts/copy-docs.mjs)
+# The documentation the package carries, as pages and as an Agent Skill, copied by its build (scripts/copy-docs.mjs)
 packages/react-native-spritestudio/docs/
+packages/react-native-spritestudio/skills/
 
 # Local release build (scripts/build-release.*) — the tarball a release would
 # upload, built to be looked at, not committed.

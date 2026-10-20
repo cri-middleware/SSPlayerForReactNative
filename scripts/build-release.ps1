@@ -496,18 +496,29 @@ if ($verify -eq "yes" -and (Test-Path $entriesFile)) {
     }
 
     # 7. the documentation. docs/README.md is the front door to the pages the
-    #    package carries (scripts/copy-docs.mjs); every page it links to is
-    #    looked up here, so renaming one fails the release instead of shipping a
-    #    link that goes nowhere.
-    $front = Join-Path $pkgDir "docs/README.md"
-    if ((Test-Entry "docs/README.md") -and (Test-Path $front)) {
-        $links = @([regex]::Matches((Get-Content $front -Raw), '\]\(([^):#]+\.md)') | ForEach-Object { $_.Groups[1].Value })
-        if ($links.Count -eq 0) { Add-Failure "no page links parsed out of docs/README.md -- the check proved nothing" }
-        foreach ($link in $links) {
-            if (!(Test-Entry "docs/$link")) { Add-Failure "docs/README.md links to $link, which is not in the package" }
+    #    package carries (scripts/copy-docs.mjs), and
+    #    skills/react-native-spritestudio/SKILL.md the front door to the same
+    #    pages as an Agent Skill; every page each links to is looked up here, so
+    #    renaming one fails the release instead of shipping a link that goes
+    #    nowhere. The skills CLIs know a skill by the name in its frontmatter,
+    #    which the Agent Skills format requires to be its folder's.
+    $skill = "react-native-spritestudio"
+    foreach ($frontDoor in @("docs/README.md", "skills/$skill/SKILL.md")) {
+        $front = Join-Path $pkgDir $frontDoor
+        $pagesDir = $frontDoor.Substring(0, $frontDoor.LastIndexOf('/'))
+        if ((Test-Entry $frontDoor) -and (Test-Path $front)) {
+            $links = @([regex]::Matches((Get-Content $front -Raw), '\]\(([^):#]+\.md)') | ForEach-Object { $_.Groups[1].Value })
+            if ($links.Count -eq 0) { Add-Failure "no page links parsed out of $frontDoor -- the check proved nothing" }
+            foreach ($link in $links) {
+                if (!(Test-Entry "$pagesDir/$link")) { Add-Failure "$frontDoor links to $link, which is not in the package" }
+            }
+        } else {
+            Add-Failure "$frontDoor is not in the package (did scripts/copy-docs.mjs run?)"
         }
-    } else {
-        Add-Failure "docs/README.md is not in the package (did scripts/copy-docs.mjs run?)"
+    }
+    $skillFront = Join-Path $pkgDir "skills/$skill/SKILL.md"
+    if ((Test-Path $skillFront) -and !(@(Get-Content $skillFront) -ccontains "name: $skill")) {
+        Add-Failure "skills/$skill/SKILL.md does not name the skill $skill"
     }
 
     # 8. build output that rode along. `files` takes a directory whole.

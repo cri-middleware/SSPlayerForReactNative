@@ -542,18 +542,28 @@ if [ "$VERIFY" = "yes" ] && [ -f "$ENTRIES" ]; then
     done
 
     # 7. the documentation. docs/README.md is the front door to the pages the
-    #    package carries (scripts/copy-docs.mjs); every page it links to is
-    #    looked up here, so renaming one fails the release instead of shipping a
-    #    link that goes nowhere.
-    front="${PKG_DIR}/docs/README.md"
-    if has_entry "docs/README.md" && [ -f "$front" ]; then
-        links=$(grep -oE ']\([^):#]+\.md' "$front" | sed 's/^](//' || true)
-        [ -n "$links" ] || fail "no page links parsed out of docs/README.md — the check proved nothing"
-        for link in $links; do
-            has_entry "docs/${link}" || fail "docs/README.md links to ${link}, which is not in the package"
-        done
-    else
-        fail "docs/README.md is not in the package (did scripts/copy-docs.mjs run?)"
+    #    package carries (scripts/copy-docs.mjs), and
+    #    skills/react-native-spritestudio/SKILL.md the front door to the same
+    #    pages as an Agent Skill; every page each links to is looked up here, so
+    #    renaming one fails the release instead of shipping a link that goes
+    #    nowhere. The skills CLIs know a skill by the name in its frontmatter,
+    #    which the Agent Skills format requires to be its folder's.
+    skill="react-native-spritestudio"
+    for front_door in docs/README.md "skills/${skill}/SKILL.md"; do
+        front="${PKG_DIR}/${front_door}"
+        if has_entry "$front_door" && [ -f "$front" ]; then
+            links=$(grep -oE ']\([^):#]+\.md' "$front" | sed 's/^](//' || true)
+            [ -n "$links" ] || fail "no page links parsed out of ${front_door} — the check proved nothing"
+            for link in $links; do
+                has_entry "${front_door%/*}/${link}" || fail "${front_door} links to ${link}, which is not in the package"
+            done
+        else
+            fail "${front_door} is not in the package (did scripts/copy-docs.mjs run?)"
+        fi
+    done
+    if [ -f "${PKG_DIR}/skills/${skill}/SKILL.md" ]; then
+        grep -Fxq "name: ${skill}" "${PKG_DIR}/skills/${skill}/SKILL.md" \
+            || fail "skills/${skill}/SKILL.md does not name the skill ${skill}"
     fi
 
     # 8. build output that rode along. `files` takes a directory whole.
