@@ -25,7 +25,7 @@ Please refer to [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 Most of this player's rules exist because the obvious implementation was tried
 and did not work, and the reasoning behind each is written in the code, at the
 site the rule binds — read it there before changing anything in `cpp/` or in the
-buffer handling. Five are worth knowing before you start:
+buffer handling. Six are worth knowing before you start:
 
 - **Every buffer handed to JS is valid only until the next `update()`.** Structs
   carry a `generation`; compare it before reading.
@@ -40,6 +40,10 @@ buffer handling. Five are worth knowing before you start:
   across this package's own import graph.
 - **A pack is a directory, not a file**, so `require()` is not a source and
   `assetExts` stays clean of `ssab` / `ssqb`.
+- **Each native peer has one copy.** Two copies of React Native, Nitro Modules,
+  RN Skia or Reanimated are two native modules registering one set of JSI objects
+  (on iOS, two autolinked pods). `example/package.json` pins them; move them by
+  hand, together.
 
 ### Reporting Bugs
 
@@ -231,7 +235,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 ### 技術的制約と設計原則
 
-この Player の規則の多くは「素直な実装を試した結果うまくいかなかった」ことの記録で、それぞれの根拠はその規則が縛るコードの箇所に書いてあります。`cpp/` やバッファの扱いに手を入れる前に、そこを読んでください。着手前に知っておきたいものを 5 つ挙げます。
+この Player の規則の多くは「素直な実装を試した結果うまくいかなかった」ことの記録で、それぞれの根拠はその規則が縛るコードの箇所に書いてあります。`cpp/` やバッファの扱いに手を入れる前に、そこを読んでください。着手前に知っておきたいものを 6 つ挙げます。
 
 - **JS に渡されるバッファは次の `update()` までしか有効ではありません。** 各構造体は
   `generation` を持つので、読む前に比較してください。
@@ -242,6 +246,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
   react-native-web を残すためです。`pnpm run check-layers` が、このパッケージ自身の import のつながり全体でこれを確かめます。
 - **パックはファイルではなくディレクトリです。** そのため `require()` はソースになり得ず、
   `assetExts` に `ssab` / `ssqb` を足してはいけません。
+- **ネイティブの peer はそれぞれ 1 つだけです。** React Native・Nitro Modules・RN Skia・Reanimated のどれかが 2 つあると、2 つのネイティブモジュールが同じ JSI オブジェクトを登録します（iOS では、自動リンクされた 2 つの pod）。`example/package.json` がそれらを固定しています。上げるときは手で、まとめて上げてください。
 
 ### バグの報告
 
