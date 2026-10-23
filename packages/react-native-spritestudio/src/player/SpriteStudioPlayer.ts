@@ -1006,9 +1006,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // Playback is deliberately NOT started here: `setAnimation` selects, `play`
     // starts, and this runs inside the former.
     //
-    // After `setup_animation`, which resets the override layer along with
-    // everything else — and after the part indices are therefore valid again,
-    // since they are resolved against the animation that is now set up.
+    // After `setup_animation`, which clears every override that is not
+    // permanent — and after the part indices are therefore valid again, since
+    // they are resolved against the animation that is now set up.
     if (this.pendingOverrides != null) {
       this.overriddenParts.clear()
       this.setPartOverrides(this.pendingOverrides)

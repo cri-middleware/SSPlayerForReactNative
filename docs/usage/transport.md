@@ -135,10 +135,12 @@ player.setPlaybackDirection(SsPlaybackDirection.backward, SsPlaybackStyle.pingPo
 
 ## What switching animation resets {#what-setup-animation-resets}
 
-Mounting an animation resets the transport settings **and the override layer**
-along with everything else, so `SpriteStudioPlayer` replays both onto every freshly set-up
-animation: speed, loop, direction, style, whether it should be playing, and the
-whole `parts` map.
+Mounting an animation resets its loop count, its section and every part override
+that is not `permanent`; the speed, the frame-rate override, the frame skip and the
+direction and style carry over. `SpriteStudioPlayer` replays all of its settings
+onto every freshly set-up animation anyway — speed, loop, direction, style, whether
+it should be playing, and the whole `parts` map — so a new animation plays with
+what you last set.
 
 You only need to know this when it surprises you. Setting speed and *then*
 switching animation is safe, because the replay happens after the setup.
