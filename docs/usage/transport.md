@@ -6,11 +6,10 @@ description: Play, pause, seek, direction and loop — declaratively and imperat
 # Transport
 
 Everything about *how* an animation plays. The declarative half is three props;
-the rest is on the Layer 3 player, which you reach through the ref.
+the rest is on the player object, which you reach through the ref.
 
 **The player owns the playback state and nothing above it mirrors that.** The
-props are passthrough — there is one copy of the truth, and it lives in the Rust
-core.
+props are passthrough: the player holds the one copy.
 
 ## The declarative half
 
@@ -59,7 +58,7 @@ And to read where it is: `frameNo`, `startFrame`, `endFrame`, `totalFrames`,
 
 Every setter above has a getter beside it — `speedScale`, `loopCount`,
 `frameSkipEnabled`, `subFrameEnabled`, `playbackDirection`, `playbackStyle`. They
-read the **Brain**, not what you asked for, which is the difference that matters
+read what the runtime applied, not what you asked for, which is the difference that matters
 for `speedScale`: `0` and negatives clamp to a stop there, so setting `-2` and
 reading it back gives `0` rather than the reverse playback the request looks
 like.
@@ -67,7 +66,7 @@ like.
 `partNames()` lists the parts in part-index order — what turns the `partIndex` on
 an event back into something a human reads, and what fills a part picker. An
 unnamed part holds its slot as `''`, so the list stays index-aligned. Prefer its
-`length` to `partCount`, which reads the Brain's matrix count and is `0` until the
+`length` to `partCount`, which counts the runtime's part matrices and is `0` until the
 first `advance`.
 
 `justLooped` is a **pulse**: true only inside the tick `advance` just ran, and
@@ -134,11 +133,10 @@ player.setPlaybackDirection(SsPlaybackDirection.backward, SsPlaybackStyle.pingPo
 
 `style` defaults to `normal` when omitted.
 
-## What `setup_animation` resets
+## What switching animation resets {#what-setup-animation-resets}
 
 Mounting an animation resets the transport settings **and the override layer**
-along with everything else — that is the Rust core's behaviour, not a choice
-made here. So `SpriteStudioPlayer` replays both onto every freshly set-up
+along with everything else, so `SpriteStudioPlayer` replays both onto every freshly set-up
 animation: speed, loop, direction, style, whether it should be playing, and the
 whole `parts` map.
 

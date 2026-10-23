@@ -52,7 +52,7 @@ so a rebuild is enough — you do not need a fresh `prebuild`.
 ## A part is missing, or nothing draws
 
 Both are the same fault at different scales: **a texture did not resolve**.
-`drawInto` skips a batch it has no paint for, so one missing atlas is one
+A batch with no texture is skipped, so one missing atlas is one
 missing part and a pack that resolved none of its textures draws nothing.
 
 In a dev build the package already warns:

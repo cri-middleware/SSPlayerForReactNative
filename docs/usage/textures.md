@@ -105,7 +105,7 @@ player.textures.register('Ringo', someSkImage)
 
 Supplying a shared registry through `SpriteStudioPlayerOptions` is what lets
 several players draw from **one** set of atlases. `register` takes the cellmap
-name and hashes it through the Brain; `registerByHash` takes a hash you already
+name and hashes it through the runtime; `registerByHash` takes a hash you already
 have.
 
 ::: warning Never hash a name yourself

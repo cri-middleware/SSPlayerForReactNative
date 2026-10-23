@@ -68,7 +68,7 @@ parts={{
 | `holdUntilNextAnimation` | キーフレームは越えますが、別のアニメーションが設定されると解除されます。**既定値。** |
 | `permanent` | アニメーションの切り替えを越えて保持されます。 |
 
-オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用されます。`setup_animation` がオーバーライドレイヤーを他のすべてと一緒にリセットするためです — [再生の制御](/ja/usage/transport#what-setup-animation-resets)を参照してください。
+オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用されます。アニメーションの設定がオーバーライドレイヤーを他のすべてと一緒にリセットするためです — [再生の制御](/ja/usage/transport#what-setup-animation-resets)を参照してください。
 
 ## パーツに追従する {#following-a-part}
 

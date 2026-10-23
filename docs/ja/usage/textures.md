@@ -74,7 +74,7 @@ ref.current?.player?.setCellmapTexture('Ringo', null)          // パック本�
 player.textures.register('Ringo', someSkImage)
 ```
 
-`SpriteStudioPlayerOptions` を通じて共有レジストリを渡すと、複数のプレイヤーが**1 組**のアトラスから描画できるようになります。`register` はセルマップ名を受け取って Brain 側でハッシュ化し、`registerByHash` は既に手元にあるハッシュを受け取ります。
+`SpriteStudioPlayerOptions` を通じて共有レジストリを渡すと、複数のプレイヤーが**1 組**のアトラスから描画できるようになります。`register` はセルマップ名を受け取ってランタイムでハッシュ化し、`registerByHash` は既に手元にあるハッシュを受け取ります。
 
 ::: warning 名前を自分でハッシュしないでください
 Rust コアが渡してくるキーはすべて、コア自身の FNV-1a で事前に計算されており、
@@ -99,7 +99,7 @@ ssUnload(SsAssets['Ringo/Ringo'])          // その画面が無くなったら
 
 ## テクスチャが解決できなかったとき
 
-テクスチャの欠落は**構造上、無言です**。`drawInto` はペイントの無いバッチをスキップするので、症状は「あるパーツが単に存在しない」ことになります。それを声に出して言うのが
+テクスチャの欠落は**構造上、無言です**。テクスチャの無いバッチはスキップされるので、症状は「あるパーツが単に存在しない」ことになります。それを声に出して言うのが
 `player.lastTextureReport` です。
 
 ```tsx

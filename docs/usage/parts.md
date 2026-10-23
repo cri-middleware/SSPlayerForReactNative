@@ -86,7 +86,7 @@ map is re-applied onto every newly set-up animation.
 | `permanent` | Holds across animation changes. |
 
 Overrides are replayed onto each newly set-up animation whatever the priority,
-because `setup_animation` resets the override layer along with everything else —
+because setting up an animation resets the override layer along with everything else —
 see [Transport](/usage/transport#what-setup-animation-resets).
 
 ## Following a part

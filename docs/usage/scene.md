@@ -18,9 +18,8 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 </SpriteStudioScene>
 ```
 
-One canvas, one clock, one frame. That arrangement is what Layer 3 was built
-for — `advance(dt)` is externally clocked precisely so a whole tree can tick off
-one loop.
+One canvas, one clock, one frame: `advance(dt)` takes its clock from outside, so
+a whole tree can tick off one loop.
 
 A sprite **renders nothing of its own**. Its entire job is to hold a player,
 keep its root transform current and stay enrolled in the scene; the scene owns
@@ -66,7 +65,7 @@ const ref = useRef<SpriteStudioSpriteRef>(null)
 ref.current?.player?.setAnimation('attack')
 ```
 
-Same Layer 3 player as a view's, with the same [transport](/usage/transport).
+The same player as a view's, with the same [transport](/usage/transport).
 
 ::: warning A sprite outside a scene draws nothing
 It warns to the console and renders nothing, rather than silently producing an
