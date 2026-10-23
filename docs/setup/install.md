@@ -19,7 +19,7 @@ producing a native build of your app that contains it. Both halves are below.
 
 | | |
 |---|---|
-| React Native | `0.88.0` or newer, **New Architecture** |
+| React Native | `0.88` (from `0.88.0`), **New Architecture** |
 | React | `19.3.0` or newer |
 | Expo | SDK 58, or bare React Native |
 | iOS | 15.1+ |
@@ -136,7 +136,7 @@ command in step 2 already does.
 against its headers with the defines it builds with. `@shopify/react-native-skia`
 (v2) does not stand in for it.
 
-`react-native-nitro-modules` `0.37.0` matches the generated bindings committed
+`react-native-nitro-modules` `0.37` (from `0.37.0`) matches the generated bindings committed
 in the repository.
 
 :::

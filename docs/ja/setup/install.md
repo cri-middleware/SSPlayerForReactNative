@@ -13,7 +13,7 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 
 | | |
 |---|---|
-| React Native | `0.88.0` 以上、**New Architecture** |
+| React Native | `0.88` 系（`0.88.0` 以上）、**New Architecture** |
 | React | `19.3.0` 以上 |
 | Expo | SDK 58、または bare React Native |
 | iOS | 15.1+ |
@@ -108,6 +108,6 @@ Expo config plugin が bare アプリでは代わりにやってくれない仕�
 
 `react-native-skia` の `3` は Skia Graphite で描画します。このパッケージは、そのヘッダーと、React Native Skia 自身のビルドと同じ define でコンパイルします。`@shopify/react-native-skia`（v2）は代わりになりません。
 
-`react-native-nitro-modules` の `0.37.0` は、リポジトリにコミットされている生成済みバインディングと対応するバージョンです。
+`react-native-nitro-modules` の `0.37` 系（`0.37.0` 以上）は、リポジトリにコミットされている生成済みバインディングと対応するバージョンです。
 
 :::
