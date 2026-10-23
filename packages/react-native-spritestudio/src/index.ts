@@ -34,6 +34,7 @@ export {
   useSsScene,
   type SpriteStudioSceneProps,
   type SsSceneMember,
+  type SsSceneRegistry,
 } from './view/SpriteStudioScene'
 export {
   SpriteStudioSprite,
@@ -108,6 +109,7 @@ export { SsRefCache, type SsRefCacheOptions } from './core/SsRefCache'
 export {
   SsTextureLoader,
   loadImageData,
+  type SsTextureLoadPass,
   type SsTextureLoadReport,
 } from './core/SsTextureLoader'
 /**
@@ -168,4 +170,7 @@ export type {
   SsResource,
   SsTextureBinding,
   SsTextureInfo,
+  SkCanvasHandle,
+  SkImageHandle,
+  SkPaintHandle,
 } from './specs/SsRuntime.nitro'
