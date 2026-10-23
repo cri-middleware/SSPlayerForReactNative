@@ -152,6 +152,7 @@ export default withMermaid({
               { text: 'Limitations & Scope', link: '/limitations' },
               { text: 'License & notices', link: '/licenses' },
               { text: 'Working from a checkout', link: '/development/from-source' },
+              { text: 'How the player is put together', link: '/development/architecture' },
             ],
           },
           // The family entry point, carried in the nav of every sibling site so a reader who
@@ -206,6 +207,7 @@ export default withMermaid({
             text: 'Development',
             items: [
               { text: 'Working from a checkout', link: '/development/from-source' },
+              { text: 'How the player is put together', link: '/development/architecture' },
               { text: 'Working on this repository', link: `${GITHUB}/blob/HEAD/CONTRIBUTING.md` },
             ],
           },
@@ -240,6 +242,7 @@ export default withMermaid({
               { text: '制約と適用範囲', link: '/ja/limitations' },
               { text: 'ライセンスと表記', link: '/ja/licenses' },
               { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
+              { text: 'プレイヤーの構成', link: '/ja/development/architecture' },
             ],
           },
           // ポータルへの戻り導線。日本語ロケール（/ja/）を指すこと。
@@ -294,6 +297,7 @@ export default withMermaid({
             text: '開発',
             items: [
               { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
+              { text: 'プレイヤーの構成', link: '/ja/development/architecture' },
               { text: 'このリポジトリで作業する', link: `${GITHUB}/blob/HEAD/CONTRIBUTING.md` },
             ],
           },

@@ -122,6 +122,66 @@ one feature card per capability. What each subject proves, how to look at a
 project of your own, and the optional `MaskInstance` sample are covered in
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/HEAD/example).
 
+## Using your checkout in an app {#using-your-checkout-in-an-app}
+
+A git URL cannot install this package: neither the native core nor the built
+`lib/` is tracked in git, so the install would produce a package whose `main`
+points at a file that is not there and whose native side has nothing to link.
+Build the tarball a release publishes instead, from the pinned Brain:
+
+```bash
+pnpm run download-sdk
+pnpm run build-release        # -> release-dist/npm/<tarball>.tgz
+```
+
+Install it in the app (`npm install <checkout>/release-dist/npm/<tarball>.tgz`),
+then prebuild as you would for the published package. `prepack` refuses a Brain
+that is not the pinned release — one from `build-runtime`, or a debug build — so a
+tarball always carries the release's native core. To run a Brain you built
+yourself, use the example app: it takes the package from the workspace, native core
+and all.
+
+## Checking on a simulator or a device {#checking-on-a-simulator-or-a-device}
+
+`run-ios` and `run-android` build in Release with the bundle embedded, so neither
+Metro nor a dev launcher is involved; what is left is looking at the screen.
+
+- **Choose the subject in code.** A script cannot tap the simulator, so change the
+  initial `useState('Basic')` in `example/src/player/PlayerScreen.tsx` (with
+  `config=debug`, Metro's fast refresh applies it) and take the picture with
+  `xcrun simctl io <udid> screenshot`.
+- **With `config=debug` only**, expo-dev-menu's onboarding sheet covers half the
+  screen. `xcrun simctl spawn <udid> defaults write jp.co.cri-mw.spritestudio.ssplayer.example EXDevMenuIsOnboardingFinished -bool YES`
+  dismisses it for good.
+- **A Release build's `console.log` does not reach the iOS log**: show results in a
+  `Text` and read the screenshot. On Android they reach logcat as `ReactNativeJS`.
+- **Measuring.** The first launch after a build is an outlier: terminate and launch
+  three times and take the median. Compare CPU time only within one build — the
+  threads of a lighter build move to the efficiency cores, where the same work
+  shows up as 1.6 to 2 times the samples — and compare counts (render passes),
+  alternating host micro-benchmarks or host Metal benchmarks that wait for the GPU
+  across builds. Before comparing the UI thread's cost, make the frames it actually
+  drew equal (the `retire` count in `useFramePicture`).
+- **The Android emulator renders in software**
+  (`emulator -avd <avd> -no-window -no-audio -gpu swiftshader_indirect`), so its UI
+  thread is far heavier than a device's. Launch the app with
+  `adb shell am start -n jp.co.crimw.spritestudio.ssplayer.example/.MainActivity`,
+  and stop the emulator when you are done (`adb emu kill`): it keeps the CPU busy.
+- **iOS composites in Display P3 on a wide-gamut screen**, the simulator included —
+  RN Skia picks the surface from the screen — so additive overlaps of pure red and
+  blue saturate towards white there and stay magenta on Android. Android's is the
+  sRGB result.
+- **A build that succeeds does not prove Skia is in.** Without RN Skia found, the
+  build quietly sets `SSPLAYER_ENABLE_SKIA_DIRECT=0`. After an RN Skia bump, look
+  for `SSPLAYER_ENABLE_SKIA_DIRECT=1` in Android's `.cxx/**/compile_commands.json`,
+  and in DerivedData's `SsPlayer.build/**/*-common-args.resp` on iOS.
+- **A host check failing with "`.ssab` failed verification" is stale data**, not
+  Skia: the example's packs are older than the Brain. Bring the submodule to the pin
+  and run `deploy-examples`.
+
+The layers, the native files and the reasons that span them are on
+[How the player is put together](/development/architecture).
+
 ## Checks
 
 | Task | Command |
