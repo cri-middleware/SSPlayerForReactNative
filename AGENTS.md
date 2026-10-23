@@ -38,11 +38,12 @@ workspace that drives the Rust `libssruntime` over **Nitro Modules (JSI)** and d
 | Using it: every API | the [docs site](./docs/) |
 | Install, convert, first frame, where to read next | [README.md](./README.md) and the package's, per `SpriteStudio-SDK/MAINTAINING_PLAYERS.md` |
 | What does and does not draw | [docs/limitations.md](./docs/limitations.md), the single list |
-| Constraints, setup, build, test, the docs site | [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/development/](./docs/development/) |
+| Constraints, setup, build, test, the docs site | [CONTRIBUTING.md](./CONTRIBUTING.md), [Build Guide](./docs/development/build.md) |
 | Releases, maintainers only | [RELEASING.md](./RELEASING.md) |
 | Status, timing, non-goals | [ROADMAP.md](./ROADMAP.md) |
 | What a layer is for | its header comment; `src/index.ts` lists the four in order |
-| The file map, using a checkout in an app, checking on a device, reasons that span files | [docs/development/](./docs/development/) |
+| Using a changed package in an app, checking on a device | the [Build Guide](./docs/development/build.md) |
+| How the player is put together, and the reasons that span files | [docs/development/architecture.md](./docs/development/architecture.md) |
 | The reasoning behind an invariant | the code site named beside it |
 
 ## Invariants

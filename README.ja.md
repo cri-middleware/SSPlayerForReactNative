@@ -103,7 +103,7 @@ SpriteStudio のデータが手元に無くても始められます。[公式の
 
 ## ⚙️ プレイヤーを開発する場合
 
-このリポジトリのサンプルアプリは、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順（チェックアウトをアプリで使う方法と、実機での確かめ方を含む）は [チェックアウトから動かす](docs/ja/development/from-source.md) に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。レイヤーとファイルの対応、ファイルをまたぐ設計の理由は[プレイヤーの構成](docs/ja/development/architecture.md)にあります。このパックの変換には Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。
+このリポジトリのサンプルアプリは、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順（変更したパッケージをアプリで使う方法と、実機での確かめ方を含む）は[ビルドガイド](docs/ja/development/build.md)に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。層と、ファイルをまたぐ設計の理由は[プレイヤーの構成](docs/ja/development/architecture.md)にあります。このパックの変換には Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。
 
 ## 🔗 関連リポジトリ
 
