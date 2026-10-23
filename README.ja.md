@@ -78,8 +78,6 @@
 
    再生はロード時に始まり、既定では無限にループします。`loop={1}` なら 1 回だけ再生します。
 
-bare のアプリには `prebuild` がありません。ネイティブプロジェクトをリビルドし、config plugin が担う 2 つの作業（パックのフォルダを同梱すること、32 ビット `x86` の ABI を外すこと）を自分で行います（[インストール](docs/ja/setup/install.md#3-アプリをビルドする)）。
-
 SpriteStudio のデータが手元に無くても始められます。[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
 
 **次に読む:** [基本的な再生](docs/ja/usage/basic.md) · [コンポーネント早見](docs/ja/components.md) ·

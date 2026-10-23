@@ -93,10 +93,6 @@ under [Requirements](#-requirements).
 
    Playback starts on load and loops forever; `loop={1}` plays once.
 
-In a bare app there is no `prebuild`: rebuild your native projects, and do by hand the config
-plugin's two jobs — shipping the pack folders, and dropping the 32-bit `x86` ABI
-([Installation](docs/setup/install.md#3-build-your-app)).
-
 No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is — the page is in Japanese, the downloads are not. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
 
 **Read next:** [Basic playback](docs/usage/basic.md) · [Components at a glance](docs/components.md) ·

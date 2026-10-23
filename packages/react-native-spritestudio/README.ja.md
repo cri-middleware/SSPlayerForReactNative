@@ -16,7 +16,7 @@
 npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go では動きません** — ネイティブコードを含むため prebuild（CNG）が必要です。`npx expo prebuild` の後に `npx expo run:ios` / `run:android` を実行してください。素の React Native アプリでも autolinking が両プラットフォームで拾いますが、config plugin が担う 2 つの作業（パックのディレクトリをネイティブアセットとして同梱すること、32 ビット `x86` の ABI を外すこと）は自分で行います。Android の `minSdkVersion` は 26 にします（[インストール](https://cri-middleware.github.io/SSPlayerForReactNative/ja/setup/install)）。
+**Expo Go では動きません** — ネイティブコードを含むため prebuild（CNG）が必要です。`npx expo prebuild` の後に `npx expo run:ios` / `run:android` を実行してください。Android の `minSdkVersion` は 26 にします（[インストール](https://cri-middleware.github.io/SSPlayerForReactNative/ja/setup/install)）。
 
 ## パックを配置する
 

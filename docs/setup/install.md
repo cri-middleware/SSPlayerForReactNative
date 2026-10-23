@@ -21,7 +21,7 @@ producing a native build of your app that contains it. Both halves are below.
 |---|---|
 | React Native | `0.88` (from `0.88.0`), **New Architecture** |
 | React | `19.3.0` or newer |
-| Expo | SDK 58, or bare React Native |
+| Expo | SDK 58 |
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
 | SpriteStudio | projects made in 7.5 or later |
@@ -69,26 +69,15 @@ one is not among them, so you need a **development build**. Fast Refresh and the
 dev menu still work; what you give up is scanning a QR code into someone else's
 binary.
 
-::: code-group
-
-```bash [Managed]
-# no ios/ or android/ in your repo
+```bash
 npx expo prebuild
 npx expo run:ios     # or run:android
 ```
 
-```bash [Bare]
-# you already have ios/ and android/ — do not run prebuild
-npx pod-install
-npx react-native run-ios     # or run-android
-```
-
-:::
-
-Autolinking picks the package up on both platforms either way.
+Autolinking picks the package up on both platforms.
 
 **Android's `minSdkVersion` has to be 26**, React Native Skia 3's floor, and
-React Native projects default lower. In a managed app, set it with
+React Native projects default lower. Set it with
 `expo-build-properties` (`npx expo install expo-build-properties`):
 
 ```json
@@ -100,17 +89,6 @@ React Native projects default lower. In a managed app, set it with
   }
 }
 ```
-
-In a bare app, set `minSdkVersion = 26` in `android/build.gradle`.
-
-::: warning In a bare app, the plugin's two jobs are yours
-The Expo config plugin does two things nothing does for you in a bare app: it
-**ships your pack directories as native assets**, and it **narrows
-`reactNativeArchitectures`** so the build stops asking for the 32-bit `x86`
-slice the native core does not provide. A bare app does both by hand; written
-steps for them are tracked in the
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).
-:::
 
 Next: [Preparing assets](/setup/assets), because a pack has to reach the device
 before anything can play it.
