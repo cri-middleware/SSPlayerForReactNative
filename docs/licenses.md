@@ -34,11 +34,11 @@ Three files, all of them inside the installed package:
 Copy their text into whatever licenses screen or acknowledgements file your app
 already ships. Nothing generates that screen for you.
 
-::: tip Working from a checkout rather than npm
+::: tip Building from a checkout rather than npm
 The two `native/` files are **not in the repository**. They arrive with the
 runtime, so they exist only after `pnpm run download-sdk` or
 `pnpm run build-runtime` has run — which is the one thing that makes them easy to
-miss. See [Working from a checkout](/development/from-source).
+miss. See the [Build Guide](/development/build).
 :::
 
 ## What this page does not speak for

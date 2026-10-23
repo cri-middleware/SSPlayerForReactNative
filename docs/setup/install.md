@@ -8,7 +8,7 @@ description: Whether this package fits your app, how to install it, and the buil
 For adding the player to **your own app** — whether you go on to use nothing but
 `<SpriteStudioView>`, or reach for events, part overrides and custom textures.
 The install is the same either way. To work on the player or the Rust core
-instead, see [Working from a checkout](/development/from-source).
+instead, see the [Build Guide](/development/build).
 
 **Your app needs a native build.** Installing means adding the package *and*
 building your app with it; both halves are below.

@@ -1,12 +1,14 @@
 ---
-title: Working from a checkout
-description: Getting the repository running — the native core, the sample packs, and the example app.
+title: Build Guide
+description: Building SpriteStudio Player for React Native from a checkout, using a changed package in an app, and checking it on a simulator or a device.
 ---
 
-# Working from a checkout
+# Build Guide
 
-For **SDK and Player developers**: anyone changing this package or the Rust
-core underneath it.
+For whoever works on SpriteStudio Player for React Native, or changes it for an app of their own:
+anyone changing this package or the Rust core underneath it. How the layers fit together, and why
+the player is built the way it is, is on
+[How the Player Is Put Together](/development/architecture).
 
 If you only want to *use* the package in your own app, you want
 [Installation](/setup/install) instead — nothing on this page is part of that.
@@ -23,31 +25,6 @@ pnpm install
 The submodule is `SpriteStudio-SDK/` — the Rust core, referred to throughout the
 repository as **the Brain**. The workspace is pnpm's, at the version
 `packageManager` in `package.json` names (`corepack enable` picks it up).
-
-## What you just cloned
-
-```
-SSPlayerForReactNative/
-├── SpriteStudio-SDK/                   <- [submodule] the Rust core ("the Brain")
-├── scripts/                            <- .js shim -> .sh / .ps1 per host OS
-│   ├── SDK_VERSION.txt                 <- pinned SDK release tag
-│   ├── download-sdk.*                  <- install the pinned release (NO Rust needed)
-│   ├── build-runtime.*                 <- build the Brain from the submodule instead
-│   ├── deploy-examples.*               <- convert the SDK's test projects to .ssab
-│   ├── generate-nitro-code.*           <- run nitrogen over the Layer 1 spec
-│   └── generate-fbs-code.*             <- run flatc over the .fbs schemas
-├── packages/react-native-spritestudio/ <- the npm package
-│   ├── src/specs/SsRuntime.nitro.ts    <- Layer 1 spec (nitrogen input)
-│   ├── src/core/ src/player/ src/view/ <- Layers 2, 3 and 4
-│   ├── cpp/                            <- Nitro implementation, the baker, the Skia draw path
-│   ├── plugin/                         <- Expo config plugin: ships pack directories
-│   ├── bin/                            <- npx react-native-spritestudio assets
-│   ├── nitrogen/                       <- [generated, committed, do not hand-edit]
-│   └── native/                         <- [gitignored] libssruntime + headers
-├── example/                            <- Expo app: Viewer, Part follow and Blending screens
-├── tools/                              <- host-side checks (FrameData, baker, mask, hidden, shader)
-└── docs/                               <- this site
-```
 
 ## Get the Brain
 
@@ -85,10 +62,10 @@ pnpm run download-sdk --force
 A `build=debug` Brain swamps every other cost and flattens the differences a
 benchmark exists to find.
 
-The two installs are also told apart on purpose: `download-sdk` writes
-`native/VERSION` and `native/BUILD_MODE`, `build-runtime` writes neither and
-deletes the latter. That is what lets `prepack` refuse to publish a tarball
-built against a locally-built or debug Brain.
+The two installs are also told apart on purpose: `download-sdk` records the
+release's version and build mode beside what it installs, and `build-runtime`
+records neither and clears the build mode. That is what lets `prepack` refuse to
+publish a tarball built against a locally-built or debug Brain.
 :::
 
 ## Convert the sample packs
@@ -98,8 +75,7 @@ pnpm run deploy-examples
 ```
 
 `.sspj` → `.ssab` for the example app, via `ssconverter-cli` (needs Rust). It
-also refreshes `example/src/ss-assets.ts`, the generated manifest the example's
-subject list is read from.
+also refreshes the generated manifest the example's subject list is read from.
 
 Sources come from the SDK's own `tests/` and from whatever is under
 `example/SpriteStudio_Source/`, which this repository does not ship: a project
@@ -122,7 +98,24 @@ one feature card per capability. What each subject proves, how to look at a
 project of your own, and the optional `MaskInstance` sample are covered in
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/HEAD/example).
 
-## Using your checkout in an app {#using-your-checkout-in-an-app}
+## Checks {#checks}
+
+| Task | Command |
+|---|---|
+| Typecheck (package + example) | `pnpm run typecheck` |
+| FlatBuffers accessors current + read path sound (needs `flatc`) | `pnpm run check-framedata` |
+| Mask drawing, and a mask crossing into an instance child (macOS) | `pnpm run check-mask` |
+| Instance and effect slots keep stepping while out of the draw plan, and a hidden effect builds no particles | `pnpm run check-hidden` |
+| A player keeps ticking while its track stack moves the pose, and only then | `pnpm run check-motion` |
+| `ss-*` shaders compile, and their arithmetic (macOS) | `pnpm run check-shader` |
+| The Nitro glue compiles for iOS (macOS, Xcode) and Android (the NDK) | `pnpm run check-glue` |
+| Web stub barrel imports clean and throws (any OS, no Brain) | `pnpm run check-web-barrel` |
+| Layer 2 imports nothing from `react` / `react-native` (any OS, no install) | `pnpm run check-layers` |
+| No line break between two Japanese characters in the Markdown (any OS, no install) | `pnpm run check-ja-breaks` |
+| The Skia-guarded draw path compiles, without linking (Windows, the NDK) | `tools/check-skia-compile.ps1` |
+| Nitro codegen is current | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
+
+## Using a changed Player {#using-a-changed-player}
 
 A git URL cannot install this package: neither the native core nor the built
 `lib/` is tracked in git, so the install would produce a package whose `main`
@@ -141,13 +134,13 @@ tarball always carries the release's native core. To run a Brain you built
 yourself, use the example app: it takes the package from the workspace, native core
 and all.
 
-## Checking on a simulator or a device {#checking-on-a-simulator-or-a-device}
+## Checking against the real host {#checking-against-the-real-host}
 
 `run-ios` and `run-android` build in Release with the bundle embedded, so neither
 Metro nor a dev launcher is involved; what is left is looking at the screen.
 
 - **Choose the subject in code.** A script cannot tap the simulator, so change the
-  initial `useState('Basic')` in `example/src/player/PlayerScreen.tsx` (with
+  subject the example's player screen starts on (its `useState('Basic')`; with
   `config=debug`, Metro's fast refresh applies it) and take the picture with
   `xcrun simctl io <udid> screenshot`.
 - **With `config=debug` only**, expo-dev-menu's onboarding sheet covers half the
@@ -161,7 +154,8 @@ Metro nor a dev launcher is involved; what is left is looking at the screen.
   shows up as 1.6 to 2 times the samples — and compare counts (render passes),
   alternating host micro-benchmarks or host Metal benchmarks that wait for the GPU
   across builds. Before comparing the UI thread's cost, make the frames it actually
-  drew equal (the `retire` count in `useFramePicture`).
+  drew equal: count the times the UI thread takes up a new frame picture, not the
+  pictures published, since two published between its turns reach it as one.
 - **The Android emulator renders in software**
   (`emulator -avd <avd> -no-window -no-audio -gpu swiftshader_indirect`), so its UI
   thread is far heavier than a device's. Launch the app with
@@ -179,22 +173,5 @@ Metro nor a dev launcher is involved; what is left is looking at the screen.
   Skia: the example's packs are older than the Brain. Bring the submodule to the pin
   and run `deploy-examples`.
 
-The layers, the native files and the reasons that span them are on
-[How the player is put together](/development/architecture).
-
-## Checks
-
-| Task | Command |
-|---|---|
-| Typecheck (package + example) | `pnpm run typecheck` |
-| FlatBuffers accessors current + read path sound (needs `flatc`) | `pnpm run check-framedata` |
-| Mask drawing, and a mask crossing into an instance child (macOS) | `pnpm run check-mask` |
-| Instance and effect slots keep stepping while out of the draw plan, and a hidden effect builds no particles | `pnpm run check-hidden` |
-| A player keeps ticking while its track stack moves the pose, and only then | `pnpm run check-motion` |
-| `ss-*` shaders compile, and their arithmetic (macOS) | `pnpm run check-shader` |
-| The Nitro glue compiles for iOS (macOS, Xcode) and Android (the NDK) | `pnpm run check-glue` |
-| Web stub barrel imports clean and throws (any OS, no Brain) | `pnpm run check-web-barrel` |
-| Layer 2 imports nothing from `react` / `react-native` (any OS, no install) | `pnpm run check-layers` |
-| No line break between two Japanese characters in the Markdown (any OS, no install) | `pnpm run check-ja-breaks` |
-| The Skia-guarded draw path compiles, without linking (Windows, the NDK) | `tools/check-skia-compile.ps1` |
-| Nitro codegen is current | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
+The layers, the native side and the reasons that span them are on
+[How the Player Is Put Together](/development/architecture).

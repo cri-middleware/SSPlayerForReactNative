@@ -45,8 +45,8 @@ buffer handling. Six are worth knowing before you start:
   (on iOS, two autolinked pods). `example/package.json` pins them; move them by
   hand, together.
 
-[How the player is put together](https://cri-middleware.github.io/SSPlayerForReactNative/development/architecture)
-maps the layers and the native files to these reasons.
+[How the Player Is Put Together](https://cri-middleware.github.io/SSPlayerForReactNative/development/architecture)
+describes the layers these reasons cross and gives the longer reasons.
 
 ### Reporting Bugs
 
@@ -251,7 +251,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
   `assetExts` に `ssab` / `ssqb` を足してはいけません。
 - **ネイティブの peer はそれぞれ 1 つだけです。** React Native・Nitro Modules・RN Skia・Reanimated のどれかが 2 つあると、2 つのネイティブモジュールが同じ JSI オブジェクトを登録します（iOS では、自動リンクされた 2 つの pod）。`example/package.json` がそれらを固定しています。上げるときは手で、まとめて上げてください。
 
-[プレイヤーの構成](https://cri-middleware.github.io/SSPlayerForReactNative/ja/development/architecture)が、レイヤーとネイティブ側のファイルをこれらの理由に結び付けます。
+これらの理由がまたぐ層と、より詳しい理由は[プレイヤーの構成](https://cri-middleware.github.io/SSPlayerForReactNative/ja/development/architecture)にあります。
 
 ### バグの報告
 
