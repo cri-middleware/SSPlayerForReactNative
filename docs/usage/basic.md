@@ -42,7 +42,7 @@ graph — see [Limitations](/limitations#untrusted-packs).
 ## Transport
 
 `playing`, `speed` and `loop` are declarative props; `loop={0}` is forever and
-`loop={1}` plays once. For imperative control, reach the Layer 3 player through
+`loop={1}` plays once. For imperative control, reach the player through
 the ref:
 
 ```tsx
@@ -110,7 +110,7 @@ the character most of a screen to the right.
 ## The first frame
 
 Until the pack has loaded **and at least one texture has registered**, there is
-nothing drawable. `drawInto` skips every batch, so the honest thing to show is
+nothing drawable: every batch is skipped, so the honest thing to show is
 not a blank rectangle:
 
 ```tsx

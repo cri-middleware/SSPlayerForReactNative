@@ -35,5 +35,5 @@ description: このパッケージが、あなたの公開するアプリの中�
 
 ## このページが代弁しないもの
 
-`@shopify/react-native-skia`、`react-native-nitro-modules`、
+`react-native-skia`、`react-native-nitro-modules`、
 `react-native-reanimated`、`react-native-worklets` は **peer 依存**です。あなたのアプリケーションが自分でインストールするものであり、それぞれが独自のライセンスと表記を持っています。ここに名前を挙げているのは、この一覧がそれらを含まないことを明確にするためだけです。

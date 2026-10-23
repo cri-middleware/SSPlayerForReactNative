@@ -58,7 +58,7 @@ parts={{
 
 ### オーバーライドはどれだけ持続するか {#how-long-an-override-lasts}
 
-`priority` の既定は `SsOverridePriority.holdUntilNextAnimation` で、これは C-API の既定（`HoldUntilNextAnimation`）と同じ、他のプレイヤーとも揃った値です。
+`priority` の既定は `SsOverridePriority.holdUntilNextAnimation` で、これは C-API の既定（`HoldUntilNextAnimation`）と同じです。
 
 `hat: { hide: true }` を持つマップが「その prop がそう言っている限り帽子は隠れている」という意味になることは、priority ではなくマップの再適用が担保します — 下記のとおり、オーバーライドはアニメーションが設定されるたびに replay されるためです。
 
@@ -68,7 +68,7 @@ parts={{
 | `holdUntilNextAnimation` | キーフレームは越えますが、別のアニメーションが設定されると解除されます。**既定値。** |
 | `permanent` | アニメーションの切り替えを越えて保持されます。 |
 
-オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用されます。`setup_animation` がオーバーライドレイヤーを他のすべてと一緒にリセットするためです — [再生の制御](/ja/usage/transport#what-setup-animation-resets)を参照してください。
+オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用されます。アニメーションの設定がオーバーライドレイヤーを他のすべてと一緒にリセットするためです — [再生の制御](/ja/usage/transport#what-setup-animation-resets)を参照してください。
 
 ## パーツに追従する {#following-a-part}
 
@@ -121,7 +121,7 @@ const hidden = player.isPartHidden(target)
 
 `isPartHidden(part)` はパーツ**名またはインデックス**を取り、**表示フレーム**（実際に描かれたフレーム。サブフレームが off のときは floor されたもの）を読むので、画面に出ているものと食い違いません。返すのはそのフレームの hide で、アニメーション自身の hide に加えて `setPartOverrides` の `hide: true` も含み、`cascade` を指定したときはそれで隠れる子孫も含みます。オーバーライドは、プレイヤーが次に進むかシークしたときに反映され、停止中のプレイヤーではすぐに反映されます。未知の名前・範囲外のインデックス・最初のフレームが再生される前は `false` です。
 
-これは兄弟プレイヤーが組み込みのアタッチメントに用意している `onHide` オプションにあたるものです。このプレイヤーに管理型のアタッチメントは無く、追従は pull API なので、隠れたパーツをどう扱うか（ビューも一緒に隠すか、その場に残すか）はホストの判断です。
+追従は pull API なので、隠れたパーツをどう扱うか（ビューも一緒に隠すか、その場に残すか）はあなたが決めます。
 
 ### メッシュ（スキン）パーツには直接追従できません
 
@@ -130,7 +130,7 @@ const hidden = player.isPartHidden(target)
 メッシュパーツの位置に追従させたいときは、SpriteStudio 側でその位置に **NULL パーツ**（ボーンポイント／空パーツ）を1つ置き、**そのパーツ名**を追従先に指定してください。ボーン（armature）やジョイントパーツを指定しても同様です — null / joint / armature /
 ボーンポイントのパーツは自身のノードが絵の位置にあるため、良い追従先になります。
 
-`isPartSkinnedMesh(part)` は、どのパーツがこれに該当するかを報告します — 兄弟プレイヤー（SpriteStudio Player for Web・SpriteStudio Player for wgpu）と同じ判定で、パックの `.ssab` から読み取ります。追従先として妥当なパーツだけを提示するピッカーの構築に使えます:
+`isPartSkinnedMesh(part)` は、どのパーツがこれに該当するかを、パックの `.ssab` から読み取って報告します。追従先として妥当なパーツだけを提示するピッカーの構築に使えます:
 
 ```ts
 // 追従先として実際に使えるパーツ: スキンメッシュ以外すべて。

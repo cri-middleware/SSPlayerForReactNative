@@ -6,7 +6,7 @@
 
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を React Native の New Architecture 上で再生します。描画は [React Native Skia](https://shopify.github.io/react-native-skia/) によるネイティブ描画で、タイムラインとジオメトリは [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアが担います。
 
-- 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/)** — セットアップ、使い方、生成された API リファレンス。このバージョンの同じページ（英語の Markdown）がパッケージの `docs/` にあり、オフラインで読めます（入口は `docs/README.md`）。同じページは Agent Skill として `skills/react-native-spritestudio/` にもあり、pnpm 12.11 以降では `pnpm approve react-native-spritestudio` のあと、コーディングエージェントの skills ディレクトリにリンクされます
+- 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)** — セットアップ、使い方、生成された API リファレンス。このバージョンの同じページ（英語の Markdown）がパッケージの `docs/` にあり、オフラインで読めます（入口は `docs/README.md`）。同じページは Agent Skill として `skills/react-native-spritestudio/` にもあり、pnpm 12.11 以降では `pnpm approve react-native-spritestudio` のあと、コーディングエージェントの skills ディレクトリにリンクされます
 - 📦 **[リポジトリ](https://github.com/cri-middleware/SSPlayerForReactNative)** — 詳細版 README、ロードマップ、サンプルアプリ
 - 🌐 **[SpriteStudio Docs（ポータル）](https://cri-middleware.github.io/SpriteStudio-Docs/ja/)** — SDK と各公式プレイヤーの総合案内
 
@@ -16,7 +16,7 @@
 npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go では動きません** — ネイティブコードを含むため prebuild（CNG）が必要です。`npx expo prebuild` の後に `npx expo run:ios` / `run:android` を実行してください。素の React Native アプリでも autolinking が両プラットフォームで拾いますが、config plugin が担う 2 つの作業（パックのディレクトリをネイティブアセットとして同梱すること、32 ビット `x86` の ABI を外すこと）は自分で行います。Android の `minSdkVersion` は 26 にします（[インストール](https://cri-middleware.github.io/SSPlayerForReactNative/ja/setup/install)）。
+**Expo Go では動きません** — ネイティブコードを含むため prebuild（CNG）が必要です。`npx expo prebuild` の後に `npx expo run:ios` / `run:android` を実行してください。Android の `minSdkVersion` は 26 にします（[インストール](https://cri-middleware.github.io/SSPlayerForReactNative/ja/setup/install)）。
 
 ## パックを配置する
 
@@ -63,7 +63,7 @@ export function Character() {
 
 統合はこれで全部です。テクスチャは付いてきますし、再生はロード時に始まり、既定では無限にループします。
 
-複数のアニメーションを同時に扱うなら、`<SpriteStudioScene>` + `<SpriteStudioSprite>` が**キャンバス 1 枚とクロック 1 つ**でキャスト全体を描画します。タイムラインに置かれたキーは `onUserData` / `onAudio` / `onSignal` コールバックとして届き、`parts` prop はパーツの色変え・非表示・差し替えを宣言的に行います。`transitionMs` を指定すると `animation` の変更がクロスフェードになり、プレイヤーはトラックでアニメーションを重ねられます — ドキュメントのモーションブレンディングを参照してください。
+複数のアニメーションを同時に扱うなら、`<SpriteStudioScene>` + `<SpriteStudioSprite>` が**キャンバス 1 枚とクロック 1 つ**でキャスト全体を描画します。タイムラインに置かれたキーは `onUserData` / `onAudio` / `onSignal` コールバックとして届き、`parts` prop はパーツの色変え・非表示・差し替えを宣言的に行います。`transitionMs` を指定すると `animation` の変更がクロスフェードになり、プレイヤーはトラックでアニメーションを重ねられます — ドキュメントの[モーションブレンディング](https://cri-middleware.github.io/SSPlayerForReactNative/ja/usage/motion-blending)を参照してください。
 
 ## 要件
 
@@ -74,9 +74,9 @@ export function Character() {
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
 
-React Native Skia は `react-native-skia` の 3 です。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。**peer 依存は必ず単一コピーに保ってください** — ネイティブモジュールが 2 つあるのは依存の重複ではなく、**1 つの JSI 登録を 2 つの autolink された pod が奪い合っている**状態です。
+React Native Skia は `react-native-skia` の 3 です。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。**peer 依存は 1 つずつに保ちます**（`npm ls react-native-skia` で確認し、モノレポでは peer をルートで固定します）。
 
-Windows・tvOS・visionOS は対象外です。**このパッケージは web ではアニメーションを再生しません**。web 上の SpriteStudio には [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。ここに含まれるのは web 用の*スタブ*で、native に**加えて** web も対象とするアプリが web バンドルをビルドできるようにするためのものです。
+Windows・tvOS・visionOS は対象外です。**このパッケージは web ではアニメーションを再生しません**。web 上の SpriteStudio には [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。ここに含まれるのは web 用の*スタブ*で、native に**加えて** web も対象とするアプリが web バンドルをビルドできるようにするためのものです。
 
 ## ライセンス
 

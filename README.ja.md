@@ -36,7 +36,7 @@
    ```
 
    Android の `minSdkVersion` は 26 にします。`expo-build-properties` の書き方は [インストール](docs/ja/setup/install.md#3-アプリをビルドする) にあります。
-2. **変換**: `.sspj` を、Chrome か Edge で開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを書き出し、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
+2. **変換**: `.sspj` を、Chrome か Edge で開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを出力し（ssconverter-web は ZIP に入れて）、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
 
    ```
    my-app/
@@ -77,8 +77,6 @@
    ```
 
    再生はロード時に始まり、既定では無限にループします。`loop={1}` なら 1 回だけ再生します。
-
-bare のアプリには `prebuild` がありません。ネイティブプロジェクトをリビルドし、config plugin が担う 2 つの作業（パックのフォルダを同梱すること、32 ビット `x86` の ABI を外すこと）を自分で行います（[インストール](docs/ja/setup/install.md#3-アプリをビルドする)）。
 
 SpriteStudio のデータが手元に無くても始められます。[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
 

@@ -72,8 +72,8 @@ image.
 
 ### How long an override lasts
 
-`priority` defaults to `SsOverridePriority.holdUntilNextAnimation` — the C-API's
-own default (`HoldUntilNextAnimation`), and the one the sibling players take.
+`priority` defaults to `SsOverridePriority.holdUntilNextAnimation`, the C-API's
+own default (`HoldUntilNextAnimation`).
 
 What makes a map carrying `hat: { hide: true }` mean "the hat is hidden for
 as long as the prop says so" is not the priority but the replay: as below, the
@@ -86,7 +86,7 @@ map is re-applied onto every newly set-up animation.
 | `permanent` | Holds across animation changes. |
 
 Overrides are replayed onto each newly set-up animation whatever the priority,
-because `setup_animation` resets the override layer along with everything else —
+because setting up an animation resets the override layer along with everything else —
 see [Transport](/usage/transport#what-setup-animation-resets).
 
 ## Following a part
@@ -169,10 +169,8 @@ advances or seeks, and at once on a stopped player. It is `false` for an
 unknown name, an out-of-range index and
 before the first frame has played.
 
-This is the `onHide` option the sibling players offer on their built-in
-attachments. This player has no managed attachment — following is a pull API —
-so the choice of what to do about a hidden part is the host's: hide the view
-alongside it, or leave it where it is.
+Following is a pull API, so what to do about a hidden part is yours to choose:
+hide the view alongside it, or leave it where it is.
 
 ### Mesh (skinned) parts cannot be followed directly
 
@@ -190,10 +188,8 @@ part) at that spot in SpriteStudio and target *that* part's name instead. A bone
 bone-point part places its own node where the art is, so it is a good follow
 target.
 
-`isPartSkinnedMesh(part)` reports which parts this applies to — the same
-judgement the sibling players make (SpriteStudio Player for Web and SpriteStudio Player
-for wgpu), read from the pack's
-`.ssab`. Use it to build a picker that only offers parts a follower can sit on:
+`isPartSkinnedMesh(part)` reports which parts this applies to, read from the
+pack's `.ssab`. Use it to build a picker that only offers parts a follower can sit on:
 
 ```ts
 // The parts a follower can actually track: everything except a skinned mesh.

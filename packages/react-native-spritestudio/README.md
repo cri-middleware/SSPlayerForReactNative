@@ -16,7 +16,7 @@ Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.
 npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go does not work** — the package contains native code, so a prebuild (CNG) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. In a bare React Native app autolinking picks it up on both platforms too, but the config plugin's two jobs — shipping your pack directories as native assets and dropping the 32-bit `x86` ABI — are yours to do by hand. On Android, `minSdkVersion` has to be 26 ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
+**Expo Go does not work** — the package contains native code, so a prebuild (CNG) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. On Android, `minSdkVersion` has to be 26 ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
 
 ## Ship your packs
 
@@ -64,7 +64,7 @@ export function Character() {
 
 That is the whole integration. The textures come with it, playback starts on load and loops forever by default.
 
-For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw a whole cast through **one canvas and one clock**. Timeline keys arrive as `onUserData` / `onAudio` / `onSignal` callbacks, and the `parts` prop recolours, hides or swaps a part declaratively. `transitionMs` crossfades a change of `animation`, and the player layers animations on tracks — see Motion blending in the docs.
+For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw a whole cast through **one canvas and one clock**. Timeline keys arrive as `onUserData` / `onAudio` / `onSignal` callbacks, and the `parts` prop recolours, hides or swaps a part declaratively. `transitionMs` crossfades a change of `animation`, and the player layers animations on tracks — see [Motion blending](https://cri-middleware.github.io/SSPlayerForReactNative/usage/motion-blending) in the docs.
 
 ## Requirements
 
@@ -75,9 +75,9 @@ For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
 
-React Native Skia is `react-native-skia` 3, which renders with Skia Graphite and sets the Android floor; `@shopify/react-native-skia` (v2) does not stand in for it and cannot be installed beside it. **Keep every peer single-copy** — two copies of a native module is two autolinked pods fighting over one JSI registration.
+React Native Skia is `react-native-skia` 3, which renders with Skia Graphite and sets the Android floor; `@shopify/react-native-skia` (v2) does not stand in for it and cannot be installed beside it. **Keep every peer single-copy** (`npm ls react-native-skia`; in a monorepo, pin the peers at the root).
 
-Windows, tvOS and visionOS are out of scope. **This package does not play animations on web**; for SpriteStudio on the web use [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb). What ships here is a web *stub* so an app that targets web **as well as** native can still build its web bundle.
+Windows, tvOS and visionOS are out of scope. **This package does not play animations on web**; for SpriteStudio on the web use [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb). What ships here is a web *stub* so an app that targets web **as well as** native can still build its web bundle.
 
 ## License
 

@@ -43,7 +43,7 @@ miss. See [Working from a checkout](/development/from-source).
 
 ## What this page does not speak for
 
-`@shopify/react-native-skia`, `react-native-nitro-modules`,
+`react-native-skia`, `react-native-nitro-modules`,
 `react-native-reanimated` and `react-native-worklets` are **peer dependencies**:
 your application installs them itself, and each carries its own license and
 notices. They are named here only so it is clear that this list does not cover

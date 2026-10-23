@@ -34,7 +34,7 @@ description: SpriteStudioView の prop、source に指定できるもの、そ�
 
 ## 再生の制御
 
-`playing`・`speed`・`loop` は宣言的な prop です。`loop={0}` は無限、`loop={1}` は 1 回だけ再生します。命令的に操作する場合は、ref からレイヤー 3 のプレイヤーに到達します。
+`playing`・`speed`・`loop` は宣言的な prop です。`loop={0}` は無限、`loop={1}` は 1 回だけ再生します。命令的に操作する場合は、ref からプレイヤーに到達します。
 
 ```tsx
 const ref = useRef<SpriteStudioViewRef>(null)
@@ -82,7 +82,7 @@ ref.current?.player?.setAnimation('walk')
 
 ## 最初のフレーム
 
-パックがロードされ、**かつ少なくとも 1 つのテクスチャが登録される**まで、描画できるものはありません。`drawInto` はすべてのバッチをスキップするので、そこで空白の矩形を見せるのは誠実ではありません。
+パックがロードされ、**かつ少なくとも 1 つのテクスチャが登録される**まで、描画できるものはありません。すべてのバッチがスキップされるので、そこで空白の矩形を見せるのは誠実ではありません。
 
 ```tsx
 <SpriteStudioView source={…} placeholder={<ActivityIndicator />} />

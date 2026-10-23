@@ -83,9 +83,7 @@ spec:
 
 - **It reaches instance children.** The whole player tree draws through one
   texture table here, so a child part that samples the same cellmap picks up the
-  swap too — there is nothing to set on the child separately. (This is where the
-  React Native player differs from the Godot one, whose children keep their own
-  table.)
+  swap too — there is nothing to set on the child separately.
 - **It survives a `source` change**, re-keyed onto the new pack by name. Clear it
   with `null`, or let `dispose` drop it.
 - **A texture change (`TCHG`) wins on the frames it applies to.** Those frames
@@ -105,7 +103,7 @@ player.textures.register('Ringo', someSkImage)
 
 Supplying a shared registry through `SpriteStudioPlayerOptions` is what lets
 several players draw from **one** set of atlases. `register` takes the cellmap
-name and hashes it through the Brain; `registerByHash` takes a hash you already
+name and hashes it through the runtime; `registerByHash` takes a hash you already
 have.
 
 ::: warning Never hash a name yourself

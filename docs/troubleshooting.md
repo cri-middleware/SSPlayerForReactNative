@@ -52,7 +52,7 @@ so a rebuild is enough — you do not need a fresh `prebuild`.
 ## A part is missing, or nothing draws
 
 Both are the same fault at different scales: **a texture did not resolve**.
-`drawInto` skips a batch it has no paint for, so one missing atlas is one
+A batch with no texture is skipped, so one missing atlas is one
 missing part and a pack that resolved none of its textures draws nothing.
 
 In a dev build the package already warns:
@@ -71,7 +71,7 @@ player.lastTextureReport?.unresolved   // ['characters/effects.png']
 The fix is almost always that the `.png` did not travel next to the `.ssab`.
 Every `image_path` resolves **relative to the `.ssab`**, so the converter's
 whole output directory has to reach the device intact. Converting to an
-**Embedded** pack (`--embedded`) sidesteps it by putting the atlas inside the
+**Embedded** pack (`--embedded`, or the **Embedded Assets** checkbox) sidesteps it by putting the atlas inside the
 file.
 
 ## An Instance part's child is missing
@@ -136,9 +136,8 @@ opacity: transform.value.valid ? 1 : 0
 
 ### Two copies of a native module
 
-Two copies is not a duplicated dependency — it is **two autolinked pods fighting
-over one JSI registration**. Check with `npm ls react-native-skia`, and
-in a monorepo pin every peer at the root.
+Keep **one copy of each peer**. Check with `npm ls react-native-skia`, and in a
+monorepo pin every peer at the root.
 
 ### Android, on an x86 emulator
 
