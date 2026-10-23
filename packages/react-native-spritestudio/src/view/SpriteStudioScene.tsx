@@ -28,7 +28,7 @@ export interface SsSceneMember {
   seq: number
 }
 
-interface SsSceneRegistry {
+export interface SsSceneRegistry {
   /** Enrols a player and returns the leave function. */
   join(member: Omit<SsSceneMember, 'seq'>): () => void
   /** The scene's pixel size, which is what a sprite fits itself against. */

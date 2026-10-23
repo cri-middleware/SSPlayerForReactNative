@@ -45,6 +45,7 @@ export const useSsScene: typeof import('./view/SpriteStudioScene').useSsScene =
 export type {
   SpriteStudioSceneProps,
   SsSceneMember,
+  SsSceneRegistry,
 } from './view/SpriteStudioScene'
 
 export const SpriteStudioSprite: typeof import('./view/SpriteStudioSprite').SpriteStudioSprite =
@@ -116,7 +117,7 @@ export const SsTextureLoader: typeof import('./core/SsTextureLoader').SsTextureL
   unavailableOnWeb('SsTextureLoader')
 export const loadImageData: typeof import('./core/SsTextureLoader').loadImageData =
   unavailableOnWeb('loadImageData')
-export type { SsTextureLoadReport } from './core/SsTextureLoader'
+export type { SsTextureLoadPass, SsTextureLoadReport } from './core/SsTextureLoader'
 
 /** Skia parses the colour strings, so this is the one bit of the vocabulary that stubs. */
 export const ssPackColor: typeof import('./core/packColor').ssPackColor =
@@ -177,4 +178,7 @@ export type {
   SsResource,
   SsTextureBinding,
   SsTextureInfo,
+  SkCanvasHandle,
+  SkImageHandle,
+  SkPaintHandle,
 } from './specs/SsRuntime.nitro'
