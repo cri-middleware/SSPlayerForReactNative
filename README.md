@@ -47,8 +47,8 @@ under [Requirements](#-requirements).
    has the `expo-build-properties` line.
 2. **Convert** your `.sspj` with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)
    in Chrome or Edge, the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI),
-   or the SDK's `ssconverter-cli`. Each writes a folder named after the project, with the `.ssab`
-   and its textures inside. Put that folder in `assets/ss/`, and point the config plugin at
+   or the SDK's `ssconverter-cli`. Each gives you a folder named after the project (ssconverter-web
+   inside a ZIP), with the `.ssab` and its textures inside. Put that folder in `assets/ss/`, and point the config plugin at
    `assets/ss` in `app.json`:
 
    ```

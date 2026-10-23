@@ -128,8 +128,9 @@ app asset, not a bundle entry.
 ## Reference and Embedded packs
 
 The converter emits one of two kinds, and these are the SDK's names for them.
-`ssconverter-cli --embedded` produces an Embedded pack; without the flag you get
-a Reference one.
+`ssconverter-cli --embedded`, or the **Embedded Assets** checkbox in ssconverter-web
+and SSConverter GUI, produces an Embedded pack, in a folder named `<project>_emb/`;
+without it you get a Reference one.
 
 | Kind | Ships as | Trade |
 |---|---|---|

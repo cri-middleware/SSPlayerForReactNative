@@ -106,7 +106,7 @@ Metro はこれを運べません。`require()` が名指ししたものだけ�
 ## Reference パックと Embedded パック {#reference-and-embedded-packs}
 
 コンバータは 2 種類のどちらかを出力します。これは SDK 側の呼称です。
-`ssconverter-cli --embedded` は Embedded パックを、フラグなしなら Reference パックを生成します。
+`ssconverter-cli --embedded`、または ssconverter-web と SSConverter GUI の **Embedded Assets** チェックボックスで Embedded パックを `<project>_emb/` フォルダに生成し、指定しなければ Reference パックを生成します。
 
 | 種類 | 同梱される形 | トレードオフ |
 |---|---|---|

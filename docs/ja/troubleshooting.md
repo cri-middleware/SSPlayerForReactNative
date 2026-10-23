@@ -54,7 +54,7 @@ player.lastTextureReport?.unresolved   // ['characters/effects.png']
 ```
 
 原因はほぼ常に、`.png` が `.ssab` の隣に一緒に運ばれなかったことです。すべての
-`image_path` は **`.ssab` からの相対パス**で解決されるので、コンバータの出力ディレクトリ全体がそのまま端末に届く必要があります。**Embedded** パック（`--embedded`）に変換すれば、アトラスをファイルの中に入れることでこれを回避できます。
+`image_path` は **`.ssab` からの相対パス**で解決されるので、コンバータの出力ディレクトリ全体がそのまま端末に届く必要があります。**Embedded** パック（`--embedded`、または **Embedded Assets** チェックボックス）に変換すれば、アトラスをファイルの中に入れることでこれを回避できます。
 
 ## Instance パーツの子が出てこない
 
