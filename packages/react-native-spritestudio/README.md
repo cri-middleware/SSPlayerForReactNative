@@ -64,7 +64,7 @@ export function Character() {
 
 That is the whole integration. The textures come with it, playback starts on load and loops forever by default.
 
-For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw a whole cast through **one canvas and one clock**. Timeline keys arrive as `onUserData` / `onAudio` / `onSignal` callbacks, and the `parts` prop recolours, hides or swaps a part declaratively. `transitionMs` crossfades a change of `animation`, and the player layers animations on tracks — see Motion blending in the docs.
+For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw a whole cast through **one canvas and one clock**. Timeline keys arrive as `onUserData` / `onAudio` / `onSignal` callbacks, and the `parts` prop recolours, hides or swaps a part declaratively. `transitionMs` crossfades a change of `animation`, and the player layers animations on tracks — see [Motion blending](https://cri-middleware.github.io/SSPlayerForReactNative/usage/motion-blending) in the docs.
 
 ## Requirements
 
@@ -77,7 +77,7 @@ For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw
 
 React Native Skia is `react-native-skia` 3, which renders with Skia Graphite and sets the Android floor; `@shopify/react-native-skia` (v2) does not stand in for it and cannot be installed beside it. **Keep every peer single-copy** (`npm ls react-native-skia`; in a monorepo, pin the peers at the root).
 
-Windows, tvOS and visionOS are out of scope. **This package does not play animations on web**; for SpriteStudio on the web use [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb). What ships here is a web *stub* so an app that targets web **as well as** native can still build its web bundle.
+Windows, tvOS and visionOS are out of scope. **This package does not play animations on web**; for SpriteStudio on the web use [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb). What ships here is a web *stub* so an app that targets web **as well as** native can still build its web bundle.
 
 ## License
 
