@@ -110,7 +110,7 @@ opacity: transform.value.valid ? 1 : 0
 
 ### ネイティブモジュールが 2 つある
 
-2 つあるのは依存の重複ではなく、**1 つの JSI 登録を 2 つの autolink された pod が奪い合っている**状態です。`npm ls react-native-skia` で確認し、モノレポではすべての peer をルートで固定してください。
+**peer 依存はそれぞれ 1 つだけ**にします。`npm ls react-native-skia` で確認し、モノレポではすべての peer をルートで固定してください。
 
 ### Android を x86 エミュレータで動かしている
 

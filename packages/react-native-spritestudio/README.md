@@ -75,7 +75,7 @@ For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
 
-React Native Skia is `react-native-skia` 3, which renders with Skia Graphite and sets the Android floor; `@shopify/react-native-skia` (v2) does not stand in for it and cannot be installed beside it. **Keep every peer single-copy** — two copies of a native module is two autolinked pods fighting over one JSI registration.
+React Native Skia is `react-native-skia` 3, which renders with Skia Graphite and sets the Android floor; `@shopify/react-native-skia` (v2) does not stand in for it and cannot be installed beside it. **Keep every peer single-copy** (`npm ls react-native-skia`; in a monorepo, pin the peers at the root).
 
 Windows, tvOS and visionOS are out of scope. **This package does not play animations on web**; for SpriteStudio on the web use [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb). What ships here is a web *stub* so an app that targets web **as well as** native can still build its web bundle.
 

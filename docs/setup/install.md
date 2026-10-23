@@ -97,10 +97,9 @@ before anything can play it.
 
 ::: details The build fails, or the app crashes on launch
 
-**Two copies of a native module.** This is the common one, and it is not a
-duplicated dependency — it is two autolinked pods fighting over one JSI
-registration. Check with `npm ls react-native-skia`; in a monorepo, pin
-every peer at the root.
+**Two copies of a native module.** This is the common one: keep one copy of
+each peer. Check with `npm ls react-native-skia`; in a monorepo, pin every peer
+at the root.
 
 **`react-native-worklets` is missing.** Reanimated 4 declares it as a peer of
 *its* own rather than depending on it, so your app has to install it. The

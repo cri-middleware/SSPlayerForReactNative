@@ -74,7 +74,7 @@ export function Character() {
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
 
-React Native Skia は `react-native-skia` の 3 です。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。**peer 依存は必ず単一コピーに保ってください** — ネイティブモジュールが 2 つあるのは依存の重複ではなく、**1 つの JSI 登録を 2 つの autolink された pod が奪い合っている**状態です。
+React Native Skia は `react-native-skia` の 3 です。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。**peer 依存は 1 つずつに保ちます**（`npm ls react-native-skia` で確認し、モノレポでは peer をルートで固定します）。
 
 Windows・tvOS・visionOS は対象外です。**このパッケージは web ではアニメーションを再生しません**。web 上の SpriteStudio には [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。ここに含まれるのは web 用の*スタブ*で、native に**加えて** web も対象とするアプリが web バンドルをビルドできるようにするためのものです。
 
