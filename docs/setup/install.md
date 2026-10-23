@@ -10,10 +10,8 @@ For adding the player to **your own app** — whether you go on to use nothing b
 The install is the same either way. To work on the player or the Rust core
 instead, see [Working from a checkout](/development/from-source).
 
-**Every consumer of this package compiles native code.** There is no
-JavaScript-only artifact to drop into a project — no CDN bundle, no prebuilt
-`.js` you can vendor. So "installing" here means getting the package *and*
-producing a native build of your app that contains it. Both halves are below.
+**Your app needs a native build.** Installing means adding the package *and*
+building your app with it; both halves are below.
 
 ## 1. Check it fits
 
@@ -45,24 +43,11 @@ Reanimated itself requires. `expo install` is used in place of `npm install`
 because it picks versions matching your Expo SDK.
 
 The published tarball **carries the native core with it**, so there is nothing
-further to fetch and no Rust toolchain to install.
-
-::: warning A git URL is not a substitute
-`npm install github:cri-middleware/…` **cannot work**. Neither the native core
-nor the built `lib/` is tracked in git, so the install produces a package whose
-`main` points at a file that is not there and whose native side has nothing to
-link. To work from the source tree, see
-[Working from a checkout](/development/from-source) — that is a different job
-from this page, and it needs the repository, not a dependency.
-:::
+further to fetch and no Rust toolchain to install. Install from npm: the native
+core and the built JavaScript are in the published package, not in the git
+repository.
 
 ## 3. Build your app
-
-::: info This is *your app's* build, not a build of this package
-Nothing here is compiled separately by you — the native core arrives prebuilt
-from npm, or from `download-sdk` on the checkout route. What this step produces
-is your own app binary, with the package linked into it.
-:::
 
 **Expo Go cannot run it.** Expo Go ships a fixed set of native modules and this
 one is not among them, so you need a **development build**. Fast Refresh and the
