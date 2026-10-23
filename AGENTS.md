@@ -42,6 +42,7 @@ workspace that drives the Rust `libssruntime` over **Nitro Modules (JSI)** and d
 | Releases, maintainers only | [RELEASING.md](./RELEASING.md) |
 | Status, timing, non-goals | [ROADMAP.md](./ROADMAP.md) |
 | What a layer is for | its header comment; `src/index.ts` lists the four in order |
+| The file map, using a checkout in an app, checking on a device, reasons that span files | [docs/development/](./docs/development/) |
 | The reasoning behind an invariant | the code site named beside it |
 
 ## Invariants

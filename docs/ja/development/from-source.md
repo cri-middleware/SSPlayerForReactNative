@@ -103,6 +103,32 @@ pnpm run run-ios         # または: pnpm run run-android
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/HEAD/example)
 が扱います。
 
+## チェックアウトをアプリで使う {#using-your-checkout-in-an-app}
+
+git の URL ではこのパッケージを入れられません。ネイティブコアもビルド済みの `lib/` も git に無いので、入れても `main` が存在しないファイルを指し、ネイティブ側にはリンクするものがないパッケージになります。代わりに、固定した Brain から、リリースが公開する tarball を作ります。
+
+```bash
+pnpm run download-sdk
+pnpm run build-release        # -> release-dist/npm/<tarball>.tgz
+```
+
+アプリにインストールし（`npm install <checkout>/release-dist/npm/<tarball>.tgz`）、公開版のパッケージと同じように prebuild します。`prepack` は固定したリリースではない Brain（`build-runtime` で作ったものや debug ビルド）を拒むので、tarball には必ずリリースのネイティブコアが入ります。自分でビルドした Brain をアプリで動かすには、サンプルアプリを使ってください。サンプルアプリはパッケージを、ネイティブコアも含めてワークスペースから取ります。
+
+## シミュレータや実機で確かめる {#checking-on-a-simulator-or-a-device}
+
+`run-ios` と `run-android` はバンドルを埋め込んだ Release でビルドするので、Metro も dev launcher も通りません。残るのは画面を見ることです。
+
+- **サブジェクトはコードで選びます。** スクリプトからはシミュレータをタップできないので、`example/src/player/PlayerScreen.tsx` の `useState('Basic')` の初期値を書き換え（`config=debug` なら Metro の fast refresh で反映されます）、`xcrun simctl io <udid> screenshot` で撮ります。
+- **`config=debug` のときだけ**、expo-dev-menu のオンボーディングのシートが画面の半分を覆います。`xcrun simctl spawn <udid> defaults write jp.co.cri-mw.spritestudio.ssplayer.example EXDevMenuIsOnboardingFinished -bool YES` で以後は出なくなります。
+- **Release ビルドの `console.log` は iOS のログに出ません。** 結果は `Text` で画面に出し、スクリーンショットで読みます。Android では logcat に `ReactNativeJS` として出ます。
+- **計測。** ビルド直後の 1 回目の起動は外れ値です。終了と起動を 3 回繰り返して中央値を取ります。CPU 時間は同じビルドの中でだけ比べてください。軽いビルドほどスレッドが efficiency コアに寄せられ、同じ仕事が 1.6〜2 倍のサンプルに見えます。ビルドをまたいで比べるのは、回数で数えられるもの（レンダーパス）、ホストでの交互のマイクロベンチ、GPU の完了を待つホストの Metal のベンチです。UI スレッドのコストを比べる前に、UI が実際に描いたフレーム数をそろえます（`useFramePicture` の `retire` の回数）。
+- **Android エミュレータはソフトウェアで描画します**（`emulator -avd <avd> -no-window -no-audio -gpu swiftshader_indirect`）。そのため UI スレッドは実機よりずっと重くなります。アプリは `adb shell am start -n jp.co.crimw.spritestudio.ssplayer.example/.MainActivity` で起動し、終わったらエミュレータを止めてください（`adb emu kill`）。CPU を使い続けます。
+- **iOS は広色域の画面で Display P3 で合成します。** シミュレータも同じで、RN Skia が画面から面を選ぶためです。そのため純粋な赤と青を加算で重ねると、iOS では白に寄り、Android ではマゼンタのままです。sRGB の結果は Android の方です。
+- **ビルドが通っても、Skia が入ったとは限りません。** RN Skia が見つからないと、ビルドは何も言わずに `SSPLAYER_ENABLE_SKIA_DIRECT=0` にします。RN Skia を上げたら、Android は `.cxx/**/compile_commands.json` に、iOS は DerivedData の `SsPlayer.build/**/*-common-args.resp` に `SSPLAYER_ENABLE_SKIA_DIRECT=1` があるかを見てください。
+- **ホストのチェックが「`.ssab` failed verification」で落ちたら、データが古いのです。** Skia のせいではなく、サンプルのパックが Brain より古くなっています。サブモジュールを固定の版にそろえて `deploy-examples` を実行してください。
+
+レイヤー、ネイティブ側のファイル、それらをまたぐ設計の理由は[プレイヤーの構成](/ja/development/architecture)にあります。
+
 ## チェック
 
 | 対象 | コマンド |

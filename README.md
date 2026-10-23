@@ -134,8 +134,10 @@ in the way.
 
 The example app in this repository plays the SDK's own test animations, converted from the
 `SpriteStudio-SDK` submodule. [Working from a checkout](docs/development/from-source.md) is the path
-from clone to running app, and [the example app](example/README.md) says what each subject on its
-screen proves. Converting those packs needs a Rust toolchain, because `deploy-examples` builds the
+from clone to running app — and on to using your checkout in an app and checking on a device — and
+[the example app](example/README.md) says what each subject on its screen proves.
+[How the player is put together](docs/development/architecture.md) maps the layers to their files
+and gives the reasons that span them. Converting those packs needs a Rust toolchain, because `deploy-examples` builds the
 SDK's `ssconverter-cli` from source.
 
 ## 🔗 Related Repositories
