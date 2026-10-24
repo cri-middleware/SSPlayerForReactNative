@@ -112,7 +112,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   void setSpeedScale(double rate) override;
   void setPlaybackDirection(double direction, double style) override;
   void setSkipFrames(bool skip) override;
-  void setSection(double startFrame, double endFrame) override;
+  bool setSection(double startFrame, double endFrame) override;
   void setFrameRate(double fps) override;
   void setSubFrame(bool enabled) override;
 

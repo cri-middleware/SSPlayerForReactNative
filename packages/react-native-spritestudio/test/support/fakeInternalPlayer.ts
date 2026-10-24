@@ -245,10 +245,17 @@ export class SsInternalPlayer {
     this.playbackStyle = style
   }
 
-  setSection(startFrame: number, endFrame: number): void {
+  /** Refuses an end before the start, as the real one does when both are inside the animation. */
+  setSection(startFrame: number, endFrame: number): boolean {
     this.record('setSection', startFrame, endFrame)
+    if (startFrame >= 0 && endFrame >= 0 && endFrame < startFrame) {
+      this.lastError = 'Invalid parameter'
+      return false
+    }
+    this.lastError = null
     this.startFrame = startFrame
     this.endFrame = endFrame
+    return true
   }
 
   get partCount(): number {

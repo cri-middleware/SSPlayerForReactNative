@@ -447,12 +447,15 @@ void HybridSsContext::setSubFrame(bool enabled) {
   refreshFrame();
 }
 
-void HybridSsContext::setSection(double startFrame, double endFrame) {
-  if (ctx_ == nullptr) return;
-  ss_runtime_set_animation_section(ctx_, static_cast<int>(startFrame),
-                                   static_cast<int>(endFrame));
+bool HybridSsContext::setSection(double startFrame, double endFrame) {
+  if (ctx_ == nullptr) return false;
+  if (!ss_runtime_set_animation_section(ctx_, static_cast<int>(startFrame),
+                                        static_cast<int>(endFrame))) {
+    return false;
+  }
   // The section can clamp the playhead, so re-read rather than assume.
   resync();
+  return true;
 }
 
 double HybridSsContext::findPartIndex(const std::string& partName) {

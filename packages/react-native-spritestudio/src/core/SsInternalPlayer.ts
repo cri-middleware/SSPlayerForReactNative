@@ -336,8 +336,8 @@ export class SsInternalPlayer {
   setFrameSkipEnabled(skip: boolean): void {
     this.require().setSkipFrames(skip)
   }
-  setSection(startFrame: number, endFrame: number): void {
-    this.require().setSection(startFrame, endFrame)
+  setSection(startFrame: number, endFrame: number): boolean {
+    return this.require().setSection(startFrame, endFrame)
   }
   setFrameRate(fps: number): void {
     this.require().setFrameRate(fps)

@@ -111,7 +111,7 @@ namespace margelo::nitro::ssplayer {
       virtual void setSpeedScale(double rate) = 0;
       virtual void setPlaybackDirection(double direction, double style) = 0;
       virtual void setSkipFrames(bool skip) = 0;
-      virtual void setSection(double startFrame, double endFrame) = 0;
+      virtual bool setSection(double startFrame, double endFrame) = 0;
       virtual void setFrameRate(double fps) = 0;
       virtual void setSubFrame(bool enabled) = 0;
       virtual double findPartIndex(const std::string& partName) = 0;
