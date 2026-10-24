@@ -535,8 +535,14 @@ export interface SsContext
    * frame — and so every event on it — observed, at the cost of catching up.
    */
   setSkipFrames(skip: boolean): void
-  /** Restricts playback to `[startFrame, endFrame]`. Moves the playhead. */
-  setSection(startFrame: number, endFrame: number): void
+  /**
+   * Restricts playback to `[startFrame, endFrame]`, both ends included. An end
+   * out of the animation's range is its edge on that side. Moves the playhead.
+   *
+   * Returns false, changing nothing, when both ends are in range and the end
+   * is before the start; `lastErrorMessage` then says why.
+   */
+  setSection(startFrame: number, endFrame: number): boolean
   /**
    * Overrides the advance rate, in absolute frames per second.
    *

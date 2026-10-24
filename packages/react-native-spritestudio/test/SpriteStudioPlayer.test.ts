@@ -265,13 +265,35 @@ describe('the transport settings replayed onto each animation', () => {
   it('restricts playback to a section of the current animation', async () => {
     const player = await loaded()
 
-    player.setAnimationSection(10, 20)
+    expect(player.setAnimationSection(10, 20)).toBe(true)
 
     expect(SsInternalPlayer.last().argsOf('setSection')).toEqual([[10, 20]])
     expect(player.startFrame).toBe(10)
     expect(player.endFrame).toBe(20)
     // Both ends inclusive — feed it to a scrubber.
     expect(player.totalFrames).toBe(11)
+  })
+
+  // The Brain refuses an end before the start and keeps the section it had; a
+  // state machine repeating the call every frame is one line, a second pair
+  // another.
+  it('says once per pair that a section ending before it starts did nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+    player.setAnimationSection(2, 5)
+
+    expect(player.setAnimationSection(20, 10)).toBe(false)
+    expect(player.setAnimationSection(20, 10)).toBe(false)
+    expect(player.startFrame).toBe(2)
+    expect(player.endFrame).toBe(5)
+    expect(warn).toHaveBeenCalledOnce()
+    const line = String(warn.mock.calls[0]?.[0])
+    expect(line).toContain('setAnimationSection(20, 10)')
+    expect(line).toContain(PACK)
+    expect(line).toContain('Invalid parameter')
+
+    player.setAnimationSection(30, 10)
+    expect(warn).toHaveBeenCalledTimes(2)
   })
 
   it('replays them again after a switch, because setup drops them', async () => {

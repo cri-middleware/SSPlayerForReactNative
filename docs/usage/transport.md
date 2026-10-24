@@ -40,7 +40,7 @@ ref.current?.player?.setSpeedScale(0.5)
 | `seek(frameNo)` | Jump the playhead. |
 | `setAnimation(name)` | Select a different animation, posed on its first frame. **Does not start it** — call `play()`. Returns `false` if the pack has no such name, and does nothing at all if that animation is already the one set up. |
 | `setSpeedScale(rate)` / `setLoopCount(loops)` | The prop equivalents. |
-| `setAnimationSection(start, end)` | Restrict playback to a frame range of the current animation. Not carried across a `setAnimation`. |
+| `setAnimationSection(start, end)` | Restrict playback to frames `start` to `end` of the current animation, both included; an end out of range (`-1`, say) is the animation's edge on that side. Returns `false` and warns, changing nothing, when both ends are in range and `end` is before `start`. Not carried across a `setAnimation`. |
 | `setFrameSkipEnabled(skip)` | On (the default) keeps playback on the wall clock; off advances one frame per tick. |
 | `setFrameRate(fps)` | Replace the advance rate, in **absolute** fps. `0` clears the override. Survives a `setAnimation`. |
 | `setSubFrameEnabled(enabled)` | Sub-frame interpolation, **on** by default — whether what is drawn may sit between two authored frames. |

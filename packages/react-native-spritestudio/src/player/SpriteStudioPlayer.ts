@@ -95,8 +95,11 @@ export interface SpriteStudioPlayerApi {
   setSpeedScale(rate: number): void
   /** 0 = infinite. */
   setLoopCount(loops: number): void
-  /** Restricts playback to `[startFrame, endFrame]` of the current animation. */
-  setAnimationSection(startFrame: number, endFrame: number): void
+  /**
+   * Restricts playback to `[startFrame, endFrame]` of the current animation.
+   * Returns false, and warns once per pair, when it did nothing.
+   */
+  setAnimationSection(startFrame: number, endFrame: number): boolean
   /**
    * Whether a long tick may skip frames to stay on the wall clock (the default)
    * or advance exactly one frame, stretching playback instead.
@@ -224,9 +227,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    */
   private ran = false
   /**
-   * Track and source commands already reported as having done nothing, keyed by
-   * the call and what it named — so a state machine repeating a refused call
-   * every frame says so once, and a second track or name gets its own line.
+   * Track, source and section commands already reported as having done
+   * nothing, keyed by the call and what it named — so a state machine repeating
+   * a refused call every frame says so once, and a second track, name or pair
+   * of frames gets its own line.
    */
   private readonly reportedTrackFailures = new Set<string>()
 
@@ -875,14 +879,26 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   /**
    * Restricts playback to `[startFrame, endFrame]` of the **current** animation,
-   * so `play`, looping and ping-pong all work within that range.
+   * both ends included, so `play`, looping and ping-pong all work within that
+   * range. An end outside the animation's frames is its edge on that side.
+   *
+   * Returns false, changing nothing, when both ends are inside the animation
+   * and the end is before the start, and says so on the console once per pair.
+   * False too before a pack is loaded.
    *
    * Not carried across a {@link setAnimation}: frame numbers only mean something
    * inside the animation they were measured in. Set it after each switch.
    */
-  setAnimationSection(startFrame: number, endFrame: number): void {
-    this.internalPlayer?.setSection(startFrame, endFrame)
-    this.notify()
+  setAnimationSection(startFrame: number, endFrame: number): boolean {
+    const internal = this.internalPlayer
+    if (internal == null) return false
+    const ok = this.trackCommand(
+      internal.setSection(startFrame, endFrame),
+      'setAnimationSection',
+      `${startFrame}, ${endFrame}`
+    )
+    if (ok) this.notify()
+    return ok
   }
 
   /**
@@ -1579,8 +1595,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Passes `ok` through, and says so the first time a call on a given target
    * did nothing — a command that silently does nothing shows up only as an
    * animation that "will not blend". Keyed by the call and its `target` (the
-   * track or source, and the name it was given), not by `values`, so a slider
-   * dragging a refused alpha is still one line.
+   * track or source, and the name it was given; a section's two frames), not by
+   * `values`, so a slider dragging a refused alpha is still one line.
    */
   private trackCommand(ok: boolean, call: string, target: string, values?: string): boolean {
     if (ok) return true
