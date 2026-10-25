@@ -71,8 +71,10 @@ This repository follows **git-flow**: `develop` integrates, and a pull request g
 into it; `main` holds released commits only, and moves only through a
 maintainer's release branch.
 
-The package has one version line, its own: `scripts/SDK_VERSION.txt` pins the
-Brain release it is built against separately. That differs from SSPlayerForWeb,
+The packages have one version line: `react-native-spritestudio-ui` is released
+with `react-native-spritestudio` at the same version, and
+`scripts/SDK_VERSION.txt` pins the Brain release they are built against
+separately. That differs from SSPlayerForWeb,
 whose packages are versioned independently of each other and released from
 `main`: the branch model follows the versioning model.
 
@@ -269,7 +271,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 このリポジトリは **git-flow** です。`develop` が統合ブランチで、プルリクエストはそこへ出します。`main` にはリリース済みのコミットだけが入り、メンテナーのリリースブランチを通してだけ進みます。
 
-パッケージのバージョンの系統は、パッケージ自身の 1 つです。ビルド対象の Brain のリリースは、それとは別に `scripts/SDK_VERSION.txt` で固定します。パッケージごとに個別にバージョニングし `main` から出す SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
+パッケージのバージョンの系統は 1 つです。`react-native-spritestudio-ui` は `react-native-spritestudio` と同じバージョンで一緒にリリースします。ビルド対象の Brain のリリースは、それとは別に `scripts/SDK_VERSION.txt` で固定します。パッケージごとに個別にバージョニングし `main` から出す SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
 
 リリース作業はメンテナーが行います（[RELEASING.md](./RELEASING.md) を参照）。
 

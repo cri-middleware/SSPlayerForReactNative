@@ -1,6 +1,7 @@
 name: Release
 
-# One release of `react-native-spritestudio`, dispatched by hand.
+# One release of `react-native-spritestudio` and `react-native-spritestudio-ui`,
+# which share a version, dispatched by hand.
 #
 # The ref decides what the run is. From a branch it is the QA run:
 # scripts/build-release.sh -- the pinned Brain, the generated code, the host
@@ -8,16 +9,16 @@ name: Release
 # result kept on the run, nothing uploaded. A release is a v* tag on main, pushed
 # first and dispatched from second. There upload_release runs scripts/release.sh,
 # which is the same build with a DRAFT GitHub Release on the end, carrying the
-# tarball it checked with SHA256SUMS and generated notes, unless the tag has a
+# two tarballs it checked with SHA256SUMS and generated notes, unless the tag has a
 # Release already -- and which a maintainer runs on a Mac to cut the release
 # without this workflow. Publishing the draft starts pages.yml.
 #
-# On a v* tag, with or without upload_release, publish_npm stages the tarball
+# On a v* tag, with or without upload_release, publish_npm stages each tarball
 # the build checked on npm through trusted publishing, unless npm already has
 # that version, staged or published, under the dist-tag scripts/npm-dist-tag.sh
 # picks. Nothing is public until a maintainer approves it with 2FA, on
 # npmjs.com or with `npm stage approve` (RELEASING.md, step 6).
-# Off, the Release alone carries the tarball. That is how the package's first
+# Off, the Release alone carries the tarballs. That is how a package's first
 # version ships: npm sets up a trusted publisher only for a package it already
 # has, so a maintainer publishes that version by hand from the tarball.
 #
@@ -25,7 +26,7 @@ name: Release
 # host `libskia.a` that RN Skia ships with a macOS slice and no Linux one, and
 # build-release.sh skips them anywhere else -- which a release cannot afford.
 #
-# Staging needs no secret: the package on npm has a trusted publisher for this
+# Staging needs no secret: each package on npm has a trusted publisher for this
 # repository and this workflow file, allowed to stage, and the job's id-token is
 # what npm trusts.
 on:
@@ -70,6 +71,7 @@ jobs:
 
       # A v* tag releases -- a draft, npm, or both -- so it has to name the
       # version they carry. A branch releases nothing and has nothing to check.
+      # The build refuses packages that disagree with each other.
       - name: The tag names this version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -143,24 +145,27 @@ jobs:
       # Last, so that a failure here leaves the draft in place for a re-run or a
       # maintainer to finish. npm lists a staged version only once it is
       # approved, so staging one again is refused with a 409, which is skipped
-      # like a version npm already has.
+      # like a version npm already has. The core first: the UI package takes it
+      # as a peer at this version.
       - name: Stage on npm
         if: startsWith(github.ref, 'refs/tags/v') && inputs.publish_npm
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          if [ -n "$(npm view "react-native-spritestudio@${version}" version 2>/dev/null || true)" ]; then
-            echo "::notice::react-native-spritestudio@${version} is already on npm — skipping."
-            exit 0
-          fi
-          dist_tag="$(scripts/npm-dist-tag.sh react-native-spritestudio "$version")"
-          if ! out="$(npm stage publish release-dist/npm/*.tgz --tag "$dist_tag" 2>&1)"; then
-            echo "$out"
-            if grep -qE "409 Conflict.*previously (published|staged) version \"${version}\"" <<< "$out"; then
-              echo "::notice::react-native-spritestudio@${version} is already staged — skipping."
-              exit 0
+          for package in react-native-spritestudio react-native-spritestudio-ui; do
+            if [ -n "$(npm view "${package}@${version}" version 2>/dev/null || true)" ]; then
+              echo "::notice::${package}@${version} is already on npm — skipping."
+              continue
             fi
-            exit 1
-          fi
-          echo "$out"
-          echo "::notice::Staged react-native-spritestudio@${version} under '${dist_tag}' — approve it on npmjs.com or with npm stage approve."
+            dist_tag="$(scripts/npm-dist-tag.sh "$package" "$version")"
+            if ! out="$(npm stage publish "release-dist/npm/${package}-${version}.tgz" --tag "$dist_tag" 2>&1)"; then
+              echo "$out"
+              if grep -qE "409 Conflict.*previously (published|staged) version \"${version}\"" <<< "$out"; then
+                echo "::notice::${package}@${version} is already staged — skipping."
+                continue
+              fi
+              exit 1
+            fi
+            echo "$out"
+            echo "::notice::Staged ${package}@${version} under '${dist_tag}' — approve it on npmjs.com or with npm stage approve."
+          done
