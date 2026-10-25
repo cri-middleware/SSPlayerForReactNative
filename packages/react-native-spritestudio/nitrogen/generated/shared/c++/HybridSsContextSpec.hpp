@@ -27,6 +27,8 @@ namespace margelo::nitro::ssplayer { struct SsAudioEvent; }
 namespace margelo::nitro::ssplayer { struct SsSignalEvent; }
 // Forward declaration of `SsTextureInfo` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureInfo; }
+// Forward declaration of `SsLabelTable` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsLabelTable; }
 // Forward declaration of `SsTextureBinding` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 
@@ -41,6 +43,7 @@ namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 #include "SsSignalEvent.hpp"
 #include "SsTextureInfo.hpp"
 #include <NitroModules/ArrayBuffer.hpp>
+#include "SsLabelTable.hpp"
 #include "SsTextureBinding.hpp"
 #include "SsRNSkiaInterop.hpp"
 
@@ -174,6 +177,7 @@ namespace margelo::nitro::ssplayer {
       virtual std::vector<std::string> partNames() = 0;
       virtual std::vector<std::string> cellmapNames() = 0;
       virtual std::vector<std::string> cellNames(const std::string& cellmapName) = 0;
+      virtual SsLabelTable getLabelTable(const std::string& animationName) = 0;
       virtual void setTextures(const std::vector<SsTextureBinding>& textures) = 0;
       virtual double drawInto(SkCanvasHandle canvas, double x, double y, double scaleX, double scaleY) = 0;
 

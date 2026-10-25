@@ -39,11 +39,13 @@ ref.current?.player?.setSpeedScale(0.5)
 | `setAnimation(name)` | 別のアニメーションを選択し、先頭フレームで待機させます。**再生は始めません** — `play()` を呼んでください。その名前が無ければ `false` を返し、すでに設定済みのアニメーションなら何もしません。 |
 | `setSpeedScale(rate)` / `setLoopCount(loops)` | prop と同等のもの。 |
 | `setAnimationSection(start, end)` | 現在のアニメーションの再生範囲を `start` から `end` までのフレームに制限します（両端を含みます）。範囲外の値（`-1` など）を渡すと、その側はアニメーションの端になります。両端が範囲内で `end` が `start` より前なら何も変えず、`false` を返して警告します。`setAnimation` を跨いでは保持されません。 |
+| `setAnimationSectionByLabel(startLabel, endLabel, startOffset?, endOffset?)` | 同じことを、現在のアニメーションのラベルで指定します。`startLabel` のフレームに `startOffset` を足したところから、`endLabel` のフレームに `endOffset` を足したところまでです。`_start` と `_end` はアニメーションの最初と最後のフレームを指します。そのラベルが無いとき、または `setAnimationSection` が拒否する区間になったときは何も変えず、`false` を返して警告します。 |
 | `setFrameSkipEnabled(skip)` | ON（既定）は実時間に追従してフレームを飛ばし、OFF は 1 tick で 1 フレームだけ進めます。 |
 | `setFrameRate(fps)` | 進行レートを **絶対値** の fps で上書きします。`0` で解除。`setAnimation` を跨いで保持されます。 |
 | `setSubFrameEnabled(enabled)` | サブフレーム補間。**既定 ON** で、描画が authored フレームの間に位置することを許すかどうかです。 |
 | `setPlaybackDirection(direction, style)` | 下記。 |
 | `getAnimationNames()` | 読み込んだパックが持つアニメーション名。 |
+| `getLabelTable(animation?)` | 現在のアニメーション（名前を渡せばそのアニメーション）のラベルをフレーム順に、最初と最後のフレームと一緒に返します。パックに無いアニメーションなら `null` です。 |
 
 `setSpeedScale` と `setFrameRate` はどちらもレート制御で、併用できますが意味が違います。**速度は倍率**なのでどのクリップに対しても同じ意味になり、**フレームレートは置き換え**なので、30fps のクリップに 60 を指定すれば倍速、60fps のクリップなら等速です。
 

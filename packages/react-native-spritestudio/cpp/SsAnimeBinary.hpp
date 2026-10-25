@@ -24,6 +24,7 @@
 //
 // Schema: SpriteStudio-SDK/libs/ssab/fbs/ssab.fbs
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -74,6 +75,11 @@ struct SsSoundEntry {
   /// Whether the pack carries the bytes (`--embedded`), in which case
   /// `filePath` names a sibling that is not on disk.
   bool embedded = false;
+};
+
+struct SsLabelEntry {
+  std::string_view name;
+  int32_t frame = 0;
 };
 
 /// Non-owning view over a `.ssab`. Valid only while the buffer is.
@@ -132,6 +138,36 @@ class SsAnimeBinaryView {
     const float width = size->v1();
     const float height = size->v2();
     return {-pivot->v1() * width - width / 2.0f, pivot->v2() * height - height / 2.0f, width, height};
+  }
+
+  /// Animation `index`'s labels in frame order. The pack keeps them in name-hash
+  /// order, which a section running to the next label cannot use.
+  std::vector<SsLabelEntry> labels(int32_t index) const {
+    std::vector<SsLabelEntry> out;
+    const auto* animations = root_ != nullptr ? root_->animations() : nullptr;
+    if (animations == nullptr || index < 0 || static_cast<uint32_t>(index) >= animations->size()) {
+      return out;
+    }
+    const auto* labels = animations->Get(static_cast<uint32_t>(index))->labels();
+    if (labels == nullptr) return out;
+    out.reserve(labels->size());
+    for (uint32_t i = 0; i < labels->size(); ++i) {
+      const auto* label = labels->Get(i);
+      out.push_back({toView(label->name()), label->time()});
+    }
+    std::stable_sort(out.begin(), out.end(),
+                     [](const SsLabelEntry& a, const SsLabelEntry& b) { return a.frame < b.frame; });
+    return out;
+  }
+
+  /// Animation `index`'s own first and last frame. All zero out of range.
+  std::array<int32_t, 2> frameRange(int32_t index) const noexcept {
+    const auto* animations = root_ != nullptr ? root_->animations() : nullptr;
+    if (animations == nullptr || index < 0 || static_cast<uint32_t>(index) >= animations->size()) {
+      return {};
+    }
+    const auto* animation = animations->Get(static_cast<uint32_t>(index));
+    return {animation->start_frame(), animation->end_frame()};
   }
 
   // --- cellmaps -----------------------------------------------------------

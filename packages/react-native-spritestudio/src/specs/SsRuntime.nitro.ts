@@ -281,6 +281,23 @@ export interface SsSignalEvent {
   params: SsSignalParam[]
 }
 
+/** One label of an animation: its name and the frame it marks. */
+export interface SsLabel {
+  name: string
+  frame: number
+}
+
+/**
+ * The labels of one animation in **frame order**, and the animation's own
+ * first and last frame. `valid` is false when the pack has no such animation.
+ */
+export interface SsLabelTable {
+  valid: boolean
+  startFrame: number
+  endFrame: number
+  labels: SsLabel[]
+}
+
 /**
  * How many native handles are alive right now — the leak check, made observable.
  *
@@ -961,6 +978,9 @@ export interface SsContext
    * takes. Empty when the cellmap is not in this pack.
    */
   cellNames(cellmapName: string): string[]
+
+  /** See `SsLabelTable`. */
+  getLabelTable(animationName: string): SsLabelTable
 
   /**
    * The texture table `drawInto` resolves batches against, kept until the next

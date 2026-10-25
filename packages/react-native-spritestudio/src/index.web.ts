@@ -169,6 +169,8 @@ export type {
   SsRuntime,
   SsAudioEvent,
   SsBox,
+  SsLabel,
+  SsLabelTable,
   SsPartTransform,
   SsSignalEvent,
   SsSignalParam,

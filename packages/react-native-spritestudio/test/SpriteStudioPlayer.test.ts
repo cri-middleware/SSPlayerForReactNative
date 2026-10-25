@@ -296,6 +296,108 @@ describe('the transport settings replayed onto each animation', () => {
     expect(warn).toHaveBeenCalledTimes(2)
   })
 
+  describe('by label', () => {
+    async function labelled(): Promise<SpriteStudioPlayer> {
+      const player = await loaded({ animation: 'Idle' })
+      SsInternalPlayer.last().labelTables = {
+        Idle: {
+          startFrame: 0,
+          endFrame: 30,
+          labels: [
+            { name: 'Start', frame: 10 },
+            { name: 'End', frame: 20 },
+          ],
+        },
+        Walk: { startFrame: 0, endFrame: 12, labels: [{ name: '_end', frame: 6 }] },
+      }
+      return player
+    }
+
+    it('sets the section from one label to another of the current animation, offsets added', async () => {
+      const player = await labelled()
+
+      expect(player.setAnimationSectionByLabel('Start', 'End', 1, -1)).toBe(true)
+
+      expect(SsInternalPlayer.last().argsOf('setSection')).toEqual([[11, 19]])
+      expect(player.startFrame).toBe(11)
+      expect(player.endFrame).toBe(19)
+    })
+
+    it('reads _start and _end as the animation’s own ends, unless a label has that name', async () => {
+      const player = await labelled()
+
+      player.setAnimationSectionByLabel('_start', 'Start')
+      player.setAnimation('Walk')
+      player.setAnimationSectionByLabel('_start', '_end')
+
+      expect(SsInternalPlayer.last().argsOf('setSection')).toEqual([
+        [0, 10],
+        [0, 6],
+      ])
+    })
+
+    it('says once that the animation has no such label, and changes nothing', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const player = await labelled()
+
+      expect(player.setAnimationSectionByLabel('Start', 'hover')).toBe(false)
+      expect(player.setAnimationSectionByLabel('Start', 'hover')).toBe(false)
+
+      expect(SsInternalPlayer.last().names()).not.toContain('setSection')
+      expect(warn).toHaveBeenCalledOnce()
+      const line = String(warn.mock.calls[0]?.[0])
+      expect(line).toContain("'hover'")
+      expect(line).toContain("'Idle'")
+      expect(line).not.toContain("'Start'")
+
+      player.setAnimationSectionByLabel('pressed', 'pressed')
+      expect(warn).toHaveBeenCalledTimes(2)
+      expect(String(warn.mock.calls[1]?.[0])).not.toContain('or')
+    })
+
+    it('says once, with the labels and the frames, that a section ending before it starts did nothing', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const player = await labelled()
+      player.setAnimationSection(2, 5)
+
+      expect(player.setAnimationSectionByLabel('End', 'Start')).toBe(false)
+      expect(player.setAnimationSectionByLabel('End', 'Start')).toBe(false)
+
+      expect(player.startFrame).toBe(2)
+      expect(player.endFrame).toBe(5)
+      expect(warn).toHaveBeenCalledOnce()
+      const line = String(warn.mock.calls[0]?.[0])
+      expect(line).toContain("'End', 'Start'")
+      expect(line).toContain('frames 20 to 10')
+      expect(line).toContain('Invalid parameter')
+    })
+
+    it('is false, and silent, before a load', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const player = new SpriteStudioPlayer()
+
+      expect(player.setAnimationSectionByLabel('Start', 'End')).toBe(false)
+      expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('reads the label table of the current animation, or of the one named', async () => {
+      const player = await labelled()
+
+      expect(player.getLabelTable()).toEqual({
+        valid: true,
+        startFrame: 0,
+        endFrame: 30,
+        labels: [
+          { name: 'Start', frame: 10 },
+          { name: 'End', frame: 20 },
+        ],
+      })
+      expect(player.getLabelTable('Walk')?.endFrame).toBe(12)
+      expect(player.getLabelTable('Nope')).toBeNull()
+      expect(new SpriteStudioPlayer().getLabelTable()).toBeNull()
+    })
+  })
+
   it('replays them again after a switch, because setup drops them', async () => {
     const player = await loaded({ animation: 'Idle' })
     player.setSpeedScale(0.5)
