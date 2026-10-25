@@ -5,6 +5,9 @@
     "paths": {
       "react-native-spritestudio": [
         "../packages/react-native-spritestudio/src"
+      ],
+      "react-native-spritestudio-ui": [
+        "../packages/react-native-spritestudio-ui/src"
       ]
     }
   }

@@ -182,6 +182,7 @@ export default withMermaid({
             items: [
               { text: 'Events & user data', link: '/usage/events' },
               { text: 'Part overrides & following', link: '/usage/parts' },
+              { text: 'UI buttons', link: '/usage/ui' },
               { text: 'Textures & resources', link: '/usage/textures' },
               { text: 'Reanimated', link: '/usage/reanimated' },
               { text: 'Performance', link: '/usage/performance' },
@@ -271,6 +272,7 @@ export default withMermaid({
             items: [
               { text: 'イベントとユーザーデータ', link: '/ja/usage/events' },
               { text: 'パーツの上書きと追従', link: '/ja/usage/parts' },
+              { text: 'UI ボタン', link: '/ja/usage/ui' },
               { text: 'テクスチャとリソース', link: '/ja/usage/textures' },
               { text: 'Reanimated', link: '/ja/usage/reanimated' },
               { text: 'パフォーマンス', link: '/ja/usage/performance' },

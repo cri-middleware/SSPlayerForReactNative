@@ -25,6 +25,7 @@
     "react-native-reanimated": "4.7.1",
     "react-native-skia": "3.6.1",
     "react-native-spritestudio": "workspace:*",
+    "react-native-spritestudio-ui": "workspace:*",
     "react-native-worklets": "0.13.0"
   },
   "devDependencies": {

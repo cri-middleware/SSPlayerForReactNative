@@ -95,7 +95,7 @@ under [Requirements](#-requirements).
 
 No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is — the page is in Japanese, the downloads are not. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
 
-**Read next:** [Basic playback](docs/usage/basic.md) · [Components at a glance](docs/components.md) ·
+**Read next:** [Basic playback](docs/usage/basic.md) · [Components at a glance](docs/components.md) · [UI buttons](docs/usage/ui.md) ·
 [Limitations & Scope](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## 📋 Requirements

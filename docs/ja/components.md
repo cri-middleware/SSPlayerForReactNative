@@ -1,17 +1,18 @@
 ---
 title: コンポーネント早見
-description: 4 つのコンポーネントと 5 つのフック、それぞれの役割と、動く最小の形。
+description: 4 つのコンポーネント、ボタン、5 つのフック、それぞれの役割と、動く最小の形。
 ---
 
 # コンポーネント早見
 
-コンポーネント 4 つとフック 5 つ。ほとんどのアプリはコンポーネント 1 つだけで足り、フックは使いません。
+コンポーネント 4 つとフック 5 つ、それに別のパッケージのボタン。ほとんどのアプリはコンポーネント 1 つだけで足り、フックは使いません。
 
 | | こういうとき |
 |---|---|
 | [`<SpriteStudioView>`](#spritestudioview) | アニメーションが**1 つ**。既定の選択肢。 |
 | [`<SpriteStudioScene>`](#spritestudioscene) + [`<SpriteStudioSprite>`](#spritestudiosprite) | **複数**あり、まとめてキャンバス 1 枚・クロック 1 つで済ませたい。 |
 | [`<SpriteStudioPartAnchor>`](#spritestudiopartanchor) | ビューをパーツに乗せたい — 頭の上の HP バーなど。 |
+| [`<SpriteStudioButton>`](#spritestudiobutton) | アニメーションをボタンにしたい。`react-native-spritestudio-ui` にあります。 |
 
 ## `<SpriteStudioView>`
 
@@ -106,6 +107,25 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 | `scale` | `false` | パーツと一緒に拡縮します。 |
 
 [パーツの上書きと追従](/ja/usage/parts#following-a-part)を参照してください。
+
+## `<SpriteStudioButton>`
+
+別のパッケージ `react-native-spritestudio-ui` にあります。ボタンになった `<SpriteStudioView>` で、状態（`normal`・`hover`・`pressed`・`disabled`・`focused`）ごとに、1 つのアニメーションのうち状態と同じ名前のラベルから始まる区間を再生します。
+
+```tsx
+import { SpriteStudioButton } from 'react-native-spritestudio-ui'
+
+<SpriteStudioButton source="ss/ui/start.ssab" accessibilityLabel="Start" onPress={start} />
+```
+
+| prop | |
+|---|---|
+| `clips` | 状態のラベルの代わりに再生する区間。 |
+| `hitParts`・`hitOnArtwork` | 押下を、指定したパーツの輪郭、または輪郭を持つすべてのパーツに絞ります。 |
+| `reducedMotion` | 各状態を止めます。省略すると OS の設定に従います。 |
+| `accessibilityLabel` | ボタンとして読み上げられます。無ければ装飾です。 |
+
+アニメーションを読み込んで配置するビューの props と、`<Pressable>` の props が使えます。`playing`・`loop`・`transitionMs` は使えません。[UI ボタン](/ja/usage/ui)を参照してください。
 
 ## フック
 

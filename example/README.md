@@ -1,10 +1,12 @@
 # Example app
 
-The Expo app this repository verifies rendering on. Three screens, switched by a
+The Expo app this repository verifies rendering on. Four screens, switched by a
 tab bar. The **Viewer** is one player and a *Subject* picker that steps through a
 feature card per SpriteStudio capability; **Part follow** pins a fish to Ringo
 with `useSsPartTransform`; **Blending** drives the track stack by hand —
-crossfades, an overlay track, speed and loop count.
+crossfades, an overlay track, speed and loop count; **UI** makes two Ringos
+`<SpriteStudioButton>`s from `react-native-spritestudio-ui`, one pressable on the
+parts picked and with the outlines it is tested against drawn over it.
 
 **This is not a standalone project.** It consumes the workspace package, and it
 needs the native core and the converted packs before it can show anything — both

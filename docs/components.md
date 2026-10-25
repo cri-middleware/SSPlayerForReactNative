@@ -1,17 +1,19 @@
 ---
 title: Components at a glance
-description: The four components and five hooks, what each is for, and the smallest thing that works.
+description: The four components, the button and the five hooks, what each is for, and the smallest thing that works.
 ---
 
 # Components at a glance
 
-Four components and five hooks. Most apps use one component and no hooks.
+Four components and five hooks, and a button in a package of its own. Most
+apps use one component and no hooks.
 
 | | Use it when |
 |---|---|
 | [`<SpriteStudioView>`](#spritestudioview) | You have **one** animation. The default. |
 | [`<SpriteStudioScene>`](#spritestudioscene) + [`<SpriteStudioSprite>`](#spritestudiosprite) | You have **many**, and want one canvas and one clock for the lot. |
 | [`<SpriteStudioPartAnchor>`](#spritestudiopartanchor) | A view should ride on a part — a health bar over a head. |
+| [`<SpriteStudioButton>`](#spritestudiobutton) | The animation is a button. From `react-native-spritestudio-ui`. |
 
 ## `<SpriteStudioView>`
 
@@ -115,6 +117,30 @@ that view's player; anywhere else, pass one as `player`.
 | `scale` | `false` | Scale with the part. |
 
 See [Part overrides & following](/usage/parts#following-a-part).
+
+## `<SpriteStudioButton>`
+
+From `react-native-spritestudio-ui`, a package of its own. A
+`<SpriteStudioView>` that is a button: each state — `normal`, `hover`,
+`pressed`, `disabled`, `focused` — plays the section of one animation that
+starts at the label of its name.
+
+```tsx
+import { SpriteStudioButton } from 'react-native-spritestudio-ui'
+
+<SpriteStudioButton source="ss/ui/start.ssab" accessibilityLabel="Start" onPress={start} />
+```
+
+| Prop | |
+|---|---|
+| `clips` | A section of your own in place of a state's label. |
+| `hitParts`, `hitOnArtwork` | A press counts only on these parts' outlines, or on any part's. |
+| `reducedMotion` | Hold each state still. Omitted, the system setting decides. |
+| `accessibilityLabel` | Read as a button. Without one it is decoration. |
+
+The view's props that load and place the animation apply, and so do a
+`<Pressable>`'s; `playing`, `loop` and `transitionMs` do not. See
+[UI buttons](/usage/ui).
 
 ## Hooks
 

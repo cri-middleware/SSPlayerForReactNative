@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Playback** that follows the display's refresh rate and the speed you set, not the authored fps.
 - **Events**: user data, audio cues and signals as callbacks. Audio is reported, not played.
 - **Per-part overrides** to recolour, hide or swap a part at runtime, and `fit` / `align` placement.
+- **UI**: `react-native-spritestudio-ui`, a package of its own, makes an animation a button whose
+  states play its labels, pressable on its parts and still under reduced motion. The player gains
+  the calls it is built on: `setAnimationSectionByLabel` / `getLabelTable`, and `getPartQuad` /
+  `hitTestPart`.
 - **Motion blending**: layer animations on tracks and crossfade between them, through the player
   (`crossfade`, `setTrackAnimation`, `addTrackSource`, per-track speed, loop count and the rest) or
   the `transitionMs` prop. Every event carries the `source` that fired it.

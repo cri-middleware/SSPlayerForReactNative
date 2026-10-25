@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "react-native-spritestudio": ["../react-native-spritestudio/src/index.ts"]
+    }
+  },
+  "include": ["src", "test"]
+}
