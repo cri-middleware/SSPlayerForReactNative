@@ -4,7 +4,7 @@ import type { SkImage } from 'react-native-skia'
 import { ssClearCaches, ssImageCache } from '../src/core/caches'
 import { SsOverridePriority } from '../src/core/parts'
 import { SsPlaybackDirection, SsPlaybackStyle } from '../src/core/types'
-import { onFrameShown } from '../src/player/frames'
+import { onFrameChanged, onFrameShown } from '../src/player/frames'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../src/player/SpriteStudioPlayer'
 import type { SsTextureInfo } from '../src/specs/SsRuntime.nitro'
 import { pendingFrames, stepFrame } from './support/frameClock'
@@ -584,6 +584,64 @@ describe('needsDraw', () => {
     expect(player.needsDraw).toBe(true)
     player.draw({} as never)
     expect(player.needsDraw).toBe(false)
+  })
+})
+
+describe('advances', () => {
+  it('follows Layer 2, and is false before a load and after dispose', async () => {
+    const player = new SpriteStudioPlayer()
+    expect(player.advances).toBe(false)
+
+    await player.load(PACK)
+    expect(player.advances).toBe(false)
+    player.play()
+    expect(player.advances).toBe(true)
+
+    player.dispose()
+    expect(player.advances).toBe(false)
+  })
+})
+
+describe('frame changes', () => {
+  async function watched(): Promise<{ player: SpriteStudioPlayer; changes: () => number }> {
+    const player = await loaded()
+    SsInternalPlayer.last().parts = ['hat']
+    let count = 0
+    onFrameChanged(player, () => count++)
+    return { player, changes: () => count }
+  }
+
+  it('are announced for the transport and for a seek', async () => {
+    const { player, changes } = await watched()
+
+    player.play()
+    player.pause()
+    player.resume()
+    player.seek(3)
+    player.stop()
+
+    expect(changes()).toBe(5)
+  })
+
+  it('are announced for the calls that change the frame without a notification', async () => {
+    const { player, changes } = await watched()
+
+    player.setPartOverrides({ hat: { hide: true } })
+    player.setSubFrameEnabled(false)
+    player.setRootTransform({ x: 1, y: 2, scale: 3, flipX: false, flipY: false })
+    player.setTrackAlpha(0, 0.5)
+
+    expect(changes()).toBe(4)
+  })
+
+  it('are not announced for a track command that did nothing', async () => {
+    const { player, changes } = await watched()
+    vi.spyOn(SsInternalPlayer.last(), 'setTrackAlpha').mockReturnValue(false)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    player.setTrackAlpha(1, 0.5)
+
+    expect(changes()).toBe(0)
   })
 })
 

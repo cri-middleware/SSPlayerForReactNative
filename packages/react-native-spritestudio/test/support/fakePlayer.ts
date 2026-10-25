@@ -1,5 +1,5 @@
 import type { SsPartOverrides } from '../../src/core/parts'
-import { frameShown } from '../../src/player/frames'
+import { frameChanged, frameShown } from '../../src/player/frames'
 import type { SsRootTransform } from '../../src/core/types'
 import type {
   SsAudioEvent,
@@ -52,6 +52,7 @@ export class SpriteStudioPlayer {
   isPlaying = false
   /** What a frame loop asks before it records. A test sets it false for a player with nothing new to draw. */
   needsDraw = true
+  advances = true
   isLoaded = false
   contentBox: SsBox | null = null
   canvasBox: SsBox | null = null
@@ -206,6 +207,7 @@ export class SpriteStudioPlayer {
   /** Publishes a change the way a load or a measurement does. */
   notify(): void {
     for (const listener of this.listeners) listener()
+    frameChanged(this)
   }
 
   dispose(): void {

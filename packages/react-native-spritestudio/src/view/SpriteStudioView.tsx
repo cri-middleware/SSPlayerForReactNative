@@ -19,6 +19,7 @@ import {
 import { Canvas, Picture, Skia } from 'react-native-skia'
 
 import { resolveRootTransform, type SsAlign } from '../core/fit'
+import { onFrameChanged } from '../player/frames'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
 import { intrinsicSize } from './intrinsicSize'
 import { reportError } from './reportError'
@@ -235,12 +236,13 @@ export const SpriteStudioView = forwardRef<
     if (player == null || size.width === 0 || size.height === 0) return
 
     let raf = 0
-    let last = performance.now()
+    let last = 0
+    let failed = false
     // One for the loop's life: a recorder records again after each finish.
     const recorder = Skia.PictureRecorder()
 
     const tick = (): void => {
-      raf = requestAnimationFrame(tick)
+      raf = 0
       const now = performance.now()
       // `performance.now()` is milliseconds and so is `advance` — the unit runs
       // unconverted from here down to `ss_runtime_update`. Capped so returning
@@ -252,18 +254,32 @@ export const SpriteStudioView = forwardRef<
         player.advance(dtMs)
         // A stopped player whose frame, textures and placement have not changed
         // would record the same picture again, and have the canvas redraw it.
-        if (!player.needsDraw) return
-        const canvas = recorder.beginRecording()
-        player.draw(canvas)
-        publish(recorder.finishRecordingAsPicture())
+        if (player.needsDraw) {
+          const canvas = recorder.beginRecording()
+          player.draw(canvas)
+          publish(recorder.finishRecordingAsPicture())
+        }
+        if (raf === 0 && player.advances) raf = requestAnimationFrame(tick)
       } catch (error) {
+        failed = true
         cancelAnimationFrame(raf)
+        raf = 0
         reportError(errorRef.current, error, 'the frame loop stopped')
       }
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    const wake = (): void => {
+      if (raf !== 0 || failed) return
+      last = performance.now()
+      raf = requestAnimationFrame(tick)
+    }
+
+    wake()
+    const unsubscribe = onFrameChanged(player, wake)
+    return () => {
+      unsubscribe()
+      cancelAnimationFrame(raf)
+    }
   }, [player, size.width, size.height, publish])
 
   const onLayout = (event: LayoutChangeEvent): void => {
