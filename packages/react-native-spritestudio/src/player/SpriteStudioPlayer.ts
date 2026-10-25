@@ -29,6 +29,7 @@ import { frameShown } from './frames'
 import type {
   SsAudioEvent,
   SsBox,
+  SsLabelTable,
   SsPartTransform,
   SsResource,
   SsSignalEvent,
@@ -100,6 +101,13 @@ export interface SpriteStudioPlayerApi {
    * Returns false, and warns once per pair, when it did nothing.
    */
   setAnimationSection(startFrame: number, endFrame: number): boolean
+  /** {@link setAnimationSection} with the ends named by labels of the current animation. */
+  setAnimationSectionByLabel(
+    startLabel: string,
+    endLabel: string,
+    startOffset?: number,
+    endOffset?: number
+  ): boolean
   /**
    * Whether a long tick may skip frames to stay on the wall clock (the default)
    * or advance exactly one frame, stretching playback instead.
@@ -181,6 +189,20 @@ function orNull(value: number | undefined): number | null {
 /** The same, for the reads whose "nothing there" is `-1`. */
 function orNullIfNegative(value: number | undefined): number | null {
   return value == null || value < 0 ? null : value
+}
+
+/**
+ * The frame `label` marks in `table`, or null. `_start` and `_end` are the
+ * animation's own first and last frame, as in SpriteStudio, where they are
+ * never in the table; a real label of the same name wins.
+ */
+function labelFrameOf(table: SsLabelTable, label: string): number | null {
+  for (const entry of table.labels) {
+    if (entry.name === label) return entry.frame
+  }
+  if (label === '_start') return table.startFrame
+  if (label === '_end') return table.endFrame
+  return null
 }
 
 /**
@@ -899,6 +921,77 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     )
     if (ok) this.notify()
     return ok
+  }
+
+  /**
+   * {@link setAnimationSection} with the ends named by labels of the **current**
+   * animation: from `startLabel`'s frame plus `startOffset` to `endLabel`'s
+   * frame plus `endOffset`, the rule an Instance part's start and end labels
+   * follow. `_start` and `_end` name the animation's first and last frame. It
+   * does not play.
+   *
+   * ```ts
+   * player.setAnimation('button')
+   * player.setAnimationSectionByLabel('hover', 'pressed', 0, -1)
+   * player.play()
+   * ```
+   *
+   * Returns false, changing nothing, when the animation has no such label or
+   * when the frames it lands on are a section {@link setAnimationSection}
+   * refuses, and says so on the console once. False too, and silent, before a
+   * pack is loaded. Like any section, {@link setAnimation} wipes it.
+   */
+  setAnimationSectionByLabel(
+    startLabel: string,
+    endLabel: string,
+    startOffset = 0,
+    endOffset = 0
+  ): boolean {
+    const internal = this.internalPlayer
+    const table = this.getLabelTable()
+    if (internal == null || table == null) return false
+    const animation = internal.currentAnimation ?? ''
+    const start = labelFrameOf(table, startLabel)
+    const end = labelFrameOf(table, endLabel)
+    if (start == null || end == null) {
+      const missing = start == null ? [startLabel] : []
+      if (end == null && endLabel !== startLabel) missing.push(endLabel)
+      this.reportTrackFailure(
+        `setAnimationSectionByLabel:${animation}:${missing.join(':')}`,
+        `animation '${animation}' of '${this.resourceUri ?? 'the loaded pack'}' has no label ` +
+          `${missing.map((label) => `'${label}'`).join(' or ')}, so the section stays as it was`
+      )
+      return false
+    }
+    const from = start + startOffset
+    const to = end + endOffset
+    if (!internal.setSection(from, to)) {
+      const reason = internal.lastErrorMessage
+      this.reportTrackFailure(
+        `setAnimationSection:${from}, ${to}`,
+        `setAnimationSectionByLabel('${startLabel}', '${endLabel}', ${startOffset}, ${endOffset}), ` +
+          `frames ${from} to ${to}, did nothing on '${this.resourceUri ?? 'the loaded pack'}'` +
+          (reason == null ? '' : ` — ${reason}`)
+      )
+      return false
+    }
+    this.notify()
+    return true
+  }
+
+  /**
+   * The labels of `animation` — the current one when omitted — in frame order,
+   * with the animation's own first and last frame. Null before a load and for
+   * an animation the pack does not have. Read from the pack on every call, so
+   * hold the table rather than asking per frame.
+   */
+  getLabelTable(animation?: string): SsLabelTable | null {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return null
+    const name = animation ?? internal.currentAnimation
+    if (name == null) return null
+    const table = internal.getLabelTable(name)
+    return table.valid ? table : null
   }
 
   /**

@@ -186,6 +186,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   std::vector<std::string> partNames() override;
   std::vector<std::string> cellmapNames() override;
   std::vector<std::string> cellNames(const std::string& cellmapName) override;
+  SsLabelTable getLabelTable(const std::string& animationName) override;
 
   void setTextures(const std::vector<SsTextureBinding>& textures) override;
   double drawInto(SkCanvasHandle canvas, double x, double y, double scaleX,

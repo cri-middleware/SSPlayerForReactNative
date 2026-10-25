@@ -1292,6 +1292,19 @@ std::vector<std::string> HybridSsContext::cellNames(const std::string& cellmapNa
   return out;
 }
 
+SsLabelTable HybridSsContext::getLabelTable(const std::string& animationName) {
+  const sscore::SsAnimeBinaryView view = ssab();
+  const int32_t index = view.valid() ? view.animationIndex(animationName) : -1;
+  if (index < 0) return SsLabelTable(false, 0.0, 0.0, {});
+  const std::array<int32_t, 2> range = view.frameRange(index);
+  std::vector<SsLabel> labels;
+  for (const sscore::SsLabelEntry& label : view.labels(index)) {
+    labels.emplace_back(std::string(label.name), static_cast<double>(label.frame));
+  }
+  return SsLabelTable(true, static_cast<double>(range[0]), static_cast<double>(range[1]),
+                      std::move(labels));
+}
+
 void HybridSsContext::refreshFrame() {
   // Every caller guards already, but `release()` can now run at any time JS
   // chooses rather than only at destruction, so the invariant is stated here

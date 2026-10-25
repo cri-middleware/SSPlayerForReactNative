@@ -41,11 +41,13 @@ ref.current?.player?.setSpeedScale(0.5)
 | `setAnimation(name)` | Select a different animation, posed on its first frame. **Does not start it** — call `play()`. Returns `false` if the pack has no such name, and does nothing at all if that animation is already the one set up. |
 | `setSpeedScale(rate)` / `setLoopCount(loops)` | The prop equivalents. |
 | `setAnimationSection(start, end)` | Restrict playback to frames `start` to `end` of the current animation, both included; an end out of range (`-1`, say) is the animation's edge on that side. Returns `false` and warns, changing nothing, when both ends are in range and `end` is before `start`. Not carried across a `setAnimation`. |
+| `setAnimationSectionByLabel(startLabel, endLabel, startOffset?, endOffset?)` | The same, with the ends named by labels of the current animation: from `startLabel`'s frame plus `startOffset` to `endLabel`'s frame plus `endOffset`. `_start` and `_end` name the animation's first and last frame. Returns `false` and warns, changing nothing, when the animation has no such label or the frames are a section `setAnimationSection` refuses. |
 | `setFrameSkipEnabled(skip)` | On (the default) keeps playback on the wall clock; off advances one frame per tick. |
 | `setFrameRate(fps)` | Replace the advance rate, in **absolute** fps. `0` clears the override. Survives a `setAnimation`. |
 | `setSubFrameEnabled(enabled)` | Sub-frame interpolation, **on** by default — whether what is drawn may sit between two authored frames. |
 | `setPlaybackDirection(direction, style)` | Below. |
 | `getAnimationNames()` | What the loaded pack carries. |
+| `getLabelTable(animation?)` | The labels of the current animation, or of the one named, in frame order, with its first and last frame. `null` for an animation the pack does not have. |
 
 `setSpeedScale` and `setFrameRate` are both rate controls and they compose, but they
 say different things: **speed is a multiple** of whatever the clip was authored

@@ -5,6 +5,7 @@ import type {
   SsAudioEvent,
   SsBox,
   SsContext,
+  SsLabelTable,
   SsPartTransform,
   SsResource,
   SsSignalEvent,
@@ -672,5 +673,9 @@ export class SsInternalPlayer {
   /** Animation names in this pack, for feeding to `setupAnimation`. */
   getAnimationNames(): string[] {
     return this.require().getAnimationNames()
+  }
+
+  getLabelTable(animationName: string): SsLabelTable {
+    return this.require().getLabelTable(animationName)
   }
 }

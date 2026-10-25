@@ -7,6 +7,7 @@ import {
 import type {
   SsAudioEvent,
   SsBox,
+  SsLabelTable,
   SsPartTransform,
   SsSignalEvent,
   SsTextureInfo,
@@ -340,6 +341,16 @@ export class SsInternalPlayer {
 
   cellNames(cellmapName: string): string[] {
     return [...(this.cellmaps[cellmapName] ?? [])]
+  }
+
+  labelTables: Record<string, Omit<SsLabelTable, 'valid'>> = {}
+
+  getLabelTable(animationName: string): SsLabelTable {
+    if (!this.resource.pack.animations.includes(animationName)) {
+      return { valid: false, startFrame: 0, endFrame: 0, labels: [] }
+    }
+    const table = this.labelTables[animationName] ?? { startFrame: 0, endFrame: 0, labels: [] }
+    return { valid: true, ...table, labels: [...table.labels] }
   }
 
   // --- the rest ----------------------------------------------------------
