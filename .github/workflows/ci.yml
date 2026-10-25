@@ -99,11 +99,11 @@ jobs:
           git diff --exit-code -- packages/react-native-spritestudio/nitrogen \
             || { echo "::error::nitrogen/ is stale — run 'pnpm run generate-nitro-code' and commit the result"; exit 1; }
 
-      - name: The package builds
+      - name: The packages build
         # What `prepack` runs before publishing, minus the parts that need the
         # Brain. A TypeScript error that only `bob` sees would otherwise surface
         # at release time.
-        run: pnpm --filter react-native-spritestudio run build
+        run: pnpm run build
 
       - name: The web stub barrel still imports clean
         # The one check here that runs the code rather than reading it: it

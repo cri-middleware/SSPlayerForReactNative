@@ -3,9 +3,11 @@ param (
     [string[]]$ArgsList
 )
 
-# Build the release locally and publish none of it: the tarball a release would
-# upload, packed where you can look inside it, with SHA256SUMS over it and the
-# checks that have to pass before it goes out.
+# Build the release locally and publish none of it: the two tarballs a release
+# would upload, packed where you can look inside them, with SHA256SUMS over them
+# and the checks that have to pass before they go out. The packages have one
+# version line: react-native-spritestudio-ui carries the core's version and
+# takes the core at it as a peer.
 #
 #   scripts\build-release.ps1                      # the whole thing
 #   scripts\build-release.ps1 sdk=build            # compile the Brain here instead
@@ -34,6 +36,7 @@ $scriptDir = Split-Path -Parent $PSCommandPath
 $rootDir = Split-Path -Parent $scriptDir
 $app = Split-Path -Leaf $PSCommandPath
 $pkgDir = Join-Path $rootDir "packages/react-native-spritestudio"
+$uiDir = Join-Path $rootDir "packages/react-native-spritestudio-ui"
 
 # Plain stderr and an explicit code, rather than Write-Error: under a Stop
 # preference that terminates on the spot, so the exit code beside it never runs
@@ -90,12 +93,12 @@ Write-Host "  -h | --help             Show this help"
     Write-Host "  sdk       the Brain in packages\*\native (not in git), per sdk="
     Write-Host "  codegen   re-run nitrogen and flatc, and require no diff"
     Write-Host "  checks    typecheck and the checks that run on Windows"
-    Write-Host "  pack      npm pack -> <out>\npm, or a dry run -> <out>\rehearsal"
+    Write-Host "  pack      pack both packages -> <out>\npm, or dry runs -> <out>\rehearsal"
     Write-Host ""
-    Write-Host "Output: <out>\npm\<name>-<version>.tgz and its .files listing when the Brain"
-    Write-Host "is the pinned release; <out>\rehearsal\ with the listing alone when it is a"
-    Write-Host "local build. Either way <out>\manifest.json says which, and SHA256SUMS covers"
-    Write-Host "the lot."
+    Write-Host "Output: <out>\npm\<name>-<version>.tgz and its .files listing for each package"
+    Write-Host "when the Brain is the pinned release; <out>\rehearsal\ with the listings alone"
+    Write-Host "when it is a local build. Either way <out>\manifest.json says which, and"
+    Write-Host "SHA256SUMS covers the lot."
     Write-Host ""
     Write-Host "This builds a release; it does not make one. Nothing here publishes, tags,"
     Write-Host "commits or bumps a version -- and 'pnpm run release' is macOS only besides."
@@ -159,8 +162,10 @@ function Add-Failure { param([string] $Message) $script:failed += $Message }
 
 # --- preflight ------------------------------------------------------------
 
-if (!(Test-Path (Join-Path $pkgDir "package.json"))) {
-    Fail "packages\react-native-spritestudio\package.json not found -- is this the SSPlayerForReactNative repo?"
+foreach ($dir in @($pkgDir, $uiDir)) {
+    if (!(Test-Path (Join-Path $dir "package.json"))) {
+        Fail "$dir\package.json not found -- is this the SSPlayerForReactNative repo?"
+    }
 }
 foreach ($tool in @("node", "pnpm", "npm", "git")) {
     if (!(Get-Command $tool -ErrorAction SilentlyContinue)) { Fail "$tool not found" }
@@ -194,6 +199,19 @@ $pinned = (Get-Content (Join-Path $scriptDir "SDK_VERSION.txt")).Trim()
 $tgz = ($pkgName -replace '^@', '' -replace '/', '-') + "-$version.tgz"
 $base = $tgz -replace '\.tgz$', ''
 $entriesFile = Join-Path $work "entries"
+$uiJson = Get-Content (Join-Path $uiDir "package.json") -Raw | ConvertFrom-Json
+$uiName = $uiJson.name
+$uiPeer = if ($uiJson.peerDependencies) { $uiJson.peerDependencies.$pkgName } else { "" }
+$uiTgz = ($uiName -replace '^@', '' -replace '/', '-') + "-$version.tgz"
+$uiBase = $uiTgz -replace '\.tgz$', ''
+$uiEntriesFile = Join-Path $work "ui-entries"
+
+# One version line: a UI package that names another version, or takes another
+# core, installs against a core it was not released with.
+if ($uiJson.version -ne $version -or $uiPeer -ne $version) {
+    [Console]::Error.WriteLine("${app}: $uiName is $($uiJson.version) and takes $pkgName '$uiPeer', but $pkgName is $version")
+    Fail "set both to $version -- the packages are released at one version"
+}
 
 Write-Host "options"
 Write-Host "  out    => $out"
@@ -202,8 +220,9 @@ Write-Host "  skip   => $(if ($skip.Count) { $skip -join ' ' } else { '(nothing)
 Write-Host "  verify => $verify"
 Write-Host "  clean  => $clean"
 Write-Host ""
-Write-Host "package"
+Write-Host "packages"
 Write-Host "  $pkgName $version"
+Write-Host "  $uiName $version"
 Write-Host "  SDK pinned at $pinned"
 
 if ($sdk -eq "build" -and -not (Test-Skipping "sdk") -and
@@ -323,8 +342,9 @@ if (Invoke-Stage "checks" "typecheck and the checks that run here") {
 # instead: --ignore-scripts is what lets the listing be produced at all once the
 # guard has had its say.
 $packed = ""
+$uiPacked = ""
 
-if (Invoke-Stage "pack" "pack $tgz") {
+if (Invoke-Stage "pack" "pack $tgz and $uiTgz") {
     if ($shippable -eq "yes") {
         New-Item -ItemType Directory -Path (Join-Path $out "npm") -Force | Out-Null
         Push-Location $pkgDir
@@ -340,6 +360,23 @@ if (Invoke-Stage "pack" "pack $tgz") {
         [IO.File]::WriteAllText($entriesFile, ($entries -join "`n") + "`n")
         Copy-Item $entriesFile (Join-Path $out "npm/$base.files")
         Write-Host "   npm\$tgz"
+
+        # pnpm rather than npm for this one: its devDependencies name the core as
+        # workspace:*, which pnpm writes out as the version and npm would ship as
+        # is. Its prepack is `bob build`, which reads the core's types from the
+        # lib\ the pack above built.
+        Push-Location $uiDir
+        try {
+            Invoke-Checked "pnpm pack" { & pnpm pack --pack-destination (Join-Path $out "npm") }
+        } finally { Pop-Location }
+        $uiPacked = Join-Path $out "npm/$uiTgz"
+        if (!(Test-Path $uiPacked)) { Fail "pnpm pack did not produce $uiTgz" }
+        $uiEntries = Sort-Ordinal @((& tar -tzf $uiPacked) |
+            ForEach-Object { $_ -replace '^package/', '' } |
+            Where-Object { $_ -and -not $_.EndsWith('/') })
+        [IO.File]::WriteAllText($uiEntriesFile, ($uiEntries -join "`n") + "`n")
+        Copy-Item $uiEntriesFile (Join-Path $out "npm/$uiBase.files")
+        Write-Host "   npm\$uiTgz"
     } else {
         New-Item -ItemType Directory -Path (Join-Path $out "rehearsal") -Force | Out-Null
         Invoke-Checked "pnpm run build" { & pnpm --filter $pkgName run build }
@@ -378,6 +415,19 @@ if (Invoke-Stage "pack" "pack $tgz") {
         Copy-Item $entriesFile (Join-Path $out "rehearsal/$base.files")
         Write-Host ("   {0} entries, {1:N1} MB unpacked" -f $dry.entryCount, ($dry.unpackedSize / 1MB))
         Write-Host "   rehearsal\$base.files -- no archive (see the header of this script)"
+
+        Invoke-Checked "pnpm run build ($uiName)" { & pnpm --filter $uiName run build }
+        $uiPackJson = Join-Path $out "rehearsal/$uiBase.pack.json"
+        Push-Location $uiDir
+        try {
+            & npm pack --dry-run --ignore-scripts --json | Out-File -FilePath $uiPackJson -Encoding utf8
+            if ($LASTEXITCODE -ne 0) { Fail "npm pack --dry-run failed for $uiName ($LASTEXITCODE)" }
+        } finally { Pop-Location }
+        $uiDry = (Get-Content $uiPackJson -Raw | ConvertFrom-Json)[0]
+        [IO.File]::WriteAllText($uiEntriesFile, ((Sort-Ordinal $uiDry.files.path) -join "`n") + "`n")
+        Copy-Item $uiEntriesFile (Join-Path $out "rehearsal/$uiBase.files")
+        Write-Host ("   {0} entries, {1:N1} KB unpacked" -f $uiDry.entryCount, ($uiDry.unpackedSize / 1KB))
+        Write-Host "   rehearsal\$uiBase.files"
     }
 }
 
@@ -388,13 +438,13 @@ Write-Host ""
 Write-Host ">> [manifest] writing manifest.json"
 $manifest = [ordered]@{
     shippable = ($shippable -eq "yes")
-    package   = [ordered]@{ name = $pkgName; version = $version }
+    packages  = @([ordered]@{ name = $pkgName; version = $version }, [ordered]@{ name = $uiName; version = $version })
     brain     = [ordered]@{ source = $sdk; version = $brainVersion; mode = $brainMode; pinned = $pinned }
     npm       = @()
 }
-if (Test-Path (Join-Path $out "npm/$tgz")) {
-    $manifest.npm = @([ordered]@{ package = $pkgName; version = $version; file = "npm/$tgz" })
-}
+$manifest.npm = @(@(@($pkgName, $tgz), @($uiName, $uiTgz)) |
+    Where-Object { Test-Path (Join-Path $out "npm/$($_[1])") } |
+    ForEach-Object { [ordered]@{ package = $_[0]; version = $version; file = "npm/$($_[1])" } })
 [IO.File]::WriteAllText((Join-Path $out "manifest.json"), ($manifest | ConvertTo-Json -Depth 5) + "`n")
 Write-Host "   shippable: $shippable"
 
@@ -548,6 +598,52 @@ if ($verify -eq "yes" -and (Test-Path $entriesFile)) {
         if ($packedSdk -ne $pinned) { Add-Failure "the tarball carries SDK '$packedSdk', expected the pinned $pinned" }
     }
 
+    # 10. the UI package, from its own listing: its entry points, what its
+    #     package.json points at, its files allow-list, and what its archive
+    #     says about itself.
+    if (Test-Path $uiEntriesFile) {
+        $uiList = @(Get-Content $uiEntriesFile | Where-Object { $_ })
+        $uiHas = { param([string] $Path) $uiList -contains $Path }
+        $uiHasPrefix = { param([string] $Path) @($uiList | Where-Object { $_.StartsWith($Path) }).Count -gt 0 }
+        foreach ($f in @("lib/module/index.js", "lib/typescript/index.d.ts", "LICENSE.md")) {
+            if (!(& $uiHas $f)) { Add-Failure "${uiName}: $f is not in the package" }
+        }
+        foreach ($key in @("main", "types", "module", "react-native", "source")) {
+            $target = $uiJson.$key
+            if ($target -and !(& $uiHas $target)) { Add-Failure "${uiName}: package.json points at '$target', which is not in the package" }
+        }
+        foreach ($entry in $uiJson.files) {
+            if ($entry.Contains('*')) { continue }
+            if (!(& $uiHas $entry) -and !(& $uiHasPrefix "$entry/")) {
+                Add-Failure "${uiName}: '$entry' is in the files allow-list but not in the package"
+            }
+        }
+        foreach ($bad in @("node_modules/", "test/")) {
+            if (& $uiHasPrefix $bad) { Add-Failure "${uiName}: '$bad' is in the package" }
+        }
+        if ($uiPacked) {
+            $uiWork = Join-Path $work "ui"
+            New-Item -ItemType Directory -Path $uiWork -Force | Out-Null
+            Push-Location $uiWork
+            try {
+                & tar -xzf $uiPacked package/package.json 2>$null | Out-Null
+            } finally { Pop-Location }
+            $uiInner = Get-Content (Join-Path $uiWork "package/package.json") -Raw
+            $uiInnerJson = $uiInner | ConvertFrom-Json
+            if ($uiInnerJson.name -ne $uiName) { Add-Failure "${uiName}: the tarball names another package" }
+            if ($uiInnerJson.version -ne $version) { Add-Failure "${uiName}: the tarball is not version $version" }
+            if (-not $uiInnerJson.peerDependencies -or $uiInnerJson.peerDependencies.$pkgName -ne $version) {
+                Add-Failure "${uiName}: the tarball does not take $pkgName $version as a peer"
+            }
+            if ($uiInnerJson.private -eq $true) { Add-Failure "${uiName}: the tarball is marked private -- it cannot go to npm" }
+            if ($uiInner -match '"(workspace|file|link):') {
+                Add-Failure "${uiName}: the tarball has a workspace:/file:/link: range in its dependencies"
+            }
+        }
+    } else {
+        Add-Failure "${uiName}: no listing -- the pack stage did not reach it"
+    }
+
     foreach ($line in (Get-Content (Join-Path $out "SHA256SUMS"))) {
         $expected, $name = $line -split '  ', 2
         if ((Get-Sha256 (Join-Path $out $name)) -ne $expected) { Add-Failure "SHA256SUMS does not verify for $name" }
@@ -585,12 +681,12 @@ if ($shippable -eq "yes") {
     Write-Host "${app}: is macOS only (release.ps1 says why). This tarball is for looking at:"
     if ($packed) {
         Write-Host "  npx create-expo-app scratch; cd scratch"
-        Write-Host "  npm i $packed; npx expo prebuild --platform android"
+        Write-Host "  npm i $packed $uiPacked; npx expo prebuild --platform android"
     }
 } else {
     Write-Host "${app}: REHEARSAL -- no tarball. The Brain in native\ is a local build, and"
-    Write-Host "${app}: prepack refuses to pack one. Everything else ran; $base.files is"
-    Write-Host "${app}: what an upload would have carried."
+    Write-Host "${app}: prepack refuses to pack one. Everything else ran; $base.files and"
+    Write-Host "${app}: $uiBase.files are what an upload would have carried."
 }
 
 } finally {

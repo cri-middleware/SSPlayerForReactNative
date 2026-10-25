@@ -80,7 +80,7 @@
 
 SpriteStudio のデータが手元に無くても始められます。[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
 
-**次に読む:** [基本的な再生](docs/ja/usage/basic.md) · [コンポーネント早見](docs/ja/components.md) ·
+**次に読む:** [基本的な再生](docs/ja/usage/basic.md) · [コンポーネント早見](docs/ja/components.md) · [UI ボタン](docs/ja/usage/ui.md) ·
 [制約と適用範囲](docs/ja/limitations.md) · [トラブルシューティング](docs/ja/troubleshooting.md)
 
 ## 📋 要件

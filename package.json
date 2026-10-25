@@ -54,7 +54,7 @@
     "check-glue": "bash tools/check-glue.sh",
     "check-layers": "node tools/check-layers.mjs",
     "check-ja-breaks": "node tools/check-ja-breaks.mjs",
-    "build": "pnpm --filter react-native-spritestudio run build",
+    "build": "pnpm --filter react-native-spritestudio --filter react-native-spritestudio-ui run build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "generate-fbs-code": "node scripts/generate-fbs-code.js",

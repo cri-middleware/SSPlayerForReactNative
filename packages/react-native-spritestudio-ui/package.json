@@ -1,0 +1,70 @@
+{
+  "name": "react-native-spritestudio-ui",
+  "version": "7.0.0-beta.1",
+  "description": "SpriteStudio Player for React Native, as UI: a SpriteStudio animation as a button whose states play its labels, pressable on its parts.",
+  "license": "BSD-3-Clause",
+  "main": "lib/module/index.js",
+  "types": "lib/typescript/index.d.ts",
+  "module": "lib/module/index.js",
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
+  "files": [
+    "src",
+    "lib",
+    "LICENSE.ja.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "prepack": "bob build",
+    "build": "bob build"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-native": "^0.88.0",
+    "react-native-spritestudio": "7.0.0-beta.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-test-renderer": "^19.3.0",
+    "react-native-builder-bob": "^0.44.1",
+    "react-native-spritestudio": "workspace:*",
+    "react-test-renderer": "19.3.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cri-middleware/SSPlayerForReactNative.git",
+    "directory": "packages/react-native-spritestudio-ui"
+  },
+  "keywords": [
+    "spritestudio",
+    "spritestudio7",
+    "animation",
+    "2d",
+    "ui",
+    "button",
+    "accessibility",
+    "react-native",
+    "expo"
+  ],
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  }
+}

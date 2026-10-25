@@ -29,6 +29,16 @@ cellmap draws from (and `null` restores the pack's own), `getCellmapTexture(name
 reads back the swap, and `getReplaceableTextureNames()` lists what you may pass.
 See [Textures](/usage/textures#from-code-at-runtime).
 
+## Buttons, labels and outlines
+
+`SpriteStudioButton`, from `react-native-spritestudio-ui`, makes the view a
+button whose states play label sections — see [UI buttons](/usage/ui), and
+`SsUiStateDriver` for its state rule without the component. It is built on
+calls the player has for any app: `getLabelTable(animation?)` and
+`setAnimationSectionByLabel(startLabel, endLabel)` for a section named by
+labels, and `getPartQuad(part)` and `hitTestPart(x, y, parts?)` for where a part
+is drawn ([A part's outline and hit testing](/usage/parts#part-outline)).
+
 ## Loading ahead of time
 
 `ssPreload(source)` warms the resource and atlas caches by loading a throwaway

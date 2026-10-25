@@ -1,15 +1,15 @@
 #!/bin/bash
 #
 # The release, from a checkout of its tag: `build-release.sh` with the options a
-# release takes, then the draft GitHub Release carrying the tarball it checked
-# and SHA256SUMS. `release.yml` runs this very script when dispatched from a tag
+# release takes, then the draft GitHub Release carrying the two tarballs it
+# checked and SHA256SUMS. `release.yml` runs this very script when dispatched from a tag
 # with upload_release on, so a release cut on a Mac and one cut by CI are the
 # same build and the same draft.
 #
 #   git switch --detach v7.0.1 && pnpm run release
 #
 # What this does NOT do: anything public. When release.yml runs this, it stages
-# the tarball on npm afterwards; cut on a Mac, the tarball goes to npm by hand.
+# the tarballs on npm afterwards; cut on a Mac, they go to npm by hand.
 # Approving or publishing it, and publishing the draft, are permanent: steps 6
 # and 7 of RELEASING.md, after the draft has been looked at.
 #
@@ -25,6 +25,7 @@ BASEDIR=$(dirname "$0")
 SCRIPTDIR=$(cd "$BASEDIR" && pwd -P)
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 PKG_DIR="${ROOTDIR}/packages/react-native-spritestudio"
+UI_DIR="${ROOTDIR}/packages/react-native-spritestudio-ui"
 OUT="${ROOTDIR}/release-dist"
 
 die () { echo "${APP}: $1" >&2; exit 1; }
@@ -41,6 +42,8 @@ VERSION=$(node -p "require('${PKG_DIR}/package.json').version")
 TAG="v${VERSION}"
 # npm's tarball name, as build-release.sh spells it.
 TGZ="${OUT}/npm/$(printf '%s' "$PKG_NAME" | sed 's|^@||; s|/|-|g')-${VERSION}.tgz"
+UI_NAME=$(node -p "require('${UI_DIR}/package.json').name")
+UI_TGZ="${OUT}/npm/$(printf '%s' "$UI_NAME" | sed 's|^@||; s|/|-|g')-${VERSION}.tgz"
 
 # --- the checkout -----------------------------------------------------------
 #
@@ -70,7 +73,9 @@ echo "${APP}: releasing ${TAG} from ${HEAD}"
 # Every option spelled out, so a release cannot change because a default did.
 "${SCRIPTDIR}/build-release.sh" sdk=download out="$OUT" verify=yes clean=yes
 
-[ -f "$TGZ" ] || die "the build produced no $(basename "$TGZ")"
+for f in "$TGZ" "$UI_TGZ"; do
+    [ -f "$f" ] || die "the build produced no $(basename "$f")"
+done
 
 # --- the draft --------------------------------------------------------------
 #
@@ -90,7 +95,7 @@ else
             awk -v tag="$TAG" '$0 == tag { print previous; exit } $0 !~ /-|[0-9](a|b|rc)[0-9]+$/ { previous = $0 }')
         [ -z "$previous" ] || args+=(--notes-start-tag "$previous")
     fi
-    gh release create "$TAG" "$TGZ" "${OUT}/SHA256SUMS" "${args[@]}"
+    gh release create "$TAG" "$TGZ" "$UI_TGZ" "${OUT}/SHA256SUMS" "${args[@]}"
     echo "${APP}: drafted ${TAG}."
 fi
 echo "${APP}: nothing is public yet — publishing is steps 6 and 7 of RELEASING.md."

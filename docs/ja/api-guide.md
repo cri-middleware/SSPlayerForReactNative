@@ -24,6 +24,10 @@ description: 公開されている名前のうち実際に必要なものと、�
 prop を持たない、命令的にしか呼べない操作もここにあります。ランタイムのテクスチャ差し替えはその 1 つです。`setCellmapTexture(name, image)` はセルマップが描画に使うアトラスを差し替え（`null` でパック本来のものへ復元）、`getCellmapTexture(name)` は差し替え値を読み出し、
 `getReplaceableTextureNames()` は渡せる名前を列挙します。[テクスチャ](/ja/usage/textures#from-code-at-runtime)を参照してください。
 
+## ボタン・ラベル・輪郭 {#buttons-labels-and-outlines}
+
+`react-native-spritestudio-ui` の `SpriteStudioButton` は、状態ごとにラベルの区間を再生するボタンにビューを変えます（[UI ボタン](/ja/usage/ui)）。コンポーネントを使わない状態の規則は `SsUiStateDriver` です。これらは、どのアプリからも使えるプレイヤーの呼び出しの上に作られています。ラベルで区間を指定する `getLabelTable(animation?)` と `setAnimationSectionByLabel(startLabel, endLabel)`、パーツが描かれた位置を読む `getPartQuad(part)` と `hitTestPart(x, y, parts?)` です（[パーツの輪郭と当たり判定](/ja/usage/parts#part-outline)）。
+
 ## 事前に読み込む
 
 `ssPreload(source)` は使い捨てのプレイヤーを読み込むことでリソースとアトラスのキャッシュを温めるので、温まったキャッシュに対してマウントされたビューは最初のフレームから描画されます。

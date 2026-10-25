@@ -228,6 +228,9 @@ importers:
       react-native-spritestudio:
         specifier: workspace:*
         version: link:../packages/react-native-spritestudio
+      react-native-spritestudio-ui:
+        specifier: workspace:*
+        version: link:../packages/react-native-spritestudio-ui
       react-native-worklets:
         specifier: 0.13.0
         version: 0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)
@@ -275,6 +278,37 @@ importers:
       react-native-nitro-modules:
         specifier: ^0.37.1
         version: 0.37.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
+      react-test-renderer:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.5
+        version: 5.0.5(@types/node@26.6.5)(vite@8.3.5(@types/node@26.6.5)(terser@5.51.2)(yaml@2.9.1))
+
+  packages/react-native-spritestudio-ui:
+    dependencies:
+      react:
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-native:
+        specifier: ^0.88.0
+        version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@types/react-test-renderer':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react-native-builder-bob:
+        specifier: ^0.44.1
+        version: 0.44.1(supports-color@8.1.1)
+      react-native-spritestudio:
+        specifier: workspace:*
+        version: link:../react-native-spritestudio
       react-test-renderer:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
