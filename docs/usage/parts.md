@@ -1,6 +1,6 @@
 ---
 title: Part overrides & following
-description: Recolouring, hiding or swapping a part, and attaching a view to one.
+description: Recolouring, hiding or swapping a part, attaching a view to one, and testing a point against its outline.
 ---
 
 # Part overrides & following
@@ -203,3 +203,33 @@ mesh and every non-mesh part — those follow correctly — as well as for an
 unknown name or before a load. As a backstop, following a skinned mesh through
 `useSsPartTransform` also logs a one-time `__DEV__` warning naming the part; it
 is **non-blocking**, so the transform is still published rather than refused.
+
+## A part's outline and hit testing {#part-outline}
+
+`getPartQuad(part)` returns the outline a part is drawn with, as four corners:
+`leftTopX` / `leftTopY`, `rightTopX` / `rightTopY`, `leftBottomX` /
+`leftBottomY` and `rightBottomX` / `rightBottomY`. They are in **view pixels**,
+the space of a point on the view, and they are the part's own corners, so a
+rotated or flipped part has them wherever the pose put them.
+
+`hitTestPart(x, y, parts?)` takes a point in the same space and returns the
+index of the front-most part whose outline holds it, among the parts you name
+(names or indices, every part when you name none). It returns `-1` when none
+does, as `findPartIndex` does for an unknown name.
+
+```ts
+const index = player.hitTestPart(x, y, ['button_face'])
+if (index !== -1) start()
+```
+
+What has an outline:
+
+| Part | Outline |
+|---|---|
+| A part with a cell | Its four drawn corners, skew and vertex deform included |
+| Mesh | The box around its vertices. A skinned mesh's own transform sits near the root, so its corners would miss the art. |
+| Shape | Its size around its pivot. A vertex deform that carries a corner outside that size is not followed. |
+| Null, bone, Instance and Effect parts, and a hidden part | None. `getPartQuad` is `null`, and nothing hits them. A part drawn at alpha 0 still has an outline. |
+
+Both read the frame the player last built, the one on screen, and build none
+of their own. Before a load `getPartQuad` is `null` and `hitTestPart` is `-1`.

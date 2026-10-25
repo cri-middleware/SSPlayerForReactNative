@@ -8,6 +8,7 @@ import type {
   SsAudioEvent,
   SsBox,
   SsLabelTable,
+  SsPartQuad,
   SsPartTransform,
   SsSignalEvent,
   SsTextureInfo,
@@ -82,6 +83,8 @@ export class SsInternalPlayer {
   /** Part names in index order; `findPartIndex` answers from this. */
   parts: string[] = []
   readonly partTransforms = new Map<number, SsPartTransform>()
+  readonly partQuads = new Map<number, SsPartQuad>()
+  hitPart = -1
   readonly hiddenParts = new Set<number>()
   readonly skinnedParts = new Set<number>()
 
@@ -276,6 +279,27 @@ export class SsInternalPlayer {
 
   getPartTransform(partIndex: number): SsPartTransform {
     return this.partTransforms.get(partIndex) ?? ABSENT_TRANSFORM
+  }
+
+  getPartQuad(partIndex: number): SsPartQuad {
+    return (
+      this.partQuads.get(partIndex) ?? {
+        valid: false,
+        leftTopX: 0,
+        leftTopY: 0,
+        rightTopX: 0,
+        rightTopY: 0,
+        leftBottomX: 0,
+        leftBottomY: 0,
+        rightBottomX: 0,
+        rightBottomY: 0,
+      }
+    )
+  }
+
+  hitTestPart(x: number, y: number, parts: number[]): number {
+    this.record('hitTestPart', x, y, parts)
+    return this.hitPart
   }
 
   isPartHidden(partIndex: number): boolean {

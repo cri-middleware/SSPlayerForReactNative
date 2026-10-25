@@ -30,6 +30,7 @@ import type {
   SsAudioEvent,
   SsBox,
   SsLabelTable,
+  SsPartQuad,
   SsPartTransform,
   SsResource,
   SsSignalEvent,
@@ -1200,6 +1201,65 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       typeof part === 'number' ? part : this.partIndexOf(internal, part)
     if (index < 0) return false
     return internal.isPartSkinnedMesh(index)
+  }
+
+  /**
+   * The outline `part` is drawn with on the frame last built, in **view
+   * pixels** — the root transform applied, so the space a touch on the view
+   * reports, unlike {@link getPartTransform}. Null before a load, for an
+   * unknown or hidden part, and for a part that draws nothing of its own.
+   *
+   * A part with a cell is its four drawn corners, skew and vertex deform
+   * included; a Mesh part the axis-aligned box around its vertices; a Shape its
+   * size around its pivot. Null, bone, Instance and Effect parts have none, and
+   * a part drawn at alpha 0 still has one.
+   */
+  getPartQuad(part: string | number): SsPartQuad | null {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return null
+    const index = typeof part === 'number' ? part : this.partIndexOf(internal, part)
+    if (index < 0) return null
+    const quad = internal.getPartQuad(index)
+    if (!quad.valid) return null
+    const t = internal.rootTransform
+    const sx = t.flipX ? -t.scale : t.scale
+    const sy = t.flipY ? -t.scale : t.scale
+    return {
+      valid: true,
+      leftTopX: t.x + sx * quad.leftTopX,
+      leftTopY: t.y + sy * quad.leftTopY,
+      rightTopX: t.x + sx * quad.rightTopX,
+      rightTopY: t.y + sy * quad.rightTopY,
+      leftBottomX: t.x + sx * quad.leftBottomX,
+      leftBottomY: t.y + sy * quad.leftBottomY,
+      rightBottomX: t.x + sx * quad.rightBottomX,
+      rightBottomY: t.y + sy * quad.rightBottomY,
+    }
+  }
+
+  /**
+   * The index of the part on top whose {@link getPartQuad} outline holds
+   * `(x, y)`, a point in view pixels, among `parts` — names or indices, every
+   * part when omitted — on the frame last built. `-1` when none does, as
+   * {@link findPartIndex} answers; a name the animation does not have is
+   * skipped.
+   */
+  hitTestPart(x: number, y: number, parts?: ReadonlyArray<string | number>): number {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return -1
+    const targets: number[] = []
+    if (parts != null) {
+      for (const part of parts) {
+        const index = typeof part === 'number' ? part : this.partIndexOf(internal, part)
+        if (index >= 0) targets.push(index)
+      }
+      if (targets.length === 0) return -1
+    }
+    const t = internal.rootTransform
+    const sx = t.flipX ? -t.scale : t.scale
+    const sy = t.flipY ? -t.scale : t.scale
+    if (sx === 0 || sy === 0) return -1
+    return internal.hitTestPart((x - t.x) / sx, (y - t.y) / sy, targets)
   }
 
   /**

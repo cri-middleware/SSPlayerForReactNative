@@ -6,6 +6,7 @@ import type {
   SsBox,
   SsContext,
   SsLabelTable,
+  SsPartQuad,
   SsPartTransform,
   SsResource,
   SsSignalEvent,
@@ -420,6 +421,14 @@ export class SsInternalPlayer {
   /** Where part `partIndex` is this frame, in player-local units. */
   getPartTransform(partIndex: number): SsPartTransform {
     return this.require().getPartTransform(partIndex)
+  }
+
+  getPartQuad(partIndex: number): SsPartQuad {
+    return this.require().getPartQuad(partIndex)
+  }
+
+  hitTestPart(x: number, y: number, parts: number[]): number {
+    return this.require().hitTestPart(x, y, parts)
   }
 
   /**

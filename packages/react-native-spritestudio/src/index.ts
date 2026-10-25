@@ -163,6 +163,7 @@ export type {
   SsBox,
   SsLabel,
   SsLabelTable,
+  SsPartQuad,
   SsPartTransform,
   SsSignalEvent,
   SsSignalParam,

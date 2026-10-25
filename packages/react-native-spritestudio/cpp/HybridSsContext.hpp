@@ -13,6 +13,7 @@
 #include "SsEffect.hpp"
 #include "SsInstance.hpp"
 #include "SsMask.hpp"
+#include "SsPartQuad.hpp"
 #include "SsRNSkiaInterop.hpp"
 // For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
 // pointers opaque precisely so consumers never need the Skia headers.
@@ -121,6 +122,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   SsBox measureContentBox(const std::vector<std::string>& animations,
                           double maxFrames) override;
   SsBox canvasBox() override;
+  SsPartQuad getPartQuad(double partIndex) override;
+  double hitTestPart(double x, double y, const std::vector<double>& parts) override;
 
   SsPartTransform getPartTransform(double partIndex) override;
   bool isPartHidden(double partIndex) override;

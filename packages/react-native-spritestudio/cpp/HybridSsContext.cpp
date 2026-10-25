@@ -578,6 +578,36 @@ SsPartTransform HybridSsContext::getPartTransform(double partIndex) {
                          static_cast<double>(determinant));
 }
 
+SsPartQuad HybridSsContext::getPartQuad(double partIndex) {
+  refreshIfStale();
+  const SsPartQuad none(false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+  const auto* parts = ctx_ != nullptr && frame_ != nullptr ? frame_->parts() : nullptr;
+  if (parts == nullptr || partIndex < 0 || partIndex >= static_cast<double>(parts->size())) {
+    return none;
+  }
+  const auto index = static_cast<size_t>(partIndex);
+  float q[8];
+  if (!sscore::SsPartQuadOf(soa_, index, *parts->Get(static_cast<::flatbuffers::uoffset_t>(index)),
+                            q)) {
+    return none;
+  }
+  return SsPartQuad(true, q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7]);
+}
+
+double HybridSsContext::hitTestPart(double x, double y, const std::vector<double>& parts) {
+  refreshIfStale();
+  if (ctx_ == nullptr) return -1.0;
+  const auto accepts = [&parts](int32_t part) {
+    if (parts.empty()) return true;
+    for (const double target : parts) {
+      if (target == static_cast<double>(part)) return true;
+    }
+    return false;
+  };
+  return static_cast<double>(sscore::SsHitTestPart(frame_, soa_, static_cast<float>(x),
+                                                   static_cast<float>(y), accepts));
+}
+
 bool HybridSsContext::isPartHidden(double partIndex) {
   // The DISPLAY frame, which `refreshFrame()` already floored when sub-frame is
   // off — so this reads the same frame the baker drew and cannot disagree with
