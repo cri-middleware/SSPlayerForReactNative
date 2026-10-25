@@ -808,6 +808,84 @@ describe('getPartTransform', () => {
   })
 })
 
+describe('part outlines', () => {
+  const LOCAL = {
+    valid: true,
+    leftTopX: -10,
+    leftTopY: -20,
+    rightTopX: 10,
+    rightTopY: -20,
+    leftBottomX: -10,
+    leftBottomY: 20,
+    rightBottomX: 10,
+    rightBottomY: 20,
+  }
+
+  async function withOutline(): Promise<SpriteStudioPlayer> {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    internal.parts = ['button', 'face']
+    internal.partQuads.set(1, LOCAL)
+    return player
+  }
+
+  it('reads a part’s outline in view pixels, the root transform applied', async () => {
+    const player = await withOutline()
+    player.setRootTransform({ x: 100, y: 50, scale: 2, flipX: true, flipY: false })
+
+    expect(player.getPartQuad('face')).toEqual({
+      valid: true,
+      leftTopX: 120,
+      leftTopY: 10,
+      rightTopX: 80,
+      rightTopY: 10,
+      leftBottomX: 120,
+      leftBottomY: 90,
+      rightBottomX: 80,
+      rightBottomY: 90,
+    })
+    expect(player.getPartQuad(1)?.leftTopX).toBe(120)
+  })
+
+  it('is null for a part with no outline, an unknown name and before a load', async () => {
+    const player = await withOutline()
+
+    expect(player.getPartQuad('button')).toBeNull()
+    expect(player.getPartQuad('ghost')).toBeNull()
+    expect(new SpriteStudioPlayer().getPartQuad('face')).toBeNull()
+  })
+
+  it('tests a view point in the player’s own space, against every part when none is named', async () => {
+    const player = await withOutline()
+    const internal = SsInternalPlayer.last()
+    internal.hitPart = 1
+    player.setRootTransform({ x: 100, y: 50, scale: 2, flipX: true, flipY: true })
+
+    expect(player.hitTestPart(80, 70)).toBe(1)
+
+    expect(internal.argsOf('hitTestPart')).toEqual([[10, -10, []]])
+  })
+
+  it('tests against the parts named, skipping a name the animation does not have', async () => {
+    const player = await withOutline()
+    const internal = SsInternalPlayer.last()
+
+    expect(player.hitTestPart(0, 0, ['face', 'ghost', 0])).toBe(-1)
+    expect(player.hitTestPart(0, 0, ['ghost'])).toBe(-1)
+
+    expect(internal.argsOf('hitTestPart')).toEqual([[0, 0, [1, 0]]])
+  })
+
+  it('hits nothing before a load or under a zero scale', async () => {
+    const player = await withOutline()
+    SsInternalPlayer.last().hitPart = 1
+    player.setRootTransform({ x: 0, y: 0, scale: 0, flipX: false, flipY: false })
+
+    expect(player.hitTestPart(0, 0)).toBe(-1)
+    expect(new SpriteStudioPlayer().hitTestPart(0, 0)).toBe(-1)
+  })
+})
+
 describe('dispose', () => {
   it('gives back the pack, the mounted packs and the atlas leases', async () => {
     definePack('ss/overall/Child.ssab')

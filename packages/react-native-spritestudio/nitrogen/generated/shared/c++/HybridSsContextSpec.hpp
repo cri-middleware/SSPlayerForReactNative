@@ -19,6 +19,8 @@ namespace margelo::nitro::ssplayer { class HybridSsResourceSpec; }
 namespace margelo::nitro::ssplayer { struct SsBox; }
 // Forward declaration of `SsPartTransform` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsPartTransform; }
+// Forward declaration of `SsPartQuad` to properly resolve imports.
+namespace margelo::nitro::ssplayer { struct SsPartQuad; }
 // Forward declaration of `SsUserDataEvent` to properly resolve imports.
 namespace margelo::nitro::ssplayer { struct SsUserDataEvent; }
 // Forward declaration of `SsAudioEvent` to properly resolve imports.
@@ -38,6 +40,7 @@ namespace margelo::nitro::ssplayer { struct SsTextureBinding; }
 #include "SsBox.hpp"
 #include <vector>
 #include "SsPartTransform.hpp"
+#include "SsPartQuad.hpp"
 #include "SsUserDataEvent.hpp"
 #include "SsAudioEvent.hpp"
 #include "SsSignalEvent.hpp"
@@ -121,6 +124,8 @@ namespace margelo::nitro::ssplayer {
       virtual SsBox measureContentBox(const std::vector<std::string>& animations, double maxFrames) = 0;
       virtual SsBox canvasBox() = 0;
       virtual SsPartTransform getPartTransform(double partIndex) = 0;
+      virtual SsPartQuad getPartQuad(double partIndex) = 0;
+      virtual double hitTestPart(double x, double y, const std::vector<double>& parts) = 0;
       virtual bool isPartHidden(double partIndex) = 0;
       virtual bool isPartSkinnedMesh(double partIndex) = 0;
       virtual std::vector<SsUserDataEvent> getUserDataEvents() = 0;

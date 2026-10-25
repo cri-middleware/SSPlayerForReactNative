@@ -135,6 +135,25 @@ export interface SsPartTransform {
 }
 
 /**
+ * A part's outline as drawn: four corners in player-local units, Y-down, the
+ * space of `SsPartTransform` — `SpriteStudioPlayer.getPartQuad` hands it over
+ * in view pixels instead. The corners are the part's own, so `leftTop` is where
+ * the cell's top left was drawn, wherever the pose put it. `valid` is false for
+ * a hidden part and for one that draws nothing of its own.
+ */
+export interface SsPartQuad {
+  valid: boolean
+  leftTopX: number
+  leftTopY: number
+  rightTopX: number
+  rightTopY: number
+  leftBottomX: number
+  leftBottomY: number
+  rightBottomX: number
+  rightBottomY: number
+}
+
+/**
  * One authored user-data key the playhead crossed.
  *
  * Four independent payloads, each optional, which is how SpriteStudio authors
@@ -622,6 +641,22 @@ export interface SsContext
    * exactly once, and folding it in here would give two places that know it.
    */
   getPartTransform(partIndex: number): SsPartTransform
+
+  /**
+   * Part `partIndex`'s outline on the frame last built — see `SsPartQuad`. A
+   * part with a cell is its four drawn corners, skew and vertex deform
+   * included; a Mesh part the axis-aligned box around its vertices; a part
+   * with a size and no cell, a Shape, that size around its pivot. Null, bone,
+   * Instance and Effect parts have none.
+   */
+  getPartQuad(partIndex: number): SsPartQuad
+
+  /**
+   * The part on top, in draw order, whose outline holds `(x, y)` — a point in
+   * the space `getPartQuad` answers in — among `parts`, or among every part
+   * when `parts` is empty. `-1` when none does. Builds no frame.
+   */
+  hitTestPart(x: number, y: number, parts: number[]): number
 
   /**
    * Whether part `partIndex` is hidden on the frame being displayed.
