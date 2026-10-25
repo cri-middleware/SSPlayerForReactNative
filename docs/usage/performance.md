@@ -52,8 +52,9 @@ A player that is not playing (never started, stopped, or finished) builds no
 frame, and neither does a paused one with no effect or instance part, since
 nothing in it can move. Its view keeps the picture it last drew until something
 changes it: a seek, another animation, an override, a texture swap or a new
-placement. A screen of still poses costs the JS thread a couple of cheap reads
-per player a frame, and the UI thread nothing.
+placement. A `<SpriteStudioView>` holding still runs no frame loop until then,
+and a sprite in a scene costs the scene's loop a couple of cheap reads a frame.
+Neither costs the UI thread anything.
 
 A playing player builds and draws a frame only when its pose moves. With
 `subFrameEnabled` on (the default) every tick lands between two authored frames,

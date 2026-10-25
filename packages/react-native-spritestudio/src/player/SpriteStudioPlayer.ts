@@ -25,7 +25,7 @@ import {
   type SsTrackSync,
 } from '../core/types'
 import { SsRuntimeModule } from '../runtime'
-import { frameShown } from './frames'
+import { frameChanged, frameShown } from './frames'
 import type {
   SsAudioEvent,
   SsBox,
@@ -1039,6 +1039,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   setSubFrameEnabled(enabled: boolean): void {
     this.settings.subFrame = enabled
     this.internalPlayer?.setSubFrameEnabled(enabled)
+    frameChanged(this)
   }
 
   /** See {@link setSubFrameEnabled}. */
@@ -1339,6 +1340,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
         )
       }
     }
+    frameChanged(this)
   }
 
   // --- animation mixing --------------------------------------------------
@@ -1752,7 +1754,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * `values`, so a slider dragging a refused alpha is still one line.
    */
   private trackCommand(ok: boolean, call: string, target: string, values?: string): boolean {
-    if (ok) return true
+    if (ok) {
+      frameChanged(this)
+      return true
+    }
     // Read straight after the call that failed, which is the only moment it
     // describes that call.
     const reason = this.internalPlayer?.lastErrorMessage
@@ -1924,6 +1929,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.root = { ...value }
     const internal = this.internalPlayer
     if (internal != null) internal.rootTransform = { ...value }
+    frameChanged(this)
   }
 
   // --- frame -------------------------------------------------------------
@@ -2001,6 +2007,12 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return internal != null && !internal.isDisposed && internal.needsDraw
   }
 
+  /** Whether {@link advance} can change the frame. See `SsContext.advances`. */
+  get advances(): boolean {
+    const internal = this.internalPlayer
+    return internal != null && !internal.isDisposed && internal.advances
+  }
+
   /** Draws the current frame. Returns the number of vertices drawn. */
   draw(canvas: SkCanvas): number {
     const internal = this.internalPlayer
@@ -2057,6 +2069,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private notify(): void {
     for (const listener of this.listeners) listener()
+    frameChanged(this)
   }
 
   // --- teardown ----------------------------------------------------------

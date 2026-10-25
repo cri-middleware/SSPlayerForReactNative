@@ -8,6 +8,7 @@ import {
   type SpriteStudioViewRef,
 } from '../src/view/SpriteStudioView'
 import { SpriteStudioPartAnchor } from '../src/view/SpriteStudioPartAnchor'
+import { frameChanged } from '../src/player/frames'
 import { pendingFrames, stepFrame } from './support/frameClock'
 import { SpriteStudioPlayer } from './support/fakePlayer'
 import { fakePlayerHookState } from './support/fakePlayerHook'
@@ -75,6 +76,64 @@ describe('the frame loop', () => {
     expect(picture.value).not.toBe(first)
   })
 
+  it('books no next tick while the player does not advance', async () => {
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    const player = SpriteStudioPlayer.last()
+    player.advances = false
+    await layout(renderer, 300, 200)
+
+    await act(async () => stepFrame(16))
+
+    expect(player.names('advance', 'draw')).toEqual(['advance', 'draw'])
+    expect(pendingFrames()).toBe(0)
+  })
+
+  it('draws one frame for a change while the player does not advance', async () => {
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    const player = SpriteStudioPlayer.last()
+    player.advances = false
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+
+    frameChanged(player)
+    frameChanged(player)
+    expect(pendingFrames()).toBe(1)
+    await act(async () => stepFrame(16))
+
+    expect(player.names('advance', 'draw')).toEqual(['advance', 'draw', 'advance', 'draw'])
+    expect(pendingFrames()).toBe(0)
+  })
+
+  it('runs again from the change that sets the player advancing', async () => {
+    const { renderer } = await render(<SpriteStudioView source={PACK} />)
+    const player = SpriteStudioPlayer.last()
+    player.advances = false
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+    await act(async () => stepFrame(1000))
+
+    player.advances = true
+    player.notify()
+    await act(async () => stepFrame(16))
+    await act(async () => stepFrame(16))
+
+    expect(player.argsOf('advance')).toEqual([[16], [16], [16]])
+    expect(pendingFrames()).toBe(1)
+  })
+
+  it('stops listening for changes on unmount', async () => {
+    const { renderer, unmount } = await render(<SpriteStudioView source={PACK} />)
+    const player = SpriteStudioPlayer.last()
+    player.advances = false
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+
+    await unmount()
+    frameChanged(player)
+
+    expect(pendingFrames()).toBe(0)
+  })
+
   it('caps a long tick so a backgrounded app does not fast-forward', async () => {
     const { renderer } = await render(<SpriteStudioView source={PACK} />)
     await layout(renderer, 300, 200)
@@ -98,6 +157,9 @@ describe('the frame loop', () => {
     await act(async () => stepFrame(16))
 
     expect(onError).toHaveBeenCalledOnce()
+    expect(pendingFrames()).toBe(0)
+
+    frameChanged(SpriteStudioPlayer.last())
     expect(pendingFrames()).toBe(0)
   })
 
