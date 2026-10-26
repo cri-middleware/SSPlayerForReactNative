@@ -22,7 +22,7 @@ building your app with it; both halves are below.
 | Expo | SDK 58 |
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
-| SpriteStudio | projects made in 7.5 or later |
+| SpriteStudio | projects made in 7.6 or later |
 
 Not supported: **Expo Go** (see step 3) and Windows / tvOS / visionOS.
 
