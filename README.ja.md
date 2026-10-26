@@ -27,7 +27,7 @@
 
 **アプリで使う場合**はこのまま下へ。入れる → 変換する → 再生する、の順です。その先（イベント、パーツ上書き、テクスチャ差し替え）も同じ道の続きで、[ドキュメントサイト](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)にあります。**プレイヤー自体や、その下の Rust コアを変更する場合**は下の[プレイヤーを開発する場合](#%EF%B8%8F-プレイヤーを開発する場合)、変更前に読む作業ガイドが [CONTRIBUTING.md](CONTRIBUTING.md) です（何がいつ入るかは [ROADMAP.md](ROADMAP.md)）。
 
-**New Architecture** の React Native アプリを **development build** で動かす必要があります（Expo Go はネイティブコードを読み込めません）。SpriteStudio のプロジェクトは **7.5 以上**で作成したものです。バージョンは[要件](#-要件)にあります。
+**New Architecture** の React Native アプリを **development build** で動かす必要があります（Expo Go はネイティブコードを読み込めません）。SpriteStudio のプロジェクトは **7.6 以上**で作成したものです。バージョンは[要件](#-要件)にあります。
 
 1. **導入**: パッケージと peer をインストールします。
 

@@ -34,7 +34,7 @@ that (events, part overrides, custom textures) is the same path further in, on t
 lands when.
 
 You need a React Native app on the **New Architecture**, run as a **development build** — Expo Go
-cannot load native code — and a project made in **SpriteStudio 7.5 or later**. The versions are
+cannot load native code — and a project made in **SpriteStudio 7.6 or later**. The versions are
 under [Requirements](#-requirements).
 
 1. **Install** the package and its peers:
