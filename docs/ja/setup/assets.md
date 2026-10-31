@@ -69,9 +69,8 @@ graph LR
 | SSConverter GUI | デスクトップ GUI で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
 | `ssconverter-cli` | CI、バッチ、再現性 | [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) のバイナリ |
 
-::: warning `ssconverter-web` には Chromium 系ブラウザが必要です
-フォルダ選択に **File System Access API** を使うため、Chrome や Edge では動作し、
-Firefox と Safari では動作しません。パックは出口だけでなく、入口でもディレクトリです。
+::: info `ssconverter-web` へのフォルダのドロップには Chromium 系ブラウザが必要です
+ドロップされたフォルダは **File System Access API** で読むため、ドロップは Chrome や Edge で動作します。Firefox と Safari では **Browse...** でフォルダを選択してください。パックは出口だけでなく、入口でもディレクトリです。
 :::
 
 ::: tip 変換そのものは、全プレイヤー共通で 1 か所に書かれています

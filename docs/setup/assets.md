@@ -79,10 +79,10 @@ below as-is.
 | SSConverter GUI | a desktop GUI, used repeatedly | a binary from [its Releases](https://github.com/cri-middleware/SSConverterGUI/releases) |
 | `ssconverter-cli` | CI, batch, reproducibility | a binary from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) |
 
-::: warning `ssconverter-web` needs a Chromium browser
-It picks a folder through the **File System Access API**, so Chrome or Edge
-works and Firefox and Safari do not. A pack is a directory on the way in as well
-as on the way out.
+::: info Dropping a folder onto `ssconverter-web` needs a Chromium browser
+It reads a dropped folder through the **File System Access API**, which Chrome and
+Edge have; in Firefox and Safari, pick the folder with **Browse...**. A pack is a
+directory on the way in as well as on the way out.
 :::
 
 ::: tip The conversion itself is documented once, for every player
