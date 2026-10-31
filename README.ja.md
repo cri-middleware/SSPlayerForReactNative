@@ -36,7 +36,7 @@
    ```
 
    Android の `minSdkVersion` は 26 にします。`expo-build-properties` の書き方は [インストール](docs/ja/setup/install.md#3-アプリをビルドする) にあります。
-2. **変換**: `.sspj` を、Chrome か Edge で開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを出力し（ssconverter-web は ZIP に入れて）、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
+2. **変換**: `.sspj` を、ブラウザで開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを出力し（ssconverter-web は ZIP に入れて）、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
 
    ```
    my-app/
