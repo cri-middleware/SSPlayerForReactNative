@@ -2,14 +2,14 @@
 
 # SpriteStudio Player for React Native
 
-**アーティストが作った 2D アニメーションを React Native アプリへ — コンポーネント 1 つ、アニメーションのコードなし、動画ファイルなし。**
+**アーティストが作った 2D ラスターアニメーションを React Native アプリへ — コンポーネント 1 つ、アニメーションのコードなし、動画ファイルなし。**
 
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を [React Native](https://reactnative.dev/) の New Architecture 上で描画するプレイヤーです。SpriteStudio はプロ向けの 2D **ラスター**（スプライト）アニメーションエディタで、アーティストが手持ちの PNG 素材にボーン・メッシュ変形・マスク・パーティクルエフェクトを組み込み、1 つのファイルとして書き出します。このパッケージはそのファイルを再生し、[React Native Skia](https://shopify.github.io/react-native-skia/) でネイティブに描画します。スプライトシートの切り出しも、手書きのタイムラインも、動画のデコードも不要です。
 
 ## ✨ SpriteStudio を React Native で使うメリット
 
 - **キャラクターも、画面全体も“生きる”。** 呼吸・まばたき、なびく髪や衣装、斬撃・魔法のエフェクト、さらに動く HUD まで——動きは専用エディタ（SpriteStudio）でビジュアルに作り込み、`<SpriteStudioView>` はそれを再生するだけ。ボーン・メッシュ変形・マスク・パーティクルにも対応し、パーツごとに `Animated` や Reanimated のタイムラインを組む必要はありません。
-- **手描きの絵を、ネイティブ描画で。** ラスターのスプライト素材を動かすので、描き込んだキャラクターが描いたとおりに動きます（Lottie のようなベクター系ツールとは得意分野が異なります）。`.gif` や `.mp4` と違って自由に拡大縮小でき、シームレスにループし、アプリの操作にも反応します。フレームは描画の瞬間に組み立てられるので、作成時の fps ではなくディスプレイのリフレッシュレートと再生速度に追従します。
+- **ラスター素材を、ネイティブ描画で——ベクターでも動画でもない選択。** **ラスター**（PNG 等のビットマップ）のスプライト素材を動かすので、描き込んだイラストやリッチな質感が描いたとおりに動きます（Lottie のようなベクター系ツールとは得意分野が異なります）。`.gif` や `.mp4` と違って自由に拡大縮小でき、シームレスにループし、アプリの操作にも反応します。フレームは描画の瞬間に組み立てられるので、作成時の fps ではなくディスプレイのリフレッシュレートと再生速度に追従します。
 - **普通のビューとして使え、描画はネイティブコードで。** 他のビューと同じように配置・クリップ・アニメーションできます。タイムライン・ジオメトリ・描画は [Nitro Modules](https://nitro.margelo.com/) 越しのネイティブコードが担うので、頂点が JavaScript を通ることも、フレームごとに React が再レンダーすることもありません。多数を同時に出すなら、`<SpriteStudioScene>` がキャンバス 1 枚とクロック 1 つでまとめて描画します。
 - **アニメーションからアプリへ合図を送れる。** アーティストがタイムラインに置いたユーザーデータ・シグナル・オーディオキューがコールバックで届くので、足音や被弾リアクションのタイミングを、横で回すタイマーではなくアニメーション自身が決められます。パーツ単位のオーバーライドで、実行時に色変え・非表示・差し替えもできます。
 - **アニメーションをカットせずに混ぜられる。** 歩きから走りへのクロスフェード、再生中の動きに照準やまばたきを重ねる、2 つのアニメーションを weight で混ぜる——どれもアーティストが別々に作ったアニメーションのままでできます。`transitionMs` を指定すれば、`animation` を変えたときにクロスフェードします。
@@ -106,8 +106,7 @@ SpriteStudio のデータが手元に無くても始められます。[公式の
 
 ## 🔗 関連リポジトリ
 
-同じ `.ssab` が以下のすべてで動きます。
-
+- [SpriteStudio Docs](https://cri-middleware.github.io/SpriteStudio-Docs/ja/) — SDK と全公式 Player のドキュメントポータル
 - [SpriteStudio-SDK](https://github.com/cri-middleware/SpriteStudio-SDK) — Rust コア（`libssruntime` / `libssconverter`）と `.fbs` スキーマ
 - [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI) — `.sspj` → `.ssab` 変換のデスクトップ GUI
 - [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb)
