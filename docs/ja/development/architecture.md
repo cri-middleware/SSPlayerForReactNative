@@ -11,7 +11,36 @@ SpriteStudio の Player に共通すること（再生・モーションブレ�
 
 ## 層 {#layers}
 
-**Brain** は SpriteStudio-SDK の再生ランタイム `libssruntime` で、Rust で書かれ、`SpriteStudio-SDK/` サブモジュールにあります。タイムラインを進め、全パーツの姿勢を計算し、各フレームを描画計画として返します。`react-native-spritestudio` パッケージが、その計画を 4 つのレイヤーで Skia の描画に変えます。レイヤーはパッケージの入口の冒頭に上から順に並んでいます。
+**Brain** は SpriteStudio-SDK の再生ランタイム `libssruntime` で、Rust で書かれ、`SpriteStudio-SDK/` サブモジュールにあります。タイムラインを進め、全パーツの姿勢を計算し、各フレームを描画計画として返します。`react-native-spritestudio` パッケージが、その計画を Skia の描画に変えます。JS の 4 つのレイヤー（パッケージの入口の冒頭に上から順に並んでいます）と、その下の C++ のネイティブ側でできています。
+
+```mermaid
+flowchart TD
+    subgraph ui ["react-native-spritestudio-ui"]
+        btn["SpriteStudioButton<br/>ボタンになったビュー"]
+    end
+    subgraph js ["react-native-spritestudio · JS"]
+        L4["L4 · SpriteStudioView<br/>Scene · パーツ追従"]
+        L3["L3 · SpriteStudioPlayer<br/>再生制御 · イベント"]
+        L2["L2 · SsInternalPlayer<br/>ネイティブの寿命 · 描画"]
+        L1["L1 · SsRuntimeModule<br/>Nitro の接点"]
+    end
+    subgraph cpp ["react-native-spritestudio · ネイティブ側（C++）"]
+        pack["読み込み済みの .ssab<br/>Brain のリソースを持つ"]
+        ctx["コンテキスト<br/>アニメ 1 つに 1 つ"]
+        bake["組み立て<br/>バッファ → 頂点"]
+        drawp["描画の経路<br/>Skia の公開 API だけ"]
+        bridge["RN Skia との橋渡し<br/>canvas を取り出す"]
+    end
+    Brain["Brain · libssruntime (Rust)"]
+    btn --> L4 --> L3 --> L2 --> L1
+    L1 --> pack
+    L1 --> ctx
+    ctx --> Brain
+    ctx --> bake --> drawp
+    bridge -->|SkCanvas| drawp
+```
+
+矢印は呼び出しです。
 
 | レイヤー | 役割 |
 |---|---|
@@ -20,12 +49,14 @@ SpriteStudio の Player に共通すること（再生・モーションブレ�
 | **L2** | `SsInternalPlayer`。ネイティブの寿命と、1 フレームに 1 回の描画呼び出し。テクスチャレジストリと共有キャッシュ。`react` / `react-native` から何も import しない |
 | **L1** | `SsRuntimeModule`。Brain への Nitro の接点で、最後の手段としてそのまま公開している。バインディングは nitrogen が仕様から生成し、その裏の C++ がネイティブ側 |
 
+`react-native-spritestudio-ui` の `<SpriteStudioButton>` は、`<SpriteStudioView>` の表示領域に `<Pressable>` を重ねたもので、ビューの再生を自分で受け持ちます。ビューには `playing={false}` を渡し、`SsUiStateDriver` が、各状態と同じ名前のラベルから始まる区間をビューの `SpriteStudioPlayer` で再生します。押せる範囲を一部のパーツに絞ったときは、`Pressable` がタッチを受け取る前に `hitTestPart` で判定します。このパッケージはコアと同じ版で出し、コアを peer として受け取るので、アニメを再生するだけのアプリには入りません。
+
 ### ネイティブ側 {#the-native-side}
 
-ネイティブ側は C++ です。自動リンクされる Nitro の Hybrid Object が 1 つあり、それがほかのすべてを作ります。Brain のリソースハンドルを持つ読み込み済みの `.ssab` と、再生中のアニメ 1 つごとのコンテキストです。コンテキストは Brain を動かし、そのバッファを JS に渡し、描画を実行します。コンテキストの下には次のものがあります。
+自動リンクされる Nitro の Hybrid Object が 1 つあり、それがネイティブ側のほかのすべてを作ります。読み込み済みの `.ssab` と、再生中のアニメ 1 つごとのコンテキストです。コンテキストは Brain を動かし、そのバッファを JS に渡し、描画を実行します。コンテキストの下には次のものがあります。
 
-- **組み立て**は、フレームのバッファを頂点ごとのジオメトリに変えます。Nitro にも JSI にも依存しないので、ホストのツールが ASan の下で動かせます。
-- **描画の経路**は、組み立てたフレームを Skia の描画呼び出しに変えます。使うのは Skia の公開 API だけです。RN Skia の JSI オブジェクトモデルに触れるのは、そこから切り離した 1 つの橋渡しだけです。
+- **組み立て**は Nitro にも JSI にも依存しないので、ホストのツールが ASan の下で動かせます。
+- **描画の経路**は RN Skia の JSI オブジェクトモデルに触れません。そこから切り離した橋渡しが、RN Skia が渡す canvas を取り出します。
 - **マスクとクリッピング**はカバレッジのビットマップです。PartColor、`ss-*` シェーダー、ブレンドモード、インスタンスパーツ、パーティクルエフェクトがその横にあります。
 - **tick の判断**は、プレイヤーの更新が描くものを変えうるか、つまり tick を続けるかを決めます。
 - **`.ssab` の読み取り**は、描画に要るのに Brain が渡さないものを読みます。**アセットの探索**は、パックが変換時の配置を保つ、アプリのネイティブアセットのディレクトリを見つけます。
