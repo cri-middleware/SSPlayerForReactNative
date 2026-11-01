@@ -2,14 +2,14 @@
 
 # SpriteStudio Player for React Native
 
-**Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
+**Drop artist-authored 2D raster animation into your React Native app — one component, no animation code, no video files.**
 
 A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
 
 ## ✨ Why use SpriteStudio with React Native?
 
 - **Bring your sprites — and whole screens — to life.** Breathing and blinking, swaying hair and clothes, flashy slash and magic effects, even an animated HUD: the motion is built visually in a dedicated editor (SpriteStudio) and `<SpriteStudioView>` just plays it — bone rigs, mesh deformation, masks and particles included. No `Animated` or Reanimated timeline to wire up per part.
-- **Hand-drawn art, drawn natively.** It animates raster sprite art, so painted characters move exactly as drawn — a different fit from vector tools like Lottie. Unlike a `.gif` or an `.mp4`, it scales freely, loops seamlessly, reacts to your app, and builds each frame as it is drawn so motion follows your display's refresh rate and playback speed instead of the authored fps.
+- **Raster art, drawn natively — not vector, not video.** It animates **raster** (bitmap/PNG) sprite art, so painted illustrations and rich textures move exactly as drawn — a different fit from vector tools like Lottie. Unlike a `.gif` or an `.mp4`, it scales freely, loops seamlessly, reacts to your app, and builds each frame as it is drawn so motion follows your display's refresh rate and playback speed instead of the authored fps.
 - **An ordinary view, drawn by native code.** Lay it out, clip it and animate it like any other view. The timeline, geometry and drawing run in native code under [Nitro Modules](https://nitro.margelo.com/), so no vertex passes through JavaScript and a frame costs no React render — and `<SpriteStudioScene>` draws a whole cast through one canvas and one clock.
 - **The animation can talk back to your app.** Keys the artist placed on the timeline — user data, signals, audio cues — arrive as callbacks, so a footstep sound or a hit reaction is timed by the animation itself, not by a timer you keep in sync. Per-part overrides recolour, hide or swap a part at runtime.
 - **Blend animations instead of cutting between them.** Crossfade from a walk to a run, lay an aim or a blink on top of what is playing, or mix two animations by weight — from animations the artist authored separately. Set `transitionMs` and a change of `animation` crossfades.
@@ -141,8 +141,7 @@ SDK's `ssconverter-cli` from source.
 
 ## 🔗 Related Repositories
 
-The same `.ssab` runs on every one of these:
-
+- [SpriteStudio Docs](https://cri-middleware.github.io/SpriteStudio-Docs/) — the portal for the SDK and every official player
 - [SpriteStudio-SDK](https://github.com/cri-middleware/SpriteStudio-SDK) — the Rust core (`libssruntime` / `libssconverter`) and the `.fbs` schemas
 - [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI) — desktop GUI for converting `.sspj` → `.ssab`
 - [SSPlayerForWeb](https://github.com/cri-middleware/SSPlayerForWeb)
