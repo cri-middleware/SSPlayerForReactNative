@@ -20,8 +20,37 @@ and part tracking behave — is written once, in the SDK's
 **The Brain** is `libssruntime`, the SpriteStudio-SDK's playback runtime, written in
 Rust and kept in the `SpriteStudio-SDK/` submodule: it advances the timeline,
 computes every part's pose and hands back each frame as a draw plan. The
-`react-native-spritestudio` package turns that plan into Skia draws, in four layers;
-the header of its entry point lists them top to bottom.
+`react-native-spritestudio` package turns that plan into Skia draws — four layers in
+JS, which the header of its entry point lists top to bottom, over a native side in C++.
+
+```mermaid
+flowchart TD
+    subgraph ui ["react-native-spritestudio-ui"]
+        btn["SpriteStudioButton<br/>a view as a button"]
+    end
+    subgraph js ["react-native-spritestudio · JS"]
+        L4["L4 · SpriteStudioView<br/>Scene · part anchor"]
+        L3["L3 · SpriteStudioPlayer<br/>transport · events"]
+        L2["L2 · SsInternalPlayer<br/>native lifetime · draw"]
+        L1["L1 · SsRuntimeModule<br/>Nitro seam"]
+    end
+    subgraph cpp ["react-native-spritestudio · native side, C++"]
+        pack["Loaded .ssab<br/>holds the Brain's resource"]
+        ctx["Context<br/>one per animation"]
+        bake["Bake<br/>buffers → vertices"]
+        drawp["Draw path<br/>Skia's public API only"]
+        bridge["RN Skia bridge<br/>unwraps the canvas"]
+    end
+    Brain["Brain · libssruntime (Rust)"]
+    btn --> L4 --> L3 --> L2 --> L1
+    L1 --> pack
+    L1 --> ctx
+    ctx --> Brain
+    ctx --> bake --> drawp
+    bridge -->|SkCanvas| drawp
+```
+
+An arrow is a call.
 
 | Layer | What it is |
 |---|---|
@@ -30,17 +59,23 @@ the header of its entry point lists them top to bottom.
 | **L2** | `SsInternalPlayer`: native lifetime and one draw call per frame; the texture registry and the shared caches. Imports nothing from `react` / `react-native`. |
 | **L1** | `SsRuntimeModule`: the Nitro seam onto the Brain, exported raw as the escape hatch. nitrogen generates its bindings from a spec; the C++ behind it is the native side. |
 
+`react-native-spritestudio-ui`'s `<SpriteStudioButton>` is a `<SpriteStudioView>` with a
+`<Pressable>` over its box, and it owns the view's playback: the view gets
+`playing={false}`, and `SsUiStateDriver` plays, on the view's `SpriteStudioPlayer`, the
+section of the label named after each state. When a press is narrowed to some parts,
+`hitTestPart` decides it before the `Pressable` sees the touch. The package is released at
+the core's version and takes the core as a peer, so an app that only plays animations
+installs none of it.
+
 ### The native side {#the-native-side}
 
-The native side is C++. One autolinked Nitro Hybrid Object makes the rest: a loaded
-`.ssab`, which owns the Brain's resource handle, and one context per playing
-animation, which drives the Brain, hands its buffers to JS and runs the draw. Under
-the context:
+One autolinked Nitro Hybrid Object makes the rest of the native side: a loaded `.ssab`
+and one context per playing animation, which drives the Brain, hands its buffers to JS
+and runs the draw. Under the context:
 
-- **The bake** turns a frame's buffers into per-vertex geometry. It uses neither
-  Nitro nor JSI, so a host tool can run it under ASan.
-- **The draw path** turns the baked frame into Skia draw calls through Skia's public
-  API only. One bridge, kept apart from it, touches RN Skia's JSI object model.
+- **The bake** uses neither Nitro nor JSI, so a host tool can run it under ASan.
+- **The draw path** never touches RN Skia's JSI object model; the bridge, kept apart
+  from it, unwraps the canvas RN Skia hands over.
 - **Masks and clipping** are a coverage bitmap. PartColor, the `ss-*` shaders and the
   blend modes, Instance parts and particle effects sit beside them.
 - **The tick decision** says whether a player's update can change what it draws, and
