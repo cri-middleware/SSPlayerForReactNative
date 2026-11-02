@@ -77,6 +77,14 @@ for f in "$TGZ" "$UI_TGZ"; do
     [ -f "$f" ] || die "the build produced no $(basename "$f")"
 done
 
+# The Release's own SHA256SUMS. build-release.sh's covers all of <out> by its
+# paths there; a Release holds the two tarballs side by side, so this one names
+# them as they are attached, and `sha256sum -c` passes beside a download.
+SUMS_DIR=$(mktemp -d)
+trap 'rm -rf "$SUMS_DIR"' EXIT
+( cd "${OUT}/npm" && shasum -a 256 "$(basename "$TGZ")" "$(basename "$UI_TGZ")" ) > "${SUMS_DIR}/SHA256SUMS"
+( cd "${OUT}/npm" && shasum -a 256 -c "${SUMS_DIR}/SHA256SUMS" > /dev/null ) || die "the Release's SHA256SUMS does not verify"
+
 # --- the draft --------------------------------------------------------------
 #
 # A Release that is already there is left alone: delete a draft to have it made
@@ -95,7 +103,7 @@ else
             awk -v tag="$TAG" '$0 == tag { print previous; exit } $0 !~ /-|[0-9](a|b|rc)[0-9]+$/ { previous = $0 }')
         [ -z "$previous" ] || args+=(--notes-start-tag "$previous")
     fi
-    gh release create "$TAG" "$TGZ" "$UI_TGZ" "${OUT}/SHA256SUMS" "${args[@]}"
+    gh release create "$TAG" "$TGZ" "$UI_TGZ" "${SUMS_DIR}/SHA256SUMS" "${args[@]}"
     echo "${APP}: drafted ${TAG}."
 fi
 echo "${APP}: nothing is public yet — publishing is steps 6 and 7 of RELEASING.md."
