@@ -15,7 +15,7 @@ VERSION=<version>
 BRANCH=release/$(echo "${VERSION:?}" | cut -d. -f1,2)
 ```
 
-`<version>` is the version being released, as in `7.0.1`, and `<sdk-tag>` in step 2 is the SpriteStudio-SDK release it ships, as in `v7.0.0`: fill them in. Left as they are, the line stops with a syntax error. Later blocks read these two and the `TAG` step 4 sets, so a new shell needs them set again. Where an empty variable would not stop a command by itself, the command refuses one: an empty `SDK_TAG` in step 2 would pin no SDK.
+`<version>` is the version being released, as in `7.0.1`: fill it in. Left as it is, the line stops with a syntax error. Later blocks read it and the `TAG` step 4 sets, so a new shell needs them set again. Where an empty variable would not stop a command by itself, the command refuses one.
 
 ### 1. Branch
 
@@ -36,15 +36,15 @@ BASE=$(git -c versionsort.suffix=- tag --list "v${BRANCH#release/}.*" --sort=-v:
 git switch -C "${BRANCH:?}" "${BASE:?}"
 ```
 
-### 2. SDK, version and changelog
+Either way, the release ships the SpriteStudio-SDK release that `scripts/SDK_VERSION.txt` names on the branch; `cat scripts/SDK_VERSION.txt` prints it. To ship another, change the file in a commit of its own on the branch: step 3's QA build installs the Brain by it.
 
-In one commit. Pin the SpriteStudio-SDK release this one ships in `scripts/SDK_VERSION.txt`, the tag `download-sdk` installs the Brain by; a release that keeps its SDK pins the tag the file already holds. Then set `version` in both packages, and the UI package's `react-native-spritestudio` peer, to `<version>`, and date the version's heading in `CHANGELOG.md` as `## [X.Y.Z] - YYYY-MM-DD`, adding the heading on a patch release.
+### 2. Version and changelog
+
+In one commit. Set `version` in both packages, and the UI package's `react-native-spritestudio` peer, to `<version>`, and date the version's heading in `CHANGELOG.md` as `## [X.Y.Z] - YYYY-MM-DD`, adding the heading on a patch release.
 
 ```bash
-SDK_TAG=<sdk-tag>
-printf '%s\n' "${SDK_TAG:?}" > scripts/SDK_VERSION.txt
 # set "version" in both packages' package.json and the -ui's react-native-spritestudio peer to <version>, and date the heading in CHANGELOG.md, then:
-git add scripts/SDK_VERSION.txt packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
+git add packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
 git commit -m "chore(release): v${VERSION:?}"
 ```
 
@@ -223,7 +223,7 @@ VERSION=<version>
 BRANCH=release/$(echo "${VERSION:?}" | cut -d. -f1,2)
 ```
 
-`<version>` にはリリースするバージョン（`7.0.1` など）を、手順 2 の `<sdk-tag>` には同梱する SpriteStudio-SDK のリリース（`v7.0.0` など）を入れます。そのままだと、その行は構文エラーで止まります。後のブロックはこの 2 つと、手順 4 で設定する `TAG` を使います。新しいシェルでは設定し直してください。変数が空でも止まらないコマンドは、空のときに実行を拒否します。手順 2 の `SDK_TAG` が空だと、SDK を固定できないためです。
+`<version>` にはリリースするバージョン（`7.0.1` など）を入れます。そのままだと、その行は構文エラーで止まります。後のブロックはこれと、手順 4 で設定する `TAG` を使います。新しいシェルでは設定し直してください。変数が空でも止まらないコマンドは、空のときに実行を拒否します。
 
 ### 1. ブランチ
 
@@ -244,15 +244,15 @@ BASE=$(git -c versionsort.suffix=- tag --list "v${BRANCH#release/}.*" --sort=-v:
 git switch -C "${BRANCH:?}" "${BASE:?}"
 ```
 
-### 2. SDK、バージョン、CHANGELOG
+どちらの場合も、リリースが同梱するのは、ブランチの `scripts/SDK_VERSION.txt` が指す SpriteStudio-SDK のリリースです。`cat scripts/SDK_VERSION.txt` で出力できます。別のリリースを同梱するときは、ブランチ上でこのファイルを書き換えて単独のコミットにします。手順 3 の QA ビルドが、そのタグで Brain を導入します。
 
-1 コミットで行います。同梱する SpriteStudio-SDK のリリースを `scripts/SDK_VERSION.txt` で固定します。`download-sdk` が Brain を導入するときに使うタグです。SDK を変えないリリースでは、このファイルにいまあるタグを固定します。続けて両パッケージの `version` と、UI パッケージの `react-native-spritestudio` の peer を `<version>` にし、`CHANGELOG.md` のそのバージョンの見出しに日付を入れて `## [X.Y.Z] - YYYY-MM-DD` とします。パッチリリースでは見出しを足します。
+### 2. バージョン、CHANGELOG
+
+1 コミットで行います。両パッケージの `version` と、UI パッケージの `react-native-spritestudio` の peer を `<version>` にし、`CHANGELOG.md` のそのバージョンの見出しに日付を入れて `## [X.Y.Z] - YYYY-MM-DD` とします。パッチリリースでは見出しを足します。
 
 ```bash
-SDK_TAG=<sdk-tag>
-printf '%s\n' "${SDK_TAG:?}" > scripts/SDK_VERSION.txt
 # 両パッケージの package.json の "version" と、-ui の react-native-spritestudio の peer を <version> にし、CHANGELOG.md の見出しに日付を入れてから:
-git add scripts/SDK_VERSION.txt packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
+git add packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
 git commit -m "chore(release): v${VERSION:?}"
 ```
 
