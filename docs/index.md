@@ -22,7 +22,7 @@ features:
   - title: Zero animation code
     details: The motion is authored visually in SpriteStudio — bone rigs, mesh deform, masks, particles — and the player plays the exported file. No Animated or Reanimated timeline per part, no spritesheet to slice.
   - title: Raster art, smooth at any refresh rate
-    details: It animates hand-painted raster (PNG/bitmap) sprite art — a different fit from vector tools like Lottie, and lighter than a .gif or .mp4 — with a float playhead evaluated at draw time so motion follows your display's refresh rate and playback speed.
+    details: It animates hand-painted raster (PNG/bitmap) sprite art — a different fit from vector animation tools, and lighter than a .gif or .mp4 — with a float playhead evaluated at draw time so motion follows your display's refresh rate and playback speed.
   - title: No vertex passes through JavaScript
     details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI), and a frame costs no React render. That is what lets a busy scene stay at 60 fps.
   - title: Events, overrides and dynamic costumes
