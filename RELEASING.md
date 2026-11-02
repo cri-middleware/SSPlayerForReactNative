@@ -38,6 +38,13 @@ git switch -C "${BRANCH:?}" "${BASE:?}"
 
 Either way, the release ships the SpriteStudio-SDK release that `scripts/SDK_VERSION.txt` names on the branch; `cat scripts/SDK_VERSION.txt` prints it. To ship another, change the file in a commit of its own on the branch: step 3's QA build installs the Brain by it.
 
+Then bring the dependencies up to date, in a commit of its own: `pnpm update -r` moves every workspace package to the newest versions its ranges allow, the ones a new install resolves, and the checks in step 3 run on them. A new major version changes code, and goes in an ordinary pull request into `develop` of its own rather than here.
+
+```bash
+pnpm update -r                                    # the newest versions the ranges allow
+git commit -m "chore(deps): update within their ranges" -- pnpm-lock.yaml pnpm-workspace.yaml '*package.json'   # nothing to commit when nothing moved
+```
+
 ### 2. Version and changelog
 
 In one commit. Set `version` in both packages, and the UI package's `react-native-spritestudio` peer, to `<version>`, and date the version's heading in `CHANGELOG.md` as `## [X.Y.Z] - YYYY-MM-DD`, adding the heading on a patch release.
@@ -245,6 +252,13 @@ git switch -C "${BRANCH:?}" "${BASE:?}"
 ```
 
 どちらの場合も、リリースが同梱するのは、ブランチの `scripts/SDK_VERSION.txt` が指す SpriteStudio-SDK のリリースです。`cat scripts/SDK_VERSION.txt` で出力できます。別のリリースを同梱するときは、ブランチ上でこのファイルを書き換えて単独のコミットにします。手順 3 の QA ビルドが、そのタグで Brain を導入します。
+
+続けて依存を最新にし、単独のコミットにします。`pnpm update -r` は、ワークスペースの各パッケージを、範囲が許すいちばん新しい版に上げます。新しくインストールしたときに解決される版で、手順 3 の検査はこの版で回ります。メジャーバージョンを上げるのはコードの変更なので、ここではなく`develop` への通常のプルリクエストで行います。
+
+```bash
+pnpm update -r                                    # 範囲が許すいちばん新しい版
+git commit -m "chore(deps): update within their ranges" -- pnpm-lock.yaml pnpm-workspace.yaml '*package.json'   # 何も動かなければコミットするものは無い
+```
 
 ### 2. バージョン、CHANGELOG
 
