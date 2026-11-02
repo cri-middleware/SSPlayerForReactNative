@@ -38,17 +38,13 @@ git switch -C "${BRANCH:?}" "${BASE:?}"
 
 ### 2. SDK, version and changelog
 
-In one commit. Pin the SpriteStudio-SDK release this one ships in both places it is read from: `scripts/SDK_VERSION.txt`, the tag `download-sdk` installs the Brain by, and the `SpriteStudio-SDK` submodule, which the host checks build against. A new checkout has not initialized the submodule, and until it does, `git -C` on that directory reaches this repository instead, so the block initializes it first and goes no further if that fails. A release that keeps its SDK pins the tag `scripts/SDK_VERSION.txt` already holds. When the SDK's `.fbs` schemas changed, regenerate `cpp/format/`. Then set `version` in both packages, and the UI package's `react-native-spritestudio` peer, to `<version>`, and date the version's heading in `CHANGELOG.md` as `## [X.Y.Z] - YYYY-MM-DD`, adding the heading on a patch release.
+In one commit. Pin the SpriteStudio-SDK release this one ships in `scripts/SDK_VERSION.txt`, the tag `download-sdk` installs the Brain by; a release that keeps its SDK pins the tag the file already holds. Then set `version` in both packages, and the UI package's `react-native-spritestudio` peer, to `<version>`, and date the version's heading in `CHANGELOG.md` as `## [X.Y.Z] - YYYY-MM-DD`, adding the heading on a patch release.
 
 ```bash
 SDK_TAG=<sdk-tag>
-git submodule update --init SpriteStudio-SDK &&
-  git -C SpriteStudio-SDK fetch --tags origin &&
-  git -C SpriteStudio-SDK checkout "${SDK_TAG:?}" &&
-  printf '%s\n' "$SDK_TAG" > scripts/SDK_VERSION.txt
-pnpm run generate-fbs-code                       # only when the SDK's schema changed
+printf '%s\n' "${SDK_TAG:?}" > scripts/SDK_VERSION.txt
 # set "version" in both packages' package.json and the -ui's react-native-spritestudio peer to <version>, and date the heading in CHANGELOG.md, then:
-git add scripts/SDK_VERSION.txt SpriteStudio-SDK packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
+git add scripts/SDK_VERSION.txt packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
 git commit -m "chore(release): v${VERSION:?}"
 ```
 
@@ -250,17 +246,13 @@ git switch -C "${BRANCH:?}" "${BASE:?}"
 
 ### 2. SDK、バージョン、CHANGELOG
 
-1 コミットで行います。同梱する SpriteStudio-SDK のリリースを、読まれる 2 か所の両方で固定します。`download-sdk` が Brain を導入するときに使うタグ `scripts/SDK_VERSION.txt` と、ホストチェックがビルドに使う `SpriteStudio-SDK` submodule です。新しいチェックアウトでは submodule が初期化されておらず、初期化するまではそのディレクトリへの `git -C` がこのリポジトリに届いてしまいます。そのためブロックは先に初期化し、失敗したらそこで止まります。SDK を変えないリリースでは、`scripts/SDK_VERSION.txt` にいまあるタグを固定します。SDK の `.fbs` スキーマが変わったときは `cpp/format/` を生成し直します。続けて両パッケージの `version` と、UI パッケージの `react-native-spritestudio` の peer を `<version>` にし、`CHANGELOG.md` のそのバージョンの見出しに日付を入れて `## [X.Y.Z] - YYYY-MM-DD` とします。パッチリリースでは見出しを足します。
+1 コミットで行います。同梱する SpriteStudio-SDK のリリースを `scripts/SDK_VERSION.txt` で固定します。`download-sdk` が Brain を導入するときに使うタグです。SDK を変えないリリースでは、このファイルにいまあるタグを固定します。続けて両パッケージの `version` と、UI パッケージの `react-native-spritestudio` の peer を `<version>` にし、`CHANGELOG.md` のそのバージョンの見出しに日付を入れて `## [X.Y.Z] - YYYY-MM-DD` とします。パッチリリースでは見出しを足します。
 
 ```bash
 SDK_TAG=<sdk-tag>
-git submodule update --init SpriteStudio-SDK &&
-  git -C SpriteStudio-SDK fetch --tags origin &&
-  git -C SpriteStudio-SDK checkout "${SDK_TAG:?}" &&
-  printf '%s\n' "$SDK_TAG" > scripts/SDK_VERSION.txt
-pnpm run generate-fbs-code                       # SDK のスキーマが変わったときだけ
+printf '%s\n' "${SDK_TAG:?}" > scripts/SDK_VERSION.txt
 # 両パッケージの package.json の "version" と、-ui の react-native-spritestudio の peer を <version> にし、CHANGELOG.md の見出しに日付を入れてから:
-git add scripts/SDK_VERSION.txt SpriteStudio-SDK packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
+git add scripts/SDK_VERSION.txt packages/react-native-spritestudio packages/react-native-spritestudio-ui CHANGELOG.md
 git commit -m "chore(release): v${VERSION:?}"
 ```
 
