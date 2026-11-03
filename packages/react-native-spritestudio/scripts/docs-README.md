@@ -19,4 +19,4 @@ This folder is the documentation of the version of `react-native-spritestudio` i
 | What is not supported | [limitations.md](limitations.md) |
 | What the package puts inside your app, and what to say about it | [licenses.md](licenses.md) |
 
-The other pages cover motion blending, textures and resources, Reanimated and performance. Links between the pages work offline. Links to the API reference pages go to the online documentation, <https://cri-middleware.github.io/SSPlayerForReactNative/> (Japanese: <https://cri-middleware.github.io/SSPlayerForReactNative/ja/>).
+The other pages cover motion blending, textures and resources, Reanimated, performance and the `react-native-spritestudio-ui` button. Links between the pages work offline. Links to the API reference pages go to the online documentation, <https://cri-middleware.github.io/SSPlayerForReactNative/> (Japanese: <https://cri-middleware.github.io/SSPlayerForReactNative/ja/>).

@@ -91,4 +91,6 @@ const driver = new SsUiStateDriver(player, { animation: 'button' })
 driver.show(ssUiStateOf({ pressed, hovered, focused, disabled }), reducedMotion)
 ```
 
+ドライバーはプレイヤーの再生を握るので、ビューには `playing={false}` を渡してください（ボタンはそうしています）。`show` はプレイヤーがパックを読み込むまで何もせず、呼び出しも覚えません。パックの読み込み後にもう一度呼んでください — `onLoad` か、`player.addListener` で足したリスナーからです。
+
 区間の再生には、プレイヤーの `getLabelTable` と `setAnimationSection` を使います。ラベルで区間を指定する呼び出しは `react-native-spritestudio` にもあります（[再生の制御](/ja/usage/transport)）。

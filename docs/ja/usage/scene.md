@@ -17,7 +17,9 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 </SpriteStudioScene>
 ```
 
-キャンバス 1 枚、クロック 1 つ、フレーム 1 つ。`advance(dt)` は外からクロックを受け取るので、ツリー全体を 1 つのループで進められます。
+ビューと違い、シーンは自分のサイズを持ちません。`flex: 1`、または `width` と `height` を与えてください。与えないとキャンバスの高さが 0 になり、何も描かれません。
+
+キャンバス 1 枚、クロック 1 つ、フレーム 1 つ。各プレイヤーの `advance(dt)`（[クロック](/ja/usage/transport#the-clock)）は時間を外から受け取るので、ツリー全体を 1 つのループで進められます。
 
 スプライトは**自分では何も描画しません**。その仕事はプレイヤーを保持し、ルートトランスフォームを最新に保ち、シーンに登録され続けることだけです。すべてが描き込むキャンバスを所有しているのはシーンの方です。
 
@@ -28,15 +30,15 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 
 | prop | 意味 |
 |---|---|
-| `x` / `y` | 素材を置く位置。**シーン左上からのシーンピクセル**です。 |
+| `x` / `y` | スプライトのボックスの左上隅。**シーン左上からのシーンピクセル**で指定します。`width`/`height` が無いときはボックスが無いので、アニメーション自身の原点を置きます。 |
 | `width` / `height` | 素材を収めるボックス。両方省略すると fit は一切行われません。 |
-| `align` | そのボックスのどの点が `x`/`y` に来るか。 |
+| `align` | 収めた素材がそのボックスの中のどこに座るか。ビューと同じ語彙です。 |
 | `scale` | fit のスケールに上乗せする倍率。fit が無ければスケールそのもの。 |
 | `flipX` / `flipY` | 反転。 |
-| `z` | シーン内の描画順。同値のときはマウント順で決まります。 |
+| `z` | シーン内の描画順で、大きいほど手前です。同値のときは登録順で決まります（通常はマウント順ですが、`z` や `source` が変わったスプライトは登録し直されるので、その `z` の中で最前面になります）。 |
 
 ::: info `x`/`y` が実際に何を固定するかは、他の prop 次第です
-`width` と `height` があればボックスが存在し、`align` がそのどの点を `x`/`y` に合わせるかを決めます。**両方が無ければ収めるべきボックスがない**ので、`x`/`y` はアニメーション自身の原点 — 作者がエディタで置いた場所 — を指すことになります。
+`width` と `height` があればボックスが存在します。`x`/`y` はその左上隅で、`fit` と `align` が素材をボックスの中に置きます（ビューの中に置くのと同じです。既定の `center` では素材の中心が `x + width / 2`、`y + height / 2` に来ます）。**両方が無ければ収めるべきボックスがない**ので、`x`/`y` はアニメーション自身の原点 — 作者がエディタで置いた場所 — を指すことになります。
 :::
 
 ## シーン全体を止める
@@ -52,6 +54,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 ```tsx
 const ref = useRef<SpriteStudioSpriteRef>(null)
 ref.current?.player?.setAnimation('attack')
+ref.current?.player?.play() // setAnimation は選ぶだけ。開始は play()
 ```
 
 ビューのものと同じプレイヤーで、[再生の制御](/ja/usage/transport)も同じです。

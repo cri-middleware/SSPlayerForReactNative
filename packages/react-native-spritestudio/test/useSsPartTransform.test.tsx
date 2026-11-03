@@ -108,10 +108,9 @@ describe('useSsPartTransform', () => {
     })
   })
 
-  // The Brain mirrors the hierarchy itself, so the angle out of the world matrix
-  // already turns the way the screen does — negating here would turn every
-  // follower the wrong way.
-  it('mirrors the position under a flip without turning the part', async () => {
+  // The draw mirrors the art with the root's signed scale, so under one flip the
+  // screen shows the angle negated; the scale stays a size, so nothing turns over.
+  it('mirrors the position and the angle under a flip', async () => {
     state.transform = local()
     state.root = { x: 100, y: 50, scale: 2, flipX: true, flipY: false }
     const harness = await follow(player)
@@ -121,11 +120,23 @@ describe('useSsPartTransform', () => {
     expect(harness.result.current.value).toMatchObject({
       x: 80,
       y: 90,
-      rotation: 0.5,
+      rotation: -0.5,
       // The reported scale is a size, so it stays positive under the mirror.
       scaleX: 2,
       scaleY: 2,
     })
+  })
+
+  it('negates the angle under a vertical flip, and turns it half over under both', async () => {
+    state.transform = local()
+    state.root = { x: 100, y: 50, scale: 2, flipX: false, flipY: true }
+    const harness = await follow(player)
+    await act(async () => show())
+    expect(harness.result.current.value.rotation).toBeCloseTo(-0.5)
+
+    state.root = { x: 100, y: 50, scale: 2, flipX: true, flipY: true }
+    await act(async () => show())
+    expect(harness.result.current.value.rotation).toBeCloseTo(0.5 + Math.PI)
   })
 
   // A scene redraws every member when one of them moves, so a still part is

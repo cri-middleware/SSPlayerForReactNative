@@ -10,8 +10,8 @@
     Missing one half is this family's most common defect.
 *   **Never break a line between two Japanese characters**; Chrome renders the break as a space.
 *   **Finish with this repository's checks**: the table in [CONTRIBUTING.md](./CONTRIBUTING.md) — typecheck
-    after editing TypeScript, `pnpm run check-framedata` after touching `framedata.fbs` or the FrameData
-    read path. Read what a run says it verified, not its exit code — several checks pass, or skip
+    after editing TypeScript, `pnpm run check-framedata` after a submodule bump, or after touching `cpp/format/` or the
+    FrameData read path. Read what a run says it verified, not its exit code — several checks pass, or skip
     themselves, without a prerequisite.
 *   **Do not restate what another file owns**; the table below says which file. A fact no file owns goes
     where its staleness will be noticed.
@@ -77,10 +77,11 @@ These have no code site:
     Autolinking reads `SsPlayerPackage.kt` with a whole-file regex, first match wins, so prose naming a
     type before `ReactPackage` becomes the class name.
 *   **Peer dependencies stay single-copy**: two copies of a native module are two pods fighting over one
-    JSI registration. `example/package.json` pins each to the exact version it builds against, and pnpm
-    resolves the package's peers to those; move them by hand.
+    JSI registration. `example/package.json` pins React, React Native, RN Skia, Reanimated and Worklets to the exact version
+    each builds against and takes Nitro Modules by caret, and pnpm resolves the package's peers to those;
+    move the pinned ones by hand.
 *   **RN Skia coupling lives only in `SsRNSkiaInterop`.** `RNSkia` in a name is the fragile dependency,
-    `Skia` the stable one, and they never share a file, so `grep -rl 'RNSkia::' cpp/` lists what a Skia
+    `Skia` the stable one, and they never share a file, so `grep -rl 'RNSkia::' packages/react-native-spritestudio/cpp/` lists what a Skia
     bump can break. The floor is 3. RN Skia's own build defines `SK_GRAPHITE` and two more, which the
     podspec, `CMakeLists.txt` and the `tools/check-*` scripts repeat; a bump that changes them changes all.
 *   **pnpm is isolated: nothing is hoisted.** A module is declared by the workspace that loads it — the

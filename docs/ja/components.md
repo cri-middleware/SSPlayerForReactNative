@@ -31,7 +31,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 
 | prop の分類 | |
 |---|---|
-| 何を再生するか | `source`・`animation`・`playing`・`speed`・`loop` |
+| 何を再生するか | `source`・`animation`・`transitionMs`・`playing`・`speed`・`loop` |
 | どこに置くか | `fit`・`align`・`offset`・`scale`・`flipX`・`flipY`・`style` |
 | ボックス | `frame`・`frameScope`・`measureFrames` |
 | 反応する | `onUserData`・`onAudio`・`onSignal`・`onLoad`・`onError`・`onAnimationFinished`・`onAnimationLooped`・`onAnimationStarted`・`onAnimationChanged` |
@@ -42,7 +42,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 
 サイズを指定しなければ、作者のキャンバスを表示する `<Image>` と同じように並びます。[基本的な再生](/ja/usage/basic#size)を参照してください。
 
-`ref.current.player` がレイヤー 3 の [`SpriteStudioPlayer`](/ja/usage/transport) です —
+`ref.current.player` が [`SpriteStudioPlayer`](/ja/usage/transport) です —
 シーク、アニメーション切り替え、コンテンツボックスの読み取り。
 
 ::: warning これを 20 個置けばキャンバスが 20 枚
@@ -55,6 +55,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 
 ```tsx
 import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio'
+import { SsAssets } from './ss-assets' // クイックスタートで生成する型付きマニフェスト
 
 <SpriteStudioScene style={{ flex: 1 }} paused={backgrounded}>
   <SpriteStudioSprite source={SsAssets['Ringo/Ringo']} x={100} y={200} />
@@ -136,6 +137,8 @@ import { SpriteStudioButton } from 'react-native-spritestudio-ui'
 Reanimated の shared value でパーツに追従します — 頭の上の HP バーなど。普通のアプリが欲しがる可能性があるのは、このフックだけです。
 
 ```tsx
+// <SpriteStudioView> の children の中のコンポーネントで
+const player = useSsViewPlayer()
 const transform = useSsPartTransform(player, 'head')
 ```
 
@@ -159,7 +162,7 @@ const images = useSsTextures({ Ringo: require('./winter.png') })
 
 ### `useSpriteStudioPlayer`
 
-コンポーネント 1 つ分のレイヤー 3 プレイヤーを所有します。ロードし、トランスポート系の
+コンポーネント 1 つ分の `SpriteStudioPlayer` を所有します。ロードし、トランスポート系の
 prop を反映し続け、描画可能になったら報告します。**意図的にクロックではありません** —
 プレイヤーを誰が進めるかは呼び出し側の裁量です。
 

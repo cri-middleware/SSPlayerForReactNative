@@ -26,6 +26,16 @@ hold; a part that plays another animation runs its own playback from the frame t
 composes, and which key drives it across a crossfade on track 0 is outside motion blending.
 See [Motion blending](/usage/motion-blending#two-limits).
 
+## Seeking and reverse playback
+
+**Seeking fires no events for the frames it skips.** `seek()` moves the playhead without reporting the
+user-data, audio and signal keys between the old frame and the new one.
+
+**Instance and effect parts with independent playback are drawn correctly only while playing
+forward.** Under reverse playback (`SsPlaybackDirection.backward`, or the return leg of ping-pong) or
+after a `seek()` they are not placed correctly; forward frame skips are fine. The shared constraints
+are listed in [Shared Limitations](https://cri-middleware.github.io/SpriteStudio-Docs/sdk/limitations/).
+
 ## Masks
 
 **At most 96 mask writers at once.** Every mask and clipping part of an
@@ -35,8 +45,7 @@ is placed. Past 96 the rest are ignored, with a warning.
 ## Shaders
 
 **An `ss-*` shader applies to Normal parts only.** On a Mesh, Shape or Effect
-part it is ignored, and the part draws without it: the shader's arithmetic
-assumes one affinely transformed quad, which those kinds are not.
+part it is ignored, and the part draws without it.
 
 ## Platforms
 
@@ -45,6 +54,7 @@ assumes one affinely transformed quad, which those kinds are not.
 | iOS / Android | supported |
 | web | **nothing draws** — but installing the package does not break a web build: the web entry is a stub, so an app shipping both halves still bundles, and only rendering a player there throws. [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) is SpriteStudio on the web. |
 | Windows | no route — neither Nitro nor RN Skia supports react-native-windows. |
+| tvOS / visionOS | no route — the SDK's XCFramework has no tvOS or visionOS slice. |
 
 ## Expo Go, and Fast Refresh
 

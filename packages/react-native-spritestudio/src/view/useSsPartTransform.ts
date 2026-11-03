@@ -107,12 +107,16 @@ export function useSsPartTransform(
       const sy = root.flipY ? -root.scale : root.scale
       const x = root.x + sx * local.x
       const y = root.y + sy * local.y
-      // Taken as it comes: the Brain mirrors the hierarchy itself (it negates
-      // `rotation_z` along with `position_y`), so the angle decomposed out of
-      // the world matrix already turns the way the screen does. Negating here
-      // as well — which is what this did while the flip lived in the root
-      // transform — would turn every follower the wrong way.
-      const rotation = local.rotation
+      // The draw mirrors the art with the root's signed scale, so the angle the
+      // screen shows is -r under one flip and r + pi under both. The scale is
+      // reported as a size and stays positive, so a follower is never turned
+      // over; reading the flip into the angle as pi - r would do exactly that.
+      const mirrored = sx < 0 !== sy < 0
+      const rotation = mirrored
+        ? -local.rotation
+        : sx < 0
+          ? local.rotation + Math.PI
+          : local.rotation
       const scaleX = local.scaleX * Math.abs(sx)
       const scaleY = local.scaleY * Math.abs(sy)
       if (

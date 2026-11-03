@@ -18,7 +18,9 @@ building your app with it; both halves are below.
 | | |
 |---|---|
 | React Native | `0.88` (from `0.88.0`), **New Architecture** |
-| React | `19.3.0` or newer |
+| React | `19` (from `19.3.0`) |
+| React Native Skia | `3` (from `3.6.1`) |
+| Reanimated | `4` (from `4.6.0`) |
 | Expo | SDK 58 |
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
@@ -37,10 +39,9 @@ Full detail in [Limitations & Scope](/limitations).
 npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-Four of those five are peer dependencies you install alongside the package — the
-drawing backend, the JSI bindings, and Reanimated plus the worklets package
-Reanimated itself requires. `expo install` is used in place of `npm install`
-because it picks versions matching your Expo SDK.
+The other four are what the package needs alongside it — the drawing backend, the JSI bindings,
+Reanimated, and the worklets package that Reanimated itself requires as a peer. `expo install` is used
+in place of `npm install` because it picks the versions Expo has tested for Reanimated and worklets.
 
 The published tarball **carries the native core with it**, so there is nothing
 further to fetch and no Rust toolchain to install. Install from npm: the native
@@ -54,16 +55,9 @@ one is not among them, so you need a **development build**. Fast Refresh and the
 dev menu still work; what you give up is scanning a QR code into someone else's
 binary.
 
-```bash
-npx expo prebuild
-npx expo run:ios     # or run:android
-```
-
-Autolinking picks the package up on both platforms.
-
-**Android's `minSdkVersion` has to be 26**, React Native Skia 3's floor, and
-React Native projects default lower. Set it with
-`expo-build-properties` (`npx expo install expo-build-properties`):
+**Android's `minSdkVersion` has to be 26**, React Native Skia 3's floor, and React Native projects
+default lower. Before the first build, add this entry to the `plugins` array in `app.json`
+(`npx expo install expo-build-properties`):
 
 ```json
 {
@@ -75,8 +69,17 @@ React Native projects default lower. Set it with
 }
 ```
 
-Next: [Preparing assets](/setup/assets), because a pack has to reach the device
-before anything can play it.
+Then build:
+
+```bash
+npx expo prebuild
+npx expo run:ios     # or run:android
+```
+
+Autolinking picks the package up on both platforms.
+
+Next: [Quick Start](/setup/quickstart) — it ships a pack and plays it. [Preparing assets](/setup/assets)
+explains the conversion behind it.
 
 ## Troubleshooting the install
 
@@ -92,13 +95,10 @@ command in step 2 already does.
 
 :::
 
-::: details Why these version floors
+::: details Which Skia, and which Nitro Modules
 
-`react-native-skia` `3` renders with Skia Graphite, and this package compiles
-against its headers with the defines it builds with. `@shopify/react-native-skia`
-(v2) does not stand in for it.
-
-`react-native-nitro-modules` `0.37` (from `0.37.0`) matches the generated bindings committed
-in the repository.
+`react-native-skia` is React Native Skia 3 (`3.6.1` or newer). `@shopify/react-native-skia` (v2) does
+not stand in for it and cannot be installed beside it — remove it first. `react-native-nitro-modules`
+must be on the `0.37` line (from `0.37.0`).
 
 :::

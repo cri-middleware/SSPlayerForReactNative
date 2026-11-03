@@ -7,9 +7,8 @@ description: Converting .sspj to .ssab, and why a pack is a directory rather tha
 
 SpriteStudio saves a `.sspj` project; what this package plays is a `.ssab`.
 Converting between them is a step **you** run, on your own machine, **once at
-build time**. React Native has no editor to host an importer in, so unlike the
-engine players there is no automatic path and nothing converts at runtime — the
-conversion is a step you own.
+build time**. React Native has no editor to host an importer in, so there is no
+automatic path and nothing converts at runtime — the conversion is a step you own.
 
 ```mermaid
 graph LR
@@ -75,8 +74,8 @@ below as-is.
 
 | Tool | Best for | Getting it |
 |---|---|---|
-| `ssconverter-web` | converting a few projects by hand, nothing installed | open <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">the hosted converter</a> |
-| SSConverter GUI | a desktop GUI, used repeatedly | a binary from [its Releases](https://github.com/cri-middleware/SSConverterGUI/releases) |
+| `ssconverter-web` | converting a few projects by hand, nothing installed | open <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">the hosted converter</a> (it downloads a ZIP — unzip it) |
+| SSConverter GUI | a desktop GUI (macOS, Windows), used repeatedly | a binary from [its Releases](https://github.com/cri-middleware/SSConverterGUI/releases) |
 | `ssconverter-cli` | CI, batch, reproducibility | a binary from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) |
 
 ::: info Dropping a folder onto `ssconverter-web` needs a Chromium browser
@@ -89,7 +88,7 @@ directory on the way in as well as on the way out.
 [Converting with a standalone tool](https://cri-middleware.github.io/SpriteStudio-Docs/overview/convert-with-a-standalone-tool/)
 is the path this package takes, and covers picking a tool and wiring it into a
 build or CI pipeline. [Converting assets](https://cri-middleware.github.io/SpriteStudio-Docs/overview/conversion/) is the
-overview — including why some engines convert on import and this one does not.
+overview of every conversion path.
 :::
 
 ## A pack is a directory, not a file
@@ -121,8 +120,9 @@ The plugin re-copies on every build, so re-running the converter needs only a
 rebuild — not a fresh `prebuild`.
 
 ::: warning Assets do not Fast Refresh
-Changing a pack means a native build. There is no way around it: the file is an
-app asset, not a bundle entry.
+Changing a shipped pack means a native build: the file is an app asset, not a bundle entry. A pack read
+from an `http(s)` URL is the exception — it is fetched from there and needs no rebuild
+([Basic playback](/usage/basic#what-a-source-may-be)).
 :::
 
 ## Reference and Embedded packs

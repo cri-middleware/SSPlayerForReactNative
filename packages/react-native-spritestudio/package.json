@@ -81,7 +81,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cri-middleware/SSPlayerForReactNative.git"
+    "url": "git+https://github.com/cri-middleware/SSPlayerForReactNative.git",
+    "directory": "packages/react-native-spritestudio"
   },
   "keywords": [
     "spritestudio",

@@ -35,10 +35,10 @@ Copy their text into whatever licenses screen or acknowledgements file your app
 already ships. Nothing generates that screen for you.
 
 ::: tip Building from a checkout rather than npm
-The two `native/` files are **not in the repository**. They arrive with the
-runtime, so they exist only after `pnpm run download-sdk` or
-`pnpm run build-runtime` has run — which is the one thing that makes them easy to
-miss. See the [Build Guide](/development/build).
+The two `native/` files are **not in the repository**. `pnpm run download-sdk` brings both.
+`pnpm run build-runtime` copies `LICENSE.md` and picks up the crate list only if the SDK's
+`scripts/generate-licenses.sh` has produced it, so after a local build `THIRD-PARTY-LICENSES.ssruntime.md`
+can be missing — easy to miss, and `prepack` refuses to pack without it. See the [Build Guide](/development/build).
 :::
 
 ## What this page does not speak for

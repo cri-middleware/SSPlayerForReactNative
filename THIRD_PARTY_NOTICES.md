@@ -92,7 +92,7 @@ Copyright © Marc Rousavy @ Margelo
 
 ## Peer dependencies
 
-`react-native-nitro-modules`, `@shopify/react-native-skia`,
+`react-native-nitro-modules`, `react-native-skia`,
 `react-native-reanimated` and `react-native-worklets` are peer dependencies:
 your application installs them itself, and each carries its own license and
 notices. They are listed here only so it is clear that this file does not

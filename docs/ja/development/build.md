@@ -11,6 +11,8 @@ SpriteStudio Player for React Native を開発する人と、自分のアプリ�
 
 ## clone する
 
+git、Node 24 以上、`package.json` の `packageManager` が指す版の pnpm が要ります。`deploy-examples`・`build-runtime`・ホスト側のチェックには Rust も要ります。
+
 ```bash
 git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
 cd SSPlayerForReactNative
@@ -18,7 +20,7 @@ git submodule update --init --recursive
 pnpm install
 ```
 
-submodule は `SpriteStudio-SDK/` — リポジトリ全体で **Brain** と呼んでいる Rust コアです。ワークスペースは pnpm で、版は `package.json` の `packageManager` が決めます（`corepack enable` で入ります）。
+submodule は `SpriteStudio-SDK/` — リポジトリ全体で **Brain** と呼んでいる Rust コアです。ワークスペースは pnpm で、版は `package.json` の `packageManager` が決めます（Node 24 では `corepack enable` で入ります。Corepack を同梱しない Node 25 以降では、その版の pnpm を自分で入れてください）。
 
 ## Brain を用意する
 
@@ -36,7 +38,7 @@ pnpm run download-sdk
 pnpm run build-runtime build=release
 ```
 
-`build-runtime` は `SpriteStudio-SDK/` submodule から同じレイアウトへビルドし、`<tag>+submodule-<sha>` と刻印するので両者が混同されることはありません。Rust が必要です。Windows では Android スライスのみを対象とします（iOS の xcframework には Xcode が必要）ので、そこでの完全な答えは `download-sdk` です。
+`build-runtime` は `SpriteStudio-SDK/` submodule から同じレイアウトへビルドしますが、`VERSION` と `BUILD_MODE` は書かず（あれば消し）、そのため両者が混同されることはありません。ビルドする各プラットフォーム向けのターゲットを入れた Rust が必要で、iOS には Xcode、Android には NDK と `cargo-ndk` が要ります。`platform` を省くと `all` になるので、ツールチェーンが片方だけなら `platform=ios` か `platform=android` を指定してください。Windows では Android スライスのみを対象とします（iOS の xcframework には Xcode が必要）ので、そこでの完全な答えは `download-sdk` です。
 
 `build-runtime` は `key=value` 形式の引数を取り、submodule 以外の SDK チェックアウトを指す `$SSSDK` を尊重します。`download-sdk` はチェックアウトを読まず、オプションは `--force` だけです。
 
@@ -71,6 +73,8 @@ pnpm run run-ios         # または: pnpm run run-android
 
 サンプルアプリは描画の検証面です — Viewer 画面に、機能ごとのカードが 1 枚ずつ。各サブジェクトが何を証明するか、自分のプロジェクトを見る方法、および任意の `MaskInstance` サンプルについては [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/HEAD/example) が扱います。
 
+**Blending** タブでは、モーションブレンディングを手で動かせます。トラック 0 のクロスフェードとカット、トラック 1 のオーバーレイ（alpha・ブレンド・ループ回数）、トラック 0 の速度とループ回数、両方のトラックの同期、出ていく側が発火するかどうかです。状態の表示には、トラック 0 のアニメーション（クロスフェードを始めた瞬間に替わる）と、直近のイベント（発火したソース付き）が出ます。
+
 ## チェック {#checks}
 
 | 対象 | コマンド |
@@ -88,6 +92,8 @@ pnpm run run-ios         # または: pnpm run run-android
 | Skia を使う描画パスがコンパイルできること。リンクはしない（Windows、NDK） | `tools/check-skia-compile.ps1` |
 | Nitro のコード生成が最新であること | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 
+`check-framedata`・`check-hidden`・`check-motion`・`check-mask` は `SpriteStudio-SDK/` submodule からホスト用の Brain をビルドするので Rust が要り、`pnpm run deploy-examples` が `example/assets/ss/` に変換したパックを読みます。先にそれを実行してください。`tools/.build/ssbake_check` は `check-framedata` がビルドするバイナリです。
+
 ## 変更したプレイヤーを使う {#using-a-changed-player}
 
 git の URL ではこのパッケージを入れられません。ネイティブコアもビルド済みの `lib/` も git に無いので、入れても `main` が存在しないファイルを指し、ネイティブ側にはリンクするものがないパッケージになります。代わりに、固定した Brain から、リリースが公開する tarball を作ります。
@@ -96,6 +102,8 @@ git の URL ではこのパッケージを入れられません。ネイティ�
 pnpm run download-sdk
 pnpm run build-release        # -> release-dist/npm/<tarball>.tgz
 ```
+
+`build-release` は固定した Brain の導入に続いて、Nitro バインディングを再生成してコミット済みのものと一致することを確かめ、パックする前にホスト側のチェックを実行します（`check-hidden`、`check-motion`、macOS では `check-mask` と `check-shader`、`flatc` があれば `check-framedata` も）。これらには Rust と、`deploy-examples` が変換したサンプルパックが要るので、先にそれを実行してください。`skip=codegen,checks` を付ければ、それらを省いてパックします。
 
 アプリにインストールし（`npm install <checkout>/release-dist/npm/<tarball>.tgz`）、公開版のパッケージと同じように prebuild します。`prepack` は固定したリリースではない Brain（`build-runtime` で作ったものや debug ビルド）を拒むので、tarball には必ずリリースのネイティブコアが入ります。自分でビルドした Brain をアプリで動かすには、サンプルアプリを使ってください。サンプルアプリはパッケージを、ネイティブコアも含めてワークスペースから取ります。
 

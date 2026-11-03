@@ -1,6 +1,6 @@
 ---
 title: Reanimated
-description: ビューを動かす、パーツに追従する、そして shared value からはまだ駆動できない 2 つのこと。
+description: ビューを動かす、パーツに追従する、そしてまだできない 2 つのこと。
 ---
 
 # Reanimated
@@ -28,23 +28,27 @@ const style = useAnimatedStyle(() => ({
 
 ## パーツに追従する
 
-両者が実際に出会う唯一の場所です。`useSsPartTransform` はプレイヤーが新しいフレームを見せるたびにパーツをサンプリングして shared value に公開するので、React のビューが再レンダリングなしにパーツへ乗れます。
+自分のコードの中で両者が出会う唯一の場所です。`useSsPartTransform` はプレイヤーが新しいフレームを見せるたびにパーツをサンプリングして shared value に公開するので、React のビューが再レンダリングなしにパーツへ乗れます。ビューの `children` の中では、`useSsViewPlayer()` が渡すべきプレイヤーです。
 
 ```tsx
-const transform = useSsPartTransform(player, 'head')
+function HealthBar() {
+  const player = useSsViewPlayer()
+  const transform = useSsPartTransform(player, 'head')
 
-const barStyle = useAnimatedStyle(() => ({
-  opacity: transform.value.valid ? 1 : 0,
-  transform: [
-    { translateX: transform.value.x },
-    { translateY: transform.value.y },
-  ],
-}))
+  const barStyle = useAnimatedStyle(() => ({
+    opacity: transform.value.valid ? 1 : 0,
+    transform: [
+      { translateX: transform.value.x },
+      { translateY: transform.value.y },
+    ],
+  }))
 
-<View>
-  <SpriteStudioView ref={ref} source={…} style={{ flex: 1 }} />
-  <Animated.View style={[styles.healthBar, barStyle]} pointerEvents="none" />
-</View>
+  return <Animated.View style={[styles.healthBar, barStyle]} pointerEvents="none" />
+}
+
+<SpriteStudioView source={…} style={{ flex: 1 }}>
+  <HealthBar />
+</SpriteStudioView>
 ```
 
 値は**ビューピクセルで、ルートトランスフォーム適用済み**なので、そのままスタイルに入ります。`valid` で判定してください — パーツが解決されるまで false で、存在しない名前は永久に true になりません。
@@ -70,7 +74,4 @@ JS 側から駆動してください — `player.setSpeedScale(x)`、または `
 ティックはビューでもシーンでも、まだ **JS スレッド**の `requestAnimationFrame` です。
 JS スレッドが混雑すれば再生のムラとして現れ、あなたの側でどれだけ Reanimated を使っても解決しません。
 
-これを移すには update → bake → draw の連鎖全体が worklet ランタイムから到達可能である必要があり、かつ borrow rule により update と draw を別スレッドに置くことはできません —
-つまり段階的にではなく一度に移す作業です。
-[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md)
-で追跡されています。
+これを移すには、フレームごとの更新と描画をまとめて UI スレッドで動かす必要があります。2 つを別々のスレッドに分けることはできないので、段階的にではなく一度に移す作業です。[ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md) で追跡されています。

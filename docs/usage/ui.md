@@ -103,8 +103,8 @@ view.
 events. `normal`, and the states that fall back to it, play a `reduced_motion`
 label instead when the animation has one, so a calm idle loop can still move.
 
-Without the prop, the button follows the system's reduce motion setting
-(`AccessibilityInfo.isReduceMotionEnabled()`) and changes with it. It shows no
+Without the prop, the button follows the system's reduce motion setting (Reduce Motion on iOS,
+Remove animations on Android; `AccessibilityInfo.isReduceMotionEnabled()`) and changes with it. It shows no
 state until it has read the setting.
 
 ## Screen readers
@@ -126,6 +126,10 @@ import { SsUiStateDriver, ssUiStateOf } from 'react-native-spritestudio-ui'
 const driver = new SsUiStateDriver(player, { animation: 'button' })
 driver.show(ssUiStateOf({ pressed, hovered, focused, disabled }), reducedMotion)
 ```
+
+The driver takes over the player's playback, so give the view `playing={false}` (the button does). `show`
+does nothing until the player has loaded a pack and does not remember the call, so call it again once
+the pack has loaded — from `onLoad`, or from a listener added with `player.addListener`.
 
 It plays the sections through the player's `getLabelTable` and
 `setAnimationSection`, which `react-native-spritestudio` exposes for

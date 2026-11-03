@@ -6,7 +6,7 @@
 
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を React Native の New Architecture 上で再生します。描画は [React Native Skia](https://shopify.github.io/react-native-skia/) によるネイティブ描画で、タイムラインとジオメトリは [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアが担います。
 
-- 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)** — セットアップ、使い方、生成された API リファレンス。このバージョンの同じページ（英語の Markdown）がパッケージの `docs/` にあり、オフラインで読めます（入口は `docs/README.md`）。同じページは Agent Skill として `skills/react-native-spritestudio/` にもあり、pnpm 12.11 以降では `pnpm approve react-native-spritestudio` のあと、コーディングエージェントの skills ディレクトリにリンクされます
+- 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)** — セットアップ、使い方、生成された API リファレンス。このバージョンのセットアップと使い方のページ（英語の Markdown）がパッケージの `docs/` にあり、オフラインで読めます（入口は `docs/README.md`。型とそのコメントは `lib/typescript/` にあります）。同じページは Agent Skill として `skills/react-native-spritestudio/` にもあり、pnpm 12.11 以降では `pnpm approve react-native-spritestudio` のあと、コーディングエージェントの skills ディレクトリにリンクされます
 - 📦 **[リポジトリ](https://github.com/cri-middleware/SSPlayerForReactNative)** — 詳細版 README、ロードマップ、サンプルアプリ
 - 🌐 **[SpriteStudio Docs（ポータル）](https://cri-middleware.github.io/SpriteStudio-Docs/ja/)** — SDK と各公式プレイヤーの総合案内
 
@@ -42,7 +42,7 @@ my-app/
 }
 ```
 
-`.sspj` → `.ssab` の変換は手元のマシンで、ブラウザ上の [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で行います。コンバータは同梱していません。SpriteStudio のデータが手元に無くても、[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
+`.sspj` → `.ssab` の変換は手元のマシンで、ブラウザ上の [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) の `ssconverter-cli` で行います。コンバータは同梱していません。SpriteStudio のデータが手元に無くても、[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
 
 ## 再生する
 
@@ -73,6 +73,8 @@ export function Character() {
 | Peer deps | `react-native`, `react`, `react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — および `react-native-worklets`（Reanimated が自身の peer として要求する版）。範囲はこのパッケージの `peerDependencies` にあります |
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
+| Expo | SDK 58、`expo prebuild` でビルド — パックは Expo config plugin で同梱します |
+| SpriteStudio | 7.6 以上で作成したプロジェクト |
 
 React Native Skia は `react-native-skia` の 3 です。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。**peer 依存は 1 つずつに保ちます**（`npm ls react-native-skia` で確認し、モノレポでは peer をルートで固定します）。
 
@@ -80,6 +82,6 @@ Windows・tvOS・visionOS は対象外です。**このパッケージは web �
 
 ## ライセンス
 
-BSD-3-Clause — [LICENSE.md](./LICENSE.md) を参照してください。
+BSD-3-Clause — [LICENSE.md](./LICENSE.md)（参考訳: [LICENSE.ja.md](./LICENSE.ja.md)）を参照してください。
 
 また、FlatBuffers と `libssruntime` を公開するアプリにコンパイルして組み込むため、*あなたの*バイナリに義務が生じます。謝辞に何を含めるべきかは [THIRD_PARTY_NOTICES.md](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/THIRD_PARTY_NOTICES.md) を参照してください。

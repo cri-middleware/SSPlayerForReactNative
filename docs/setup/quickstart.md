@@ -21,8 +21,8 @@ if you want effects.
 
 Animations are authored in SpriteStudio and converted on your machine to a
 `.ssab` **directory** — see [Preparing assets](/setup/assets), which is the part
-that surprises people. Put the converter's output folder in a directory the config
-plugin ships — `assets/ss/` here:
+that surprises people. Put the converter's output folder in a directory the package's Expo
+config plugin ships — `assets/ss/` here:
 
 ```
 my-app/
@@ -36,7 +36,7 @@ my-app/
             └── …
 ```
 
-and point the plugin at it:
+and add the plugin's entry to the `plugins` array of `app.json`:
 
 ```json
 {
@@ -87,9 +87,10 @@ npx react-native-spritestudio assets --out src/ss-assets.ts
 ```
 
 ```tsx
-import { SsAssets } from './ss-assets'
+import { SsAssets } from './ss-assets' // from a file in src/
 
 <SpriteStudioView source={SsAssets['Ringo/Ringo']} />
 ```
 
-`--check` fails when the manifest is out of date, which is what CI wants.
+`--check` fails when the manifest is out of date, which is what CI wants. Give it the same `--out` as the
+run that wrote the file: `npx react-native-spritestudio assets --check --out src/ss-assets.ts`.

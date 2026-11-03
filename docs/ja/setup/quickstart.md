@@ -14,7 +14,7 @@ description: インストール済みの状態から、画面にアニメーシ�
 
 ## 1. パックを同梱する
 
-アニメーションは SpriteStudio で作成し、手元のマシンで `.ssab` の**ディレクトリ**へ変換します — [アセットの準備](/ja/setup/assets)を参照してください。ここがつまずきやすいところです。コンバータが書き出したフォルダを、config plugin が同梱するディレクトリ（ここでは `assets/ss/`）に置きます。
+アニメーションは SpriteStudio で作成し、手元のマシンで `.ssab` の**ディレクトリ**へ変換します — [アセットの準備](/ja/setup/assets)を参照してください。ここがつまずきやすいところです。コンバータが書き出したフォルダを、このパッケージの Expo config plugin が同梱するディレクトリ（ここでは `assets/ss/`）に置きます。
 
 ```
 my-app/
@@ -28,7 +28,7 @@ my-app/
             └── …
 ```
 
-そして、プラグインにそのディレクトリを指定します。
+そして、`app.json` の `plugins` 配列にプラグインのこの項目を追加し、ディレクトリを指定します。
 
 ```json
 {
@@ -74,9 +74,9 @@ npx react-native-spritestudio assets --out src/ss-assets.ts
 ```
 
 ```tsx
-import { SsAssets } from './ss-assets'
+import { SsAssets } from './ss-assets' // src/ の中のファイルから
 
 <SpriteStudioView source={SsAssets['Ringo/Ringo']} />
 ```
 
-`--check` はマニフェストが古い場合に失敗します。CI が求めるのはこちらです。
+`--check` はマニフェストが古い場合に失敗します。CI が求めるのはこちらです。マニフェストを書き出したときと同じ `--out` を渡してください: `npx react-native-spritestudio assets --check --out src/ss-assets.ts`。

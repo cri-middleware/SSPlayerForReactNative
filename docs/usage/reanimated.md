@@ -1,6 +1,6 @@
 ---
 title: Reanimated
-description: Animating the view, following a part, and the two things you cannot drive from a shared value yet.
+description: Animating the view, following a part, and the two things you cannot do yet.
 ---
 
 # Reanimated
@@ -34,25 +34,30 @@ draws into. Those are two independent clocks and they do not need to agree.
 
 ## Following a part
 
-The one place the two genuinely meet. `useSsPartTransform` samples a part on
+The one place the two meet in your own code. `useSsPartTransform` samples a part on
 every frame the player shows and publishes it into a shared value, so a React
-view can ride on a part without a re-render:
+view can ride on a part without a re-render. Inside the view's `children`, `useSsViewPlayer()` is the
+player to pass:
 
 ```tsx
-const transform = useSsPartTransform(player, 'head')
+function HealthBar() {
+  const player = useSsViewPlayer()
+  const transform = useSsPartTransform(player, 'head')
 
-const barStyle = useAnimatedStyle(() => ({
-  opacity: transform.value.valid ? 1 : 0,
-  transform: [
-    { translateX: transform.value.x },
-    { translateY: transform.value.y },
-  ],
-}))
+  const barStyle = useAnimatedStyle(() => ({
+    opacity: transform.value.valid ? 1 : 0,
+    transform: [
+      { translateX: transform.value.x },
+      { translateY: transform.value.y },
+    ],
+  }))
 
-<View>
-  <SpriteStudioView ref={ref} source={…} style={{ flex: 1 }} />
-  <Animated.View style={[styles.healthBar, barStyle]} pointerEvents="none" />
-</View>
+  return <Animated.View style={[styles.healthBar, barStyle]} pointerEvents="none" />
+}
+
+<SpriteStudioView source={…} style={{ flex: 1 }}>
+  <HealthBar />
+</SpriteStudioView>
 ```
 
 The value is in **view pixels with the root transform applied**, so it drops
@@ -85,7 +90,6 @@ The tick is still `requestAnimationFrame` on the **JS thread**, for both the
 view and the scene. A busy JS thread will show up as uneven playback, which no
 amount of Reanimated on your side fixes.
 
-Moving it needs the whole update → bake → draw chain reachable from a worklet
-runtime, and the borrow rule says update and draw cannot land on different
-threads — so it is one move, not an incremental one. Tracked in the
+Moving it means running the per-frame update and draw together on the UI thread — they cannot be
+split across threads — so it is one move, not an incremental one. Tracked in the
 [ROADMAP](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/ROADMAP.md).

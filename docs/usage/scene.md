@@ -18,8 +18,11 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 </SpriteStudioScene>
 ```
 
-One canvas, one clock, one frame: `advance(dt)` takes its clock from outside, so
-a whole tree can tick off one loop.
+Unlike a view, a scene has no size of its own: give it `flex: 1` or a `width` and `height`, or its
+canvas is 0 high and nothing draws.
+
+One canvas, one clock, one frame: each player's `advance(dt)` ([the clock](/usage/transport#the-clock))
+takes its time from outside, so a whole tree can tick off one loop.
 
 A sprite **renders nothing of its own**. Its entire job is to hold a player,
 keep its root transform current and stay enrolled in the scene; the scene owns
@@ -35,16 +38,17 @@ fitting itself to a view.
 
 | Prop | Means |
 |---|---|
-| `x` / `y` | Where the art goes, in **scene pixels from the scene's top-left**. |
+| `x` / `y` | The top-left corner of the sprite's box, in **scene pixels from the scene's top-left**. With no `width`/`height` there is no box, and they place the animation's own origin. |
 | `width` / `height` | A box to fit the art into. Omit both for no fit at all. |
-| `align` | Which point of that box lands on `x`/`y`. |
+| `align` | Where the fitted art sits inside that box — the same vocabulary as on a view. |
 | `scale` | Multiplier on top of the fit's scale, or the whole scale with no fit. |
 | `flipX` / `flipY` | Mirror. |
-| `z` | Draw order within the scene. Ties break on mount order. |
+| `z` | Draw order within the scene; higher is in front. Ties break on enrolment order — mount order, except that a sprite whose `z` or `source` changes re-enrols and then draws in front of the others at that `z`. |
 
 ::: info What `x`/`y` actually pins depends on the rest
-With a `width` and `height` there is a box, and `align` decides which of its
-points lands on `x`/`y`. **Without them there is no box to fit**, so `x`/`y`
+With a `width` and `height` there is a box: `x`/`y` is its top-left corner, and `fit` and `align`
+place the art inside it, as they do inside a view (the default `center` puts the art's centre at
+`x + width / 2`, `y + height / 2`). **Without them there is no box to fit**, so `x`/`y`
 place the animation's own origin — wherever the author put it in the editor.
 :::
 
@@ -63,6 +67,7 @@ player; this stops the tick that drives them all.
 ```tsx
 const ref = useRef<SpriteStudioSpriteRef>(null)
 ref.current?.player?.setAnimation('attack')
+ref.current?.player?.play() // setAnimation selects; play() starts it
 ```
 
 The same player as a view's, with the same [transport](/usage/transport).

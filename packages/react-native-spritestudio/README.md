@@ -6,7 +6,7 @@
 
 Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) on React Native's New Architecture, drawing natively through [React Native Skia](https://shopify.github.io/react-native-skia/) with the timeline and geometry in a Rust core under [Nitro Modules](https://nitro.margelo.com/) (JSI).
 
-- 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference. The same pages for this version are in this package's `docs/` (start at `docs/README.md`), readable offline, and in `skills/react-native-spritestudio/` as an Agent Skill, which pnpm 12.11 or later links into your coding agent's skills directory after `pnpm approve react-native-spritestudio`
+- 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference. The setup and usage pages for this version are in this package's `docs/` as English Markdown (start at `docs/README.md`), readable offline — the types and their comments are in `lib/typescript/` — and in `skills/react-native-spritestudio/` as an Agent Skill, which pnpm 12.11 or later links into your coding agent's skills directory after `pnpm approve react-native-spritestudio`
 - 📦 **[Repository](https://github.com/cri-middleware/SSPlayerForReactNative)** — the long-form README, the roadmap and the example app
 - 🌐 **[SpriteStudio Docs (portal)](https://cri-middleware.github.io/SpriteStudio-Docs/)** — the SDK and every official player in one place
 
@@ -16,7 +16,7 @@ Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.
 npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-**Expo Go does not work** — the package contains native code, so a prebuild (CNG) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. On Android, `minSdkVersion` has to be 26 ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
+**Expo Go does not work** — the package contains native code, so a prebuild (Continuous Native Generation) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. On Android, `minSdkVersion` has to be 26 ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
 
 ## Ship your packs
 
@@ -43,7 +43,7 @@ my-app/
 }
 ```
 
-`.sspj` → `.ssab` conversion happens on your machine — in the browser with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/), with the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI), or with the SDK's `ssconverter-cli`. No converter is bundled. No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is; [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
+`.sspj` → `.ssab` conversion happens on your machine — in the browser with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/), with the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI), or with the `ssconverter-cli` from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases). No converter is bundled. No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is; [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
 
 ## Play
 
@@ -74,6 +74,8 @@ For many animations at once, `<SpriteStudioScene>` + `<SpriteStudioSprite>` draw
 | Peer deps | `react-native`, `react`, `react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — plus `react-native-worklets`, at the version your Reanimated declares as a peer of its own. The ranges are this package's `peerDependencies` |
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
+| Expo | SDK 58, built with `expo prebuild` — packs ship through the Expo config plugin |
+| SpriteStudio | projects made in 7.6 or later |
 
 React Native Skia is `react-native-skia` 3, which renders with Skia Graphite and sets the Android floor; `@shopify/react-native-skia` (v2) does not stand in for it and cannot be installed beside it. **Keep every peer single-copy** (`npm ls react-native-skia`; in a monorepo, pin the peers at the root).
 

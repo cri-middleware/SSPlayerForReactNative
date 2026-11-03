@@ -14,7 +14,9 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 | | |
 |---|---|
 | React Native | `0.88` 系（`0.88.0` 以上）、**New Architecture** |
-| React | `19.3.0` 以上 |
+| React | `19` 系（`19.3.0` 以上） |
+| React Native Skia | `3` 系（`3.6.1` 以上） |
+| Reanimated | `4` 系（`4.6.0` 以上） |
 | Expo | SDK 58 |
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
@@ -30,9 +32,7 @@ description: このパッケージが自分のアプリに合うか、入れ方�
 npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
 ```
 
-5 つのうち 4 つは、パッケージと一緒に入れる peer 依存です — 描画バックエンド、JSI
-バインディング、そして Reanimated と、Reanimated 自身が必要とする worklets パッケージ。
-`npm install` ではなく `expo install` を使うのは、こちらが Expo SDK に合うバージョンを選んでくれるためです。
+残りの 4 つは、パッケージと一緒に入れるものです — 描画バックエンド、JSI バインディング、Reanimated、そして Reanimated 自身が peer として必要とする worklets パッケージ。`npm install` ではなく `expo install` を使うのは、Reanimated と worklets について Expo が確認したバージョンを選んでくれるためです。
 
 公開される tarball は**ネイティブコアを同梱している**ので、追加で取得するものも、インストールが必要な Rust ツールチェーンもありません。npm から入れてください。ネイティブコアとビルド済みの JavaScript は公開パッケージに入っていて、git リポジトリにはありません。
 
@@ -41,14 +41,7 @@ npx expo install react-native-spritestudio react-native-skia react-native-nitro-
 **Expo Go では実行できません。** Expo Go に含まれるネイティブモジュールは固定されており、このパッケージはその中にありません。したがって **development build** が必要です。
 Fast Refresh も開発メニューもそのまま使えます。失うのは、QR コードを読んで他人のバイナリで動かせる手軽さです。
 
-```bash
-npx expo prebuild
-npx expo run:ios     # または run:android
-```
-
-autolinking が両プラットフォームでパッケージを拾います。
-
-**Android の `minSdkVersion` は 26 にします。** React Native Skia 3 の下限で、React Native のプロジェクトの既定値はこれより低いためです。`expo-build-properties`（`npx expo install expo-build-properties`）で設定します。
+**Android の `minSdkVersion` は 26 にします。** React Native Skia 3 の下限で、React Native のプロジェクトの既定値はこれより低いためです。最初のビルドの前に、`app.json` の `plugins` 配列へ次の項目を追加してください（`npx expo install expo-build-properties`）。
 
 ```json
 {
@@ -60,7 +53,16 @@ autolinking が両プラットフォームでパッケージを拾います。
 }
 ```
 
-次は[アセットの準備](/ja/setup/assets)です。何かを再生する前に、パックが端末に届いている必要があります。
+そのうえでビルドします。
+
+```bash
+npx expo prebuild
+npx expo run:ios     # または run:android
+```
+
+autolinking が両プラットフォームでパッケージを拾います。
+
+次は[クイックスタート](/ja/setup/quickstart)です。パックを同梱して再生します。変換の仕組みは[アセットの準備](/ja/setup/assets)にあります。
 
 ## インストール時のトラブルシューティング
 
@@ -73,10 +75,8 @@ autolinking が両プラットフォームでパッケージを拾います。
 
 :::
 
-::: details バージョン下限の理由
+::: details どの Skia と Nitro Modules を使うか
 
-`react-native-skia` の `3` は Skia Graphite で描画します。このパッケージは、そのヘッダーと、React Native Skia 自身のビルドと同じ define でコンパイルします。`@shopify/react-native-skia`（v2）は代わりになりません。
-
-`react-native-nitro-modules` の `0.37` 系（`0.37.0` 以上）は、リポジトリにコミットされている生成済みバインディングと対応するバージョンです。
+`react-native-skia` は React Native Skia 3（`3.6.1` 以上）です。`@shopify/react-native-skia`（v2）は代わりにならず、同時に入れることもできません。先に削除してください。`react-native-nitro-modules` は `0.37` 系（`0.37.0` 以上）にします。
 
 :::

@@ -34,8 +34,8 @@ npx expo install react-native-spritestudio-ui
    />
    ```
 
-OS の動きを減らす設定（iOS の「視差効果を減らす」、Android の「アニメーションを削除」）が有効なら、各状態は先頭フレームで止まり、アニメーションに `reduced_motion` ラベルがあれば `normal` は代わりにその区間を再生します。`accessibilityLabel` が無ければ、ボタンはスクリーンリーダーにとって装飾です。
+OS の動きを減らす設定（iOS の「視差効果を減らす」、Android の「アニメーションを削除」）が有効なら、各状態は先頭フレームで止まります。ただしアニメーションに `reduced_motion` ラベルがあれば、`normal` と `normal` に落ちてくる状態は代わりにその区間を再生します。`accessibilityLabel` が無ければ、ボタンはスクリーンリーダーにとって装飾です。
 
 ## ライセンス
 
-BSD-3-Clause — [LICENSE.ja.md](./LICENSE.ja.md) を参照してください。
+BSD-3-Clause — [LICENSE.md](./LICENSE.md)（参考訳: [LICENSE.ja.md](./LICENSE.ja.md)）を参照してください。

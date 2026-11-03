@@ -34,11 +34,10 @@ import { SpriteStudioView, SsBlendOp } from 'react-native-spritestudio'
 | `color` | `string \| number` | 色味。Skia が解釈できるもの（`'#f00'`、`'rgba(255,0,0,.5)'`）か、パックされた `0xRRGGBBAA` の数値。 |
 | `blendOp` | `SsBlendOpValue` | 色味の合成方法：`SsBlendOp.mix` / `.mul` / `.add` / `.sub`。既定は `mix`。 |
 | `cell` | `SsCellRef` | パーツが参照するセルを差し替えます。 |
-| `priority` | `SsOverridePriorityValue` | タイムラインに対してどれだけ長く残るか。 |
+| `priority` | `SsOverridePriorityValue` | `color` と `cell` について、タイムラインに対してどれだけ長く残るか（下記）。`hide` には priority がなく、常にアニメーションのキーに勝ち、別のアニメーションが設定されると解除されます。 |
 
 ::: tip 色の文字列は Skia が解釈します
-`color` を解釈するのは `Skia.Color` であって、このパッケージで書かれたパーサーではありません。共通の概念に対する 2 つ目の実装は、整合を保てる数より 1 つ多いからです。
-`ssPackColor` は同じ変換で、パックされた数値そのものが欲しい呼び出し側のために公開されています。
+`color` を解釈するのは `Skia.Color` です。`ssPackColor` は同じ変換で、パックされた数値そのものが欲しい呼び出し側のために公開されています。
 :::
 
 ### セルを差し替える
@@ -58,7 +57,7 @@ parts={{
 
 ### オーバーライドはどれだけ持続するか {#how-long-an-override-lasts}
 
-`priority` の既定は `SsOverridePriority.holdUntilNextAnimation` で、これは C-API の既定（`HoldUntilNextAnimation`）と同じです。
+`priority` は `color` と `cell` に効き、既定は `SsOverridePriority.holdUntilNextAnimation` です。
 
 `hat: { hide: true }` を持つマップが「その prop がそう言っている限り帽子は隠れている」という意味になることは、priority ではなくマップの再適用が担保します — 下記のとおり、オーバーライドはアニメーションが設定されるたびに replay されるためです。
 
@@ -98,6 +97,13 @@ const style = useAnimatedStyle(() => ({
 }))
 ```
 
+```tsx
+// anchor と同じく、ビューの左上に置き、自分の左上を中心に回す
+<Animated.View style={[{ position: 'absolute', left: 0, top: 0, transformOrigin: 'left top' }, style]}>
+  <HealthBar />
+</Animated.View>
+```
+
 返ってくるのは**ビューピクセルで、ルートトランスフォームが適用済み**のもの — ビューの `children` が存在する空間です。射影すべきものは残っていません。
 
 `valid` はパーツが特定されるまで false で、存在しない名前は永久に true になりません。最初のフレームから位置があると仮定せず、これを確認してください。shared value は原点から始まるので、確認を省いた追従表示はパーツが解決されるまで隅に座り続けます。
@@ -108,6 +114,10 @@ const style = useAnimatedStyle(() => ({
 
 ::: info 追従姿勢に Skew は含まれません
 パーツの **Skew** は非伝搬のローカル頂点変形（パーツ単位のクアッドせん断）で、ワールド行列には乗らず、追従先にも伝わりません。`getPartTransform` が報告するのは**位置・回転・スケールだけ**です。せん断されたパーツに乗せたビューや、せん断された親の配下にあるパーツに追従したビューは、せん断されません。これは SpriteStudio の挙動どおりで、Skew は子やアタッチメントに継承されないためです。
+:::
+
+::: info ミラーされたパーツ
+ビューの `flipX` / `flipY` では、追従するビューはミラーされず、反転後の位置と角度に正立したまま追従します。**作者**がミラーしたパーツ（自身か祖先の Scale が負のもの。左向きにオーサリングされたキャラクターなど）には純粋な回転がありません。`getPartTransform` と `useSsPartTransform` はそのミラーを `scaleY`（負）に載せ、残りを `rotation` に入れるので、水平方向のミラーは `rotation` が π として読めます。`<SpriteStudioPartAnchor>` は既定でパーツと一緒に回り、スケールは無視するので、こうしたパーツに乗せたビューは上下逆さまになります。ビューもパーツと一緒にミラーするなら `scale` を、ビューを正立させたままにするなら `rotation={false}` を渡してください。
 :::
 
 ### そのフレームでパーツが表示されているか
@@ -127,7 +137,7 @@ const hidden = player.isPartHidden(target)
 
 ボーンにバインドされた**スキンメッシュ**パーツ（手・顔などの変形パーツ）は、頂点がボーンのスキニングで描かれる一方、パーツ自身の変換（`useSsPartTransform` が報告するもの）は**セットアップ時のノード位置、多くはキャラクターのルート付近**に留まります。そのため、こうしたパーツを追従先に指定すると、対象は見た目の絵ではなくルート付近に吸い寄せられます。これは直すべき不具合ではなくデータの性質です — ノードと変形後の頂点は別の位置にあり、変換はノードに忠実だからです。
 
-メッシュパーツの位置に追従させたいときは、SpriteStudio 側でその位置に **NULL パーツ**（ボーンポイント／空パーツ）を1つ置き、**そのパーツ名**を追従先に指定してください。ボーン（armature）やジョイントパーツを指定しても同様です — null / joint / armature /
+メッシュパーツの位置に追従させたいときは、SpriteStudio 側でその位置に **NULL パーツ**（ボーンポイント／空パーツ）を 1 つ置き、**そのパーツ名**を追従先に指定してください。ボーン（armature）やジョイントパーツを指定しても同様です — null / joint / armature /
 ボーンポイントのパーツは自身のノードが絵の位置にあるため、良い追従先になります。
 
 `isPartSkinnedMesh(part)` は、どのパーツがこれに該当するかを、パックの `.ssab` から読み取って報告します。追従先として妥当なパーツだけを提示するピッカーの構築に使えます:
@@ -146,7 +156,7 @@ const followable = player
 
 `getPartQuad(part)` は、パーツを描いた輪郭を 4 つの角で返します。`leftTopX` / `leftTopY`、`rightTopX` / `rightTopY`、`leftBottomX` / `leftBottomY`、`rightBottomX` / `rightBottomY` です。座標は**ビューのピクセル**で、ビュー上の点と同じ空間です。角はパーツ自身のものなので、回転や反転をしたパーツでは、ポーズが置いた位置にあります。
 
-`hitTestPart(x, y, parts?)` は同じ空間の点を受け取り、指定したパーツ（名前かインデックス。指定しなければすべてのパーツ）のうち、輪郭がその点を含む一番手前のパーツのインデックスを返します。どれにも当たらなければ、`findPartIndex` が知らない名前に返すのと同じ `-1` です。
+`hitTestPart(x, y, parts?)` は同じ空間の点を受け取り、指定したパーツ（名前かインデックス。省略するとすべてのパーツ。空の配列や、アニメーションに無い名前だけの指定はどれにも当たりません）のうち、輪郭がその点を含む一番手前のパーツのインデックスを返します。どれにも当たらなければ、`findPartIndex` が知らない名前に返すのと同じ `-1` です。
 
 ```ts
 const index = player.hitTestPart(x, y, ['button_face'])

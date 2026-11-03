@@ -24,8 +24,10 @@ pnpm run deploy-examples     # .sspj -> .ssab for this app
 pnpm run run-ios             # or: pnpm run run-android
 ```
 
-`download-sdk` needs **no Rust toolchain**. Use `pnpm run build-runtime build=release`
-instead only when you are changing the Rust core itself.
+`download-sdk` needs **no Rust toolchain**, but `deploy-examples` does: it builds the SDK's
+`ssconverter-cli` from source, so have `cargo` on your `PATH`. Use
+`pnpm run build-runtime build=release` in place of `download-sdk` only when you are changing the
+Rust core itself.
 
 `run-ios` and `run-android` prebuild this app, build it in Release — the JS bundle
 embedded, so no Metro — and launch it on a simulator or a connected device.
@@ -57,8 +59,8 @@ Subjects are the feature cards `Basic`, `BlendMode`, `PartsColor`, `Mask`,
 mounted as instance parts); `Doll`, instance and effect parts on one rig; and
 `ParticleEffect`, the heaviest packs.
 
-**Read `Mask` and `BlendMode` on both platforms.** The only platform-specific
-defect the Viewer has ever caught was iOS-only.
+**Read `Mask` and `BlendMode` on both platforms**; they are where iOS and Android
+drawing can differ.
 
 ## The subject list is generated
 
@@ -70,7 +72,7 @@ deployed leaves the screen rather than loading nothing and blaming the renderer.
 **Do not hand-edit it.** To verify it matches what is deployed:
 
 ```bash
-pnpm exec react-native-spritestudio assets --check --out src/ss-assets.ts
+pnpm --filter ssplayer-example exec react-native-spritestudio assets --check --out src/ss-assets.ts
 ```
 
 ## Looking at a project of your own
@@ -123,6 +125,6 @@ converts this one folder as `MaskInstance`, which is what the card and
 `src/player/audio.ts` is the reference wiring for `onAudio`, using `expo-audio`
 as *this app's* dependency — the package itself brings no audio stack. It solves
 the three things anyone writing their own will hit: an `asset`-scheme sibling has
-no path an audio library can open, `loop_num` is a *count* where most APIs take a
+no path an audio library can open, `loopNum` is a *count* where most APIs take a
 boolean, and iOS is silent under the ringer switch without
 `setAudioModeAsync({ playsInSilentMode: true })`.

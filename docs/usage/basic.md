@@ -25,7 +25,7 @@ clocks.
 
 | Form | Example |
 |---|---|
-| a path inside your asset root | `"ss/Ringo/Ringo.ssab"` |
+| a path into a folder the config plugin ships, that folder's name first | `"ss/Ringo/Ringo.ssab"` |
 | a filesystem path or `file://` URI | a download, an unpacked bundle |
 | an `http(s)` URL | a dev server, a CDN |
 
@@ -48,6 +48,7 @@ the ref:
 ```tsx
 const ref = useRef<SpriteStudioViewRef>(null)
 ref.current?.player?.setAnimation('walk')
+ref.current?.player?.play() // setAnimation selects; play() starts it
 ```
 
 The player owns the playback state and nothing above it mirrors that — the props
@@ -60,6 +61,9 @@ Given no size, the view is the size of its box — the authored canvas, one unit
 to a point — as an `<Image>` of a bundled file is. Given one of `width` and
 `height`, the box's aspect ratio sets the other. Given both, or a `flex`, the
 style decides alone.
+
+`SsAssets` is the typed manifest `npx react-native-spritestudio assets` generates; each value is such a
+path ([Quick Start](/setup/quickstart)).
 
 ```tsx
 <SpriteStudioView source={SsAssets['Ringo/Ringo']} />                          // 800×600
@@ -76,13 +80,14 @@ box lands in the view.
 
 | Prop | Default | Means |
 |---|---|---|
-| `fit` | `'contain'` | How the box is scaled: `contain`, `cover` or `none`. `<Image resizeMode>`'s vocabulary. |
+| `fit` | `'contain'` | How the box is scaled: `contain`, `cover` or `none`. `<Image resizeMode>`'s vocabulary. `none` is no fit: scale 1, origin at the view's centre; `align`, `frame` and `frameScope` have no effect, so place it with `offset` and `scale`. |
 | `align` | `'center'` | Which point of the box lands on the matching point of the view. |
 | `offset` | — | Pixels from where `fit`/`align` put it. Under `fit="none"`, measured from the view's centre. |
 | `scale` | `1` | A multiplier **on top of** the fit's scale. |
 | `flipX` / `flipY` | `false` | Mirror. |
 
-`align` takes `center`, `top`, `bottom`, `left`, `right` and the four corners.
+`align` takes `center`, `top`, `bottom`, `left`, `right`, `top-left`, `top-right`, `bottom-left` and
+`bottom-right`.
 
 ### Where the box comes from
 
@@ -96,7 +101,7 @@ canvas overflows the view too.
 
 | Prop | Means |
 |---|---|
-| `frame` | The box, supplied by you. |
+| `frame` | The box, supplied by you: `{ x, y, width, height }` in player-local units, Y down, `x`/`y` being its top-left corner. It wins over `frameScope`. |
 | `frameScope` | Measure the box instead: `'animation'` walks the one playing, `'pack'` unions every animation in the file. Omitted, nothing is measured. |
 | `measureFrames` | Caps the walk. Default `0`, which is one authored cycle. |
 

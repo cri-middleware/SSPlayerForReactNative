@@ -13,6 +13,7 @@ export const TABLES: Record<string, SsLabelTable> = {
   with_hover: table(49, { normal: 0, hover: 25 }),
   plain: table(29, {}),
   glow: table(39, { calm: 5 }),
+  calm_only: table(59, { pressed: 20, reduced_motion: 40 }),
   caps: table(9, { Normal: 0, HOVER: 5 }),
 }
 
