@@ -104,20 +104,20 @@ next `update()`.
 **One copy of every native module.** React Native, Nitro Modules, RN Skia and
 Reanimated are peer dependencies, and an app that ends up with two copies of one
 has two native modules registering the same JSI objects — on iOS, two autolinked
-pods. The example app pins the native ones to the exact versions the package
-builds against, and pnpm resolves the package's peers to those pins; move them by
-hand, together.
+pods. The example app pins React, React Native, RN Skia, Reanimated and Worklets to the exact versions
+the package builds against, takes Nitro Modules by caret, and pnpm resolves the package's peers to
+those; move the pinned ones by hand, together.
 
 **RN Skia is coupled in one place.** The bridge to RN Skia's JSI object model is
 kept apart because that model carries no compatibility promise and has broken once;
-the draw path uses only Skia's public API. `grep -rl 'RNSkia::' cpp/` lists what an
+the draw path uses only Skia's public API. `grep -rl 'RNSkia::' packages/react-native-spritestudio/cpp/` lists what an
 RN Skia bump can break. The native build defines what RN Skia's own build defines
 and does not pass on (`SK_GRAPHITE` among them), in the podspec, in the Android
 CMake build and in the host checks.
 
 **Layer 2 stays free of React.** `SsInternalPlayer` and what it uses import nothing
-from `react` / `react-native`, so the core runs headless and under
-react-native-web; `pnpm run check-layers` holds it to that.
+from `react` / `react-native`, so the core stays usable headless and a
+react-native-web route stays open; `pnpm run check-layers` holds it to that.
 
 **A pack is a directory, not a file.** Metro ships a dependency graph: `require()`
 names one file, and an Android release build flattens and lowercases what it
@@ -137,3 +137,30 @@ not track 0's, since the track stack can keep moving the pose after track 0 ends
 and a player that cannot change stops asking for frames. A copy of that judgement
 kept on this side froze poses that should move; `pnpm run check-motion` runs the
 decision against the host Brain.
+
+**Event reads are reads, not drains.** The runtime rebuilds its event lists on every collection, so
+reading twice in a tick returns the same events and never reading loses nothing. The per-frame read is
+gated on the handler props, so a view with no handler pays nothing for it.
+
+**The `playing` prop is mapped in the component.** It is the only layer that knows a boolean prop
+exists, so it turns `false` into `pause()` and `true` into `resume()` or `play()`; the player keeps the
+four verbs apart.
+
+**One implementation for colour strings and name hashes.** `color` is parsed by `Skia.Color`, and every
+name is hashed through `SsRuntimeModule.hashString`, the FNV-1a the Rust core bakes its keys with: a
+second implementation of a shared notion is one more than can be kept in agreement.
+
+**`ssPreload` loads a whole player.** The texture list is read out of the `.ssab` by a context, and a
+context is a player, so there is no shorter route than loading one and throwing it away; what survives
+is the cache entries.
+
+**The frame loop stays on the JS thread.** Moving it needs the whole update → bake → draw chain reachable
+from a worklet runtime, and update and draw cannot land on different threads, so it is one move, not an
+incremental one.
+
+**The peer floors.** React Native Skia 3 renders with Skia Graphite, and the native build compiles
+against its headers with the defines its own build uses; `react-native-nitro-modules` 0.37 matches the
+generated bindings in `nitrogen/`.
+
+**An `ss-*` shader is for Normal parts.** Its arithmetic assumes one affinely transformed quad, which a
+Mesh, a Shape and an Effect are not.

@@ -15,6 +15,9 @@ If you only want to *use* the package in your own app, you want
 
 ## Clone it
 
+You need git, Node 24 or newer, and pnpm at the version `packageManager` in `package.json` names;
+Rust as well for `deploy-examples`, `build-runtime` and the host checks.
+
 ```bash
 git clone https://github.com/cri-middleware/SSPlayerForReactNative.git
 cd SSPlayerForReactNative
@@ -24,7 +27,8 @@ pnpm install
 
 The submodule is `SpriteStudio-SDK/` — the Rust core, referred to throughout the
 repository as **the Brain**. The workspace is pnpm's, at the version
-`packageManager` in `package.json` names (`corepack enable` picks it up).
+`packageManager` in `package.json` names (`corepack enable` picks it up on Node 24; Node 25 and later do
+not ship Corepack, so install that pnpm version yourself).
 
 ## Get the Brain
 
@@ -44,9 +48,10 @@ pin, so it is safe to re-run.
 pnpm run build-runtime build=release
 ```
 
-`build-runtime` builds from the `SpriteStudio-SDK/` submodule into the same
-layout, stamped `<tag>+submodule-<sha>` so the two can never be confused. It
-needs Rust. On Windows it covers the Android slice only — the iOS xcframework
+`build-runtime` builds from the `SpriteStudio-SDK/` submodule into the same layout, but writes no
+`VERSION` or `BUILD_MODE` (it removes them), so the two can never be confused. It needs Rust with the
+targets of the platforms it builds, Xcode for the iOS half, and the NDK and `cargo-ndk` for the Android
+half; `platform=all` is the default, so name one when you have only one toolchain. On Windows it covers the Android slice only — the iOS xcframework
 needs Xcode, so `download-sdk` is the complete answer there.
 
 `build-runtime` takes `key=value` arguments and honours `$SSSDK`, which points
@@ -98,6 +103,11 @@ one feature card per capability. What each subject proves, how to look at a
 project of your own, and the optional `MaskInstance` sample are covered in
 [`example/README.md`](https://github.com/cri-middleware/SSPlayerForReactNative/tree/HEAD/example).
 
+The **Blending** tab drives motion blending by hand: crossfade or cut on track 0, an overlay on track 1
+with its alpha, blend and loop count, track 0's speed and loop count, the sync of both tracks, and
+whether the outgoing side fires. Its status line names track 0's animation, which changes the moment a
+crossfade starts, and lists the last events with the source that fired them.
+
 ## Checks {#checks}
 
 | Task | Command |
@@ -115,6 +125,11 @@ project of your own, and the optional `MaskInstance` sample are covered in
 | The Skia-guarded draw path compiles, without linking (Windows, the NDK) | `tools/check-skia-compile.ps1` |
 | Nitro codegen is current | `pnpm run generate-nitro-code` → `git diff --exit-code packages/*/nitrogen` |
 
+`check-framedata`, `check-hidden`, `check-motion` and `check-mask` build a host Brain from the
+`SpriteStudio-SDK/` submodule, so they need Rust, and they read the packs `pnpm run deploy-examples`
+converts into `example/assets/ss/` — run that first. `check-framedata` is also what builds
+`tools/.build/ssbake_check`.
+
 ## Using a changed Player {#using-a-changed-player}
 
 A git URL cannot install this package: neither the native core nor the built
@@ -126,6 +141,11 @@ Build the tarball a release publishes instead, from the pinned Brain:
 pnpm run download-sdk
 pnpm run build-release        # -> release-dist/npm/<tarball>.tgz
 ```
+
+`build-release` also regenerates the Nitro bindings and requires them to match what is committed, then
+runs the host checks (`check-hidden`, `check-motion`, and on macOS `check-mask` and `check-shader`;
+`check-framedata` too when `flatc` is installed) before it packs. Those need Rust and the packs
+`pnpm run deploy-examples` converts, so run that first; `skip=codegen,checks` packs without them.
 
 Install it in the app (`npm install <checkout>/release-dist/npm/<tarball>.tgz`),
 then prebuild as you would for the published package. `prepack` refuses a Brain

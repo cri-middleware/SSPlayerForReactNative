@@ -65,7 +65,7 @@ react-native-spritestudio: instance pack 'Enemy' referenced by '…' could not b
 loaded — those parts will not draw.
 ```
 
-Instance パーツは**外部パックを名前で**参照します。テクスチャと同じ規則で、それを名指ししている `.ssab` の隣、出力ディレクトリの中に無ければなりません。
+Instance パーツは**外部パックを名前で**参照します。テクスチャと同じ規則で、それを名指ししている `.ssab` の隣、出力ディレクトリの中に無ければなりません。**Embedded** に変換しても同じです。埋め込まれるのはテクスチャで、パーツが参照するパックは含まれません。
 
 ## スプライトが何も描かず警告する
 

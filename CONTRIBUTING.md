@@ -42,8 +42,8 @@ buffer handling. Six are worth knowing before you start:
   `assetExts` stays clean of `ssab` / `ssqb`.
 - **Each native peer has one copy.** Two copies of React Native, Nitro Modules,
   RN Skia or Reanimated are two native modules registering one set of JSI objects
-  (on iOS, two autolinked pods). `example/package.json` pins them; move them by
-  hand, together.
+  (on iOS, two autolinked pods). `example/package.json` pins React, React Native, RN Skia, Reanimated and
+  Worklets to exact versions and takes Nitro Modules by caret; move the pinned ones by hand, together.
 
 [How the Player Is Put Together](https://cri-middleware.github.io/SSPlayerForReactNative/development/architecture)
 describes the layers these reasons cross and gives the longer reasons.
@@ -61,9 +61,8 @@ community forum rather than the tracker; see [SUPPORT.md](./SUPPORT.md).
 2. Match the style of the file you are touching.
 3. Run what CI cannot — see [Development Environment](#development-environment).
 4. Keep the change scoped to one thing.
-5. Describe what you verified, and on which platform. iOS and Android diverge:
-   the only platform-specific defect the example's Viewer screen has ever caught
-   was iOS-only.
+5. Describe what you verified, and on which platform: iOS and Android drawing can differ, so check
+   both on the example's Viewer screen.
 
 ### Branching & releases
 
@@ -73,8 +72,8 @@ maintainer's release branch.
 
 The packages have one version line: `react-native-spritestudio-ui` is released
 with `react-native-spritestudio` at the same version, and
-`scripts/SDK_VERSION.txt` pins the Brain release they are built against
-separately. That differs from SSPlayerForWeb,
+`scripts/SDK_VERSION.txt` pins the release of the Brain — the SDK's Rust playback runtime,
+`libssruntime` — they are built against, separately. That differs from SSPlayerForWeb,
 whose packages are versioned independently of each other and released from
 `main`: the branch model follows the versioning model.
 
@@ -82,10 +81,8 @@ Cutting a release is maintainer work — see [RELEASING.md](./RELEASING.md).
 
 ## Development Environment
 
-Prerequisites and the full first-run steps are in the
-**[Quick Start](./README.md#-quick-start)** section of the README. Node 20 or
-newer, and pnpm at the version `packageManager` in `package.json` names
-(`corepack enable` picks it up).
+Prerequisites and the full first-run steps are in the **[Build Guide](./docs/development/build.md)**.
+You need Node 24 or newer, and pnpm at the version `packageManager` in `package.json` names.
 
 ```bash
 pnpm install
@@ -143,8 +140,9 @@ a `src/**/*.test.ts` would land in the tarball. `typecheck` passes them through
 out no submodules, so it runs typecheck, the unit tests, the Nitro bindings
 check, `bob build`, the web barrel, `check-layers`, `check-ja-breaks`, script
 parsing and the `files` guard — none of the host checks, and not `prepack`. A
-pull request touching only Markdown runs none of it. The weekly run, a dispatch
-and the release pull request also run `check-shader` on macOS, build the example
+pull request touching only Markdown runs none of it; one that touches `docs/` instead builds the Pages
+site through `docs.yml`, where a dead link fails. The weekly run, a dispatch and the release pull request
+also build the Pages site, run `check-shader` on macOS, build the example
 app for Android and iOS on the Brain built from the submodule, and run
 `check-hidden`, `check-motion`, `check-mask`, `check-glue` and the asset manifest check on that
 Brain. `check-framedata` and `prepack` run in none of them.
@@ -251,7 +249,7 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
   react-native-web を残すためです。`pnpm run check-layers` が、このパッケージ自身の import のつながり全体でこれを確かめます。
 - **パックはファイルではなくディレクトリです。** そのため `require()` はソースになり得ず、
   `assetExts` に `ssab` / `ssqb` を足してはいけません。
-- **ネイティブの peer はそれぞれ 1 つだけです。** React Native・Nitro Modules・RN Skia・Reanimated のどれかが 2 つあると、2 つのネイティブモジュールが同じ JSI オブジェクトを登録します（iOS では、自動リンクされた 2 つの pod）。`example/package.json` がそれらを固定しています。上げるときは手で、まとめて上げてください。
+- **ネイティブの peer はそれぞれ 1 つだけです。** React Native・Nitro Modules・RN Skia・Reanimated のどれかが 2 つあると、2 つのネイティブモジュールが同じ JSI オブジェクトを登録します（iOS では、自動リンクされた 2 つの pod）。`example/package.json` は React・React Native・RN Skia・Reanimated・Worklets を完全一致で固定し、Nitro Modules はキャレット指定です。固定したものは、上げるときに手で、まとめて上げてください。
 
 これらの理由がまたぐ層と、より詳しい理由は[プレイヤーの構成](https://cri-middleware.github.io/SSPlayerForReactNative/ja/development/architecture)にあります。
 
@@ -265,19 +263,19 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 2. 変更するファイルの既存のスタイルに合わせてください。
 3. CI が回せない検証を手元で実行してください（[開発環境](#開発環境のセットアップ)）。
 4. 変更は 1 つの目的に絞ってください。
-5. **何を、どのプラットフォームで確認したか**を書いてください。iOS と Android は挙動が分かれます。example の Player 画面がこれまでに捕まえたプラットフォーム固有の不具合は 1 件だけで、それは iOS のみで発生するものでした。
+5. **何を、どのプラットフォームで確認したか**を書いてください。iOS と Android は描画が分かれることがあるので、example の Viewer 画面で両方を確かめてください。
 
 ### ブランチとリリース
 
 このリポジトリは **git-flow** です。`develop` が統合ブランチで、プルリクエストはそこへ出します。`main` にはリリース済みのコミットだけが入り、メンテナーのリリースブランチを通してだけ進みます。
 
-パッケージのバージョンの系統は 1 つです。`react-native-spritestudio-ui` は `react-native-spritestudio` と同じバージョンで一緒にリリースします。ビルド対象の Brain のリリースは、それとは別に `scripts/SDK_VERSION.txt` で固定します。パッケージごとに個別にバージョニングし `main` から出す SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
+パッケージのバージョンの系統は 1 つです。`react-native-spritestudio-ui` は `react-native-spritestudio` と同じバージョンで一緒にリリースします。ビルド対象の Brain（SDK の Rust 再生ランタイム `libssruntime`）のリリースは、それとは別に `scripts/SDK_VERSION.txt` で固定します。パッケージごとに個別にバージョニングし `main` から出す SSPlayerForWeb とは異なります。ブランチモデルはバージョニングモデルに従います。
 
 リリース作業はメンテナーが行います（[RELEASING.md](./RELEASING.md) を参照）。
 
 ## 開発環境のセットアップ
 
-前提条件と初回の手順は README の[**クイックスタート**](./README.ja.md#-クイックスタート)にあります。Node 20 以上と、`package.json` の `packageManager` が指す版の pnpm を使用します（`corepack enable` で入ります）。
+前提条件と初回の手順は[**ビルドガイド**](./docs/ja/development/build.md)にあります。Node 24 以上と、`package.json` の `packageManager` が指す版の pnpm を使用します。
 
 ```bash
 pnpm install
@@ -303,9 +301,9 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 | `pnpm run check-ja-breaks` | Markdown で日本語の文字と文字の間に改行が無いこと（OS 不問・インストール不要） |
 | `pnpm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
 
-**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI はサブモジュールをチェックアウトしないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・`check-layers`・`check-ja-breaks`・スクリプトの構文・`files` ガードまでしか実行せず、ホスト側のチェックと `prepack` は動きません。Markdown だけのプルリクエストでは何も走りません。週次・手動実行・リリースのプルリクエストでは、さらに macOS で `check-shader` を実行し、submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドして、その Brain で `check-hidden`・`check-motion`・`check-mask`・`check-glue` とアセットマニフェストのチェックを実行します。`check-framedata` と `prepack` は、どの run でも実行しません。
+**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI はサブモジュールをチェックアウトしないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・`check-layers`・`check-ja-breaks`・スクリプトの構文・`files` ガードまでしか実行せず、ホスト側のチェックと `prepack` は動きません。Markdown だけのプルリクエストではこれらは走りません。`docs/` に触れるものだけは、`docs.yml` が Pages サイトをビルドし、リンク切れで失敗します。週次・手動実行・リリースのプルリクエストでは、さらに Pages サイトもビルドし、macOS で `check-shader` を実行し、submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドして、その Brain で `check-hidden`・`check-motion`・`check-mask`・`check-glue` とアセットマニフェストのチェックを実行します。`check-framedata` と `prepack` は、どの run でも実行しません。
 
-描画の確認は example の Player 画面で手動で行います。機能ごとにカードが 1 枚あり、それぞれが何を証明するかは [`example/README.md`](./example/README.md) に記載しています。
+描画の確認は example の Viewer 画面で手動で行います。機能ごとにカードが 1 枚あり、それぞれが何を証明するかは [`example/README.md`](./example/README.md) に記載しています。
 
 ### ツールチェインスクリプトを変更する場合
 

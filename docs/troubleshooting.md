@@ -84,7 +84,8 @@ loaded — those parts will not draw.
 ```
 
 An Instance part reaches an **external pack by name**. Same rule as the textures:
-it has to be in the output directory beside the `.ssab` that names it.
+it has to be in the output directory beside the `.ssab` that names it. An
+**Embedded** conversion does not change that — it embeds the textures, not the packs a part references.
 
 ## The sprite draws nothing and warns
 
