@@ -54,6 +54,11 @@ it). It solves the three things anyone writing their own will hit — an `asset`
 path an audio library can open, `loopNum` is a *count* where most APIs take a boolean, and iOS is
 silent under the ringer switch without `expo-audio`'s `setAudioModeAsync({ playsInSilentMode: true })`.
 
+**Skip what a seek lands on.** A `seek` makes the next update the player runs report the audio keys of
+the frame it landed on, though the playhead crossed none of them: at once while playing, and for a seek
+made while paused, by the first tick after `resume()`. To keep a seek silent, skip the keys on the landing
+frame that the first update after it reports. The first frame after `play()` is meant to sound.
+
 ## Lifecycle
 
 `onAnimationStarted`, `onAnimationChanged`, `onAnimationLooped` and `onAnimationFinished` all carry the
