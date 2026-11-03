@@ -46,7 +46,7 @@ under [Requirements](#-requirements).
    has the `expo-build-properties` line.
 2. **Convert** your `.sspj` with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)
    in the browser, the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI),
-   or the SDK's `ssconverter-cli`. Each gives you a folder named after the project (ssconverter-web
+   or the `ssconverter-cli` from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases). Each gives you a folder named after the project (ssconverter-web
    inside a ZIP), with the `.ssab` and its textures inside. Put that folder in `assets/ss/`, and point the config plugin at
    `assets/ss` in `app.json`:
 
@@ -94,7 +94,7 @@ under [Requirements](#-requirements).
 
 No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is — the page is in Japanese, the downloads are not. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
 
-**Read next:** [Basic playback](docs/usage/basic.md) · [Components at a glance](docs/components.md) · [UI buttons](docs/usage/ui.md) ·
+**Read next:** [Basic playback](docs/usage/basic.md) · [Components at a glance](docs/components.md) · [UI buttons](docs/usage/ui.md) (`react-native-spritestudio-ui`) ·
 [Limitations & Scope](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md)
 
 ## 📋 Requirements
@@ -104,6 +104,7 @@ No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.we
 | React Native | **New Architecture only** |
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
+| Expo | SDK 58, built with `expo prebuild` — packs ship through the Expo config plugin |
 | Peer deps | `react-native`, `react`, `react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — and `react-native-worklets`, which Reanimated 4 requires as a peer of its own rather than depending on. The version each one needs lives in [`peerDependencies`](packages/react-native-spritestudio/package.json), and your package manager enforces it at install |
 | SpriteStudio-SDK | pinned in [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) |
 
@@ -134,7 +135,8 @@ in the way.
 The example app in this repository plays the SDK's own test animations, converted from the
 `SpriteStudio-SDK` submodule. The [Build Guide](docs/development/build.md) is the path from clone
 to running app — and on to using a changed package in an app and checking on a device — and
-[the example app](example/README.md) says what each subject on its screen proves.
+[the example app](example/README.md) describes its four screens and how to look at a project of
+your own.
 [How the Player Is Put Together](docs/development/architecture.md) gives the layers and the reasons
 that span them. Converting those packs needs a Rust toolchain, because `deploy-examples` builds the
 SDK's `ssconverter-cli` from source.

@@ -35,7 +35,7 @@
    ```
 
    Android の `minSdkVersion` は 26 にします。`expo-build-properties` の書き方は [インストール](docs/ja/setup/install.md#3-アプリをビルドする) にあります。
-2. **変換**: `.sspj` を、ブラウザで開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または SDK の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを出力し（ssconverter-web は ZIP に入れて）、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
+2. **変換**: `.sspj` を、ブラウザで開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを出力し（ssconverter-web は ZIP に入れて）、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
 
    ```
    my-app/
@@ -79,7 +79,7 @@
 
 SpriteStudio のデータが手元に無くても始められます。[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
 
-**次に読む:** [基本的な再生](docs/ja/usage/basic.md) · [コンポーネント早見](docs/ja/components.md) · [UI ボタン](docs/ja/usage/ui.md) ·
+**次に読む:** [基本的な再生](docs/ja/usage/basic.md) · [コンポーネント早見](docs/ja/components.md) · [UI ボタン](docs/ja/usage/ui.md)（`react-native-spritestudio-ui`） ·
 [制約と適用範囲](docs/ja/limitations.md) · [トラブルシューティング](docs/ja/troubleshooting.md)
 
 ## 📋 要件
@@ -89,6 +89,7 @@ SpriteStudio のデータが手元に無くても始められます。[公式の
 | React Native | **New Architecture 専用** |
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
+| Expo | SDK 58、`expo prebuild` でビルド — パックは Expo config plugin で同梱します |
 | Peer deps | `react-native`、`react`、`react-native-skia`、`react-native-nitro-modules`、`react-native-reanimated` — および `react-native-worklets`（Reanimated 4 が依存ではなく自身の peer として要求するもの）。それぞれ必要なバージョンは [`peerDependencies`](packages/react-native-spritestudio/package.json) にあり、インストール時にパッケージマネージャが検証します |
 | SpriteStudio-SDK | [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) で固定 |
 
@@ -102,7 +103,7 @@ SpriteStudio のデータが手元に無くても始められます。[公式の
 
 ## ⚙️ プレイヤーを開発する場合
 
-このリポジトリのサンプルアプリは、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順（変更したパッケージをアプリで使う方法と、実機での確かめ方を含む）は[ビルドガイド](docs/ja/development/build.md)に、画面の各 subject が何を示しているかは [サンプルアプリ](example/README.md) にあります。層と、ファイルをまたぐ設計の理由は[プレイヤーの構成](docs/ja/development/architecture.md)にあります。このパックの変換には Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。
+このリポジトリのサンプルアプリは、`SpriteStudio-SDK` サブモジュールから変換した SDK 自身のテストアニメーションを再生します。クローンから起動までの手順（変更したパッケージをアプリで使う方法と、実機での確かめ方を含む）は[ビルドガイド](docs/ja/development/build.md)に、サンプルアプリの 4 つの画面と、自分のプロジェクトを表示する方法は [サンプルアプリ](example/README.md) にあります。層と、ファイルをまたぐ設計の理由は[プレイヤーの構成](docs/ja/development/architecture.md)にあります。このパックの変換には Rust ツールチェーンが必要です（`deploy-examples` が SDK の `ssconverter-cli` をソースからビルドするため）。
 
 ## 🔗 関連リポジトリ
 

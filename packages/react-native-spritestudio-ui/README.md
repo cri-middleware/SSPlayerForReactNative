@@ -34,7 +34,7 @@ It takes `react-native-spritestudio` as a peer at the same version — install a
    />
    ```
 
-Under the system's reduce motion setting each state holds its first frame, and `normal` plays a `reduced_motion` label instead when the animation has one. Without `accessibilityLabel` the button is decoration to a screen reader.
+Under the system's reduce motion setting (Reduce Motion on iOS, Remove animations on Android) each state holds its first frame; `normal`, and the states that fall back to it, play a `reduced_motion` label instead when the animation has one. Without `accessibilityLabel` the button is decoration to a screen reader.
 
 ## License
 

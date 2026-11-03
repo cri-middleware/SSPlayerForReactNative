@@ -27,8 +27,9 @@ Please include:
   information disclosure.
 - Steps to reproduce, ideally with a minimal `.ssab` and the smallest amount of
   TypeScript needed.
-- The player commit, the SpriteStudio SDK version (`scripts/SDK_VERSION.txt`),
-  your React Native and Expo SDK versions, and the platform.
+- The player version (or commit), the SpriteStudio SDK version (`native/VERSION`
+  in the installed package, `scripts/SDK_VERSION.txt` in a checkout), your React
+  Native and Expo SDK versions, and the platform.
 - Whether the input that triggers it comes from a trusted source in your project
   or from somewhere untrusted — a `source` may be an `http(s)` URL, so this
   distinction is real here.
@@ -52,9 +53,7 @@ runs FlatBuffers' generated verifier over the whole `.ssab` and throws if it
 fails, so a truncated download, a half-written cache or a deliberately malformed
 file is rejected rather than parsed. This matters because `libssruntime` parses
 with `root_as_..._unchecked` and states that invalid input is undefined
-behaviour; the gate is what stands between the two. It is exercised by a host
-check against every pack in `example/`, fourteen corruption cases and 4,096
-single-bit flips under ASan and UBSan.
+behaviour; the gate is what stands between the two.
 
 **The reference graph is not bounded, on purpose.** An Instance part that mounts
 its own animation has no finite expansion, and nothing here stops the load
@@ -90,8 +89,7 @@ over a channel you control and treat it as content you vouch for.
 
 - 影響の内容（クラッシュ、境界外読み取り、任意コード実行、情報漏洩など）
 - 再現手順。可能であれば最小限の `.ssab` と、必要最小限の TypeScript
-- プレイヤーのコミット、SpriteStudio SDK のバージョン（`scripts/SDK_VERSION.txt`）、
-  React Native と Expo SDK のバージョン、対象プラットフォーム
+- プレイヤーのバージョン（またはコミット）、SpriteStudio SDK のバージョン（インストール済みパッケージの `native/VERSION`、チェックアウトでは `scripts/SDK_VERSION.txt`）、React Native と Expo SDK のバージョン、対象プラットフォーム
 - 引き金となる入力が、プロジェクト内の信頼できるものか、信頼できない経路から来たものか。`source` は `http(s)` URL を受け付けるため、この区別は実際に意味を持ちます
 
 受領の確認、再現可否、修正版の公開時期についてご連絡します。修正を公開するまでの間、公表をお待ちいただけますようお願いします。
@@ -102,10 +100,10 @@ over a channel you control and treat it as content you vouch for.
 
 ## 既知の注意点
 
-このプレイヤーはバイナリのアニメーションデータ（`.ssab`）を読み込み、ネイティブコードへ渡します。パックをどこまで信頼するかを判断する前に、2点を把握してください。
+このプレイヤーはバイナリのアニメーションデータ（`.ssab`）を読み込み、ネイティブコードへ渡します。パックをどこまで信頼するかを判断する前に、2 点を把握してください。
 
 **バッファはランタイムに渡す前に検証されます。** `HybridSsResource::adopt()` が
-FlatBuffers の生成する verifier を `.ssab` 全体に対して実行し、失敗すれば例外を投げます。途中で切れたダウンロード、書きかけのキャッシュ、意図的に壊されたファイルは、解析される前に弾かれます。`libssruntime` は `root_as_..._unchecked` で解析し、不正な入力は未定義動作であると明記しているため、このゲートがその間に立っています。`example/` の全パック、14種の破壊ケース、4,096通りの単一ビット反転を ASan / UBSan 付きで検査しています。
+FlatBuffers の生成する verifier を `.ssab` 全体に対して実行し、失敗すれば例外を投げます。途中で切れたダウンロード、書きかけのキャッシュ、意図的に壊されたファイルは、解析される前に弾かれます。`libssruntime` は `root_as_..._unchecked` で解析し、不正な入力は未定義動作であると明記しているため、このゲートがその間に立っています。
 
 **参照グラフは意図的に制限していません。** 自分のアニメーションをマウントする Instance
 部品には有限の展開が存在せず、スタックが尽きるまで再帰します。これは意図的な非目標です（[ROADMAP.md](ROADMAP.md#deliberate-non-goals)）。どのパックを再生するかはアプリ側の責任であり、循環参照はエディタ上で作者が確認できるコンテンツ側の不具合である、という判断によります。
