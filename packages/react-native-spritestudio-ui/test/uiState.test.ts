@@ -90,6 +90,13 @@ describe('the UI state rule', () => {
     expect(resolve('normal', 'with_hover', { reducedMotion: true })).toEqual(['with_hover', 0, 24, true])
   })
 
+  it('plays reduced_motion where normal falls back to the whole animation', () => {
+    expect(resolve('normal', 'calm_only', { reducedMotion: true })).toEqual(['calm_only', 40, 59, false])
+    expect(resolve('hover', 'calm_only', { reducedMotion: true })).toEqual(['calm_only', 40, 59, false])
+    // A state with a label of its own still holds it.
+    expect(resolve('pressed', 'calm_only', { reducedMotion: true })).toEqual(['calm_only', 20, 39, true])
+  })
+
   it('knows no section for an animation the pack does not have', () => {
     expect(resolve('normal', 'nope')).toBeNull()
   })
