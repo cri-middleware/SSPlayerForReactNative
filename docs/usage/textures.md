@@ -6,8 +6,9 @@ description: Where atlases come from, replacing one at runtime, and paying the l
 # Textures & resources
 
 A pack loads its own atlases and you can ignore this page entirely. It covers
-the three cases where you cannot: replacing a texture, sharing one between
-players, and making the load happen before the mount rather than during it.
+the two cases where you cannot: replacing a texture, and making the load happen
+before the mount rather than during it. Players of one pack already share its parsed file and decoded
+atlases.
 
 ## Where a pack's atlases come from
 
@@ -52,8 +53,9 @@ siblings to resolve, which is exactly what Metro is good at.
 :::
 
 `useSsTextures` is the hook behind the prop, exported for a caller that wants
-the decoded `SkImage`s. It returns `null` until every texture has decoded, so
-you can hold off drawing rather than flash a frame with a missing atlas.
+the `SkImage`s. It returns `null` until every texture has been read and created as an `SkImage`, so you
+can hold off drawing rather than flash a frame with a missing atlas; the pixels decode at the first
+draw that uses them, unlike a pack's own atlases, which decode on a worker before they register.
 
 ### From code, at runtime
 
@@ -69,6 +71,10 @@ ref.current?.player?.setCellmapTexture('Ringo', winterAtlas)   // swap
 ref.current?.player?.setCellmapTexture('Ringo', null)          // back to the pack's own
 ```
 
+`winterAtlas` is a Skia `SkImage` — what `useSsTextures` hands back, or one you decoded yourself — not a
+`require()` or a URI. The player references it and never disposes it, so keep it alive for as long as
+it is in effect.
+
 This is what an avatar system is built on: one animation, and a wardrobe of
 atlases you switch between, instead of a separate export per costume. Passing
 `null` **restores** the pack's own atlas — it reloads nothing you have to
@@ -77,8 +83,8 @@ override only, never the pack's own), and `getReplaceableTextureNames()` lists
 every name you may pass — the cellmap names plus the texture *file* names an
 authored texture change points at.
 
-Three things worth knowing, all from the SDK's own
-[Runtime texture replacement](https://github.com/cri-middleware/SpriteStudio-SDK/blob/develop/libs/ssruntime/docs/50_features/30_external_resources.md#3-replacing-textures-at-runtime)
+Three things worth knowing; the last is the SDK's own
+[Runtime texture replacement](https://github.com/cri-middleware/SpriteStudio-SDK/blob/HEAD/libs/ssruntime/docs/50_features/30_external_resources.md#3-replacing-textures-at-runtime)
 spec:
 
 - **It reaches instance children.** The whole player tree draws through one
@@ -101,21 +107,23 @@ Each player owns one, reachable as `player.textures`:
 player.textures.register('Ringo', someSkImage)
 ```
 
-Supplying a shared registry through `SpriteStudioPlayerOptions` is what lets
-several players draw from **one** set of atlases. `register` takes the cellmap
+A registry passed through `SpriteStudioPlayerOptions` is shared by every player that receives it, for a
+`SpriteStudioPlayer` you construct yourself (the view and the sprite always make their own). Atlases are
+shared between players anyway; what a shared registry adds is that one `setCellmapTexture` or `register`
+reaches all of them, and that two packs naming a cellmap alike draw with whichever atlas registered
+first. Share it only between players of one pack. `register` takes the cellmap
 name and hashes it through the runtime; `registerByHash` takes a hash you already
 have.
 
 ::: warning Never hash a name yourself
-Every key the Rust core hands over is pre-baked with its own FNV-1a, and
-`SsRuntimeModule.hashString` exposes exactly that function. A second implementation is
-one more than can be kept in agreement.
+A hash taken from a name must come from `SsRuntimeModule.hashString`; `register` and
+`setCellmapTexture` already call it, and `registerByHash` takes one you got from it.
 :::
 
 ## Preloading
 
-Parsing the `.ssab` happens in C++ against bytes that never enter the JS heap.
-Decoding the atlases does not — **every texture is a PNG decode**, and that is
+Parsing the `.ssab` happens in C++, and for a bundled or file source against bytes that never enter the
+JS heap (a URL source is fetched into an `ArrayBuffer` first). Decoding the atlases is different — **every texture is a PNG decode**, and that is
 the slow half. A view that mounts against a cold cache shows its `placeholder`
 while the atlas arrives.
 
@@ -126,10 +134,8 @@ await ssPreload(SsAssets['Ringo/Ringo'])   // before the navigation
 ssUnload(SsAssets['Ringo/Ringo'])          // when the screen is gone
 ```
 
-`ssPreload` warms both caches by loading a whole player and throwing it away —
-there is no shorter route, because the texture list is read out of the `.ssab`
-by a context, and a context *is* a player. What survives is exactly the cache
-entries. Calling it twice for one source is safe and does the work once.
+`ssPreload` warms the resource cache (the parsed `.ssab`) and the atlas cache (the decoded images) and
+keeps only those entries. Calling it twice for one source is safe and does the work once.
 
 `ssUnload` drops the preload's own lease, not everybody's: a pack still mounted
 somewhere stays loaded. `ssClearCaches()` drops the lot, which is what an app
@@ -137,9 +143,8 @@ under memory pressure wants.
 
 ## When a texture does not resolve
 
-A missing texture is **silent by construction**: the batch is skipped, so the
-symptom is a part that is simply not there. `player.lastTextureReport` is what
-says so out loud.
+A missing texture does not throw: the batch is skipped, so the symptom is a part that is simply not
+there. A dev build warns on the console; in production `player.lastTextureReport` is what says so.
 
 ```tsx
 console.log(player.lastTextureReport?.unresolved)
@@ -150,14 +155,14 @@ See [Troubleshooting](/troubleshooting#a-part-is-missing-or-nothing-draws).
 
 ## Checking for leaks
 
-Native handles are not garbage collected. `ssCheckForLeaks(source)` loads and
-disposes N times (8 by default) and reports whether the counts came back:
+Native handles are not garbage collected. `ssCheckForLeaks(source)` loads and disposes the pack `cycles`
+times (8 by default, `{ cycles }` to change it) and reports whether the counts came back. It empties
+both caches before it measures and again after, so anything `ssPreload` warmed is gone when it returns.
 
 ```tsx
 const result = await ssCheckForLeaks(SsAssets['Ringo/Ringo'])
+if (result.leaked || result.registryLeaked) console.warn(result)
 ```
 
-`ssLiveHandles()` is the raw counts. Both ship in the package rather than living
-in this repo's example app, because the platform where a leaked handle actually
-costs anything is a device — and a check that only exists here cannot be run
-there.
+`ssLiveHandles()` is the raw counts, `{ resources, contexts }`. Both ship in the package, so they run on
+a device.

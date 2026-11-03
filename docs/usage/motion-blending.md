@@ -24,7 +24,8 @@ crossfades instead of cutting.
 
 With `transitionMs` at `0` (the default) a change sets the new animation up outright and heads
 out into it. The first animation of a load is always set up outright — there is
-nothing on screen yet to fade from.
+nothing on screen yet to fade from. That outright switch is `setAnimation`, so it also takes any
+overlay on tracks above 0 with it; with `transitionMs` above 0 the overlays stay.
 
 ::: warning Switch track 0 through one route
 With `animation` driving track 0, switch it through the prop and not through the player's
@@ -54,7 +55,8 @@ flowchart BT
 
 **Track 0 is special.** It is what `setAnimation` lays, and its animation is the one the player
 reports: `currentAnimation`, `isPlaying`, `isFinished`, `justLooped`, the frame, the events and
-the canvas all follow it. The tracks above it are overlays.
+`canvasBox` all follow it (the box a view fits against stays the canvas of the animation the load
+started on — see [Basic playback](/usage/basic#where-the-box-comes-from)). The tracks above it are overlays.
 
 | Blend mode | What it does |
 |---|---|
@@ -140,8 +142,8 @@ player.setSourceWeight(run, t)
   strength is still its alpha.
 * A walk and a run of different lengths drift apart. Lay the run with the track's sync at
   `SsTrackSync.start` (below) to start it in step, or seek it with `setSourceFrame`.
-* A handle stays valid until its source is released: a crossfade completing, `clearTrack`, or
-  `setAnimation`. Handles are reused, so read `trackMainSource` again rather than keep one.
+* A handle stays valid until its source is released: a crossfade completing, `setTrackAnimation` or
+  `clearTrack` on its track, or `setAnimation`. Handles are reused, so read `trackMainSource` again rather than keep one.
 
 ## Starting in step with track 0
 
@@ -173,6 +175,8 @@ the animation on it: they reach every animation on the track, both sides of a cr
 and every one laid on it later.
 
 ```ts
+import { SsPlaybackDirection, SsPlaybackStyle } from 'react-native-spritestudio'
+
 player.setTrackSpeed(1, 0.5)
 player.setTrackFrameRate(1, 24)
 player.setTrackFrameSkipEnabled(1, false)
@@ -220,7 +224,9 @@ Only track 0's main source fires events by default. Every event carries the `sou
 it, the same handle `trackMainSource` and `addTrackSource` give out.
 
 * To hear another source, lower its threshold to its weight or below with
-  `setSourceEventThreshold`.
+  `setSourceEventThreshold`. A threshold belongs to its source: the source `setTrackAnimation` or
+  `crossfade` lays on a track above 0 starts at the default again, so lower it again after each change
+  of animation.
 * **The outgoing side of a crossfade falls silent when the fade begins** — the moment the
   incoming side starts firing. `setTrackOutgoingEventThreshold(track, 0.5)` keeps it firing
   through the first half of the fade. If you count events, this is the setting that changes what
@@ -228,7 +234,8 @@ it, the same handle `trackMainSource` and `addTrackSource` give out.
 
 ## Reading back, and refusals
 
-Every read returns `null` where there is nothing to report — `trackAlpha(3)` on a player with two
+Every value read returns `null` where there is nothing to report (the state reads `isTrackFinished` and
+`trackJustLooped` return `false`) — `trackAlpha(3)` on a player with two
 tracks, `trackFadeProgress(0)` with no fade in flight. `trackCount` says how many tracks exist.
 
 A command that did nothing returns `false` (`addTrackSource`, `null`) and says why on the console:
@@ -241,10 +248,3 @@ once per call and target, so a state machine repeating it every frame writes one
   crossfade on track 0 is outside motion blending too.
 * A track's **alpha** is its strength. Where several animations share one track, a source's
   *weight* only sets proportions among them — it is not a second volume control.
-
-## See it
-
-The example app's **Blending** tab drives all of this by hand: crossfade or cut on track 0, an
-overlay on track 1 with its alpha, blend and loop count, track 0's speed and loop count, the sync
-of both tracks, and whether the outgoing side fires. Its status line names track 0's animation, which changes
-the moment a crossfade starts, and lists the last events with the source that fired them.

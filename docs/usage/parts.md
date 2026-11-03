@@ -38,12 +38,10 @@ override is a patch, not a replacement.
 | `color` | `string \| number` | A tint. Anything Skia parses (`'#f00'`, `'rgba(255,0,0,.5)'`) or a packed `0xRRGGBBAA` number. |
 | `blendOp` | `SsBlendOpValue` | How the tint combines: `SsBlendOp.mix` / `.mul` / `.add` / `.sub`. Default `mix`. |
 | `cell` | `SsCellRef` | Swap which cell the part samples. |
-| `priority` | `SsOverridePriorityValue` | How long it outlives the timeline. |
+| `priority` | `SsOverridePriorityValue` | For `color` and `cell`: how long the override outlives the timeline (below). `hide` has none: it always beats the animation's keys and is cleared when another animation is set up. |
 
 ::: tip Colour strings go through Skia
-`color` is parsed by `Skia.Color`, not by a parser written in this package — a
-second implementation of a shared notion is one more than can be kept in
-agreement. `ssPackColor` is the same conversion, exported for a caller that
+`color` is parsed by `Skia.Color`. `ssPackColor` is the same conversion, exported for a caller that
 wants the packed number itself.
 :::
 
@@ -72,8 +70,7 @@ image.
 
 ### How long an override lasts
 
-`priority` defaults to `SsOverridePriority.holdUntilNextAnimation`, the C-API's
-own default (`HoldUntilNextAnimation`).
+`priority` applies to `color` and `cell` and defaults to `SsOverridePriority.holdUntilNextAnimation`.
 
 What makes a map carrying `hat: { hide: true }` mean "the hat is hidden for
 as long as the prop says so" is not the priority but the replay: as below, the
@@ -125,6 +122,13 @@ const style = useAnimatedStyle(() => ({
 }))
 ```
 
+```tsx
+// pinned at the view's top-left, turning about its own top-left, like the anchor
+<Animated.View style={[{ position: 'absolute', left: 0, top: 0, transformOrigin: 'left top' }, style]}>
+  <HealthBar />
+</Animated.View>
+```
+
 What it reports is **view pixels, with the root transform already applied** —
 the space the view's `children` live in. There is nothing left to project.
 
@@ -146,6 +150,16 @@ shear — so it never enters the world matrix and never reaches a follower.
 `getPartTransform` reports **position, rotation and scale only**. A view riding
 a sheared part, or a part *under* a sheared parent, stays unsheared. That is
 what SpriteStudio shows: Skew does not inherit to children or attachments.
+:::
+
+::: info Mirrored parts
+Under the view's `flipX` or `flipY` a follower is not mirrored: it gets the mirrored position and
+angle, upright. A part the **artist** mirrored — a negative Scale on itself or an ancestor, such as a
+character authored facing left — has no pure rotation: `getPartTransform` and `useSsPartTransform`
+put that mirror on `scaleY` (negative) and keep the rest in `rotation`, so a horizontal one reads as
+`rotation` π. `<SpriteStudioPartAnchor>` turns with the part and ignores scale by default, so a view on
+such a part comes out upside down; pass `scale` to mirror the view with the part, or
+`rotation={false}` to keep it upright.
 :::
 
 ### Whether the part is showing this frame
@@ -214,7 +228,8 @@ rotated or flipped part has them wherever the pose put them.
 
 `hitTestPart(x, y, parts?)` takes a point in the same space and returns the
 index of the front-most part whose outline holds it, among the parts you name
-(names or indices, every part when you name none). It returns `-1` when none
+(names or indices; omit it for every part — an empty list, or names the animation does not have,
+hit nothing). It returns `-1` when none
 does, as `findPartIndex` does for an unknown name.
 
 ```ts

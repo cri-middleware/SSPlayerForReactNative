@@ -21,7 +21,7 @@ description: SpriteStudioView の prop、source に指定できるもの、そ�
 
 | 形式 | 例 |
 |---|---|
-| アセットルート内のパス | `"ss/Ringo/Ringo.ssab"` |
+| config plugin が同梱するフォルダ内のパス（そのフォルダ名から始める） | `"ss/Ringo/Ringo.ssab"` |
 | ファイルシステムのパス、`file://` URI | ダウンロード、展開済みバンドル |
 | `http(s)` URL | 開発サーバー、CDN |
 
@@ -39,6 +39,7 @@ description: SpriteStudioView の prop、source に指定できるもの、そ�
 ```tsx
 const ref = useRef<SpriteStudioViewRef>(null)
 ref.current?.player?.setAnimation('walk')
+ref.current?.player?.play() // setAnimation は選ぶだけ。開始は play()
 ```
 
 再生状態を所有しているのはプレイヤーで、その上の層はそれを複製しません — prop は素通しです。シークや再生方向、ピンポン再生、そして直感に反する挙動については[再生の制御](/ja/usage/transport)が扱います。
@@ -46,6 +47,8 @@ ref.current?.player?.setAnimation('walk')
 ## サイズ {#size}
 
 サイズを指定しなければ、ビューはボックスの大きさになります — 作者のキャンバスを 1 単位 1 ポイントで。バンドルした画像を表示する `<Image>` と同じです。`width` と `height` の片方だけを指定すると、もう片方はボックスの縦横比で決まります。両方、または `flex` を指定したときは style だけで決まります。
+
+`SsAssets` は `npx react-native-spritestudio assets` が生成する型付きマニフェストで、各値がそうしたパスです（[クイックスタート](/ja/setup/quickstart)）。
 
 ```tsx
 <SpriteStudioView source={SsAssets['Ringo/Ringo']} />                          // 800×600
@@ -60,21 +63,21 @@ ref.current?.player?.setAnimation('walk')
 
 | prop | 既定値 | 意味 |
 |---|---|---|
-| `fit` | `'contain'` | ボックスの拡縮方法：`contain`・`cover`・`none`。`<Image resizeMode>` と同じ語彙です。 |
+| `fit` | `'contain'` | ボックスの拡縮方法：`contain`・`cover`・`none`。`<Image resizeMode>` と同じ語彙です。`none` はフィットなしで、スケール 1・原点はビューの中心になり、`align`・`frame`・`frameScope` は効きません。配置は `offset` と `scale` で行います。 |
 | `align` | `'center'` | ボックスのどの点をビューの対応する点に合わせるか。 |
 | `offset` | — | `fit`/`align` が決めた位置からのピクセル数。`fit="none"` ではビュー中心からの計測になります。 |
 | `scale` | `1` | fit によるスケールに**上乗せ**する倍率。 |
 | `flipX` / `flipY` | `false` | 反転。 |
 
-`align` は `center`・`top`・`bottom`・`left`・`right` と 4 隅を取ります。
+`align` は `center`・`top`・`bottom`・`left`・`right`・`top-left`・`top-right`・`bottom-left`・`bottom-right` を取ります。
 
 ### ボックスをどこから取るか
 
-何も渡さなければ、ボックスは**ビューがロード時に始めたアニメーションの作者のキャンバス**です。キャンバスの大きさを、ピボットで原点に対して置いたものです。コストは掛からず、アニメーションを切り替えても動きません — 1 つのパックの中でもキャンバスは違い（`Ringo` は多くが幅 800 で、`dead` は 1300）、それに追従するとキャラクターが倒れながら縮んでしまうためです。`source` を変えると取り直します。作者が構図を決めた枠であって、絵の描かれる範囲そのものではないので、絵がキャンバスからはみ出すパックはビューからもはみ出します。
+何も渡さなければ、ボックスは**ビューがロード時に始めたアニメーションの作者のキャンバス**です。キャンバスの大きさを、ピボットで原点に対して置いたものです。コストは掛からず、アニメーションを切り替えても動きません — 1 つのパックの中でもキャンバスは違い（`Ringo` はほかが幅 800 で、`dead` は 1300）、それに追従するとキャラクターが倒れながら縮んでしまうためです。`source` を変えると取り直します。作者が構図を決めた枠であって、絵の描かれる範囲そのものではないので、絵がキャンバスからはみ出すパックはビューからもはみ出します。
 
 | prop | 意味 |
 |---|---|
-| `frame` | ボックスを自分で与えます。 |
+| `frame` | ボックスを自分で与えます。`{ x, y, width, height }` で、プレイヤーローカル単位・Y 下向き、`x`/`y` は左上隅です。`frameScope` より優先されます。 |
 | `frameScope` | 代わりにボックスを計測します。`'animation'` は再生中のものを走査し、`'pack'` はファイル内の全アニメーションの和を取ります。省略すると計測しません。 |
 | `measureFrames` | 走査の上限。既定は `0` で、作成時の 1 サイクル分です。 |
 

@@ -48,8 +48,8 @@ wiring to your app going to the background.
 
 ## A player that holds still costs next to nothing
 
-A player that is not playing (never started, stopped, or finished) builds no
-frame, and neither does a paused one with no effect or instance part, since
+A player that is not playing (never started, stopped, or finished with nothing else still moving the
+pose) builds no frame, and neither does a paused one with no effect or instance part, since
 nothing in it can move. Its view keeps the picture it last drew until something
 changes it: a seek, another animation, an override, a texture swap or a new
 placement. A `<SpriteStudioView>` holding still runs no frame loop until then,
@@ -80,8 +80,8 @@ read whenever any member moves, because the scene redraws them all. See
 
 ## Loading is where the wait actually is
 
-Parsing the `.ssab` is cheap and happens in C++ against bytes that never enter
-the JS heap. **Decoding the atlases is not** — every texture is a PNG decode,
+Parsing the `.ssab` is cheap and happens in C++ (for a bundled or file source, against bytes that
+never enter the JS heap; a URL source is fetched into an `ArrayBuffer` first). **Decoding the atlases is not** — every texture is a PNG decode,
 and that is the slow half. It runs on a worker thread, so neither the JS thread
 nor the UI thread waits for it, and a view mounting against a cold cache shows
 its `placeholder` while it happens. A decoded atlas then takes width × height ×
@@ -89,9 +89,8 @@ its `placeholder` while it happens. A decoded atlas then takes width × height �
 
 - **Warm the cache before the navigation** with `ssPreload` —
   [Preloading](/usage/textures#preloading).
-- **Share one registry between players** so several draw from one set of
-  atlases, rather than decoding the same cellmap twice —
-  [Textures & resources](/usage/textures).
+- **Players of one pack share its atlases.** The `.ssab` is parsed once and each atlas decoded once
+  however many players mount it — [Textures & resources](/usage/textures).
 - **Remember what an Embedded pack costs.** Its encoded bytes stay resident for
   the life of the resource, on top of the decoded texture. A Reference pack
   keeps one file per texture and shares it between packs naming the same
