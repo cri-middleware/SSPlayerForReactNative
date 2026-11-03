@@ -24,7 +24,7 @@ features:
   - title: Raster art, smooth at any refresh rate
     details: It animates hand-painted raster (PNG/bitmap) sprite art — a different fit from vector animation tools, and lighter than a .gif or .mp4 — with a float playhead evaluated at draw time so motion follows your display's refresh rate and playback speed.
   - title: No vertex passes through JavaScript
-    details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI), and a frame costs no React render. That is what lets a busy scene stay at 60 fps.
+    details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI), and a frame costs no React render. JavaScript makes the same few native calls per frame however complex the animation is.
   - title: Events, overrides and dynamic costumes
     details: React to timeline events from JavaScript, recolour, hide or swap individual parts at runtime, or replace the atlas a cellmap draws from via `player.setCellmapTexture(name, image)` (`null` restores the original) without re-exporting.
   - title: Blend animations instead of cutting

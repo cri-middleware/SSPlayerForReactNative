@@ -15,7 +15,7 @@ need, and in roughly the order you will need it.
 | [`SpriteStudioView`](/api/) | One animation, its own canvas and frame loop. The default. |
 | [`SpriteStudioScene`](/api/) + `SpriteStudioSprite` | Many animations, one canvas and one clock. |
 | `SsPlayerProps` | Everything about *which animation and how it plays* — shared by both components, so they cannot drift. |
-| `SsPlacement` | Everything about *where it is drawn* — `fit`, `align`, `frame`, `offset`, `scale`. |
+| `SsPlacement` | Everything about *where it is drawn* — `fit`, `align`, `frame`, `frameScope`, `offset`, `scale`, `flipX`, `flipY`. |
 
 ## When you need the player itself
 
@@ -51,8 +51,8 @@ player, so a view that mounts against a warm cache draws on its first frame.
   native handle counts came back — a leak check you can run in your own app.
 - `SsRuntimeModule.liveHandles` — the counts themselves.
 - `player.lastTextureReport` — what the last load could not resolve. A missing
-  texture is otherwise silent: the batch is skipped, so the symptom is a part
-  that is simply not there.
+  texture does not throw: the batch is skipped, so the symptom is a part that is
+  simply not there. A dev build warns; a release build does not, so read this.
 
 ## Textures
 

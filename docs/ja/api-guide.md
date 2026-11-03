@@ -14,7 +14,7 @@ description: 公開されている名前のうち実際に必要なものと、�
 | [`SpriteStudioView`](/api/) | アニメーション 1 つ、自前のキャンバスとフレームループ。既定の選択肢です。 |
 | [`SpriteStudioScene`](/api/) + `SpriteStudioSprite` | 複数のアニメーション、キャンバス 1 枚とクロック 1 つ。 |
 | `SsPlayerProps` | *どのアニメーションをどう再生するか*のすべて。両コンポーネントで共有されるので、両者がずれることはありません。 |
-| `SsPlacement` | *どこに描画するか*のすべて — `fit`・`align`・`frame`・`offset`・`scale`。 |
+| `SsPlacement` | *どこに描画するか*のすべて — `fit`・`align`・`frame`・`frameScope`・`offset`・`scale`・`flipX`・`flipY`。 |
 
 ## プレイヤー自体が必要になったら
 
@@ -37,7 +37,7 @@ prop を持たない、命令的にしか呼べない操作もここにありま
 
 - `ssCheckForLeaks(source)` — N 回ロードと破棄を行い、ネイティブハンドルのカウントが戻ったかを報告します。自分のアプリの中で実行できるリーク検査です。
 - `SsRuntimeModule.liveHandles` — カウントそのもの。
-- `player.lastTextureReport` — 直近のロードで解決できなかったもの。テクスチャの欠落はそうでなければ無言です。バッチがスキップされるため、症状は「あるパーツが単に存在しない」ことになります。
+- `player.lastTextureReport` — 直近のロードで解決できなかったもの。テクスチャが欠けても例外にはならず、バッチがスキップされるため、症状は「あるパーツが単に存在しない」ことになります。開発ビルドは警告を出しますが、リリースビルドは出さないので、これを読んでください。
 
 ## テクスチャ
 

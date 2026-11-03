@@ -33,7 +33,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 
 | Prop group | |
 |---|---|
-| What plays | `source`, `animation`, `playing`, `speed`, `loop` |
+| What plays | `source`, `animation`, `transitionMs`, `playing`, `speed`, `loop` |
 | Where it lands | `fit`, `align`, `offset`, `scale`, `flipX`, `flipY`, `style` |
 | The box | `frame`, `frameScope`, `measureFrames` |
 | Reacting | `onUserData`, `onAudio`, `onSignal`, `onLoad`, `onError`, `onAnimationFinished`, `onAnimationLooped`, `onAnimationStarted`, `onAnimationChanged` |
@@ -45,7 +45,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 Given no size, it lays out like an `<Image>` of the authored canvas — see
 [Basic playback](/usage/basic#size).
 
-`ref.current.player` is the Layer 3 [`SpriteStudioPlayer`](/usage/transport) —
+`ref.current.player` is the [`SpriteStudioPlayer`](/usage/transport) —
 seek, switch animation, read the content box.
 
 ::: warning Twenty of these is twenty canvases
@@ -60,6 +60,7 @@ itself beyond the canvas they share.
 
 ```tsx
 import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio'
+import { SsAssets } from './ss-assets' // the typed manifest from Quick Start
 
 <SpriteStudioScene style={{ flex: 1 }} paused={backgrounded}>
   <SpriteStudioSprite source={SsAssets['Ringo/Ringo']} x={100} y={200} />
@@ -153,6 +154,8 @@ Follows a part with a Reanimated shared value — a health bar over a head. The
 one hook an ordinary app is likely to want.
 
 ```tsx
+// in a component rendered inside <SpriteStudioView>'s children
+const player = useSsViewPlayer()
 const transform = useSsPartTransform(player, 'head')
 ```
 
@@ -179,7 +182,7 @@ See [Textures & resources](/usage/textures#replacing-a-texture).
 
 ### `useSpriteStudioPlayer`
 
-Owns one Layer 3 player for a component: loads it, keeps the transport props on
+Owns one `SpriteStudioPlayer` for a component: loads it, keeps the transport props on
 it, reports when it is drawable. **Deliberately not a clock** — who advances the
 player is the caller's business.
 

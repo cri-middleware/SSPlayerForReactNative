@@ -6,7 +6,7 @@ description: .sspj から .ssab への変換と、パックがファイルでは
 # アセットの準備（`.sspj` → `.ssab`）
 
 SpriteStudio が保存するのは `.sspj` プロジェクトで、このパッケージが再生するのは
-`.ssab` です。その間の変換は**あなた自身が**手元のマシンで、**ビルド時に一度だけ**実行する手順です。React Native にはインポータを載せるエディタが無いので、エンジン系のプレイヤーと違って自動の経路はなく、実行時に変換されるものもありません。変換はあなたが持つ手順です。
+`.ssab` です。その間の変換は**あなた自身が**手元のマシンで、**ビルド時に一度だけ**実行する手順です。React Native にはインポータを載せるエディタが無いので、自動の経路はなく、実行時に変換されるものもありません。変換はあなたが持つ手順です。
 
 ```mermaid
 graph LR
@@ -65,8 +65,8 @@ graph LR
 
 | ツール | 向いている場面 | 入手方法 |
 |---|---|---|
-| `ssconverter-web` | 数個を手作業で変換。インストール不要 | <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">ホスト版のコンバータ</a>を開く |
-| SSConverter GUI | デスクトップ GUI で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
+| `ssconverter-web` | 数個を手作業で変換。インストール不要 | <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">ホスト版のコンバータ</a>を開く（ZIP でダウンロードされるので展開します） |
+| SSConverter GUI | デスクトップ GUI（macOS・Windows）で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
 | `ssconverter-cli` | CI、バッチ、再現性 | [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) のバイナリ |
 
 ::: info `ssconverter-web` へのフォルダのドロップには Chromium 系ブラウザが必要です
@@ -74,7 +74,7 @@ graph LR
 :::
 
 ::: tip 変換そのものは、全プレイヤー共通で 1 か所に書かれています
-[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)がこのパッケージの取る経路で、ツールの選び方とビルドや CI パイプラインへの組み込みを扱っています。[アセットの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/conversion/)は全体像です — 一部のエンジンが取り込み時に変換し、これがそうしない理由も含みます。
+[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)がこのパッケージの取る経路で、ツールの選び方とビルドや CI パイプラインへの組み込みを扱っています。[アセットの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/conversion/)は変換経路の全体像です。
 :::
 
 ## パックはファイルではなくディレクトリです
@@ -99,7 +99,7 @@ Metro はこれを運べません。`require()` が名指ししたものだけ�
 プラグインはビルドのたびに再コピーするので、コンバータを再実行した後はリビルドだけで済み、`prebuild` のやり直しは不要です。
 
 ::: warning アセットは Fast Refresh されません
-パックを変更したらネイティブビルドが必要です。回避策はありません。このファイルはバンドルのエントリではなくアプリのアセットだからです。
+同梱したパックを変更したらネイティブビルドが必要です。このファイルはバンドルのエントリではなくアプリのアセットだからです。`http(s)` URL で配信するパックは例外で、そこから読み込むのでビルドし直す必要はありません（[基本的な再生](/ja/usage/basic)）。
 :::
 
 ## Reference パックと Embedded パック {#reference-and-embedded-packs}
