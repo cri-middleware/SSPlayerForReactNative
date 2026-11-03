@@ -37,6 +37,8 @@ React Native には標準のオーディオ API がなく、パッケージ側�
 
 参照実装はリポジトリの [`example/src/player/audio.ts`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/example/src/player/audio.ts) です（`playAudioEvent(baseUri, event)` は `.ssab` 自身の URI を取ります。音声の `filePath` がそれからの相対パスだからです）。自分で書く人が必ずぶつかる 3 点を解決しています — `asset` スキームの兄弟ファイルにはオーディオライブラリが開けるパスが無いこと、`loopNum` は多くの API がブール値を取るところで*回数*であること、そして iOS は `expo-audio` の `setAudioModeAsync({ playsInSilentMode: true })` が無いとサイレントスイッチで無音になることです。
 
+**seek の移動先は鳴らさない。** `seek` すると、プレイヤーが次に回す更新が、移動先のフレームのオーディオキーを報告します。再生中ならすぐ、一時停止中の seek なら遅くとも `resume()` の後の最初の tick です。再生ヘッドはそのキーを通過していないので、seek で音を出したくなければ、seek の後の最初の更新が報告する移動先のフレームのキーを飛ばしてください。`play()` の直後の開始フレームの音は鳴らすものです。
+
 ## ライフサイクル
 
 `onAnimationStarted`・`onAnimationChanged`・`onAnimationLooped`・`onAnimationFinished` はいずれもアニメーション名を運びます。1 つのプレイヤーは、その上に載るアニメーションより長生きするからです。
