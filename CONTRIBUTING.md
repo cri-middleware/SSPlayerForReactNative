@@ -136,16 +136,17 @@ a `src/**/*.test.ts` would land in the tarball. `typecheck` passes them through
 `tsconfig.test.json` with `--project`; widening the base config's `include` instead would break
 `check-web-barrel`, which runs a bare `tsc --rootDir src`.
 
-**A green CI is not a substitute for running these.** On a pull request CI checks
-out no submodules, so it runs typecheck, the unit tests, the Nitro bindings
-check, `bob build`, the web barrel, `check-layers`, `check-ja-breaks`, script
-parsing and the `files` guard — none of the host checks, and not `prepack`. A
+**A green CI is not a substitute for running these.** On a pull request CI runs
+typecheck, the unit tests, the Nitro bindings check, `bob build`, the web
+barrel, `check-layers`, `check-ja-breaks`, script parsing and the `files` guard,
+and, on Linux with a host Brain built from the submodule, `check-framedata`,
+`check-hidden`, `check-motion` and the asset manifest check — not `check-mask`,
+`check-glue` or `check-shader`, and not `prepack`. A
 pull request touching only Markdown runs none of it; one that touches `docs/` instead builds the Pages
 site through `docs.yml`, where a dead link fails. The weekly run, a dispatch and the release pull request
 also build the Pages site, run `check-shader` on macOS, build the example
 app for Android and iOS on the Brain built from the submodule, and run
-`check-hidden`, `check-motion`, `check-mask`, `check-glue` and the asset manifest check on that
-Brain. `check-framedata` and `prepack` run in none of them.
+`check-mask` and `check-glue` on that Brain. `prepack` runs in none of them.
 
 Rendering is verified by hand on the example's Viewer screen, one feature card per
 capability; [`example/README.md`](./example/README.md) says what each subject
@@ -301,7 +302,7 @@ pnpm run build           # bob build。publish 時に prepack が走らせるの
 | `pnpm run check-ja-breaks` | Markdown で日本語の文字と文字の間に改行が無いこと（OS 不問・インストール不要） |
 | `pnpm run generate-nitro-code` の後 `git diff --exit-code packages/*/nitrogen` | Nitro バインディングが最新であること |
 
-**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI はサブモジュールをチェックアウトしないため、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・`check-layers`・`check-ja-breaks`・スクリプトの構文・`files` ガードまでしか実行せず、ホスト側のチェックと `prepack` は動きません。Markdown だけのプルリクエストではこれらは走りません。`docs/` に触れるものだけは、`docs.yml` が Pages サイトをビルドし、リンク切れで失敗します。週次・手動実行・リリースのプルリクエストでは、さらに Pages サイトもビルドし、macOS で `check-shader` を実行し、submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドして、その Brain で `check-hidden`・`check-motion`・`check-mask`・`check-glue` とアセットマニフェストのチェックを実行します。`check-framedata` と `prepack` は、どの run でも実行しません。
+**CI が緑であることは、これらを実行した代わりにはなりません。** プルリクエストの CI が実行するのは、typecheck・ユニットテスト・Nitro バインディング・`bob build`・web barrel・`check-layers`・`check-ja-breaks`・スクリプトの構文・`files` ガードと、Linux で submodule からビルドしたホスト用の Brain を使う `check-framedata`・`check-hidden`・`check-motion`・アセットマニフェストのチェックです。`check-mask`・`check-glue`・`check-shader` と `prepack` は動きません。Markdown だけのプルリクエストではこれらは走りません。`docs/` に触れるものだけは、`docs.yml` が Pages サイトをビルドし、リンク切れで失敗します。週次・手動実行・リリースのプルリクエストでは、さらに Pages サイトもビルドし、macOS で `check-shader` を実行し、submodule からビルドした Brain で example アプリを Android と iOS 向けにビルドして、その Brain で `check-mask`・`check-glue` を実行します。`prepack` は、どの run でも実行しません。
 
 描画の確認は example の Viewer 画面で手動で行います。機能ごとにカードが 1 枚あり、それぞれが何を証明するかは [`example/README.md`](./example/README.md) に記載しています。
 
