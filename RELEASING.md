@@ -184,15 +184,15 @@ gh run watch "${RUN:?}" --exit-status
 
 ### 8. Merge back
 
-Merge `main` into `develop`. After a patch release this conflicts where `develop` has moved on: keep `develop`'s version and its `Unreleased` heading, with the patch's section below it.
+Merge `main` into `develop`. After a patch release this conflicts where `develop` has moved on: keep `develop`'s version and its `Unreleased` heading, with the patch's section below it. The block merges on a detached `origin/develop`, so it runs in a worktree whichever branch the other checkouts hold, and a conflict stops it there: resolve it, `git commit`, and run the block's two `git push` lines.
 
 ```bash
 git fetch origin --tags
 TAG=$(git describe --exact-match --tags --match 'v[0-9]*' origin/main)
-BRANCH=release/$(echo "${TAG#v}" | cut -d. -f1,2)
-git switch develop && git pull --ff-only
-git merge --no-ff main && git push origin develop
-git push origin --delete "$BRANCH"
+git switch --detach origin/develop &&
+  git merge --no-ff -m "Merge branch 'main' into develop" origin/main &&
+  git push origin HEAD:develop &&
+  git push origin --delete "release/$(echo "${TAG:?}" | sed 's/^v//' | cut -d. -f1,2)"
 ```
 
 If the button on its pull request already deleted the release branch, the last line only reports that the branch does not exist. Nothing needs it afterwards: a patch release cuts it again from the tag.
@@ -433,15 +433,15 @@ gh run watch "${RUN:?}" --exit-status
 
 ### 8. develop へ戻す
 
-`main` を `develop` へマージします。パッチリリースの後は、`develop` が先へ進んだ箇所で衝突します。`develop` のバージョンと `Unreleased` の見出しを残し、パッチの節をその下に置いてください。
+`main` を `develop` へマージします。パッチリリースの後は、`develop` が先へ進んだ箇所で衝突します。`develop` のバージョンと `Unreleased` の見出しを残し、パッチの節をその下に置いてください。ブロックは切り離した `origin/develop` の上でマージするので、ほかのチェックアウトがどのブランチにあっても worktree で実行できます。衝突したらそこで止まります。解決して `git commit` し、ブロックの 2 つの `git push` を実行してください。
 
 ```bash
 git fetch origin --tags
 TAG=$(git describe --exact-match --tags --match 'v[0-9]*' origin/main)
-BRANCH=release/$(echo "${TAG#v}" | cut -d. -f1,2)
-git switch develop && git pull --ff-only
-git merge --no-ff main && git push origin develop
-git push origin --delete "$BRANCH"
+git switch --detach origin/develop &&
+  git merge --no-ff -m "Merge branch 'main' into develop" origin/main &&
+  git push origin HEAD:develop &&
+  git push origin --delete "release/$(echo "${TAG:?}" | sed 's/^v//' | cut -d. -f1,2)"
 ```
 
 プルリクエストのページのボタンでリリースブランチを消してあれば、最後の行は「ブランチが無い」と出るだけです。パッチリリースはタグから切り直すので、この後ブランチが要ることはありません。
