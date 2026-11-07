@@ -187,8 +187,8 @@ export function SpriteStudioScene({
         <Canvas style={{ flex: 1 }}>
           <Picture picture={picture} />
         </Canvas>
+        <SceneContext.Provider value={registry}>{children}</SceneContext.Provider>
       </View>
-      <SceneContext.Provider value={registry}>{children}</SceneContext.Provider>
     </View>
   )
 }

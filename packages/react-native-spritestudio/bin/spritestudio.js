@@ -103,6 +103,7 @@ function main(argv) {
       return 0
     }
     const flags = [...options.assets.flatMap((dir) => ['--assets', dir]), '--out', options.out]
+      .map((flag) => (/\s/.test(flag) ? `'${flag}'` : flag))
     process.stderr.write(
       `react-native-spritestudio: ${options.out} is ${existing == null ? 'missing' : 'stale'}.\n` +
         `  Run: npx react-native-spritestudio assets ${flags.join(' ')}\n`

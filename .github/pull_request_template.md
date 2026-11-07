@@ -32,7 +32,7 @@ that is useful information, not a problem.
 - [ ] Docs updated if behaviour changed.
 - [ ] Anything that exists twice changed twice — a page and its translation, a `.sh` and its `.ps1`.
 - [ ] Layer 2 imports nothing from `react` / `react-native`; `pnpm run check-layers` says whether it does.
-- [ ] Nothing per-vertex crosses JSI, and a buffer handed to JS is read only until the next `update()`.
+- [ ] Nothing per-vertex crosses JSI.
 - [ ] No per-frame allocations, on either side of JSI.
 - [ ] A pack stays a directory (no `require()` source, no `ssab` / `ssqb` in `assetExts`), and each native peer keeps one copy.
 - [ ] Core logic goes to SpriteStudio-SDK, and nothing is committed inside the submodule.

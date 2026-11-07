@@ -117,7 +117,7 @@ struct SsInstanceDraw {
 
 /// The Brain's SoA buffers for the current frame, as lent by the
 /// `ss_runtime_get_*` getters. Every pointer is a borrow that dies at the next
-/// `ss_runtime_update` — the lifetime rule in `src/specs/SsRuntime.nitro.ts`.
+/// `ss_runtime_update`.
 struct SsSoAPointers {
   const float* worldMatrices = nullptr;  ///< 16 floats per part, column-major 4x4
   const float* localVertices = nullptr;  ///< 10 floats per part: lt, rt, lb, rb, center

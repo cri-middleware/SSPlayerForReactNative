@@ -14,7 +14,7 @@ namespace margelo::nitro::ssplayer {
 ///
 /// Owns the Brain-side resource handle and nothing else: the bytes go in via
 /// `ss_resource_create_copy`, so the Brain holds the only copy that has to
-/// outlive this call and the borrow rule's lifetime coupling never arises.
+/// outlive this call.
 class HybridSsResource final : public HybridSsResourceSpec {
  public:
   /// Reads `path` and hands the bytes to the Brain. Throws `std::runtime_error`

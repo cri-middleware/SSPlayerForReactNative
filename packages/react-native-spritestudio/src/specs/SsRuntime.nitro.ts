@@ -8,7 +8,7 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
  *
  * Disposal is not declared here: every Nitro `HybridObject` already carries a
  * `dispose()` (nitrogen rejects redeclaring it), and that is the explicit
- * teardown the borrow rule asks for — L3 calls it on unmount rather than waiting for GC.
+ * teardown — L3 calls it on unmount rather than waiting for GC.
  * Note that inheriting the method is only half of it: Nitro's
  * `HybridObject::dispose()` is a **no-op unless the C++ class overrides it**, so
  * both implementations here do, and `SsRuntime.liveHandles` is what proves it.
