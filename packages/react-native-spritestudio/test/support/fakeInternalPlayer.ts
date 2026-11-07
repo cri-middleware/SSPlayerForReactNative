@@ -148,6 +148,13 @@ export class SsInternalPlayer {
     }
     this.setUpAnimation = name
     this.lastError = null
+    // The Brain forgets what the last update reported.
+    this.justLooped = false
+    this.isFinished = false
+    this.passedEventCount = 0
+    this.userDataEvents = []
+    this.audioEvents = []
+    this.signalEvents = []
     return true
   }
 
