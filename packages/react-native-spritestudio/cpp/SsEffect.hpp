@@ -85,8 +85,7 @@ class SsEffectSlots {
   /// Binds every effect part in `view` against `resource`. Idempotent-safe: any
   /// slots already held are destroyed first.
   ///
-  /// `partCount` is the pack's part count and sizes the by-part lookup; it comes
-  /// from the `.ssab` rather than from the world-matrix length because this is
+  /// The by-part lookup is sized from the `.ssab`'s part count, because this is
   /// built at load, before there is a frame.
   void bind(void* resource, const SsAnimeBinaryView& view);
 

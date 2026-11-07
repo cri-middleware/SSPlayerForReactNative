@@ -1,7 +1,6 @@
 // Host-side guard for the FrameData read path.
 //
-// The reader itself is flatc-generated now (`cpp/format/framedata.h`), so field
-// offsets no longer need diffing against a reference walk — `check-framedata.sh`
+// The reader is flatc-generated (`cpp/format/framedata.h`); `check-framedata.sh`
 // regenerates that header and diffs it, which covers schema drift outright.
 //
 // What a static check cannot cover is a *stale committed header against a newer
@@ -89,9 +88,7 @@ void CheckPartCounts(const ss::runtime::FrameData* fd, size_t soaPartCount, int 
 /// What one frame's mask plan turned up, accumulated so the run can say whether
 /// the path was exercised at all.
 ///
-/// A plan that never fires reports the same "0 problems" a working one does, and
-/// this repo has already shipped one measurement whose constant number meant
-/// "nothing ran" rather than "nothing changed". The totals are printed either
+/// A plan that never fires reports the same "0 problems" a working one does. The totals are printed either
 /// way, so a `.ssab` with masks that reports 0 writers is a visible result
 /// rather than a silent pass.
 struct MaskTotals {
@@ -577,10 +574,8 @@ int main(int argc, char** argv) {
   size_t maxBatches = 0;
 
   for (int frame = 0; frame < frames; ++frame) {
-    // Milliseconds, like the C-API and like `HybridSsContext::update` — the
-    // delta this loop used to pass was `1/60`, which is 0.0167 ms and would have
-    // advanced roughly nothing had anything here been time-driven. Nothing was,
-    // until the effect slots arrived.
+    // Milliseconds, like the C-API and like `HybridSsContext::update`: a delta in
+    // seconds would advance the effect slots by almost nothing.
     const float deltaMs = 1000.0f / 60.0f;
     const float frameNo = ss_runtime_update(ctx, deltaMs);
 

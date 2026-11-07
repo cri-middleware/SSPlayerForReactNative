@@ -1,13 +1,10 @@
 # Run nitrogen over the Layer 1 spec and refresh
 # packages/react-native-spritestudio/nitrogen/.
 #
-# Named after the tool the way the Flutter Player's generate-ffigen-code.ps1 is,
-# rather than generate-fbs-code.ps1: that script, here and in every sibling
-# Player, runs flatc over the SDK's schemas, while this one runs nitrogen over a
+# Named after the tool rather than generate-fbs-code.ps1: that script runs flatc over the SDK's schemas, while this one runs nitrogen over a
 # spec this repo owns.
 #
-# The generated tree IS committed, the same treatment as the Unity Player's
-# SSRuntimeMethods.g.cs and the Flutter Player's ffigen output: consumers must
+# The generated tree IS committed: consumers must
 # not need nitrogen to build. NEVER hand-edit anything under nitrogen/ — change
 # src/specs/*.nitro.ts and re-run this.
 

@@ -34,7 +34,7 @@ const ABSENT_TRANSFORM: SsPartTransform = {
  * `isPlaying` stays true and `isPausing` is what tells the two apart — get that
  * wrong and the `playing` prop's resume-vs-restart branch cannot be tested at
  * all. And **`setupAnimation` answers from the pack**, so a name that is not in
- * it fails and leaves a reason behind, which is the whole of ForRN #78.
+ * it fails and leaves a reason behind.
  *
  * Everything else is a field a test sets. Nothing here simulates the Brain:
  * frames do not advance and events do not fire on their own.

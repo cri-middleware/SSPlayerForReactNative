@@ -14,8 +14,7 @@ namespace margelo::nitro::ssplayer {
 std::string HybridSsRuntime::getVersion() {
   // Baked at compile time from the pinned SDK the package was built against.
   // The C-API has no version query, and the `.ssab` format is tied to the SDK
-  // release, so this is what the README's
-  // compatibility table has to agree with.
+  // release.
   return SSPLAYER_SDK_VERSION;
 }
 
@@ -36,11 +35,9 @@ std::shared_ptr<HybridSsResourceSpec> HybridSsRuntime::createResourceFromBytes(
 
 std::shared_ptr<HybridSsResourceSpec> HybridSsRuntime::createResourceFromAsset(
     const std::string& path) {
-  // Prefer the file route where the platform has one (Apple): the `.ssab` then
-  // goes disk → Brain without an intermediate buffer, which is the whole point
-  // of `createResourceFromPath`. Android's assets live
-  // inside the APK, so there the bytes have to be materialised first — still
-  // never touching the JS heap, which is what this method exists for.
+  // Prefer the file route where the platform has one (Apple). Android's assets live
+  // inside the APK, so there the bytes are read through the AssetManager first.
+  // Either way they never touch the JS heap, which is what this method exists for.
   if (const std::optional<std::string> file = ::ssplayer::SsAssets::filePath(path)) {
     return std::make_shared<HybridSsResource>(*file);
   }

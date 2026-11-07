@@ -2,10 +2,9 @@
 // failure is invisible.
 //
 // `SsShaderEffect` reports a compile error once to stderr and then returns null,
-// and a null takes the same route as a built-in with no body yet: the plain
-// textured draw. That is the right runtime behaviour — an un-effected sprite
-// beats a missing one — but it means a broken shader and an unported one are the
-// same picture on the example's Shader card. Neither of the other host checks
+// and a null takes the plain textured draw. That is the right runtime behaviour —
+// an un-effected sprite beats a missing one — but it means a broken shader looks
+// like a plain sprite on the example's Shader card. Neither of the other host checks
 // closes the gap: `ssbake_check` reads the bake plan (which id, which params)
 // and never reaches Skia, and `ssmask_check` compiles the *mask's* SkSL.
 //

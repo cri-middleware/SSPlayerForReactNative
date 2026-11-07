@@ -58,9 +58,8 @@ const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t te
 /// the kinds that are not quads carry their own ranges instead.
 constexpr int kMaxQuadIndices = 12;
 
-/// `drawVertices`'s own mode blends the shader against *vertex colours*, and
-/// Skia ignores it when there are none — which is always, here. `kModulate` is
-/// what it will have to be once PartColor bakes them.
+/// `drawVertices`'s own mode blends the shader against *vertex colours*:
+/// `kModulate` multiplies the atlas by the baked per-vertex alpha.
 constexpr SkBlendMode kVertexColorBlend = SkBlendMode::kModulate;
 
 /// The paint one pass draws with. Copied, never mutated in place: the caller's
@@ -247,11 +246,9 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   // A deferred picture image rather than a render target, because `drawInto`
   // runs on a **recording** canvas — Layer 4 records one `SkPicture` per frame —
   // so there is no `GrDirectContext` here to make a surface from. Skia
-  // rasterises this when the outer picture is played back, in the same frame,
-  // which is also why size classes and one-frame-delay
-  // countermeasures have nothing to do here: there is no delay to cover for.
+  // rasterises this when the outer picture is played back, in the same frame.
   //
-  // sRGB, and it no longer matters which: the bits ride in alpha, which Skia
+  // sRGB, and it does not matter which: the bits ride in alpha, which Skia
   // passes through untouched whatever the destination turns out to be. What
   // does still matter is that it is **not null** — `DeferredFromPicture`
   // returns null outright for a null colour space, whatever its doc comment
@@ -552,9 +549,8 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     // colours (a Shape bypasses the composite formula), and its `texture_hash` is
     // 0 because it resolves no cell, so it does not go through `PaintFor`.
     const bool untextured = batch.kind == ss::runtime::DrawBatchKind_Shape;
-    // A Mesh target is masked by the layer route in the peel below rather than by
-    // the UV reconstruction a quad uses; the flag rides down to `maskBitsOf` so a
-    // Mesh is no longer rejected there, and to the peel so it takes that route.
+    // A Mesh target is masked by the clip-shader route in the peel below rather
+    // than by the UV reconstruction a quad uses.
     const bool isMesh = batch.kind == ss::runtime::DrawBatchKind_Mesh;
     SkPaint plain;
     // **White, explicitly.** With no shader, `drawVertices` uses the paint's
@@ -713,7 +709,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
         // Twelve of the thirteen built-ins fold the PartColor composite as their
         // own output tail, so the effect takes the corners and
         // `MakePartColorShader` is deliberately **not** also run — that would
-        // apply the tint twice. A built-in with no body yet returns null here
+        // apply the tint twice. A built-in that would not compile returns null here
         // and falls through to the tint below, which is the same degradation an
         // unrecognised `id_hash` takes.
         tint = MakePartShaderShader(info.partShader, info.partColor, partUv,
@@ -824,8 +820,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
         }
         // An untextured part has no atlas for the replay to gate, so it gates
         // opaque white and `kModulate` against the vertex colours keeps the
-        // shape's own gradient — SSPlayerForFlutter's trick, and the reason its
-        // masked-shape path reuses the PartColor program as a no-op.
+        // shape's own gradient.
         sk_sp<SkShader> inner = tint;
         if (inner == nullptr) {
           inner = info.untextured ? SkShaders::Color(SK_ColorWHITE) : paint->refShader();

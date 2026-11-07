@@ -101,8 +101,7 @@ jobs:
       - name: Install flatc
         # `check-framedata` is the only check that needs it, and it compiles its
         # probe against brew's flatbuffers headers as well as the vendored ones.
-        # The vendored copy is 25.12.19 and its `static_assert` on the version is
-        # what catches a formula that has moved past it — a failure there reads
+        # The vendored copy's `static_assert` on the version is what catches a formula that has moved past it — a failure there reads
         # as "wrong flatc", not "stale output".
         run: brew install flatbuffers
 

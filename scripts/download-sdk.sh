@@ -5,12 +5,11 @@
 #
 # THIS IS THE NORMAL PATH. It needs no Rust toolchain and no submodule — just
 # curl and unzip — which is what lets someone who has never touched the SDK
-# build the package (design doc ch.7). scripts/build-runtime.sh is the other
+# build the package. scripts/build-runtime.sh is the other
 # path: building the Brain from the submodule while working on it.
 #
 # The STATIC archive: the iOS podspec vendors the xcframework's `.a` slices and
-# the Android CMake links libssruntime.a into the Nitro module's own .so. Same
-# choice as the Unity and Godot Players; the dynamic build exists for Ren'Py.
+# the Android CMake links libssruntime.a into the Nitro module's own .so.
 #
 # Usage: scripts/download-sdk.sh [--force]
 #   --force  re-install even when the pinned version is already installed

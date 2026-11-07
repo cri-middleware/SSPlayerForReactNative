@@ -136,9 +136,6 @@ describe('load', () => {
 })
 
 describe('setAnimation', () => {
-  // ForRN #78. `currentAnimation` used to be assigned ahead of the result, so it
-  // named an animation the runtime had never set up — and `onAnimationStarted`
-  // published that name too.
   it('does not take the name of an animation the runtime refused', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const player = await loaded({ animation: 'Idle' })

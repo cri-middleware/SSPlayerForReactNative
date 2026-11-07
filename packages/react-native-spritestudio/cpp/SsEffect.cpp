@@ -9,7 +9,7 @@ namespace {
 
 /// The seed for one part's slot: deterministic, yet different per part.
 ///
-/// SSPlayerForFlutter's and SSPlayerForGodot's formula. Two parts playing the
+/// Two parts playing the
 /// *same* effect would otherwise emit in visual lockstep, and a clock- or
 /// RNG-derived seed would make the same frame render differently on a second
 /// run. The runtime overrides it outright for effects authored
@@ -64,8 +64,7 @@ void SsEffectSlots::step(void* context, const ss::runtime::FrameData* frame, flo
                             // `HybridSsContext`'s constructor), so the particles
                             // are mirrored here with everything else. Passing
                             // false would leave every effect mirrored about its
-                            // emitter relative to the parts around it. Same value
-                            // ForWeb, ForFlutter and ForGodot pass.
+                            // emitter relative to the parts around it.
                             /*y_flip=*/true,
                             // (x, y) pairs. The plan reports it back and the
                             // baker reads it there rather than assuming.
@@ -82,8 +81,7 @@ void SsEffectSlots::reset() {
   for (void* slot : slots_) {
     if (slot != nullptr) ss_effect_slot_reset(slot);
   }
-  // The plans belong to the slots that just rewound, so they are stale here for
-  // the same reason a `release()` makes the SoA stale.
+  // The plans belong to the slots that just rewound, so they are stale.
   for (const uint8_t*& plan : planByPart_) plan = nullptr;
 }
 

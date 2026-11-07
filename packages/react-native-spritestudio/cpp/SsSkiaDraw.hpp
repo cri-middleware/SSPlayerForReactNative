@@ -1,6 +1,6 @@
 #pragma once
 
-// Variant (c)'s drawing step: turn a baked frame into Skia draw calls, in C++.
+// The drawing step: turn a baked frame into Skia draw calls, in C++.
 //
 // Declared with opaque pointers so `HybridSsContext` — which is compiled on
 // every target — never needs the Skia headers. Only SsSkiaDraw.cpp does.
@@ -86,9 +86,8 @@ struct SsInstanceRenderer {
 
 /// One `cellmap.name_hash` → `SkPaint*` entry of the texture table.
 ///
-/// Deliberately not the Nitro struct: this header is included by
-/// `HybridSsContext`, which must stay free of both Skia and (for the host test
-/// harness) Nitro.
+/// Deliberately not the Nitro struct: this header is shared with the host checks,
+/// which link no Nitro.
 struct SsPaintBinding {
   uint32_t textureHash;
   void* paint;

@@ -14,7 +14,6 @@ import { SsAssets } from '../ss-assets'
 /**
  * Motion blending — the track stack, driven by hand.
  *
- * The counterpart of the key bindings in SSPlayerForWgpu's viewers, as buttons.
  * Track 0 is switched through the view's `animation` prop, with `transitionMs`
  * deciding whether a change cuts or crossfades: that is the one route the
  * component offers, so the prop can always return to where it was. Track 1 and
@@ -156,7 +155,7 @@ export function BlendingScreen() {
             {loops0 === 1 ? 'loop once' : 'loop ∞'}
           </Choice>
           {/*
-            Both tracks, as SSPlayerForWgpu's `Y` does: track 0's for a
+            Both tracks: track 0's for a
             crossfade (the incoming animation starts at the outgoing one's
             phase), track 1's for an overlay laid on it. It applies to what is
             laid next, and a cut resets it.

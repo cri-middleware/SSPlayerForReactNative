@@ -7,22 +7,6 @@ const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 // cannot build an absolute og:url on its own.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
-// Close to SSPlayerForWeb's shelves, with two deliberate divergences.
-//
-// What that site calls "Customize" is "Going further" here, and its pages stay
-// under /usage/. Nothing on that shelf customizes *the package* — this port
-// exposes no custom shaders and no extension points, so the sibling's name would
-// promise a surface that does not exist. It is the same audience as Usage, one
-// step in.
-//
-// And ROADMAP is not in the nav, where the sibling puts it. Every entry here
-// stays on the site; the sibling's fifth bounced to raw markdown on GitHub;
-// more to the point, it is a contributor's document — vertex ceilings, packaging
-// decisions, a thread-safety note — sitting at the same level as Usage. The
-// reader's version of "what is missing" is /limitations. Individual pages still
-// link ROADMAP where a specific caveat is tracked there, which is sourcing
-// rather than navigation.
-//
 // English at the root, Japanese under /ja/, and the TypeDoc reference shared by
 // both at /api/ because it is language neutral.
 //
@@ -246,7 +230,7 @@ export default withMermaid({
               { text: 'プレイヤーの構成', link: '/ja/development/architecture' },
             ],
           },
-          // ポータルへの戻り導線。日本語ロケール（/ja/）を指すこと。
+          // Back-link to the portal; must point at the Japanese locale (/ja/).
           { text: 'SpriteStudio Docs', link: 'https://cri-middleware.github.io/SpriteStudio-Docs/ja/' },
         ],
         sidebar: [

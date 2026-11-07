@@ -45,7 +45,7 @@ describe('useSsTextures', () => {
   })
 
   // `require()` is allowed here and nowhere else: a replacement texture is a
-  // single standalone image with no siblings to resolve.
+  // single standalone image with nothing to resolve against it.
   it('resolves a require()d image through the bundler', async () => {
     const resolve = vi.spyOn(Image, 'resolveAssetSource')
 

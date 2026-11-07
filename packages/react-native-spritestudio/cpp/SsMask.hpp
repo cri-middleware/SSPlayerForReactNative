@@ -7,11 +7,9 @@
 //
 // Skia exposes no stencil, so this is the coverage-bitmap approach: rasterise
 // each writer into an offscreen bitmap, one bit per writer, and have each masked
-// target replay the writers that reach it. Ported from **SSPlayerForFlutter**'s
-// `render/mask.dart`, which faced the same primitives.
+// target replay the writers that reach it.
 //
-// Scope resolution stays on the CPU exactly as it does there, so the shader
-// never sees SSPlayerForGodot's `mask_meta[]` array — only the two writer sets
+// Scope resolution stays on the CPU, so the shader sees only the two writer sets
 // in `SsMaskBits`. Splitting them by OP is not an optimisation: `Invert`
 // and `Increment` do not commute, so each accumulates on its own plane and the
 // replay takes the union.
@@ -44,13 +42,11 @@ class SsBaker;
 /// cap are dropped, with a warning.
 ///
 /// 96 and not 24, because the writers of the whole instance tree share this one
-/// budget and an instance's writers count again every time it is placed:
-/// `InstancePropagationTired3` has 80. A budget sized for one animation masks
+/// budget and an instance's writers count again every time it is placed.
+/// A budget sized for one animation masks
 /// the first blocks of such a tree and leaves the rest with no writer at all.
 ///
-/// SSPlayerForGodot, SSPlayerForWeb and SSPlayerForFlutter pack the planes into
-/// RGB and leave alpha to the premultiplied blend; this port puts each in the
-/// **alpha** of its own plane instead, because RGB is colour and Skia
+/// Each plane's bits are in the **alpha** of that plane, because RGB is colour and Skia
 /// gamut-maps it into a Display P3 destination — `SsMaskShader.hpp` has the
 /// whole story.
 constexpr int kSsMaxMaskWriters = 96;
@@ -89,11 +85,9 @@ struct SsMaskPartFlags {
   /// Whether the coverage pass can rasterise this part's shape — true for every
   /// kind `SsBaker` emits geometry for.
   ///
-  /// It used to be `quadGeometry`, and the rename is the point: coverage is no
-  /// longer a quad. A Mesh can be a clipping writer and a Shape a pure mask, and
-  /// their coverage is a deformed mesh and a polygon; rasterising a bounding
-  /// quad instead would clip to a rectangle, which is wrong in a way that looks
-  /// deliberate. Both are baked now, so both write their real shape.
+  /// Coverage is not a quad: a Mesh can be a clipping writer and a Shape a pure
+  /// mask, and rasterising a bounding quad instead would clip to a rectangle,
+  /// which is wrong in a way that looks deliberate.
   ///
   /// Instance and Effect stay out: an instance part has no geometry of its own
   /// (its child's is a whole subtree) and an effect's is a cloud of particles.
@@ -111,11 +105,10 @@ struct SsMaskPartFlags {
   /// target flag, so `mask_influence == 0` opts the clipping part out of being a
   /// target exactly as it does any drawn part — it still writes its own
   /// coverage as a writer, but its own colour is no longer masked and draws
-  /// unconditionally. ORing `mask_write` in here was the bug: it forced a
+  /// unconditionally. ORing `mask_write` in here would force a
   /// clipping part with `mask_influence == 0` and `visible_inside == 1` to be
   /// tested, and with nothing covering it the `masked == visible_inside` test
-  /// discarded it. SSPlayerForGodot and the wgpu coverage backend both gate the
-  /// target purely on `mask_influence`.
+  /// would discard it.
   bool isTarget() const { return maskInfluence; }
 };
 

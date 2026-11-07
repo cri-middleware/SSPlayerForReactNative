@@ -19,15 +19,12 @@
 # `ss_effect_slot_step` as its own buffer.
 #
 # `framedata` is the Brain's per-frame output, read on the hot path. Generated
-# accessors are the right tool there too, contrary to what this script used to
-# say: flatc's C++ struct fields are direct member reads through `EndianScalar`
+# accessors are the right tool there too: flatc's C++ struct fields are direct member reads through `EndianScalar`
 # (a no-op on little-endian), and `Vector<const T*>::Data()` hands back the
 # contiguous pointer, so the struct
 # vectors are read raw *through* the generated code rather than around it.
-# The ~26x figure that argument leaned on is a Unity/C# measurement, where each
-# accessor is a ByteBuffer read; it does not carry to C++.
 #
-# Same shape as SSPlayerForGodot's `scripts/generate-fbs-code.sh`: flatc -c,
+# flatc -c,
 # and the `_generated` suffix dropped on the way into `format/`. FlatBuffers is
 # used **header-only** — the generated header pulls in `flatbuffers/flatbuffers.h`
 # and its reachable set is all inline, so nothing links against flatc's own

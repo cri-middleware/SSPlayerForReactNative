@@ -8,8 +8,6 @@
 // late by exactly the time it spent hidden. `SsInstanceSlots::step` avoids that
 // by iterating its own states, which come from `SsAnimeBinaryView::instanceParts`
 // — but nothing failed if that changed, which is what this check is for.
-// SSPlayerForWgpu pins the same invariant in `tests/slots.rs`, SSPlayerForRenPy
-// in `tools/verify_hidden.py`; this is that check for this port.
 //
 // The step signal is `SsInstanceChild::instanceContext()`, which `step()` calls
 // once per slot immediately before `ss_instance_slot_step` and nowhere else on

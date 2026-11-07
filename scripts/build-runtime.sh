@@ -5,7 +5,7 @@
 #
 # This is the DEVELOPER path, for when you are changing the Brain itself. The
 # normal path is scripts/download-sdk.sh, which installs the pinned SDK release
-# and needs no Rust toolchain at all (design doc ch.7).
+# and needs no Rust toolchain at all.
 #
 # Both write the SAME layout under packages/react-native-spritestudio/native/ — the
 # one the release archive already has — so the podspec and the Android CMake
@@ -17,10 +17,9 @@
 #   (and removes the pinned release's VERSION / BUILD_MODE, if present)
 #   native/LICENSE.md, native/THIRD-PARTY-LICENSES.ssruntime.md
 #
-# STATIC slices on purpose (design doc ch.7): the iOS podspec vendors the
+# STATIC slices on purpose: the iOS podspec vendors the
 # xcframework's `.a` slices and the Android CMake links libssruntime.a into the
-# Nitro module's own .so. Same choice as the Unity and Godot Players; the
-# dynamic build exists for Ren'Py.
+# Nitro module's own .so.
 #
 # Usage: scripts/build-runtime.sh [platform=<p>] [build=<m>] [ndk=<path>]
 #   platform : ios android all   (default: all)
@@ -46,7 +45,7 @@ APP=$(basename "$0")
 
 TARGET_DIR="${ROOTDIR}/packages/react-native-spritestudio/native"
 # The pinned SDK release tag, shared with download-sdk.sh. The .ssab format and
-# the C-API are both tied to it (design doc ch.7).
+# the C-API are both tied to it.
 VERSION_FILE="${SCRIPTDIR}/SDK_VERSION.txt"
 
 PLATFORM="all"

@@ -1,11 +1,9 @@
 // Host-side guard for the mask draw path.
 //
-// `ssbake_check` covers the plan — roles, scope, ranges — but the plan was never
-// the fragile half. Everything that actually broke lived on the Skia side and
-// broke *silently*: the coverage image came back null, so `masking` stayed false
-// and every target drew unmasked. Nothing threw, nothing logged, and the plan
-// still reported seven healthy writers. That is the failure this program exists
-// to make loud.
+// `ssbake_check` covers the plan — roles, scope, ranges. On the Skia side the
+// coverage image can come back null, and then `masking` stays false and every
+// target draws unmasked, with nothing thrown or logged. That is the failure this
+// program exists to make loud.
 //
 // Six checks, in order of how early they would catch a regression:
 //
@@ -223,10 +221,8 @@ struct CoverSpec {
 /// runs on a *recording* canvas, which has no colour space at all, so
 /// `BuildCoverage`'s "match the destination" fallback is taken every single
 /// time and the coverage is **always** sRGB. Handing this the destination's
-/// space — which is what this program used to do — wires src and dst together,
-/// makes every conversion the identity by construction, and tests nothing. It
-/// is why an RGB encoding that six of `Mask.ssab`'s nine writers did not
-/// survive on a Display P3 destination passed here for a whole phase.
+/// space would wire src and dst together, make every conversion the identity by
+/// construction, and test nothing.
 ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int w, int h) {
   ssplayer::SsMaskCoverage out;
 
@@ -319,8 +315,7 @@ void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> dstCs, bool flat =
     const ssplayer::SsMaskCoverage coverage =
         BuildCoverage({{bit, 0.0f, 0.5f, flat}}, kW, kH);
     if (!coverage.valid()) {
-      // Exactly the regression that shipped: a null image disables masking with
-      // no other symptom.
+      // A null image disables masking with no other symptom.
       Fail("%s bit %d: coverage image is null (DeferredFromPicture rejects a null "
            "colour space — the mask then silently does nothing)",
            label, bit);
@@ -1157,8 +1152,7 @@ int main(int argc, char** argv) {
   CheckBitRoundTrip("sRGB dst", SkColorSpace::MakeSRGB());
   // **Wide gamut, and it is not hypothetical**: an iOS surface is routinely
   // Display P3 while the Android emulator is sRGB, so this is the one axis on
-  // which the two platforms genuinely disagree — and the first bug it caught
-  // showed up as three unrelated parts masking wrongly on iOS only.
+  // which the two platforms genuinely disagree.
   sk_sp<SkColorSpace> p3 =
       SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB, SkNamedGamut::kDisplayP3);
   CheckBitRoundTrip("Display P3 dst", p3);

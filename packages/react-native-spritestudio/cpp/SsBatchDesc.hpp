@@ -7,16 +7,9 @@ namespace sscore {
 /// One draw batch: the Brain's `DrawBatch` fields plus the geometry ranges
 /// `SsBaker` fills in as it bakes.
 ///
-/// The flat `int32` layout is a leftover from when JS walked this array through
-/// an `Int32Array` view. Nothing in JS reads it now — the
-/// batch walk is entirely in `SsSkiaDraw` — so the packing is no longer
-/// load-bearing and the fields could take their natural types whenever that
-/// becomes worth doing.
-///
-/// `startRank` / `count` are the batch's slice of `draw_order`. `SsSkiaDraw`
-/// does not need them (it draws the baked ranges), but they are the batch's
-/// identity in the Brain's terms and the mask and blend passes want
-/// them, so they are kept rather than dropped.
+/// `startRank` / `count` are the batch's slice of `draw_order`. `startRank` places
+/// Instance mounts between batches in `SsSkiaDraw`; `count` is the batch's part
+/// count in the Brain's terms.
 struct SsBatchDesc {
   int32_t kind;          // DrawBatchKind
   int32_t blendType;     // BlendType

@@ -29,7 +29,7 @@ clocks.
 | a filesystem path or `file://` URI | a download, an unpacked bundle |
 | an `http(s)` URL | a dev server, a CDN |
 
-Siblings — textures, the external packs Instance parts reach — resolve the same
+The files a pack names — textures, the external packs Instance parts reach — resolve the same
 way in all three. A `require()`d module is **not** a source; see
 [Preparing assets](/setup/assets).
 

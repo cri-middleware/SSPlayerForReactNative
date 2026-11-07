@@ -58,7 +58,7 @@ Pod::Spec.new do |s|
 
   s.source_files = ["cpp/**/*.{h,hpp,c,cpp}"]
 
-  # Static libssruntime, matching the Unity and Godot Players.
+  # Static libssruntime.
   # A static archive means no embedded framework to sign and nothing extra to
   # ship in the app bundle beyond the code actually referenced.
   s.vendored_frameworks = "native/libs/ios/libssruntime.xcframework"

@@ -8,15 +8,15 @@
 namespace ssplayer {
 
 /// The app's **native asset directory** — the one place a `.ssab` keeps the
-/// layout it was converted in, so its siblings can be found by name.
+/// layout it was converted in, so what it names can be found.
 ///
 /// This exists because Metro cannot host a converter output directory. Metro
 /// ships a dependency *graph*: `require()` names one file, and on an Android
 /// release build the packager then flattens and lowercases what it named into
 /// `res/`, so `dirname()` of a bundled asset points at nothing. Every reference
 /// inside a pack — a cellmap's `image_path`, an `external_textures` entry, an
-/// `external_instances` SSAB, a `.ssqb`'s `ref_anime_pack` — is a *sibling
-/// name*, so a Player that cannot open a directory cannot resolve any of them.
+/// `external_instances` SSAB, a `.ssqb`'s `ref_anime_pack` — is a *name relative
+/// to the pack*, so a Player that cannot open a directory cannot resolve any of them.
 ///
 /// The build therefore copies the pack directories in out-of-band (the Expo
 /// config plugin in `plugin/`), and this class is the read side:

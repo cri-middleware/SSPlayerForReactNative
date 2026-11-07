@@ -51,7 +51,7 @@ void SsMaskPlan::collect(const ss::runtime::FrameData* fd, const SsBaker& baker,
     if (!f.isWriter()) continue;
     // A writer whose shape the coverage pass cannot rasterise is dropped rather
     // than clipping its targets with a wrong-shaped stand-in. Only the part type
-    // decides now: `quadShaped` is about inverting a UV, which the *target* side
+    // decides: `quadShaped` is about inverting a UV, which the *target* side
     // needs and a writer never does.
     if (!f.bakedGeometry) continue;
 
@@ -69,7 +69,7 @@ void SsMaskPlan::collect(const ss::runtime::FrameData* fd, const SsBaker& baker,
 
     const size_t base = static_cast<size_t>(info.vertexOffset) * 2;
     const size_t floats = static_cast<size_t>(info.vertexCount) * 2;
-    // Any vertex count now, not four: a polygon and a deformed mesh both write
+    // Any vertex count: a polygon and a deformed mesh both write
     // coverage. Three is the fewest that encloses anything.
     if (info.vertexCount < 3 || base + floats > positions.size()) continue;
 

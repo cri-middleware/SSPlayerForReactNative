@@ -6,23 +6,17 @@
 /// **Included only from `SsSkiaDraw.cpp`** — same rule as `SsBlend.hpp` and
 /// `SsPartColorShader.hpp`, and for the same reason.
 ///
-/// Two references, and the split is deliberate:
-/// **SSPlayerForFlutter** for the architecture, because it faces this port's
-/// constraint — no custom per-vertex varyings, so per-part values are rebuilt
-/// per fragment instead of arriving from a vertex stage. **SSPlayerForGodot**
-/// for the arithmetic, because its bodies cite the SS6 SDK original per
-/// constant with file and line, which is the only way to check a magic number.
-/// Godot's bodies do not port verbatim: they read `TEXTURE` / `UV` /
-/// `partcolor_color` / `partcolor_varg`, which are Godot varyings.
+/// Skia gives no custom per-vertex varyings, so per-part values are rebuilt per
+/// fragment instead of arriving from a vertex stage. The arithmetic is the SS6
+/// originals', and each body names the file it comes from.
 ///
-/// The preamble below replaces them. SkSL has no preprocessor, so where Flutter
-/// writes `SS_SETUP()` each body here opens with the same four explicit lines.
+/// SkSL has no preprocessor, so each body opens with the same four explicit lines
+/// over the preamble below.
 ///
 /// One simplification falls out of drawing through `drawVertices`: `coord`
-/// arrives in **texture pixels**, so Godot's `TEXTURE_PIXEL_SIZE` (a normalised
-/// 1/size step) is simply `1.0` here, and no shader has to carry the texture
-/// size to take a one-texel step. `uTexSize` is still needed by the two that
-/// work in normalised cell space.
+/// arrives in **texture pixels**, so a one-texel step is simply `1.0` here, and no
+/// shader has to carry the texture size to take one. `uTexSize` is still needed by
+/// the three that hash or warp in normalised UV (`ss-noise`, `ss-scatter`, `ss-wave`).
 
 #include <algorithm>
 #include <mutex>
@@ -59,7 +53,7 @@ uniform float4 uColRT;
 uniform float4 uColLB;
 uniform float4 uColRB;
 uniform float4 uParams;    // the SHDR attribute's param0..param3
-uniform float4 uCellRect;  // cell UV rect (minU, minV, maxU, maxV), normalised
+uniform float4 uCellRect;  // cell UV rect (minU, minV, maxU, maxV), in texture pixels
 
 // Quad-local (s,t) in [0,1]^2. Clamped for edge fragments; interior ones
 // already land inside the square.
@@ -69,18 +63,18 @@ float2 ssLocal(float2 coord) {
                   clamp(uUvInv.z * d.x + uUvInv.w * d.y, 0.0, 1.0));
 }
 
-// Godot's `partcolor_color`, rebuilt over the fan the part is drawn as.
+// The part's colour, rebuilt over the fan the part is drawn as.
 float4 ssColorAt(float2 st) {
     float4 w = ssFanWeights(st);
     return w.x * uColLT + w.y * uColRT + w.z * uColLB + w.w * uColRB;
 }
 
-// Godot's `partcolor_varg.w`-adjacent strength, rebuilt the same way.
+// The PartColor strength, rebuilt the same way.
 float ssRateAt(float2 st) {
     return dot(ssFanWeights(st), uRate);
 }
 
-// Godot's `ss_input_texture`. Skia hands back premultiplied; the SS maths
+// Skia hands back premultiplied; the SS maths
 // expects straight alpha. `coord` is in texture pixels, so a one-texel step is
 // 1.0 and callers offset it directly.
 float4 ssTex(float2 coord) {
@@ -89,9 +83,7 @@ float4 ssTex(float2 coord) {
     return float4(a > 0.0 ? float3(c.rgb) / a : float3(c.rgb), a);
 }
 
-// Godot's `ss_partcolor_blend` plus its `ss_output_color` premultiply, which is
-// Flutter's `ssBlend`. The two ports agree on this formula, which is what
-// corroborates `SsPartColor.hpp`'s coefficient row.
+// The PartColor blend and the premultiply, with `SsPartColor.hpp`'s coefficient row.
 //
 // `col.a` already carries the part's hierarchical alpha, so
 // `PartState.alpha` is deliberately not re-multiplied here.
@@ -104,26 +96,23 @@ half4 ssFinish(float4 pixel, float4 col, float rate) {
     return half4(half3(rgb * a), half(a));
 }
 
-// A fragment the built-in cuts (Godot and SS6 `discard`). A runtime effect
+// A fragment the built-in cuts (SS6 `discard`). A runtime effect
 // cannot discard, and does not need to: the output is premultiplied, so zero
 // alpha is zero contribution under every blend this port uses.
 half4 ssCut() { return half4(0.0); }
 
 const float kSsPi = 3.1415926535897932;
 
-// Godot's `UV`. Its shaders work in normalised texture coordinates while this
-// one works in texture pixels, so a port converts only where the arithmetic
-// genuinely needs the normalised value — the pseudo-random hashes, whose output
+// Normalised UV. This port works in texture pixels, and converts only where the
+// arithmetic genuinely needs the normalised value — the pseudo-random hashes, whose output
 // depends on the scale of their input, and `ss-wave`'s frequency term.
 float2 ssUv(float2 coord) { return coord / max(uTexSize, float2(1.0)); }
 
-// SS6's hash, shared verbatim by `ss-noise` (ss-noise.fs:31-34) and `ss-scatter`
-// (ss-scatter.fs:33-36).
+// SS6's hash, shared verbatim by `ss-noise` and `ss-scatter`.
 float ssRand(float2 p) { return fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453); }
 )SKSL";
 
-/// `ss-sepia`, ported from SSPlayerForGodot's `ss_sepia.fs`, which in turn cites
-/// SS6's `Common/Drawer/GLSL/ss-sepia.fs`.
+/// `ss-sepia`, from SS6's `Common/Drawer/GLSL/ss-sepia.fs`.
 ///
 /// `param0` is the signed strength: `> 0` warms the luminance-grey toward sepia,
 /// `< 0` leaves it plain greyscale, `== 0` is a passthrough (the mix factor is
@@ -136,10 +125,10 @@ half4 main(float2 coord) {
     float4 Pixel = ssTex(coord);
 
     float fPower = uParams.x;
-    // ITU-R BT.601 weights, SS6 ss-sepia.fs:33-35.
+    // ITU-R BT.601 weights, from SS6's ss-sepia.fs.
     float gray = dot(Pixel.rgb, float3(0.298912, 0.586611, 0.114478));
     float3 GrayRgb = float3(gray);
-    // Sepia tint scale, SS6 ss-sepia.fs:43-45.
+    // Sepia tint scale, from SS6's ss-sepia.fs.
     float3 SepiaRgb = GrayRgb * float3(1.07, 0.74, 0.43);
     // step(edge, x) is 1 when x >= edge, so this picks grey when fPower <= 0.
     float3 toned = mix(SepiaRgb, GrayRgb, step(fPower, 0.0));
@@ -149,7 +138,7 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-hsb`, from SSPlayerForGodot's `ss_hsb.fs` (SS6 `ss-hsb.fs`).
+/// `ss-hsb`, from SS6's `ss-hsb.fs`.
 ///
 /// `param0/1/2` are signed Hue / Saturation / Brightness shifts. The two
 /// conversion helpers are the SS6 originals, declared here rather than in the
@@ -188,7 +177,7 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-step`, from `ss_step.fs` (SS6 `ss-step.fs`).
+/// `ss-step`, from SS6's `ss-step.fs`.
 ///
 /// `param0` is the signed threshold — its sign picks whether the bright or the
 /// dark end is the target — `param1` the number of posterise stages, `param2`
@@ -216,11 +205,10 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-pix`, from `ss_pix.fs` (SS6 `ss-pix.fs`).
+/// `ss-pix`, from SS6's `ss-pix.fs`.
 ///
 /// `param0` is the block size: `1 + 96 * fPower` source texels per cell, so 0
-/// leaves the one-texel grid alone. Godot quantises normalised UV against
-/// `TEXTURE_PIXEL_SIZE`; in texture pixels the two cancel and the whole step is
+/// leaves the one-texel grid alone. In texture pixels the whole step is
 /// `floor(coord / v) * v`.
 inline const char* kSsShaderPix = R"SKSL(
 half4 main(float2 coord) {
@@ -236,11 +224,11 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-noise`, from `ss_noise.fs` (SS6 `ss-noise.fs`).
+/// `ss-noise`, from SS6's `ss-noise.fs`.
 ///
 /// `param0` is the intensity, `param1` decorrelates the channels, `param2` is a
-/// phase an animation can scroll. The hash is fed **normalised** UV, as SS6 and
-/// Godot feed it: its output depends on the scale of its input, so quantising in
+/// phase an animation can scroll. The hash is fed **normalised** UV, as SS6 feeds
+/// it: its output depends on the scale of its input, so quantising in
 /// pixels and hashing in pixels would give a different — still plausible —
 /// pattern from the other players.
 inline const char* kSsShaderNoise = R"SKSL(
@@ -269,11 +257,10 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-bmask`, from `ss_bmask.fs` (SS6 `ss-bmask.fs`).
+/// `ss-bmask`, from SS6's `ss-bmask.fs`.
 ///
 /// `param0` is a signed brightness cutoff: positive keeps the pixels brighter
-/// than it, negative keeps the darker ones. Godot discards; `ssCut` is this
-/// port's equivalent.
+/// than it, negative keeps the darker ones.
 inline const char* kSsShaderBmask = R"SKSL(
 half4 main(float2 coord) {
     float2 st = ssLocal(coord);
@@ -289,7 +276,7 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-outline`, from `ss_outline.fs` (SS6 `ss-outline.fs`).
+/// `ss-outline`, from SS6's `ss-outline.fs`.
 ///
 /// `param0`'s magnitude is the alpha cutoff for a four-neighbour cross: a pixel
 /// survives when it is above the cutoff and at least one orthogonal neighbour is
@@ -319,7 +306,7 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-blur`, from `ss_blur.fs` (SS6 `ss-blur.fs`).
+/// `ss-blur`, from SS6's `ss-blur.fs`.
 ///
 /// Nine taps over a radius of `param0 * 16` texels. **The one built-in that does
 /// not fold the PartColor composite** — SS6 multiplies each tap by the vertex
@@ -350,7 +337,7 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-wave`, from `ss_wave.fs` (SS6 `ss-wave.fs`).
+/// `ss-wave`, from SS6's `ss-wave.fs`.
 ///
 /// A sinusoidal horizontal warp driven by the texture's V: `param0` is the
 /// frequency, `param1` the amplitude, `param2` the phase (0..1 is one period).
@@ -375,14 +362,13 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-move`, from `ss_move.fs` (SS6 `ss-move.fs`).
+/// `ss-move`, from SS6's `ss-move.fs`.
 ///
 /// A directional smear: `param0` is the signed distance, `param1` the direction
 /// in units of pi, `param2` the per-step blend strength.
 ///
-/// The loop bound is a **constant** where Godot's is dynamic, because ES2 — the
-/// profile a runtime effect compiles under — requires it. The trip count is the
-/// same 128 Godot caps at, with the tail skipped rather than not run.
+/// The loop bound is a **constant**, because ES2 — the profile a runtime effect
+/// compiles under — requires it, with the tail skipped rather than not run.
 inline const char* kSsShaderMove = R"SKSL(
 half4 main(float2 coord) {
     float2 st = ssLocal(coord);
@@ -409,7 +395,7 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-scatter`, from `ss_scatter.fs` (SS6 `ss-scatter.fs`).
+/// `ss-scatter`, from SS6's `ss-scatter.fs`.
 ///
 /// Each texel cell is gated by `param1` and, when it passes, samples along a
 /// per-cell random angle at `param0 * 96` texels. `param2` scrolls the pattern.
@@ -435,13 +421,12 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-circle`, from `ss_circle.fs` (SS6 `ss-circle.fs`).
+/// `ss-circle`, from SS6's `ss-circle.fs`.
 ///
 /// Unwraps the part's cell into a disc: the radius becomes u (0 at the rim, 1 at
 /// the centre) and the angle becomes v, offset by `param0` and flipped by
-/// `param1`. One of the two that read `uCellRect`; Godot lifts its UV rect into
-/// pixel space to keep the disc round on a non-square cell, which is the space
-/// this port is already in.
+/// `param1`. One of the two that read `uCellRect`, in pixel space, which keeps the
+/// disc round on a non-square cell.
 inline const char* kSsShaderCircle = R"SKSL(
 half4 main(float2 coord) {
     float2 st = ssLocal(coord);
@@ -474,7 +459,7 @@ half4 main(float2 coord) {
 }
 )SKSL";
 
-/// `ss-spot`, from `ss_spot.fs` (SS6 `ss-spot.fs`).
+/// `ss-spot`, from SS6's `ss-spot.fs`.
 ///
 /// A radial spotlight on the cell's centre: `param0` scales the radius,
 /// `param1` blends the `1/r` falloff toward a linear one, `param2` mixes the lit
@@ -507,10 +492,6 @@ half4 main(float2 coord) {
 )SKSL";
 
 /// One body per `SsShaderId`, in that enum's order.
-///
-/// A null entry is a built-in this port has not ported yet: the caller then
-/// keeps the plain textured/PartColor path, which is the same fallback an
-/// unrecognised `id_hash` takes.
 inline const char* const* SsShaderBodies() {
   static const char* const kBodies[sscore::kSsShaderCount] = {
       kSsShaderSepia,    // Sepia
@@ -530,8 +511,7 @@ inline const char* const* SsShaderBodies() {
   return kBodies;
 }
 
-/// The compiled effect for `id`, or null when it has no body yet or would not
-/// compile.
+/// The compiled effect for `id`, or null when it would not compile.
 ///
 /// Compiled on first use and cached for the process. A failure is reported once
 /// and degrades to the plain textured draw rather than dropping the part — an

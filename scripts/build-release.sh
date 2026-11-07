@@ -31,11 +31,10 @@
 #   Half a Brain — `build-runtime` without Xcode writes the Android slices and
 #   no xcframework. That package installs and then fails to link on iOS.
 #
-#   A licence left behind. The FlatBuffers one got away exactly here: `files`
-#   listed the headers and stopped short of the text beside them.
+#   A licence left behind: `files` can list the headers and miss the text beside
+#   them.
 #
-#   android/ carrying its own build output — `files` takes a directory whole,
-#   which is how that entry once packed 2.8 GB of `.cxx`.
+#   android/ carrying its own build output: `files` takes a directory whole.
 set -euo pipefail
 
 APP=$(basename "$0")

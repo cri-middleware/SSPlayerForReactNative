@@ -85,11 +85,11 @@ function playableUri(uri: string): string {
  *
  * `baseUri` is the `.ssab`'s own URI: a sound's `filePath` is relative to it,
  * exactly like a cellmap's `image_path`, so it goes through the same
- * `resolveAgainst` seam every other sibling reference does.
+ * `resolveAgainst` seam everything else a pack names does.
  */
 export function playAudioEvent(baseUri: string, event: SsAudioEvent): string | null {
   if (event.filePath.length === 0) return 'no SoundList entry'
-  // An embedded pack keeps the bytes in `embedded_assets` and ships no sibling
+  // An embedded pack keeps the bytes in `embedded_assets` and ships no such
   // file, so the path is real but nothing is there to open. The package does not
   // expose those bytes yet — see its ROADMAP.
   if (event.embedded) return 'embedded — bytes not reachable yet'
