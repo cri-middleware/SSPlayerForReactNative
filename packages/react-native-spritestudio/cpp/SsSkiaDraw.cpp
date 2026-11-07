@@ -45,10 +45,6 @@ namespace {
 /// Linear: a pack has a handful of cellmaps, so a map would cost more to build
 /// each frame than the scan saves.
 const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t textureHash) {
-  if (count == 0) return nullptr;
-  // Single-entry tables match anything — see the header for why.
-  if (count == 1) return static_cast<const SkPaint*>(textures[0].paint);
-
   const auto hash = static_cast<uint32_t>(textureHash);
   for (size_t i = 0; i < count; ++i) {
     if (textures[i].textureHash == hash) return static_cast<const SkPaint*>(textures[i].paint);
@@ -554,9 +550,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
     // A Shape samples nothing: its colour is entirely in the baked vertex
     // colours (a Shape bypasses the composite formula), and its `texture_hash` is
-    // 0 because it resolves no cell. So it must **not** go through `PaintFor` —
-    // the single-entry rule matches unconditionally and would hand it the
-    // atlas, texturing a polygon that was never meant to sample one.
+    // 0 because it resolves no cell, so it does not go through `PaintFor`.
     const bool untextured = batch.kind == ss::runtime::DrawBatchKind_Shape;
     // A Mesh target is masked by the layer route in the peel below rather than by
     // the UV reconstruction a quad uses; the flag rides down to `maskBitsOf` so a

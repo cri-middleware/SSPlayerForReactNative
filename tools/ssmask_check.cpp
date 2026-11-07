@@ -92,9 +92,8 @@ void ss_runtime_get_mesh_vertex_offsets(void* context, const uint32_t** out_data
 void ss_runtime_get_mesh_uvs(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_mesh_indices(void* context, const int32_t** out_data, size_t* out_len);
 void ss_runtime_get_mesh_index_offsets(void* context, const uint32_t** out_data, size_t* out_len);
-// Shape. Not optional here even though only check 3 and 4 load a `.ssab`: a
-// converted Spine clipping arrives as a Shape mask, so without these a pack
-// whose every writer is a Shape presents as a pack with no writers at all.
+// Shape. Not optional here even though only check 3 and 4 load a `.ssab`: without
+// these a pack whose every writer is a Shape presents as a pack with no writers.
 void ss_runtime_get_shape_vertices(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_shape_vertex_box_coords(void* context, const float** out_data,
                                             size_t* out_len);
@@ -590,6 +589,18 @@ struct Baked {
   const ss::runtime::FrameData* fd = nullptr;
 };
 
+/// One binding per batch of `baker`'s frame, all to `paint`. These checks count
+/// where pixels land, not which atlas they came from, and a batch with no
+/// binding is not drawn.
+std::vector<::ssplayer::SsPaintBinding> BindEveryBatch(const sscore::SsBaker& baker,
+                                                       SkPaint* paint) {
+  std::vector<::ssplayer::SsPaintBinding> bindings;
+  for (const sscore::SsBatchDesc& batch : baker.batches()) {
+    bindings.push_back({static_cast<uint32_t>(batch.textureHash), paint});
+  }
+  return bindings;
+}
+
 // --- 3. the whole path still masks -----------------------------------------
 
 /// Renders `.ssab` twice, with and without the mask input, and requires the two
@@ -610,7 +621,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
 
   SkPaint paint;
   paint.setShader(WhiteAtlas());
-  const ::ssplayer::SsPaintBinding binding{0u, &paint};
+  const std::vector<::ssplayer::SsPaintBinding> bindings = BindEveryBatch(baker, &paint);
 
   constexpr int kSize = 512;
   const auto render = [&](bool withMask, SkBitmap* out) {
@@ -627,7 +638,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
       input.flags = flags.data();
       input.flagCount = flags.size();
     }
-    ::ssplayer::DrawBakedFrame(canvas, &binding, 1, baker, input);
+    ::ssplayer::DrawBakedFrame(canvas, bindings.data(), bindings.size(), baker, input);
     out->allocN32Pixels(kSize, kSize);
     surface->readPixels(*out, 0, 0);
   };
@@ -670,7 +681,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
   input.plan = &plan;
   input.flags = flags.data();
   input.flagCount = flags.size();
-  ::ssplayer::DrawBakedFrame(&counter, &binding, 1, baker, input);
+  ::ssplayer::DrawBakedFrame(&counter, bindings.data(), bindings.size(), baker, input);
   if (counter.layers != 0) {
     Fail("the masked frame opened %d layer%s — each is an offscreen render every frame",
          counter.layers, counter.layers == 1 ? "" : "s");
@@ -883,13 +894,14 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
   if (!atlases.load(parentView, dir)) return;
   SkPaint childPaint;
   childPaint.setShader(GreenAtlas());
-  const ::ssplayer::SsPaintBinding childBinding{0u, &childPaint};
+  const std::vector<::ssplayer::SsPaintBinding> childBindings =
+      BindEveryBatch(child.baker, &childPaint);
 
   constexpr int kSize = 512;
   const auto render = [&](MountRecorder& renderer, SkBitmap* out) {
     renderer.child = &child;
-    renderer.bindings = &childBinding;
-    renderer.bindingCount = 1;
+    renderer.bindings = childBindings.data();
+    renderer.bindingCount = childBindings.size();
     sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
     SkCanvas* canvas = surface->getCanvas();
     canvas->clear(SK_ColorBLACK);
@@ -1085,8 +1097,9 @@ void CheckCoverageKept(const char* ssabPath, const char* animation, int atFrame)
     input.plan = &plan;
     input.flags = pack.flags.data();
     input.flagCount = pack.flags.size();
-    const ::ssplayer::SsPaintBinding binding{0u, paint};
-    ::ssplayer::DrawBakedFrame(canvas, &binding, 1, pack.baker, input, nullptr, scratch);
+    const std::vector<::ssplayer::SsPaintBinding> bindings = BindEveryBatch(pack.baker, paint);
+    ::ssplayer::DrawBakedFrame(canvas, bindings.data(), bindings.size(), pack.baker, input, nullptr,
+                               scratch);
     out->allocN32Pixels(kSize, kSize);
     surface->readPixels(*out, 0, 0);
   };

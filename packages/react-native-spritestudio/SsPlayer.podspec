@@ -7,7 +7,7 @@ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
 version_file = File.join(__dir__, "native", "VERSION")
 sdk_version = File.exist?(version_file) ? File.read(version_file).strip : "unknown"
 
-# Variant (c) needs RN Skia's own C++ (JsiSkCanvas) *and* the Skia headers it
+# Drawing straight into RN Skia's SkCanvas needs RN Skia's own C++ (JsiSkCanvas) *and* the Skia headers it
 # includes as "include/core/...". A `s.dependency` only gets us CocoaPods'
 # flattened Public dir, which cannot satisfy those nested includes — so resolve
 # the package directory and put its real roots on the search path. Walk upwards
@@ -51,9 +51,8 @@ Pod::Spec.new do |s|
   s.license      = { :type => package["license"], :file => "LICENSE.md" }
   s.authors      = "CRI Middleware"
 
-  # 15.1 because that is react-native 0.88's own floor
-  # (scripts/cocoapods/helpers.rb), and nothing that cannot run RN can consume
-  # this pod. It read 14.0 while the README said 14+ and neither was reachable.
+  # React Native's own floor (scripts/cocoapods/helpers.rb): nothing that cannot
+  # run RN can consume this pod.
   s.platforms    = { :ios => "15.1" }
   s.source       = { :git => "https://github.com/cri-middleware/SSPlayerForReactNative.git", :tag => "#{s.version}" }
 
@@ -74,7 +73,6 @@ Pod::Spec.new do |s|
     # inline, so nothing links against flatc's own translation units and
     # flatbuffers/src stays off the path. The vendored version must match the
     # flatc that generated them — the headers static_assert on it.
-    # Same arrangement as SSPlayerForGodot's ss_player/sources.py.
     "\"$(PODS_TARGET_SRCROOT)/third_party/flatbuffers/include\"",
   ]
   if skia_direct

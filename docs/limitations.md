@@ -42,6 +42,9 @@ are listed in [Shared Limitations](https://cri-middleware.github.io/SpriteStudio
 instance tree shares one budget, and an instance's count again each time it
 is placed. Past 96 the rest are ignored, with a warning.
 
+**A masked part's Sub and Invert blends are approximate.** It draws them in one pass as a difference,
+so where a Sub part is brighter than what is behind it, the result comes out light rather than black.
+
 ## Shaders
 
 **An `ss-*` shader applies to Normal parts only.** On a Mesh, Shape or Effect

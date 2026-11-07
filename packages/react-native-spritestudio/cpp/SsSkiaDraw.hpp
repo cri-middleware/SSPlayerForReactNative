@@ -117,9 +117,7 @@ struct SsDrawScratch {
 /// Walking the batches in the Brain's order — rather than once per texture — is
 /// what keeps the depth sorting intact when a pack has more than one cellmap.
 /// A batch whose hash matches nothing is skipped, so a mis-keyed texture shows
-/// up as a missing part rather than a part wearing the wrong atlas. The one
-/// exception is a single-entry table, which matches unconditionally: a
-/// one-cellmap pack is then drawable without knowing the cellmap's name.
+/// up as a missing part rather than a part wearing the wrong atlas.
 ///
 /// `canvas` is an `SkCanvas*` and each `paint` an `SkPaint*`, all borrowed for
 /// the duration of the call. Returns the number of vertices drawn, or 0 when the

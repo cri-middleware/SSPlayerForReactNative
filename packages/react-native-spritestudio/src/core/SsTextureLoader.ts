@@ -55,15 +55,14 @@ export interface SsTextureLoadPass {
 }
 
 /**
- * Loads a pack's textures into an `SsTextureRegistry`, the way the sibling
- * Players do (`SSPlayerForFlutter`'s `texture_loader.dart` is the same routine).
+ * Loads a pack's textures into an `SsTextureRegistry`.
  *
  * The `.ssab` itself is read in C++ — this layer is handed `SsTextureInfo[]`,
  * never a buffer to parse. Two supply modes, routed per texture with embedded
  * winning:
  *
  *  * **embedded** — bytes came along inside the `.ssab`.
- *  * **reference** — the texture names a sibling file, resolved against the
+ *  * **reference** — the texture names a file, resolved against the
  *    `.ssab`'s own location: the parent of `baseUri`, joined with `imagePath`.
  *
  * Everything is registered under `SsTextureInfo.textureHash`, which
@@ -73,12 +72,8 @@ export interface SsTextureLoadPass {
  *
  * Everywhere an `SsSource` can point, because all three kinds keep their
  * directory: the app's asset directory, a real filesystem directory, or a
- * server. The sibling is opened the way the `.ssab` was — `resolveAgainst`
+ * server. The file is opened the way the `.ssab` was — `resolveAgainst`
  * hands back a URI of the same kind, and `schemeOf` picks the door.
- *
- * This used not to hold. While the `.ssab` was named with a `require()` there
- * was no directory to resolve against, so a reference pack could only be drawn
- * by supplying its textures by hand. That is what the asset directory replaced.
  */
 export class SsTextureLoader {
   /**
@@ -93,7 +88,9 @@ export class SsTextureLoader {
    *
    * A hash already in `registry` is skipped, so several packs sharing one
    * registry (a root and its instance children routinely name the same atlas)
-   * decode it once, and a caller-supplied texture wins over the pack's.
+   * decode it once, and a caller-supplied texture wins over the pack's. A runtime
+   * replacement does not count: the atlas goes in underneath it, or taking the
+   * replacement off would leave nothing to draw.
    *
    * `pass` is for an owner that can replace a load while this one is still
    * decoding — see `SsTextureLoadPass`.
@@ -113,9 +110,9 @@ export class SsTextureLoader {
     // sound if the calls are ordered, and two cellmaps naming one atlas would
     // otherwise both miss and decode it twice.
     for (const texture of textures) {
-      if (registry.has(texture.textureHash)) continue
+      if (registry.hasBase(texture.textureHash)) continue
 
-      // Keyed by where the atlas came from, so two packs naming one sibling
+      // Keyed by where the atlas came from, so two packs naming one
       // image decode it once. An atlas inside an Embedded pack has no URI of its
       // own, so it is keyed by the pack it lives inside plus the hash it is stored
       // under.
@@ -145,8 +142,8 @@ export class SsTextureLoader {
         registered.push(texture.textureHash)
         // Sampling is the registry's (Linear + Clamp unless the caller registers
         // the atlas itself). The SpriteStudio filter and wrap are deliberately
-        // not carried — the Porting Guide leaves both to the engine.
-        registry.registerByHash(texture.textureHash, image)
+        // not carried.
+        registry.registerBase(texture.textureHash, image)
         continue
       }
       unresolved.push(

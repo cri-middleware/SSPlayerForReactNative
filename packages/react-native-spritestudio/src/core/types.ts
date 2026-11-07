@@ -2,8 +2,7 @@
  * Layer 2 vocabulary — the playback-shape enums and the root transform.
  *
  * They live here rather than on the player so Layer 2 and Layer 3 can both name
- * them without L2 importing L3, the same split the Flutter Player uses
- * (`playback.dart`). Values are the Brain's wire numbers, so they go to
+ * them without L2 importing L3. Values are the Brain's wire numbers, so they go to
  * `SsContext.setPlaybackDirection` unmapped.
  *
  * **This file, and everything else under `core/`, must not import `react` or

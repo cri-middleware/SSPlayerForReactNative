@@ -25,10 +25,8 @@ Please refer to [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 Most of this player's rules exist because the obvious implementation was tried
 and did not work, and the reasoning behind each is written in the code, at the
 site the rule binds — read it there before changing anything in `cpp/` or in the
-buffer handling. Six are worth knowing before you start:
+buffer handling. Five are worth knowing before you start:
 
-- **Every buffer handed to JS is valid only until the next `update()`.** Structs
-  carry a `generation`; compare it before reading.
 - **Nothing per-vertex crosses the JSI boundary.** JS makes the same few calls
   per player per frame, whatever the vertex count. Routing vertices through JS
   was measured and caps the frame rate.
@@ -239,10 +237,8 @@ licensed under the project's [LICENSE.md](./LICENSE.md).
 
 ### 技術的制約と設計原則
 
-この Player の規則の多くは「素直な実装を試した結果うまくいかなかった」ことの記録で、それぞれの根拠はその規則が縛るコードの箇所に書いてあります。`cpp/` やバッファの扱いに手を入れる前に、そこを読んでください。着手前に知っておきたいものを 6 つ挙げます。
+この Player の規則の多くは「素直な実装を試した結果うまくいかなかった」ことの記録で、それぞれの根拠はその規則が縛るコードの箇所に書いてあります。`cpp/` やバッファの扱いに手を入れる前に、そこを読んでください。着手前に知っておきたいものを 5 つ挙げます。
 
-- **JS に渡されるバッファは次の `update()` までしか有効ではありません。** 各構造体は
-  `generation` を持つので、読む前に比較してください。
 - **頂点単位のデータは JSI 境界を越えません。** JS が 1 フレームに呼ぶ回数は Player
   ごとに決まっていて、頂点数によりません。頂点を JS 経由にする案は計測済みで、フレームレートの上限を作ります。
 - **再生中は毎フレームのヒープ確保をしません。** JSI のどちら側でも同じです。毎フレーム使うバッファは `SsBaker` のようにメンバーに持ってその場でサイズを変え、vector や JS の配列を毎フレーム新しく作らないでください。

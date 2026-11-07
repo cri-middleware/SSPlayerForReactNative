@@ -97,9 +97,7 @@ Each reason here spans files; the code it concerns carries the detail in its com
 **Nothing per vertex crosses JSI.** JS makes the same few calls per player per frame
 whatever the vertex count: the context drives the Brain, the bake writes the
 vertices in C++, and the draw path draws them into the canvas RN Skia hands over.
-Routing vertices through JS was measured and capped the frame rate. That is also
-why every buffer handed to JS carries a `generation` and is valid only until the
-next `update()`.
+Routing vertices through JS was measured and capped the frame rate.
 
 **One copy of every native module.** React Native, Nitro Modules, RN Skia and
 Reanimated are peer dependencies, and an app that ends up with two copies of one

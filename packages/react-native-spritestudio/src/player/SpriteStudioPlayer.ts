@@ -47,10 +47,8 @@ import {
 /**
  * The transport surface, with no drawing backend in it.
  *
- * Stated as an interface on purpose: react-native-web is to be served from the
- * existing `@spritestudio/ssplayer-webgl` rather than by a port, and only this API
- * and the Layer 4 prop types are shared between the two. Anything Skia-shaped
- * belongs on the class below, not here.
+ * Stated as an interface so the Layer 4 prop types and this API are shared without
+ * a drawing backend. Anything Skia-shaped belongs on the class below, not here.
  */
 export interface SpriteStudioPlayerApi {
   readonly frameNo: number
@@ -146,9 +144,7 @@ export interface SpriteStudioPlayerOptions {
  *
  * The name is not decoration: one player outlives the animations mounted on it,
  * so a handler that fires after a `setAnimation` cannot otherwise tell what
- * finished — and a scene of sprites shares one handler across many. The sibling
- * Players pass it for the same reason (`SpriteStudioPlayer2D` emits every one of
- * its four animation signals with `anim_name`).
+ * finished — and a scene of sprites shares one handler across many.
  */
 export type SsAnimationCallback = (animation: string) => void
 
@@ -156,10 +152,7 @@ export type SsAnimationCallback = (animation: string) => void
  * What to measure the content box over, and how far.
  *
  * The cost is a bake per frame walked, so the scope is the caller's call:
- * `animation` walks one, `pack` walks every animation in the file. Measured on
- * a debug-built Brain, `Ringo`'s 24 animations at 120 frames each took 1.3s;
- * `Basic`'s single one took 16ms. Release is far faster and the resource cache
- * makes it once-per-pack, but the ratio between the two scopes is the point.
+ * `animation` walks one, `pack` walks every animation in the file.
  */
 export interface SsMeasureRequest {
   scope: SsFrameScope
@@ -167,8 +160,7 @@ export interface SsMeasureRequest {
    * Frames to walk per animation; 0 walks one authored cycle.
    *
    * A cycle is right for a character and wrong for an effect, whose extent keeps
-   * growing for as long as it is simulated — `e030`'s box only settles after a
-   * couple of hundred frames.
+   * growing for as long as it is simulated.
    */
   maxFrames?: number
 }
@@ -266,8 +258,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * and the direction across a setup on its own.
    *
    * Whether it is **playing** is deliberately absent. Starting playback is
-   * `play()`'s job and nothing else's; folding it into a load or a switch is
-   * what made `setAnimation` start the animation it was only asked to select.
+   * `play()`'s job and nothing else's; folding it into a load or a switch would
+   * make `setAnimation` start an animation it was only asked to select.
    */
   private readonly settings = {
     speed: 1,
@@ -323,9 +315,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Not on a re-`setAnimation` to the same name, which is a restart and reports
    * itself through `onAnimationStarted`.
    *
-   * The conventions do not require this event, on the grounds that a host that
-   * called `setAnimation` already knows.
-   * Here it earns its place: `animation` is a **prop**, so a re-render can
+   * `animation` is a **prop**, so a re-render can
    * mount a different clip without anything in the host calling `setAnimation`
    * at all — the switch happens in `applySettings`, below Layer 4. Without this
    * there is no way to observe it.
@@ -538,9 +528,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * re-keying each by name against the pack that is now loaded.
    *
    * A name the new pack has no texture for is left recorded but unapplied — it
-   * may match again after a later `source` change, exactly as ForGodot keeps its
-   * `_cellmap_overrides` by name and simply skips a name the current resource
-   * does not resolve.
+   * may match again after a later `source` change.
    */
   private applyCellmapTextureOverrides(): void {
     if (this.cellmapTextureOverrides.size === 0) return
@@ -578,7 +566,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   /**
    * Runtime texture replacements in effect, keyed by the cellmap (or external
-   * texture) **name** — the name-side record ForGodot keeps too, so
+   * texture) **name**, so
    * {@link getCellmapTexture} can answer and a source change can re-key onto the
    * new pack. The registry holds the hash-side effect; this is what survives the
    * registry being rebuilt under a new pack, and {@link applyCellmapTextureOverrides}
@@ -767,8 +755,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       return false
     }
     // Assigned from the result, not ahead of it. `currentAnimation` reads this
-    // field, so assigning first left it naming an animation the runtime had
-    // never set up — and `onAnimationStarted` then published that name too.
+    // field, so assigning first would leave it naming an animation the runtime
+    // never set up, and `onAnimationStarted` would publish that name too.
     this.animation = name
     this.reportedMissingAnimation = null
     if (previous !== name) this.onAnimationChanged?.(name)
@@ -806,10 +794,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private reportMissingAnimation(name: string): void {
     if (this.reportedMissingAnimation === name) return
     this.reportedMissingAnimation = name
-    // The Brain's own reason, verbatim. This used to say "has no animation",
-    // which is the common case and not the only one: the same call fails with
-    // "SSAB data is not loaded" on a player whose pack never bound, and telling
-    // that reader the name is missing sends them to the wrong place.
+    // The Brain's own reason, verbatim: the same call fails with "SSAB data is
+    // not loaded" on a player whose pack never bound, and telling that reader the
+    // name is missing would send them to the wrong place.
     const reason = this.internalPlayer?.lastErrorMessage
     console.warn(
       `react-native-spritestudio: '${this.resourceUri ?? 'the loaded pack'}' ` +
@@ -822,11 +809,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * **Head-out**: rewinds to the start of the section and re-arms the loop
    * count.
    *
-   * Not a resume — {@link resume} is. The two used to be one verb here, on the
-   * grounds that a `playing` prop means one thing; but a Player publishing three
-   * verbs where the contract asks for four leaves a host no way to lift a pause
-   * without losing the playhead. Mapping a boolean prop onto the four is Layer
-   * 4's job, and it is the only layer that knows the prop exists.
+   * Not a resume — {@link resume} is. Mapping a boolean prop onto the four verbs
+   * is Layer 4's job, and it is the only layer that knows the prop exists.
    */
   play(startFrame?: number): void {
     this.wasFinished = false
@@ -1192,8 +1176,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    *
    * False for a rigid (deform-only) mesh and every non-mesh part — those follow
    * correctly — and false for an unknown name or before a load. The judgement is
-   * the cross-player one (ForWeb and ForWgpu carry the same query): a
-   * `mesh_binding` present with at least one influence bone.
+   * a `mesh_binding` present with at least one influence bone.
    */
   isPartSkinnedMesh(part: string | number): boolean {
     const internal = this.internalPlayer
@@ -1300,10 +1283,6 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
         continue
       }
       this.overriddenParts.add(name)
-      // The family's default. `permanent` used to be it, which made an override
-      // outlive the animation switch that should have dropped it for anyone
-      // reaching past this map into Layer 2. The declarative behaviour is
-      // unchanged either way: `applySettings` replays the map after every setup.
       const priority = override.priority ?? SsOverridePriority.holdUntilNextAnimation
 
       // `hide: false` reverts, like an absent key and like every sibling
@@ -1311,32 +1290,45 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // only force-hides, and it rejects the force-show the C ABI reserves.
       if (!override.hide) internal.clearPartVisibility(index)
       else {
-        internal.setPartVisibility(
-          index,
-          1,
-          // Off by default, as everywhere else: a keyframed hide never cascades
-          // in SpriteStudio, so cascading is the opt-in.
-          override.cascade ?? false
+        this.partCommand(
+          internal.setPartVisibility(
+            index,
+            1,
+            // Off by default, as everywhere else: a keyframed hide never cascades
+            // in SpriteStudio, so cascading is the opt-in.
+            override.cascade ?? false
+          ),
+          'setPartVisibility',
+          `'${name}'`
         )
       }
 
       if (override.color == null) internal.clearPartColor(index)
       else {
-        internal.setPartColor(
-          index,
-          override.blendOp ?? SsBlendOp.mix,
-          ssPackColor(override.color),
-          priority
+        this.partCommand(
+          internal.setPartColor(
+            index,
+            override.blendOp ?? SsBlendOp.mix,
+            ssPackColor(override.color),
+            priority
+          ),
+          'setPartColor',
+          `'${name}'`
         )
       }
 
       if (override.cell == null) internal.clearPartCell(index)
       else {
-        internal.setPartCell(
-          index,
-          SsRuntimeModule.hashString(override.cell.cellmap),
-          SsRuntimeModule.hashString(override.cell.cell),
-          priority
+        const { cellmap, cell } = override.cell
+        this.partCommand(
+          internal.setPartCell(
+            index,
+            SsRuntimeModule.hashString(cellmap),
+            SsRuntimeModule.hashString(cell),
+            priority
+          ),
+          'setPartCell',
+          `'${name}', '${cellmap}', '${cell}'`
         )
       }
     }
@@ -1680,7 +1672,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Brain accepted it, because the Brain hands track 0 over from the call on.
    *
    * The name, first: left on the outgoing animation, a `setAnimation` back to it
-   * looked like the one already selected and did nothing. The finished latch,
+   * would look like the one already selected and do nothing. The finished latch,
    * so the incoming animation's own end fires `onAnimationFinished`. The loop
    * count, which the Brain resets on every animation it lays. `started` is not
    * fired — a switch that keeps playing is not a `play()`.
@@ -1758,6 +1750,16 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       frameChanged(this)
       return true
     }
+    this.reportRefused(call, target, values)
+    return false
+  }
+
+  /** {@link trackCommand} for a call whose caller announces the frame itself, once for the lot. */
+  private partCommand(ok: boolean, call: string, target: string): void {
+    if (!ok) this.reportRefused(call, target)
+  }
+
+  private reportRefused(call: string, target: string, values?: string): void {
     // Read straight after the call that failed, which is the only moment it
     // describes that call.
     const reason = this.internalPlayer?.lastErrorMessage
@@ -1767,7 +1769,6 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
         `'${this.resourceUri ?? 'the loaded pack'}'` +
         (reason == null ? '' : ` — ${reason}`)
     )
-    return false
   }
 
   private reportTrackFailure(key: string, message: string): void {
@@ -1794,7 +1795,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * for a name the loaded pack has no such texture for; a name set before the
    * first load is accepted and applied once the pack lands.
    *
-   * **Unlike ForGodot, the replacement reaches instance children.** The whole
+   * **The replacement reaches instance children.** The whole
    * player tree draws through one texture table here, so a child that samples the
    * same cellmap picks up the swap too — there is no per-child map to set
    * separately. It also **survives a `source` change**: the override is re-keyed
@@ -1826,7 +1827,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
     // Reject a name the loaded pack cannot bind, so a typo is a warning rather
     // than a paint nothing ever draws with. Only once a pack is loaded: before
-    // that there is nothing to check against, and the load's replay validates it.
+    // that there is nothing to check against.
     if (
       this.internalPlayer != null &&
       !this.replaceableTextureNames.includes(name)
@@ -1849,8 +1850,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   /**
    * The runtime replacement in effect for `name`, or `null` when none is — the
-   * **override value only**, never the pack's own texture (the same contract as
-   * ForGodot's `get_cellmap_texture`). Use it to read back what
+   * **override value only**, never the pack's own texture. Use it to read back what
    * {@link setCellmapTexture} set.
    */
   getCellmapTexture(name: string): SkImage | null {
@@ -2095,13 +2095,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.imageKeys = []
     // The paints the last load put in the registry, taken back out with it.
     //
-    // `load()` documents that it replaces what was loaded before, and leaving
-    // these behind made that untrue in a way that draws: `texture_hash` is the
-    // FNV-1a of a *cellmap name*, so a second pack naming a cellmap the same
-    // thing as the first — `common`, on this repo's own example packs — kept
-    // drawing with the first pack's atlas. Silently, and only for the cellmaps
-    // whose names happened to collide. Without a collision it merely grew, one
-    // binding per load, all of them handed to `drawInto` every frame.
+    // `load()` replaces what was loaded before, so these must go: `texture_hash`
+    // is the FNV-1a of a *cellmap name*, so a second pack naming a cellmap the same
+    // thing as the first would keep drawing with the first pack's atlas. Without a
+    // collision the table would grow one binding per load.
     //
     // Only the ones this load registered: a caller-supplied texture is left
     // alone on the way in (`SsTextureLoader`), so it must be left alone on the

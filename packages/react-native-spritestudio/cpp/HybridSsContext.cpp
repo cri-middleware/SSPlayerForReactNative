@@ -206,7 +206,7 @@ bool HybridSsContext::setupAnimation(const std::string& name) {
   // previous animation is stale for the same reason a frame advance makes it
   // stale. Bump the generation and republish.
   ++generation_;
-  frameNo_ = 0.0f;
+  frameNo_ = ss_runtime_get_frame_no(ctx_);
   // A different animation has different `EventEffect` keys, so each slot's
   // memory of the last key it started is about a timeline that no longer
   // exists — without this the first key of the new animation is debounced as
@@ -509,6 +509,11 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
 
   static constexpr float kIdentity[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
 
+  // The walk steps one frame per `update`, which only holds at the authored
+  // speed, and a setup keeps the host's.
+  const float hostSpeed = ss_runtime_get_speed_scale(ctx_);
+  ss_runtime_set_speed_scale(ctx_, 1.0f);
+
   for (const std::string& name : animations) {
     if (!setupAnimation(name)) continue;
 
@@ -537,6 +542,8 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
       accumulateSubtreeBox(box, kIdentity);
     }
   }
+
+  ss_runtime_set_speed_scale(ctx_, hostSpeed);
 
   if (box[0] > box[2] || box[1] > box[3]) return SsBox(0.0, 0.0, 0.0, 0.0);
   return SsBox(static_cast<double>(box[0]), static_cast<double>(box[1]),

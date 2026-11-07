@@ -65,8 +65,7 @@
     "caret: a renderer shares React's internals and is released in lockstep with",
     "it, so the two move together. It is deprecated in React 19 and",
     "is still the only renderer that does not need a DOM, which is what the",
-    "`view/` tests need -- @testing-library/react-native sits on it for the same",
-    "reason. Move it when react moves."
+    "`view/` tests need. Move it when react moves."
   ],
   "devDependencies": {
     "@types/react": "^19.3.0",

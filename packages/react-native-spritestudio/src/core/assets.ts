@@ -2,7 +2,7 @@
  * Where a URI's bytes come from, and so which door opens them.
  *
  * The three are exhaustive on purpose: every reference a pack carries is
- * resolved by joining it onto the `.ssab`'s own URI, so a pack's siblings are
+ * resolved by joining it onto the `.ssab`'s own URI, so everything a pack names is
  * always the same kind as the pack. Adding a fourth means teaching every reader
  * about it.
  */
@@ -21,7 +21,7 @@ export type SsUriScheme =
  * it is the only form that reaches a release build on both platforms with its
  * *directory* intact — and a directory is what a pack is. `image_path`, an
  * `external_textures` entry, an Instance part's external `.ssab` and a
- * `.ssqb`'s `ref_anime_pack` are all names of siblings.
+ * `.ssqb`'s `ref_anime_pack` are all names relative to the `.ssab`.
  */
 export function schemeOf(uri: string): SsUriScheme {
   if (uri.startsWith('file://') || uri.startsWith('/')) return 'file'
@@ -44,9 +44,9 @@ export function fileSystemPathOf(uri: string): string | null {
 /**
  * Resolves `ref` — a name a pack carries — against the URI the pack came from.
  *
- * **The one place a sibling reference becomes something openable.** Textures go
- * through it today; the external `.ssab` of an Instance part and a `.ssqb`'s
- * `ref_anime_pack` are the same question and get the same answer.
+ * **The one place a name a pack carries becomes something openable**, whether it
+ * names a texture, an Instance part's external `.ssab` or a `.ssqb`'s
+ * `ref_anime_pack`.
  *
  * Deliberately string surgery rather than `new URL`: `baseUri` is an
  * asset-relative path, a filesystem path *or* a URL depending on where the

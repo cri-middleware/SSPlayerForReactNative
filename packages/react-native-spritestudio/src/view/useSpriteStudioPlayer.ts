@@ -14,7 +14,7 @@ import {
 import { sourceUriOf, type SsSource } from '../player/source'
 import type { SsFit, SsFrameScope } from '../core/fit'
 import { reportError } from './reportError'
-import { SS_DEFAULT_CELLMAP, useSsTextures, type SsTextureSources } from './useSsTextures'
+import { SS_DEFAULT_CELLMAP, useDecodedTextures, type SsTextureSources } from './useSsTextures'
 
 /**
  * Everything about *which animation and how it plays* — as opposed to where it
@@ -168,7 +168,6 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   } = props
 
   const [player, setPlayer] = useState<SpriteStudioPlayer | null>(null)
-  const images = useSsTextures(textures)
 
   // Through a ref so a caller passing inline arrows does not restart the load.
   const callbacks = useRef({
@@ -193,6 +192,10 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     onAnimationStarted: props.onAnimationStarted,
     onAnimationChanged: props.onAnimationChanged,
   }
+
+  const images = useDecodedTextures(textures, (error) => {
+    reportError(callbacks.current.onError, error, 'a texture did not load')
+  })
 
   // --- load ---------------------------------------------------------------
   //
@@ -260,7 +263,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
         // `load` selects and poses; starting is a separate verb, so the first
         // play happens here. `playing={false}` therefore leaves the animation on
         // its first frame without ever having played — which is what the prop
-        // says, and what it could not do while `setAnimation` started playback.
+        // says.
         if (playingRef.current) next.play()
         setLoadTick((tick) => tick + 1)
         callbacks.current.onLoad?.(next)
@@ -272,18 +275,15 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       })
     return () => {
       cancelled = true
-      // Explicit teardown, never GC: every buffer Layer 1 handed out is a borrow
-      // of memory this player owns (the lifetime rule in `specs/SsRuntime.nitro.ts`).
-      // It also hands back the cache leases, which is what lets the pack be freed
-      // when the last user of it unmounts.
+      // Explicit teardown, never GC: it hands back the cache leases, which is
+      // what lets the pack be freed when the last user of it unmounts.
       next.dispose()
       setPlayer(null)
     }
     // `animation` is deliberately **not** a dependency: switching animations
-    // must not tear the player down. Doing so dropped the cache leases, so the
-    // `.ssab` was re-read and its atlases re-decoded for a change `setAnimation`
-    // does in one call — every pick from the example's 24-animation dropdown was
-    // a reload from the APK. The effect below owns it instead; the value read
+    // must not tear the player down, which would drop the cache leases and reload
+    // the `.ssab` and its atlases for a change `setAnimation` does in one call. The
+    // effect below owns it instead; the value read
     // here is the one that render had, which is what `load()` should start on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceUri, measureScope, measureFrames])
@@ -328,8 +328,8 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   //
   // Through `setCellmapTexture` rather than straight into the registry. The
   // pack's own atlases land in that same registry, so a bare source registered
-  // under `SS_DEFAULT_CELLMAP` met a table of two and matched no batch: the
-  // shorthand drew the pack's atlas. The replacement seam keys by name, holds
+  // under `SS_DEFAULT_CELLMAP` would meet a table of two and match no batch. The
+  // replacement seam keys by name, holds
   // one set before the load until the pack lands, and puts the pack's own atlas
   // back when the prop drops it.
   //
@@ -355,7 +355,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // running is a *restart* (`ss_runtime_play` rewinds) and reports itself as
   // one, so after a cached load — which resolves in a microtask, before React
   // commits the render that publishes the player — a `player`-keyed effect
-  // rewound the animation and fired a second `onAnimationStarted`.
+  // would rewind the animation and fire a second `onAnimationStarted`.
   useEffect(() => {
     player?.setSpeedScale(speed)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -462,8 +462,8 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       return
     }
     // The canvas of the animation a load starts on, kept across switches:
-    // canvases differ within a pack (Ringo's `dead` is 1300 wide against 800),
-    // and following them would shrink the character as it dies. A load builds
+    // canvases differ within a pack, and following them would shrink a character
+    // mid-animation. A load builds
     // a new internal player, which is what takes the canvas again.
     let keptFor: unknown = null
     let kept: SsBox | null = null

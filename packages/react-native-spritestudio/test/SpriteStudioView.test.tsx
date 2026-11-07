@@ -32,7 +32,8 @@ async function layout(
   width: number,
   height: number
 ): Promise<void> {
-  const view = findHosts(renderer, 'View')[0]
+  // Not the outer view, which only a caller's own `onLayout` listens to.
+  const view = findHosts(renderer, 'View')[1]
   await act(async () => {
     ;(view?.props as { onLayout(event: unknown): void }).onLayout({
       nativeEvent: { layout: { width, height } },
@@ -249,7 +250,7 @@ describe('the placeholder', () => {
     fakePlayerHookState.ready = false
     const { renderer } = await render(<SpriteStudioView source={PACK} />)
 
-    expect(findHosts(renderer, 'View')).toHaveLength(1)
+    expect(findHosts(renderer, 'View')).toHaveLength(2)
   })
 })
 
@@ -304,8 +305,9 @@ describe('a view’s own props', () => {
     expect(props).not.toHaveProperty('source')
     expect(props).not.toHaveProperty('animation')
 
+    expect(props.onLayout).toBe(onLayout)
+
     await layout(renderer, 300, 200)
-    expect(onLayout).toHaveBeenCalledOnce()
     expect(pendingFrames()).toBe(1)
   })
 })
@@ -377,7 +379,7 @@ describe('children', () => {
     )
 
     expect(probed.at(-1)).toBe(SpriteStudioPlayer.last())
-    expect(findHosts(renderer, 'View')[1]?.props).toMatchObject({ pointerEvents: 'box-none' })
+    expect(findHosts(renderer, 'View')[2]?.props).toMatchObject({ pointerEvents: 'box-none' })
   })
 
   it('give an anchor the view’s player when it names none', async () => {

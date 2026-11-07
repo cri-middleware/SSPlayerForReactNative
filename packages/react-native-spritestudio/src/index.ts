@@ -47,8 +47,7 @@ export {
   type SsPlayerState,
 } from './view/useSpriteStudioPlayer'
 /**
- * Part following, published through a Reanimated shared value — the seam that
- * does not change when the frame tick eventually moves to the UI thread.
+ * Part following, published through a Reanimated shared value.
  */
 export {
   useSsPartTransform,
@@ -113,8 +112,7 @@ export {
   type SsTextureLoadReport,
 } from './core/SsTextureLoader'
 /**
- * Path resolution, shared by everything a pack points at. `resolveAgainst` is
- * the seam Instance parts and `.ssqb` sequences will resolve through too.
+ * Path resolution, shared by everything a pack points at.
  */
 export {
   fileSystemPathOf,

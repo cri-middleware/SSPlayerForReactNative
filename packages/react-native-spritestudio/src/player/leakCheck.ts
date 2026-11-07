@@ -44,8 +44,7 @@ export interface SsLeakCheckResult {
  * eagerly.** Both Hybrid Objects override Nitro's `dispose()` (which is a no-op
  * unless a class does), so the Brain handles are given back inside the call
  * rather than whenever the collector next runs. A count that has not come back
- * down by the time this returns is therefore a leak and not a pending GC —
- * before that override existed, this check could not have told the two apart.
+ * down by the time this returns is therefore a leak and not a pending GC.
  *
  * Growth rather than inequality, because an app is free to be doing other things
  * on other players while this runs; a count that *fell* is someone else's
@@ -82,11 +81,9 @@ export async function ssCheckForLeaks(
   }
 
   // The other way a reload leaks, and the one `liveHandles` cannot see: **one**
-  // player loaded over and over. `load()` documents that it replaces what was
-  // there, and the texture registry is where that used to stop being true — the
-  // paints from every previous pack stayed, so the table handed to `drawInto`
-  // grew by one binding per load and a cellmap name shared by two packs kept
-  // drawing with the older one's atlas.
+  // player loaded over and over. A registry that kept the previous pack's paints
+  // would grow one binding per load, and a cellmap name shared by two packs would
+  // keep drawing the older atlas.
   //
   // The same source each time, so the count is its own expectation: whatever the
   // first load registered is what the eighth should have too.

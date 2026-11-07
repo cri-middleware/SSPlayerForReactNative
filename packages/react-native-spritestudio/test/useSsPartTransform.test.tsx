@@ -90,6 +90,21 @@ describe('useSsPartTransform', () => {
     expect(writesOf(harness.result.current)).toBe(0)
   })
 
+  it('drops the last part when the name changes to one that does not resolve', async () => {
+    state.transform = local()
+    const harness = await renderHook(
+      (props: { part: string }) => useSsPartTransform(player, props.part),
+      { part: 'hand' }
+    )
+    await act(async () => show())
+    expect(harness.result.current.value.valid).toBe(true)
+
+    state.transform = null
+    await harness.rerender({ part: 'typo' })
+
+    expect(harness.result.current.value.valid).toBe(false)
+  })
+
   // Exactly the mapping `SsInternalPlayer.draw` applies — translate, then scale.
   it('carries the part into view pixels through the root transform', async () => {
     state.transform = local()

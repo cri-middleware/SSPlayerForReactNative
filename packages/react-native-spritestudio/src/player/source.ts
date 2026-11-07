@@ -29,7 +29,7 @@ import type { SsResource } from '../specs/SsRuntime.nitro'
  * only what a `require()` names and never walks a directory — and on an Android
  * release build the packager then flattens and lowercases what it did name into
  * `res/`, so `dirname()` of a bundled asset points at nothing. A `require()`
- * source works in development and then silently loses every sibling reference
+ * source works in development and then silently loses every name it carries
  * when shipped, which is the failure this API is shaped to avoid. The pack
  * directories are copied in out-of-band instead — see `plugin/`.
  */
@@ -69,14 +69,13 @@ export function resolveSourceUri(source: SsSource): string {
 /**
  * Loads a `.ssab` into a Layer 1 resource, **taking a cache lease on it**.
  *
- * Two of the three routes keep the bytes out of the JS heap entirely (design
- * C++ opens the file or the APK entry. Only a remote URL has to
- * be fetched, and only a dev server or a CDN is one.
+ * Two of the three routes keep the bytes out of the JS heap entirely: C++ opens
+ * the file or the APK entry. Only a remote URL has to be fetched, and only a dev
+ * server or a CDN is one.
  *
- * The lease is the caller's to give back with `releaseResource(uri)`, and that
- * replaces the `dispose()` this used to ask for: a second player of the same
- * pack shares this resource, so disposing it directly would pull the `.ssab`
- * out from under a player that is still drawing.
+ * The lease is the caller's to give back with `releaseResource(uri)`: a second
+ * player of the same pack shares this resource, so disposing it directly would
+ * pull the `.ssab` out from under a player that is still drawing.
  */
 export async function loadResource(source: SsSource): Promise<LoadedResource> {
   const uri = resolveSourceUri(source)
@@ -93,7 +92,7 @@ export function releaseResource(uri: string): void {
  * Loads a pack and **keeps it loaded**, so the mount that needs it does not wait.
  *
  * The lease this takes is never balanced by a `release` — see
- * `SsRefCache.retain`. `ssUnloadPack` gives it back, and `ssClearCaches`
+ * `SsRefCache.retain`. `ssUnload` gives it back, and `ssClearCaches`
  * gives every one of them back at once.
  */
 export async function preloadResource(source: SsSource): Promise<void> {
@@ -132,19 +131,18 @@ async function createResource(uri: string): Promise<SsResource> {
 /**
  * Loads every pack this one's Instance parts reach into, transitively.
  *
- * A reference is a **sibling name** like everything else a `.ssab` points at, so
+ * A reference is a **name relative to the pack** like everything else a `.ssab` points at, so
  * each one is `resolveAgainst` the pack's own URI plus `.ssab` — the same seam
  * the textures go through, which is why an instance tree works from an asset
  * directory, an unpacked one and a dev server without three code paths.
  *
  * Breadth-first with a `seen` set, because the walk is genuinely transitive: a
  * mounted pack can mount further packs, and two of them can name the same one.
- * SSPlayerForWeb's `PackResolver` does the same, and the dedup is not just an
- * optimisation — one resource per pack is what keeps `liveHandles` honest.
+ * The dedup is not just an optimisation — one resource per pack is what keeps `liveHandles` honest.
  *
  * A pack that will not load is **warned about and skipped**, not thrown: the
  * parts that wanted it then draw nothing, which is the same fail-safe the C++
- * side applies to a slot it cannot resolve, and it keeps one missing sibling
+ * side applies to a slot it cannot resolve, and it keeps one missing pack
  * from taking the whole animation down with it.
  *
  * Each entry carries a cache lease, given back with `releaseResource(uri)` —
@@ -185,8 +183,8 @@ export interface LoadedResource {
    * The URI the source resolved to, normalised.
    *
    * Carried out of the load because everything the pack references is named
-   * *relative to it* — `resolveAgainst(uri, ref)` is how a texture, and later an
-   * Instance part's external pack, becomes something openable.
+   * *relative to it* — `resolveAgainst(uri, ref)` is how a texture or an
+   * Instance part's external pack becomes something openable.
    */
   uri: string
 }

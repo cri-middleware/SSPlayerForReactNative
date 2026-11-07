@@ -5,8 +5,8 @@ import type { SsRootTransform } from './types'
  * How the content box is scaled to the view — `<Image resizeMode>`'s vocabulary,
  * because it is the one an RN caller already has.
  *
- * `none` is what the player did before there was a fit at all: scale 1, origin
- * at the view's centre, and the caller supplies `offset`/`scale` themselves.
+ * `none` places no fit: scale 1, origin at the view's centre, and the caller
+ * supplies `offset`/`scale` themselves.
  */
 export type SsFit = 'contain' | 'cover' | 'none'
 
@@ -28,9 +28,7 @@ export type SsAlign =
  *
  * `animation` is the box of the one animation playing. `pack` unions every
  * animation in the file, which costs a walk per animation and draws smaller:
- * on `Ringo`, `attack1` spans 383x527 player-local units while the pack's
- * union spans about 1030x878, because `dead` slides the character most of a
- * screen to the right.
+ * one wide-travelling animation scales down all the others.
  */
 export type SsFrameScope = 'animation' | 'pack'
 
@@ -130,7 +128,7 @@ export function resolveRootTransform(
     s *= fit === 'cover' ? Math.max(sx, sy) : Math.min(sx, sy)
   }
 
-  // The signs the draw applies: both axes are plain mirrors now, because the
+  // The signs the draw applies: both axes are plain mirrors, because the
   // Brain already hands us Y-down geometry (see `HybridSsContext`) and `box`
   // was measured in that same space. Kept identical to `SsInternalPlayer.draw`,
   // which is the only place it is actually applied.

@@ -10,7 +10,7 @@ description: The props on SpriteStudioView, what a source may be, and how the ar
   source="ss/Ringo/Ringo.ssab"
   animation="wait1"
   fit="contain"
-  style={{ flex: 1 }}
+  style={{ width: '100%' }}
 />
 ```
 

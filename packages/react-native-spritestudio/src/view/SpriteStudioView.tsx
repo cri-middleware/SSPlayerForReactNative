@@ -21,6 +21,7 @@ import { Canvas, Picture, Skia } from 'react-native-skia'
 import { resolveRootTransform, type SsAlign } from '../core/fit'
 import { onFrameChanged } from '../player/frames'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { CANVAS_BOX } from './canvasBox'
 import { intrinsicSize } from './intrinsicSize'
 import { reportError } from './reportError'
 import { useFramePicture } from './useFramePicture'
@@ -53,7 +54,7 @@ export interface SpriteStudioViewProps
   flipY?: boolean
   /**
    * Pixels from where `fit`/`align` put the art. Under `fit="none"` this is
-   * measured from the view's centre, which is what it always meant.
+   * measured from the view's centre.
    */
   offset?: { x: number; y: number }
   /** Multiplier **on top of** the fit's scale. */
@@ -287,27 +288,28 @@ export const SpriteStudioView = forwardRef<
     setSize((prev) =>
       prev.width === width && prev.height === height ? prev : { width, height }
     )
-    viewProps.onLayout?.(event)
   }
 
   // Under the caller's style, so whatever it does say wins.
   const intrinsic = intrinsicSize(style, box)
 
   return (
-    <View {...viewProps} style={[intrinsic, style]} onLayout={onLayout}>
-      <Canvas style={{ flex: 1 }}>
-        <Picture picture={picture} />
-      </Canvas>
-      {!ready && placeholder != null && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {placeholder}
-        </View>
-      )}
-      {ready && children != null && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          <ViewPlayerContext.Provider value={player}>{children}</ViewPlayerContext.Provider>
-        </View>
-      )}
+    <View {...viewProps} style={[intrinsic, style]}>
+      <View style={CANVAS_BOX} onLayout={onLayout}>
+        <Canvas style={{ flex: 1 }}>
+          <Picture picture={picture} />
+        </Canvas>
+        {!ready && placeholder != null && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {placeholder}
+          </View>
+        )}
+        {ready && children != null && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            <ViewPlayerContext.Provider value={player}>{children}</ViewPlayerContext.Provider>
+          </View>
+        )}
+      </View>
     </View>
   )
 })
