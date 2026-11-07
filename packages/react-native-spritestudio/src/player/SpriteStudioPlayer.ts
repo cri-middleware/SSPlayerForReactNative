@@ -1962,9 +1962,12 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
+    // Everything the tick reported is read before any handler runs: a handler
+    // that sets up an animation clears the pulse, the events and the finish.
+    //
     // Gated like the events below: the pulse is a read across JSI, and most
     // players have nobody listening for it.
-    if (this.onAnimationLooped != null && internal.justLooped) this.onAnimationLooped(animation)
+    const looped = this.onAnimationLooped != null && internal.justLooped
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are
@@ -1975,24 +1978,23 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // `passedEventCount` counts frames carrying *any* event, so it is read once
     // and shared: it cannot tell the two kinds apart, and asking it twice would
     // cross JSI twice to get the same number.
-    if (
+    const carriesEvents =
       (this.onUserData != null || this.onAudio != null || this.onSignal != null) &&
       internal.passedEventCount > 0
-    ) {
-      if (this.onUserData != null) {
-        for (const event of internal.getUserDataEvents()) this.onUserData(event)
-      }
-      if (this.onAudio != null) {
-        for (const event of internal.getAudioEvents()) this.onAudio(event)
-      }
-      if (this.onSignal != null) {
-        for (const event of internal.getSignalEvents()) this.onSignal(event)
-      }
-    }
+    const userData = carriesEvents && this.onUserData != null ? internal.getUserDataEvents() : null
+    const audio = carriesEvents && this.onAudio != null ? internal.getAudioEvents() : null
+    const signals = carriesEvents && this.onSignal != null ? internal.getSignalEvents() : null
 
     const finished = internal.isFinished
-    if (finished && !this.wasFinished) this.onAnimationFinished?.(animation)
+    const justFinished = finished && !this.wasFinished
+    // Written ahead of the handlers, since a setup in one of them resets it.
     this.wasFinished = finished
+
+    if (looped) this.onAnimationLooped?.(animation)
+    if (userData != null) for (const event of userData) this.onUserData?.(event)
+    if (audio != null) for (const event of audio) this.onAudio?.(event)
+    if (signals != null) for (const event of signals) this.onSignal?.(event)
+    if (justFinished) this.onAnimationFinished?.(animation)
   }
 
   /**

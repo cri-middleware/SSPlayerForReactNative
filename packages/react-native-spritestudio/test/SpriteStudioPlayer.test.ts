@@ -6,7 +6,7 @@ import { SsOverridePriority } from '../src/core/parts'
 import { SsPlaybackDirection, SsPlaybackStyle } from '../src/core/types'
 import { onFrameChanged, onFrameShown } from '../src/player/frames'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../src/player/SpriteStudioPlayer'
-import type { SsTextureInfo } from '../src/specs/SsRuntime.nitro'
+import type { SsAudioEvent, SsSignalEvent, SsTextureInfo, SsUserDataEvent } from '../src/specs/SsRuntime.nitro'
 import { pendingFrames, stepFrame } from './support/frameClock'
 import { SsInternalPlayer } from './support/fakeInternalPlayer'
 import { SsRuntimeModule, definePack, openPack, resetFakeRuntime } from './support/fakeRuntime'
@@ -497,6 +497,48 @@ describe('advance', () => {
     expect(calls).toContain('getAudioEvents')
     expect(calls).not.toContain('getUserDataEvents')
     expect(calls).not.toContain('getSignalEvents')
+  })
+
+  it('tells every handler what the tick reported, though the first sets up an animation', async () => {
+    const player = await loaded({ animation: 'Walk' })
+    const internal = SsInternalPlayer.last()
+    player.play()
+    internal.justLooped = true
+    internal.isFinished = true
+    internal.passedEventCount = 1
+    internal.userDataEvents = [{ partIndex: 1 } as SsUserDataEvent]
+    internal.audioEvents = [{ partIndex: 2 } as SsAudioEvent]
+    internal.signalEvents = [{ partIndex: 3 } as SsSignalEvent]
+    const heard: string[] = []
+    player.onAnimationLooped = (name) => {
+      heard.push(`looped ${name}`)
+      expect(player.setAnimation('Idle')).toBe(true)
+    }
+    player.onUserData = (event) => heard.push(`user data ${event.partIndex}`)
+    player.onAudio = (event) => heard.push(`audio ${event.partIndex}`)
+    player.onSignal = (event) => heard.push(`signal ${event.partIndex}`)
+    player.onAnimationFinished = (name) => heard.push(`finished ${name}`)
+
+    player.advance(16)
+
+    expect(heard).toEqual(['looped Walk', 'user data 1', 'audio 2', 'signal 3', 'finished Walk'])
+  })
+
+  it('fires finished again for the animation a finished handler set up', async () => {
+    const player = await loaded({ animation: 'Walk' })
+    const internal = SsInternalPlayer.last()
+    const finished = vi.fn(() => {
+      player.setAnimation('Idle')
+    })
+    player.onAnimationFinished = finished
+    player.play()
+    internal.isFinished = true
+    player.advance(16)
+
+    internal.isFinished = true
+    player.advance(16)
+
+    expect(finished.mock.calls).toEqual([['Walk'], ['Idle']])
   })
 
   it('is a no-op once the player is disposed', async () => {
