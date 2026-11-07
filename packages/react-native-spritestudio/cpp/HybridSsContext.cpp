@@ -303,8 +303,9 @@ bool HybridSsContext::getFrameDrawn() {
 
 void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
   if (ctx_ == nullptr || effects_.empty()) return;
-  // The *animation's* authored fps, which is what converts an independent
-  // slot's delta into frames — not the display's refresh rate.
+  // The rate the animation plays at, the override included, which is what
+  // converts an independent slot's delta into frames — not the display's refresh
+  // rate.
   const int32_t fps = ss_runtime_get_frame_rate(ctx_);
   // `frame_` is the frame this tick draws, refreshed by every caller just
   // before, so a part it hides skips the particles nothing would draw.
