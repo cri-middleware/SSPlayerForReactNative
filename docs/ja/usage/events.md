@@ -33,9 +33,9 @@ const SOURCE = SsAssets['overall/UserData']
 `onAudio` は*何を*・何回・どのファイルを再生すべきかを伝えます。再生はしません。
 React Native には標準のオーディオ API がなく、パッケージ側でライブラリを 1 つ選んでしまうと、音を一切使わないプロジェクトにまでそれを背負わせることになります。
 
-**Embedded** パックでは、イベントの `embedded` が `true` になり、`filePath` はディスク上に無い兄弟ファイルを指します。このパッケージは埋め込まれた音声データを公開しないので、音声を含むパックは **Reference** パックとして配ってください。
+**Embedded** パックでは、イベントの `embedded` が `true` になり、`filePath` はディスク上に無いファイルを指します。このパッケージは埋め込まれた音声データを公開しないので、音声を含むパックは **Reference** パックとして配ってください。
 
-参照実装はリポジトリの [`example/src/player/audio.ts`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/example/src/player/audio.ts) です（`playAudioEvent(baseUri, event)` は `.ssab` 自身の URI を取ります。音声の `filePath` がそれからの相対パスだからです）。自分で書く人が必ずぶつかる 3 点を解決しています — `asset` スキームの兄弟ファイルにはオーディオライブラリが開けるパスが無いこと、`loopNum` は多くの API がブール値を取るところで*回数*であること、そして iOS は `expo-audio` の `setAudioModeAsync({ playsInSilentMode: true })` が無いとサイレントスイッチで無音になることです。
+参照実装はリポジトリの [`example/src/player/audio.ts`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/example/src/player/audio.ts) です（`playAudioEvent(baseUri, event)` は `.ssab` 自身の URI を取ります。音声の `filePath` がそれからの相対パスだからです）。自分で書く人が必ずぶつかる 3 点を解決しています — `asset` スキームのファイルにはオーディオライブラリが開けるパスが無いこと、`loopNum` は多くの API がブール値を取るところで*回数*であること、そして iOS は `expo-audio` の `setAudioModeAsync({ playsInSilentMode: true })` が無いとサイレントスイッチで無音になることです。
 
 **seek の移動先は鳴らさない。** `seek` すると、プレイヤーが次に回す更新が、移動先のフレームのオーディオキーを報告します。再生中ならすぐ、一時停止中の seek なら遅くとも `resume()` の後の最初の tick です。再生ヘッドはそのキーを通過していないので、seek で音を出したくなければ、seek の後の最初の更新が報告する移動先のフレームのキーを飛ばしてください。`play()` の直後の開始フレームの音は鳴らすものです。
 

@@ -136,9 +136,6 @@ describe('load', () => {
 })
 
 describe('setAnimation', () => {
-  // ForRN #78. `currentAnimation` used to be assigned ahead of the result, so it
-  // named an animation the runtime had never set up — and `onAnimationStarted`
-  // published that name too.
   it('does not take the name of an animation the runtime refused', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const player = await loaded({ animation: 'Idle' })
@@ -738,6 +735,21 @@ describe('part overrides', () => {
     ])
   })
 
+  it('warns once when the Brain refuses an override, with its reason', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await withParts()
+    const internal = SsInternalPlayer.last()
+    vi.spyOn(internal, 'setPartCell').mockReturnValue(false)
+    vi.spyOn(internal, 'lastErrorMessage', 'get').mockReturnValue('Invalid parameter')
+
+    const typo = { hat: { cell: { cellmap: 'common', cell: 'fcae' } } }
+    player.setPartOverrides(typo)
+    player.setPartOverrides(typo)
+
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn.mock.calls[0]?.[0]).toMatch(/'hat', 'common', 'fcae'.*Invalid parameter/)
+  })
+
   it('warns about a part the animation does not have, and skips it', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const player = await withParts()
@@ -1161,6 +1173,21 @@ describe('runtime texture replacement', () => {
     expect(boundImage(player, 'common')).toBe(face)
     const registry = player.textures as unknown as SsTextureRegistry
     expect(registry.isOverridden(SsRuntimeModule.hashString('common'))).toBe(true)
+  })
+
+  it('keeps the pack atlas under a replacement set before the load', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = new SpriteStudioPlayer()
+    const face = fakeImage('face')
+
+    player.setCellmapTexture('common', face)
+    await player.load(PACK)
+    expect(boundImage(player, 'common')).toBe(face)
+
+    player.setCellmapTexture('common', null)
+
+    expect(boundImage(player, 'common')).toBeDefined()
+    expect(boundImage(player, 'common')).not.toBe(face)
   })
 
   it('restores the pack atlas when handed null', async () => {

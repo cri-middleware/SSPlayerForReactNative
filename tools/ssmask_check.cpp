@@ -1,11 +1,9 @@
 // Host-side guard for the mask draw path.
 //
-// `ssbake_check` covers the plan — roles, scope, ranges — but the plan was never
-// the fragile half. Everything that actually broke lived on the Skia side and
-// broke *silently*: the coverage image came back null, so `masking` stayed false
-// and every target drew unmasked. Nothing threw, nothing logged, and the plan
-// still reported seven healthy writers. That is the failure this program exists
-// to make loud.
+// `ssbake_check` covers the plan — roles, scope, ranges. On the Skia side the
+// coverage image can come back null, and then `masking` stays false and every
+// target draws unmasked, with nothing thrown or logged. That is the failure this
+// program exists to make loud.
 //
 // Six checks, in order of how early they would catch a regression:
 //
@@ -92,9 +90,8 @@ void ss_runtime_get_mesh_vertex_offsets(void* context, const uint32_t** out_data
 void ss_runtime_get_mesh_uvs(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_mesh_indices(void* context, const int32_t** out_data, size_t* out_len);
 void ss_runtime_get_mesh_index_offsets(void* context, const uint32_t** out_data, size_t* out_len);
-// Shape. Not optional here even though only check 3 and 4 load a `.ssab`: a
-// converted Spine clipping arrives as a Shape mask, so without these a pack
-// whose every writer is a Shape presents as a pack with no writers at all.
+// Shape. Not optional here even though only check 3 and 4 load a `.ssab`: without
+// these a pack whose every writer is a Shape presents as a pack with no writers.
 void ss_runtime_get_shape_vertices(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_shape_vertex_box_coords(void* context, const float** out_data,
                                             size_t* out_len);
@@ -224,10 +221,8 @@ struct CoverSpec {
 /// runs on a *recording* canvas, which has no colour space at all, so
 /// `BuildCoverage`'s "match the destination" fallback is taken every single
 /// time and the coverage is **always** sRGB. Handing this the destination's
-/// space — which is what this program used to do — wires src and dst together,
-/// makes every conversion the identity by construction, and tests nothing. It
-/// is why an RGB encoding that six of `Mask.ssab`'s nine writers did not
-/// survive on a Display P3 destination passed here for a whole phase.
+/// space would wire src and dst together, make every conversion the identity by
+/// construction, and test nothing.
 ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int w, int h) {
   ssplayer::SsMaskCoverage out;
 
@@ -320,8 +315,7 @@ void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> dstCs, bool flat =
     const ssplayer::SsMaskCoverage coverage =
         BuildCoverage({{bit, 0.0f, 0.5f, flat}}, kW, kH);
     if (!coverage.valid()) {
-      // Exactly the regression that shipped: a null image disables masking with
-      // no other symptom.
+      // A null image disables masking with no other symptom.
       Fail("%s bit %d: coverage image is null (DeferredFromPicture rejects a null "
            "colour space — the mask then silently does nothing)",
            label, bit);
@@ -590,6 +584,18 @@ struct Baked {
   const ss::runtime::FrameData* fd = nullptr;
 };
 
+/// One binding per batch of `baker`'s frame, all to `paint`. These checks count
+/// where pixels land, not which atlas they came from, and a batch with no
+/// binding is not drawn.
+std::vector<::ssplayer::SsPaintBinding> BindEveryBatch(const sscore::SsBaker& baker,
+                                                       SkPaint* paint) {
+  std::vector<::ssplayer::SsPaintBinding> bindings;
+  for (const sscore::SsBatchDesc& batch : baker.batches()) {
+    bindings.push_back({static_cast<uint32_t>(batch.textureHash), paint});
+  }
+  return bindings;
+}
+
 // --- 3. the whole path still masks -----------------------------------------
 
 /// Renders `.ssab` twice, with and without the mask input, and requires the two
@@ -610,7 +616,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
 
   SkPaint paint;
   paint.setShader(WhiteAtlas());
-  const ::ssplayer::SsPaintBinding binding{0u, &paint};
+  const std::vector<::ssplayer::SsPaintBinding> bindings = BindEveryBatch(baker, &paint);
 
   constexpr int kSize = 512;
   const auto render = [&](bool withMask, SkBitmap* out) {
@@ -627,7 +633,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
       input.flags = flags.data();
       input.flagCount = flags.size();
     }
-    ::ssplayer::DrawBakedFrame(canvas, &binding, 1, baker, input);
+    ::ssplayer::DrawBakedFrame(canvas, bindings.data(), bindings.size(), baker, input);
     out->allocN32Pixels(kSize, kSize);
     surface->readPixels(*out, 0, 0);
   };
@@ -670,7 +676,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
   input.plan = &plan;
   input.flags = flags.data();
   input.flagCount = flags.size();
-  ::ssplayer::DrawBakedFrame(&counter, &binding, 1, baker, input);
+  ::ssplayer::DrawBakedFrame(&counter, bindings.data(), bindings.size(), baker, input);
   if (counter.layers != 0) {
     Fail("the masked frame opened %d layer%s — each is an offscreen render every frame",
          counter.layers, counter.layers == 1 ? "" : "s");
@@ -883,13 +889,14 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
   if (!atlases.load(parentView, dir)) return;
   SkPaint childPaint;
   childPaint.setShader(GreenAtlas());
-  const ::ssplayer::SsPaintBinding childBinding{0u, &childPaint};
+  const std::vector<::ssplayer::SsPaintBinding> childBindings =
+      BindEveryBatch(child.baker, &childPaint);
 
   constexpr int kSize = 512;
   const auto render = [&](MountRecorder& renderer, SkBitmap* out) {
     renderer.child = &child;
-    renderer.bindings = &childBinding;
-    renderer.bindingCount = 1;
+    renderer.bindings = childBindings.data();
+    renderer.bindingCount = childBindings.size();
     sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
     SkCanvas* canvas = surface->getCanvas();
     canvas->clear(SK_ColorBLACK);
@@ -1085,8 +1092,9 @@ void CheckCoverageKept(const char* ssabPath, const char* animation, int atFrame)
     input.plan = &plan;
     input.flags = pack.flags.data();
     input.flagCount = pack.flags.size();
-    const ::ssplayer::SsPaintBinding binding{0u, paint};
-    ::ssplayer::DrawBakedFrame(canvas, &binding, 1, pack.baker, input, nullptr, scratch);
+    const std::vector<::ssplayer::SsPaintBinding> bindings = BindEveryBatch(pack.baker, paint);
+    ::ssplayer::DrawBakedFrame(canvas, bindings.data(), bindings.size(), pack.baker, input, nullptr,
+                               scratch);
     out->allocN32Pixels(kSize, kSize);
     surface->readPixels(*out, 0, 0);
   };
@@ -1144,8 +1152,7 @@ int main(int argc, char** argv) {
   CheckBitRoundTrip("sRGB dst", SkColorSpace::MakeSRGB());
   // **Wide gamut, and it is not hypothetical**: an iOS surface is routinely
   // Display P3 while the Android emulator is sRGB, so this is the one axis on
-  // which the two platforms genuinely disagree — and the first bug it caught
-  // showed up as three unrelated parts masking wrongly on iOS only.
+  // which the two platforms genuinely disagree.
   sk_sp<SkColorSpace> p3 =
       SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB, SkNamedGamut::kDisplayP3);
   CheckBitRoundTrip("Display P3 dst", p3);

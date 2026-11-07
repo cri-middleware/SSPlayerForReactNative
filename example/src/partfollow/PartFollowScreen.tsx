@@ -16,9 +16,7 @@ import {
 import { SsAssets } from '../ss-assets'
 
 /**
- * Part-following demo — the React Native counterpart of SSPlayerForWeb's
- * `examples/part-follow`, ForUnity's `SpriteStudioPartTracker` and ForGodot's
- * `SpriteStudioPartAttachment2D`.
+ * Part-following demo.
  *
  * A fish — a plain 🐟 emoji, no extra asset — is pinned to a part of the "Ringo"
  * character with {@link SpriteStudioPartAnchor}, so it tracks that part's
@@ -180,8 +178,7 @@ export function PartFollowScreen() {
 
 /**
  * The follow-target dropdown. Every named part is offered; a skinned mesh is
- * tagged and dimmed — the same soft filter ForUnity's and ForGodot's inspectors
- * apply — but still selectable, so the demo can show what following one does.
+ * tagged and dimmed, but still selectable, so the demo can show what following one does.
  */
 function PartPicker({
   value,

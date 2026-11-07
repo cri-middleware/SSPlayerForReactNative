@@ -8,7 +8,7 @@ param (
 #
 # This is the DEVELOPER path, for when you are changing the Brain itself. The
 # normal path is scripts/download-sdk.ps1, which installs the pinned SDK release
-# and needs no Rust toolchain at all (design doc ch.7).
+# and needs no Rust toolchain at all.
 #
 # WINDOWS ONLY BUILDS THE ANDROID SLICE. The iOS xcframework needs Xcode, so on
 # Windows the only way to get a complete native/ is download-sdk.ps1. That is
@@ -71,8 +71,7 @@ if ($buildMode -ne "debug" -and $buildMode -ne "release") {
 if ($platform -eq "ios") {
     Fail "the iOS xcframework needs Xcode - use download-sdk.ps1 on Windows." 2
 }
-# Refused, as build-runtime.sh refuses it: anything else used to build the
-# Android slice as though it had been asked for.
+# Refused, as build-runtime.sh refuses it.
 if ($platform -ne "android" -and $platform -ne "all") {
     Fail "platform must be android or all (got '$platform')" 2
 }

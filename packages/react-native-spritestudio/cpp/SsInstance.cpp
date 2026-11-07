@@ -87,8 +87,7 @@ void SsInstanceSlots::reset() {
 void SsInstanceSlots::release() noexcept {
   for (SsInstanceState& state : states_) {
     // Child first, then the slot that drove it. The child borrows nothing from
-    // the slot, but both reference ports order it this way and a future child
-    // that does would break silently under the other order.
+    // the slot today, and one that did would break silently under the other order.
     delete state.child;
     state.child = nullptr;
     if (state.slot != nullptr) {

@@ -8,13 +8,11 @@
  * ## Why this exists
  *
  * A source is a **path string**, because a pack is a directory and Metro cannot
- * carry one (see `SsSource`). Dropping `require()` was right, but it took the
- * three things `require()` was actually good for with it: completion, a type
- * error on a typo, and a build that fails when the file is not there. A path
- * string has none — `'ss/overall/Basic.ssab'` misspelled is a runtime error at
- * best and a silently empty canvas at worst.
+ * carry one (see `SsSource`). A path string gives no completion, no type error on
+ * a typo and no build failure when the file is not there: misspelled, it is a
+ * runtime error at best and a silently empty canvas at worst.
  *
- * The manifest gives all three back without giving `require()` back: it is a
+ * The manifest gives all three back: it is a
  * plain `as const` object, so its keys are a literal union and its values are
  * literal strings that go straight into `source`. Nothing in the library has to
  * know about it.
@@ -104,9 +102,11 @@ function main(argv) {
       process.stdout.write(`react-native-spritestudio: ${options.out} is up to date\n`)
       return 0
     }
+    const flags = [...options.assets.flatMap((dir) => ['--assets', dir]), '--out', options.out]
+      .map((flag) => (/\s/.test(flag) ? `'${flag}'` : flag))
     process.stderr.write(
       `react-native-spritestudio: ${options.out} is ${existing == null ? 'missing' : 'stale'}.\n` +
-        '  Run: npx react-native-spritestudio assets\n'
+        `  Run: npx react-native-spritestudio assets ${flags.join(' ')}\n`
     )
     return 1
   }

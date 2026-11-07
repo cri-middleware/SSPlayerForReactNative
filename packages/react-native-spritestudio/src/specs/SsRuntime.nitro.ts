@@ -6,15 +6,9 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
  * **Layer 1 owns the drawing**, not just the geometry: one draw call per player
  * per frame, with nothing per-vertex crossing into JS.
  *
- * Lifetime rule: **every ArrayBuffer handed out here is a borrow of native
- * memory that stays valid only until the next `update()`**.
- * Nothing may retain one across frames. `SsContext.generation` is the
- * enforcement handle — read it when you take a buffer, and compare it again
- * before you read through one.
- *
  * Disposal is not declared here: every Nitro `HybridObject` already carries a
  * `dispose()` (nitrogen rejects redeclaring it), and that is the explicit
- * teardown the borrow rule asks for — L3 calls it on unmount rather than waiting for GC.
+ * teardown — L3 calls it on unmount rather than waiting for GC.
  * Note that inheriting the method is only half of it: Nitro's
  * `HybridObject::dispose()` is a **no-op unless the C++ class overrides it**, so
  * both implementations here do, and `SsRuntime.liveHandles` is what proves it.
@@ -55,16 +49,15 @@ export type SkImageHandle = CustomType<
 /**
  * One entry of the texture table `drawInto` resolves batches against.
  *
- * The table has to be handed over per call rather than registered once, because
- * the `SkPaint` is JS-owned: RN Skia can recycle or mutate it between frames and
- * C++ must never hold one past the call it was passed to.
+ * The table is handed over when it changes (`SsContext.setTextures`), and the
+ * context keeps each paint alive until the table is replaced.
  *
  * `textureHash` is `cellmap.name_hash`, which is exactly `DrawBatch.texture_hash`
  * — get it from `SsRuntime.hashString`, never by re-implementing FNV-1a.
  */
 export interface SsTextureBinding {
   textureHash: number
-  /** Carries the atlas image shader, and later the blend/colour state. */
+  /** Carries the atlas image shader. */
   paint: SkPaintHandle
 }
 
@@ -190,8 +183,7 @@ export interface SsUserDataEvent {
  *
  * **This package never produces sound.** It says what to play, how many times,
  * and where the file is; feeding an audio stack is the app's job, the same
- * division the sibling Players draw (`ssplayer-wgpu`'s `AudioEvent` says so in
- * as many words). There is no audio dependency here to make that decision for
+ * division the sibling Players draw. There is no audio dependency here to make that decision for
  * you, and an authored key is not a command — a caller that ignores these
  * simply has a silent animation.
  *
@@ -231,9 +223,9 @@ export interface SsAudioEvent {
   totalMs: number
   /**
    * Whether the pack carries this file's bytes in `embedded_assets` — i.e. it
-   * was converted with `--embedded`, and `filePath` names a sibling that **is
-   * not on disk**. Reading those bytes out is not wired yet, so an embedded
-   * pack's audio is currently reportable but not playable; the flag is what
+   * was converted with `--embedded`, and `filePath` names a file that **is
+   * not on disk**. Those bytes cannot be read out, so an embedded pack's audio
+   * is reportable but not playable; the flag is what
    * keeps that legible instead of presenting as a missing file.
    */
   embedded: boolean
@@ -320,8 +312,7 @@ export interface SsLabelTable {
 /**
  * How many native handles are alive right now — the leak check, made observable.
  *
- * "No leaked native handles" was an assertion with nothing behind it until this
- * existed: a handle that outlives
+ * A handle that outlives
  * its player has no symptom on the JS side at all. It shows up as memory the
  * Brain never gives back, which on a simulator is invisible and on a device is
  * a crash several minutes later.
@@ -359,7 +350,7 @@ export interface SsResource
    *
    * **Resolution is transitive and that walk is the caller's**: an external
    * pack can reach further still, so a loader has to ask each pack it loads.
-   * `Ringo_tyu` → `Ringo` is one level; nothing stops there being more.
+   * One pack reaching another is one level; nothing stops there being more.
    */
   getExternalInstancePackNames(): string[]
 }
@@ -449,8 +440,7 @@ export interface SsContext
   // not a second state machine.
   //
   // Every call marked "moves the playhead" bumps `generation` and refreshes the
-  // frame, so it invalidates outstanding buffers exactly the way `update()`
-  // does.
+  // frame, the way `update()` does.
 
   /**
    * Whether the transport is running. **Stays true while paused** — pausing sets
@@ -523,10 +513,8 @@ export interface SsContext
    * Holds playback on the current frame, and does nothing if already held or
    * if nothing is playing.
    *
-   * Maps onto `ss_runtime_pause`, which is one-way and idempotent. It used to
-   * be a **toggle** (`is_pausing = !is_pausing`) — the wrong shape for a
-   * declarative `playing` prop, since a second call resumed — and the runtime
-   * split it into `pause` / `resume`.
+   * Maps onto `ss_runtime_pause`, which is one-way and idempotent: a toggle would
+   * make a second call from a declarative `playing` prop resume.
    */
   pause(): void
   /**
@@ -605,9 +593,7 @@ export interface SsContext
    *
    * This is the box a caller asks for when the authored canvas (`canvasBox`)
    * is not the one it wants: the canvas is where the artist composed, and art
-   * can overflow it. Measured on this repo's own packs, `Basic` (480 wide)
-   * draws into `x[-250.5, 232.0]` and `Shape` (320 wide) into
-   * `x[-248.0, 131.9]`.
+   * can overflow it.
    *
    * **Moves the playhead and leaves the last of `animations` set up**, so it
    * runs *before* `setupAnimation` — the same ordering rule `bindInstancePack`
@@ -1026,8 +1012,7 @@ export interface SsContext
    * pack with several cellmaps still costs one `drawInto` and — unlike drawing
    * per texture — keeps the batches in the order the Brain emitted them, which
    * is the whole of the depth sorting. A batch whose hash is absent is skipped
-   * rather than drawn with the wrong atlas; a single-entry table is matched
-   * unconditionally, so a one-cellmap pack does not need the hash to be right.
+   * rather than drawn with the wrong atlas.
    *
    * The context holds a reference to every paint until the table is replaced
    * or the context disposed, so a registry that drops a paint meanwhile leaves
@@ -1091,8 +1076,7 @@ export interface SsRuntime
   createResourceFromPath(path: string): SsResource
 
   /**
-   * The fallback for sources `fopen` cannot reach, which after the asset-path
-   * work means one thing: an `http(s)` URL, so a Metro dev server or a CDN. The
+   * The fallback for sources `fopen` cannot reach: an `http(s)` URL, so a Metro dev server or a CDN. The
    * bytes pass through the JS heap, which is exactly what the two calls either
    * side of this one exist to avoid.
    */
@@ -1102,7 +1086,7 @@ export interface SsRuntime
    * Loads a `.ssab` out of the app's **asset directory** — the pack tree the
    * build copied in, addressed as `ss/overall/Basic.ssab`.
    *
-   * This is the route that makes sibling references work. Everything a pack
+   * This is the route that makes the names a pack carries resolve. Everything a pack
    * points at — a cellmap's `image_path`, an `external_textures` entry, an
    * Instance part's external `.ssab`, a `.ssqb`'s `ref_anime_pack` — is a name
    * relative to the `.ssab`, so it can only be resolved where the whole

@@ -7,8 +7,8 @@ param (
 # directory.
 #
 # THIS IS THE NORMAL PATH. It needs no Rust toolchain and no submodule, which is
-# what lets someone who has never touched the SDK build the package (design doc
-# ch.7). scripts/build-runtime.ps1 is the other path, and on Windows it can only
+# what lets someone who has never touched the SDK build the package.
+# scripts/build-runtime.ps1 is the other path, and on Windows it can only
 # produce the Android slice — so this is the only way to get a complete native/
 # there.
 #

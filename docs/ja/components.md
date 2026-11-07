@@ -25,7 +25,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
   source="ss/Ringo/Ringo.ssab"
   animation="wait1"
   fit="contain"
-  style={{ flex: 1 }}
+  style={{ width: '100%' }}
 />
 ```
 

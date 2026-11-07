@@ -41,7 +41,7 @@ manifest, so a wrong key is a **type error** instead of a blank canvas.
 - **Did you `require()` the pack?** That is not a valid source. A pack is a
   *directory* and Metro ships a dependency graph, not directories.
 - **Did you add `ssab` to `assetExts`?** Remove it. Teaching Metro about the
-  extension produces exactly the flattened, sibling-less copy that cannot work.
+  extension produces exactly the flattened copy, cut off from what it names, that cannot work.
 
 ### You changed the pack and nothing changed
 

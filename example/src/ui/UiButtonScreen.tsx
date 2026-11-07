@@ -7,8 +7,7 @@ import { SpriteStudioButton, type SsUiClips } from 'react-native-spritestudio-ui
 import { SsAssets } from '../ss-assets'
 
 /**
- * SpriteStudio buttons, checked by eye — the counterpart of SSPlayerForWeb's
- * `examples/pixi-example/src/ui-demo.ts`.
+ * SpriteStudio buttons, checked by eye.
  *
  * Ringo stands in for a button's artwork in two `<SpriteStudioButton>`s: the
  * left one takes presses on the parts picked below, the right one on its whole

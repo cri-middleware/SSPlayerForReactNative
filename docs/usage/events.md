@@ -44,13 +44,13 @@ earlier keys replayed. Passing an inline arrow is fine — it does not restart t
 does not play it: React Native ships no audio API, and a package that picked a
 library would make every project that authors no audio carry it.
 
-For an **Embedded** pack the event's `embedded` is `true` and `filePath` names a sibling that is not on
+For an **Embedded** pack the event's `embedded` is `true` and `filePath` names a file that is not on
 disk; this package does not expose the embedded audio bytes, so ship a pack that carries audio as a
 **Reference** pack.
 
 The reference wiring is [`example/src/player/audio.ts`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/example/src/player/audio.ts) in the repository
 (`playAudioEvent(baseUri, event)` takes the `.ssab`'s own URI, because a sound's `filePath` is relative to
-it). It solves the three things anyone writing their own will hit — an `asset`-scheme sibling has no
+it). It solves the three things anyone writing their own will hit — an `asset`-scheme file has no
 path an audio library can open, `loopNum` is a *count* where most APIs take a boolean, and iOS is
 silent under the ringer switch without `expo-audio`'s `setAudioModeAsync({ playsInSilentMode: true })`.
 

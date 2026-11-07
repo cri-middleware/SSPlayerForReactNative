@@ -92,8 +92,7 @@ describe('the player’s lifetime', () => {
 
 describe('the transitionMs prop', () => {
   // Track 0 switches through the one prop either way, so the prop can always
-  // return to where it was: ForWgpu's Bevy A-2, where a crossfade sent by
-  // command left the value on the old name and writing it back did nothing.
+  // return to where it was.
   it('crossfades a change of animation instead of setting it up', async () => {
     const harness = await mount({ source: PACK, animation: 'Idle', transitionMs: 250 })
     const player = SpriteStudioPlayer.last()

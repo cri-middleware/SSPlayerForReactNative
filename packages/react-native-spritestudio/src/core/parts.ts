@@ -20,14 +20,10 @@ export type SsBlendOpValue =
 /**
  * How long an override outlives the animation that is playing under it.
  *
- * Omitting `priority` means `holdUntilNextAnimation`, which is the family's default
- * (ForWeb, ForUnity, ForFlutter, ForGodot, ForRenPy and ForWgpu all take the
- * C-API's `HoldUntilNextAnimation`). `permanent` used to be it here, on the
- * reasoning that a declarative `parts` map should outlive a clip switch — but
- * that only held for callers going through the map, and left anyone reaching
- * past it into Layer 2 with an override the switch should have dropped. The
- * declarative behaviour is unchanged either way: `applySettings` replays the
- * map after every animation setup, so a prop still describes the state.
+ * Omitting `priority` means `holdUntilNextAnimation`, the family's default:
+ * `permanent` would leave an override the switch should have dropped on anyone
+ * reaching past the map into Layer 2. `applySettings` replays the map after every
+ * animation setup, so a prop still describes the state.
  */
 export const SsOverridePriority = {
   overwriteOnNextKeyframe: 0,

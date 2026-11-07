@@ -56,11 +56,10 @@ target_include_directories(SsPlayer PRIVATE
   # inline, so nothing links against flatc's own translation units and
   # flatbuffers/src stays off the path. The vendored version must match the
   # flatc that generated them — the headers static_assert on it.
-  # Same arrangement as SSPlayerForGodot's ss_player/sources.py.
   ../third_party/flatbuffers/include
 )
 
-# Variant (c) — drawing straight into RN Skia's SkCanvas — needs RN Skia's own
+# Drawing straight into RN Skia's SkCanvas needs RN Skia's own
 # C++ plus the Skia headers it includes, and it needs Skia's symbols to resolve
 # at link time.
 #

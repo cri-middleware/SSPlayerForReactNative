@@ -44,19 +44,13 @@ import {
  *
  * ## Naming
  *
- * **This layer follows the C API, not the Player API conventions.** It takes part
+ * **This layer follows the C API, not the family's names.** It takes part
  * *indices* and name *hashes*, and its override methods keep the C API's argument
  * order (`blendOp` before the colour) — so `setSection` and `setPartColor` are
  * the right names here even though `setAnimationSection` and
  * `setPartColorOverride` are the right names one layer up.
  *
- * That list used to be longer. `isLooped` and `fps` were on it, because the C
- * API spelled them that way; it now says `ss_runtime_just_looped` and
- * `ss_runtime_get_frame_rate`, so following the C API and following the
- * vocabulary are the same thing for those two, and this layer says
- * `justLooped` and `frameRate` like everyone else.
- *
- * Layer 3 — `SpriteStudioPlayer` — is where the conventions apply: it takes part
+ * Layer 3 — `SpriteStudioPlayer` — is where the family's names apply: it takes part
  * names, puts the value before its modifiers, and is what a host should reach for.
  * Coming here means deliberately trading the ergonomics for the raw calls, and
  * the names are the signpost that you have.
@@ -142,7 +136,7 @@ export class SsInternalPlayer {
    *
    * **A `crossfade` or `setTrackAnimation` on track 0 changes it from the
    * call on**, as the Brain changes what track 0 plays from the call on. Left
-   * naming the outgoing animation, a `setupAnimation` back to it looked like a
+   * naming the outgoing animation, a `setupAnimation` back to it would read as a
    * re-selection of the one already up, and could never return.
    */
   get currentAnimation(): string | null {
@@ -233,9 +227,8 @@ export class SsInternalPlayer {
   /**
    * Releases the native context.
    *
-   * Explicit rather than left to GC (the lifetime rule in `specs/SsRuntime.nitro.ts`):
-   * every ArrayBuffer L1 ever handed out is a borrow of memory this context owns.
-   * Idempotent.
+   * Explicit rather than left to GC, so `SsRuntime.liveHandles` is exact and the
+   * native memory goes when the player does. Idempotent.
    */
   dispose(): void {
     if (this.disposed) return
@@ -301,7 +294,7 @@ export class SsInternalPlayer {
    * see `resume()`.
    *
    * One entry point rather than two: the binding's `playFrom` is reached through
-   * the argument, which is the shape the conventions give it (`play(startFrame)`).
+   * the argument: `play(startFrame)`.
    */
   play(startFrame?: number): void {
     if (startFrame == null) this.require().play()

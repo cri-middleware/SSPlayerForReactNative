@@ -7,8 +7,7 @@
 // **Every** playback attribute — start/end labels, loop count, speed, reverse,
 // pingpong, independent — is resolved inside `ss_instance_slot_step`, against
 // the child's own Context. Nothing here reads `PartAttributeInstance` and
-// nothing branches on `ev.is_synthetic_default`; the SDK calls that out
-// explicitly. The Body's whole job is to hand the slot a child Context, react to
+// nothing branches on `ev.is_synthetic_default`. The Body's whole job is to hand the slot a child Context, react to
 // the transition edge, and draw the child at the frame it reports.
 //
 // Skia-free and Nitro-free like `SsEffect`, and for the same reason. The child
@@ -53,8 +52,7 @@ struct SsExternalPack {
 /// The child player a slot drives.
 ///
 /// Implemented by `HybridSsContext`, which is both a root player and — one level
-/// down — somebody's instance child, exactly as `SpriteStudioInternalPlayer` is
-/// in SSPlayerForFlutter. The interface exists so the slot logic sits *below*
+/// down — somebody's instance child. The interface exists so the slot logic sits *below*
 /// the hybrid rather than inside it.
 struct SsInstanceChild {
   virtual ~SsInstanceChild() = default;
@@ -65,13 +63,8 @@ struct SsInstanceChild {
 
   /// Starts the child from its just-configured start frame.
   ///
-  /// Not a courtesy. The two reference ports disagree about whether `step`
-  /// leaves the child playing — SSPlayerForGodot says it does and calls `play()`
-  /// only for the host-side event, SSPlayerForFlutter says it does not and that
-  /// an independent child otherwise freezes forever on a stopped controller.
-  /// Calling it is correct under both readings: a transition *is* "start this
-  /// instance from its start", so a rewind is the intended effect and not a
-  /// side effect.
+  /// Right whether or not `step` leaves the child playing: a transition *is*
+  /// "start this instance from its start", so a rewind is the intended effect.
   virtual void instancePlay() = 0;
 
   /// Halts the child's own clock. Called once at setup, because a child must not
@@ -157,8 +150,7 @@ class SsInstanceSlots {
   /// and starts it in the right place.
   void reset();
 
-  /// Destroys every child and slot. Children first, then the slots that drove
-  /// them, mirroring the reference ports.
+  /// Destroys every child and slot. Children first, then the slots that drove them.
   void release() noexcept;
 
   /// The live state for `partIndex`, or null when that part has no child.

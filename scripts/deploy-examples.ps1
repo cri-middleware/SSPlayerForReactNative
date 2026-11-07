@@ -7,9 +7,8 @@ param (
 # tests/ParticleEffect, tests/Doll), and any project put under
 # example\SpriteStudio_Source\, into the .ssab assets the example app loads.
 #
-# Unlike the Flutter Player this repo bundles no converter: React Native has no
-# editor to hook an importer into, so `.sspj` -> `.ssab` is a host-side step
-# (design doc ch.5 / ch.9 G). This script is the developer convenience that runs
+# This repo bundles no converter: React Native has no editor to hook an importer
+# into, so `.sspj` -> `.ssab` is a host-side step. This script is the developer convenience that runs
 # the SDK submodule's own ssconverter-cli.
 #
 # Output lands in example/assets/ss/<stem>/ and is gitignored: it is derived
@@ -38,9 +37,8 @@ $outRoot = Join-Path $rootDir "example/assets/ss"
 #                     whether the render path itself works before any
 #                     character's authoring choices are in the picture.
 #   Ringo           - the character case.
-#   ParticleEffect  - the worst case for vertex count; design
-#                     doc ch.8 is explicit that the vertex ceiling is set by
-#                     effects, not by characters.
+#   ParticleEffect  - the worst case for vertex count: the ceiling is set
+#                     by effects, not by characters.
 $projects = @(
     @{ Dir = "overall"; Sspj = "overall.sspj" },
     @{ Dir = "Ringo"; Sspj = "Ringo.sspj" },
@@ -51,7 +49,7 @@ $projects = @(
 # Always converted with textures baked in, whatever --embedded says for the rest.
 #
 # The example needs one of each, because the two texture-supply modes reach
-# different distances on React Native. A reference pack's sibling image has to be
+# different distances on React Native. A reference pack's image has to be
 # findable at runtime, and Metro only ships what a require() names - so reference
 # is the mode with a loading path to get wrong, and embedded is the one that is
 # self-contained everywhere. Keeping both means the example exercises both

@@ -28,7 +28,7 @@ async function layout(
   width: number,
   height: number
 ): Promise<void> {
-  const view = findHosts(renderer, 'View')[0]
+  const view = findHosts(renderer, 'View').find((host) => host.props.onLayout != null)
   await act(async () => {
     ;(view?.props as { onLayout(event: unknown): void }).onLayout({
       nativeEvent: { layout: { width, height } },
@@ -98,7 +98,25 @@ describe('SpriteStudioScene', () => {
         <SpriteStudioSprite source={PACK} />
       </SpriteStudioScene>
     )
+    await act(async () => stepFrame(16))
 
+    expect(pendingFrames()).toBe(0)
+  })
+
+  it('draws a scene that mounts paused, without running its clock', async () => {
+    const { renderer } = await render(
+      <SpriteStudioScene paused>
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+    const [sprite] = SpriteStudioPlayer.created
+    const advance = vi.spyOn(sprite!, 'advance')
+
+    await act(async () => stepFrame(16))
+
+    expect(drawn(renderer)).toEqual([sprite])
+    expect(advance).not.toHaveBeenCalled()
     expect(pendingFrames()).toBe(0)
   })
 

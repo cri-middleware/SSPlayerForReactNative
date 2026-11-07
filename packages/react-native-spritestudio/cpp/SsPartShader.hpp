@@ -39,10 +39,8 @@ constexpr int kSsShaderCount = 13;
 ///
 /// The hashes are **pre-baked**, exactly as the texture key is: the converter
 /// bakes FNV-1a of the shader's id string and the runtime then drops the name,
-/// so there is nothing here to re-hash. The same table appears verbatim in the
-/// sibling ports (Flutter's `SsShaderId`, Web's `SSShaderLib.ts`, Godot's
-/// `EMBEDDED_SHADERS`) — these are stable SDK built-ins, so the id ↔ hash
-/// pairing cannot drift.
+/// so there is nothing here to re-hash. These are stable SDK built-ins, so the
+/// id ↔ hash pairing cannot drift.
 struct SsShaderHashEntry {
   uint32_t hash;
   SsShaderId id;
@@ -99,10 +97,9 @@ struct SsPartShader {
   /// tail (`Pixel x colour`) and never sees the coefficient row.
   bool foldsPartColor() const { return id != SsShaderId::Blur; }
 
-  /// Whether this built-in samples the cell's UV rect (`ss_cell_rect`).
+  /// Whether this built-in reads the cell's UV rect (`uCellRect`).
   ///
-  /// Only the two that unwrap the cell polar-wise need it, and both cut
-  /// fragments outside the disc. The other eleven leave the uniform unread.
+  /// Only `Circle` and `Spot` do; the other eleven leave the uniform unread.
   bool needsCellRect() const { return id == SsShaderId::Circle || id == SsShaderId::Spot; }
 };
 

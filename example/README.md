@@ -124,7 +124,7 @@ converts this one folder as `MaskInstance`, which is what the card and
 
 `src/player/audio.ts` is the reference wiring for `onAudio`, using `expo-audio`
 as *this app's* dependency — the package itself brings no audio stack. It solves
-the three things anyone writing their own will hit: an `asset`-scheme sibling has
+the three things anyone writing their own will hit: an `asset`-scheme file has
 no path an audio library can open, `loopNum` is a *count* where most APIs take a
 boolean, and iOS is silent under the ringer switch without
 `setAudioModeAsync({ playsInSilentMode: true })`.

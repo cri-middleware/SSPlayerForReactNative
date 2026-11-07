@@ -135,8 +135,7 @@ const PARTICLE_FRAMES = {
  * features at once, since the pack carries mask parts (`Mask-Hole`) *and*
  * clipping ones (`Normal-Clipping-True`), which mask in opposite directions —
  * a mask hides what is drawn before it, a clipping part confines what comes
- * after. Its `Mesh-WriteMask-True` and `Shape-Mask-True` parts are the two
- * writers this port deliberately drops for now.
+ * after.
  *
  * `Mesh` is the deformed-geometry case: its vertices arrive from the Brain
  * **already in world space**, so unlike every other kind here the world matrix
@@ -338,13 +337,10 @@ const SUBJECTS = {
  * `embedded` bytes when the `.ssab` carries them and otherwise resolving
  * `image_path` against the `.ssab`'s own directory. The toggle just points at a
  * different directory — `*-embedded/` was converted with `--embedded`, and the
- * plain one keeps its atlas as a sibling file.
+ * plain one keeps its atlas in a file next to the `.ssab`.
  *
- * The reference pack is what React Native used not to be able to draw. While
- * the `.ssab` was named with a `require()` there was no directory for the atlas
- * to be a sibling *of*, and this screen had to hand the texture over by hand.
- * The pack directories ship as app assets now (see the plugin entry in
- * `app.json`), so `ss/overall/` is a real directory on the device.
+ * The pack directories ship as app assets (see the plugin entry in `app.json`),
+ * so `ss/overall/` is a real directory on the device.
  *
  * **Both conversions exist per pack**, not once for the project, so the toggle
  * means the same thing whichever subject is selected. `deploy-examples.sh`
@@ -486,8 +482,7 @@ function formatSignalParam(param: SsSignalParam): string {
 export function PlayerScreen() {
   const ref = useRef<SpriteStudioViewRef>(null)
   // Opens on `reference`, the mode with a loading path to get wrong: the atlas
-  // is a sibling file that has to be found next to the `.ssab` at runtime, which
-  // is exactly what React Native could not do while a source was a `require()`.
+  // is a file that has to be found next to the `.ssab` at runtime.
   // Embedded is self-contained and works anywhere, so defaulting to it would
   // mean the screen only exercised the fragile route when someone remembered to
   // ask for it.
@@ -819,7 +814,7 @@ export function PlayerScreen() {
               disabled={m === 'embedded' && embeddedDir == null}
               onPress={() => setMode(m)}
             >
-              {m === 'embedded' ? 'embedded (in .ssab)' : 'reference (sibling file)'}
+              {m === 'embedded' ? 'embedded (in .ssab)' : 'reference (file next to the .ssab)'}
             </Choice>
           ))}
         </View>

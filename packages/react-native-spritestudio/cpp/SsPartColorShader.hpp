@@ -5,16 +5,13 @@
 /// **Included only from `SsSkiaDraw.cpp`, inside its `SSPLAYER_ENABLE_SKIA_DIRECT`
 /// guard** — same rule as `SsBlend.hpp`, and for the same reason.
 ///
-/// The port is of **SSPlayerForFlutter**'s `shaders/partcolor.frag`, which
-/// solved the same problem against the same primitives: Skia gives vertices only
-/// position / texcoord / colour, so the per-vertex `CUSTOM0` packing the
-/// Godot and Web ports use has nowhere to live. Each tinted part is therefore
+/// Skia gives vertices only
+/// position / texcoord / colour, so a per-vertex packing has nowhere to live. Each tinted part is therefore
 /// drawn on its own quad with the corner colours and rates as **uniforms**, and
 /// the gradient is reconstructed analytically in the shader.
 ///
-/// Where this departs from Flutter: Flutter reconstructs quad-local `(s,t)` from
-/// the *fragment position* and needs a CPU-computed world-space inverse affine
-/// to do it. Here the reconstruction runs off the **UV** instead. `drawVertices`
+/// The reconstruction runs off the **UV**, not the fragment position, so it needs
+/// no CPU-computed world-space inverse. `drawVertices`
 /// evaluates the paint's shader at the interpolated texcoord, so `coord` arrives
 /// in texture-pixel space already — which is independent of the canvas matrix,
 /// so the root transform, the device pixel ratio and any enclosing scale drop

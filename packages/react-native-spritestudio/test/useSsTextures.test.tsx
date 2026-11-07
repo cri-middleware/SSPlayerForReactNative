@@ -4,7 +4,9 @@ import { SS_DEFAULT_CELLMAP, useSsTextures, type SsTextureSources } from '../src
 import { definePack, resetFakeRuntime } from './support/fakeRuntime'
 import { renderHook } from './support/render'
 import { skiaDecode } from './support/stubs/skia'
+import { SsRuntimeModule } from './support/fakeRuntime'
 import { Image } from './support/stubs/react-native'
+import { Skia } from './support/stubs/skia'
 
 // `loadImageData` takes the Layer 1 route for an asset, which is the one thing
 // here that reaches the Brain.
@@ -43,13 +45,26 @@ describe('useSsTextures', () => {
   })
 
   // `require()` is allowed here and nowhere else: a replacement texture is a
-  // single standalone image with no siblings to resolve.
+  // single standalone image with nothing to resolve against it.
   it('resolves a require()d image through the bundler', async () => {
     const resolve = vi.spyOn(Image, 'resolveAssetSource')
 
     await decode(7)
 
     expect(resolve).toHaveBeenCalledWith(7)
+  })
+
+  // What Android resolves one to in a release build, which is not in the APK's assets.
+  it('opens a require()d drawable with Skia, not through the asset route', async () => {
+    vi.spyOn(Image, 'resolveAssetSource').mockReturnValue({ uri: 'src_ringo_winter' })
+    const fromUri = vi.spyOn(Skia.Data, 'fromURI')
+    const readAsset = vi.spyOn(SsRuntimeModule, 'readAsset')
+
+    const harness = await decode(7)
+
+    expect(fromUri).toHaveBeenCalledWith('src_ringo_winter')
+    expect(readAsset).not.toHaveBeenCalled()
+    expect(Object.keys(harness.result.current ?? {})).toEqual([SS_DEFAULT_CELLMAP])
   })
 
   it('is null until every texture has decoded', async () => {

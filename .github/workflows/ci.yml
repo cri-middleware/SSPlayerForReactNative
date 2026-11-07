@@ -140,8 +140,8 @@ jobs:
             exit $bad'
 
       - name: The published tarball would not carry build output
-        # `files` takes a directory *recursively*, which is how `"android"` once
-        # pulled 2.8 GB of `.cxx` into `npm pack`. `prepack` guards the rest, but
+        # `files` takes a directory *recursively*, so a build-output directory under
+        # android/ would ship whole. `prepack` guards the rest, but
         # it needs the Brain and so cannot run here.
         run: |
           node -e '

@@ -1,6 +1,6 @@
 #pragma once
 
-// Variant (c)'s drawing step: turn a baked frame into Skia draw calls, in C++.
+// The drawing step: turn a baked frame into Skia draw calls, in C++.
 //
 // Declared with opaque pointers so `HybridSsContext` — which is compiled on
 // every target — never needs the Skia headers. Only SsSkiaDraw.cpp does.
@@ -86,9 +86,8 @@ struct SsInstanceRenderer {
 
 /// One `cellmap.name_hash` → `SkPaint*` entry of the texture table.
 ///
-/// Deliberately not the Nitro struct: this header is included by
-/// `HybridSsContext`, which must stay free of both Skia and (for the host test
-/// harness) Nitro.
+/// Deliberately not the Nitro struct: this header is shared with the host checks,
+/// which link no Nitro.
 struct SsPaintBinding {
   uint32_t textureHash;
   void* paint;
@@ -117,9 +116,7 @@ struct SsDrawScratch {
 /// Walking the batches in the Brain's order — rather than once per texture — is
 /// what keeps the depth sorting intact when a pack has more than one cellmap.
 /// A batch whose hash matches nothing is skipped, so a mis-keyed texture shows
-/// up as a missing part rather than a part wearing the wrong atlas. The one
-/// exception is a single-entry table, which matches unconditionally: a
-/// one-cellmap pack is then drawable without knowing the cellmap's name.
+/// up as a missing part rather than a part wearing the wrong atlas.
 ///
 /// `canvas` is an `SkCanvas*` and each `paint` an `SkPaint*`, all borrowed for
 /// the duration of the call. Returns the number of vertices drawn, or 0 when the

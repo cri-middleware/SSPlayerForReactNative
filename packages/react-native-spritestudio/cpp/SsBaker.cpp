@@ -366,8 +366,7 @@ void SsBaker::bakeMeshBatch(const ss::runtime::FrameData* fd, const SsSoAPointer
     std::fill(colors_.begin() + static_cast<std::ptrdiff_t>(colorAt), colors_.end(), color);
 
     // Part-local 0-based, so they are rebased onto this part's slice of the
-    // batch — the batch is one draw call, which is exactly the case the mesh doc
-    // says needs the vertex base added.
+    // batch, which is one draw call.
     uint16_t* indices = indices_.data() + indexAt;
     const int32_t* local = soa.meshIndices + i0;
     for (uint32_t i = 0; i < indexCount; ++i) {
@@ -414,8 +413,7 @@ void SsBaker::bakeEffectBatch(const ss::runtime::FrameData* fd, const SsSoAPoint
     const float* m = soa.worldMatrices + static_cast<size_t>(partIndex) * 16;
     // The particle colours already carry the emitter's own alpha; the part's
     // hierarchical alpha rides on top, since the slot never sees it. No
-    // PartColor here — the SDK's non-goal list keeps shader parts off the
-    // Effect kind, and there is no quad to reconstruct a gradient across.
+    // PartColor here: there is no quad to reconstruct a gradient across.
     const ss::runtime::PartState* state =
         (parts != nullptr && partIndex < partStateCount) ? parts->Get(partIndex) : nullptr;
     const float partAlpha = (state != nullptr ? state->alpha() : 1.0f) * alphaScale;
@@ -643,10 +641,7 @@ void SsBaker::bakeInstanceBatch(const ss::runtime::FrameData* fd, const SsSoAPoi
     draw.m[5] = m[13];
     // Compounds down the chain: a child three instances deep is dimmed by all
     // three. Not read from a PartColor: an instance part can carry one, but what
-    // that should mean for the child is unspecified — no fixture in the SDK's
-    // test projects authors one. Of the v7
-    // Players only SSPlayerForFlutter does anything with it. Out of scope here
-    // by decision, not pending: settle it SDK-side first.
+    // that should mean for the child is unspecified.
     draw.alpha = (state != nullptr ? state->alpha() : 1.0f) * alphaScale;
     instances_.push_back(draw);
   }

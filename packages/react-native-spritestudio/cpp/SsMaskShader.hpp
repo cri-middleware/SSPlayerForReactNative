@@ -10,9 +10,7 @@
 /// Both reconstruct the quad's `(s,t)` from the **UV**, the way
 /// `SsPartColorShader.hpp` does: `drawVertices` evaluates the paint's shader at
 /// the interpolated texcoord, so the canvas matrix drops out and no
-/// fragment-space inverse has to be computed. SSPlayerForFlutter's
-/// `mask_write.frag` has no texcoord to lean on and pays for a world-space
-/// inverse per writer; that whole uniform disappears here.
+/// fragment-space inverse has to be computed.
 ///
 /// ### Why the replay does bit arithmetic rather than bit operations
 ///
@@ -24,18 +22,12 @@
 ///
 /// ### Why the bits live in ALPHA
 ///
-/// They used to live in the RGB channels, 8 bits each, and that is a colour, so
-/// Skia colour-manages it. The coverage image is tagged sRGB — it has to be,
-/// because `drawInto` runs on a recording canvas that has no colour space to
-/// match and `DeferredFromPicture` rejects a null one — while RN Skia's Apple
-/// surface is **Display P3** whenever the screen's gamut is. The gamut matrix
-/// then scales each channel by ~0.82/0.97/0.91 and bleeds them into each other,
-/// so a bit pattern arrives as a different bit pattern: on `Mask.ssab` six of
-/// the nine writers decoded as the wrong writer, which is the iOS-only mask
-/// divergence this repo chased for a phase. Android never showed it because its
-/// GL surface is unmanaged, and neither did the host check, which handed the
-/// coverage and the destination the *same* colour space and so made every
-/// conversion the identity by construction.
+/// RGB is a colour, so Skia colour-manages it. The coverage image is tagged sRGB
+/// — it has to be, because `drawInto` runs on a recording canvas that has no colour
+/// space to match and `DeferredFromPicture` rejects a null one — while RN Skia's
+/// Apple surface is **Display P3** whenever the screen's gamut is. The gamut matrix
+/// scales each channel and bleeds them into each other, so a bit pattern in RGB
+/// would arrive as a different bit pattern.
 ///
 /// Alpha is not a colour: `SkColorSpaceXformSteps` transforms RGB and passes
 /// alpha through untouched, so an 8-bit alpha plane survives any destination
@@ -161,9 +153,8 @@ half4 main(float2 coord) {
     // The upper bound is **exclusive**, and with the planes in a grid that is
     // load-bearing rather than pedantic: `cuv.y == 1.0` lands on row 0 of the
     // *next* plane (and `cuv.x == 1.0` on the next column's), so a sample at the
-    // box's far edge would decode as some other writer's bits. Skia's kDecal
-    // used to absorb exactly that case, back when one plane filled the whole
-    // image and there was nothing beside it.
+    // box's far edge would decode as some other writer's bits, and it lands
+    // inside the image, where kDecal cannot absorb it.
     if (cuv.x >= 0.0 && cuv.x < 1.0 && cuv.y >= 0.0 && cuv.y < 1.0) {
         // Each plane is read only when this target has a writer in it — both
         // uniforms, so the branch is coherent across the whole draw and a pack

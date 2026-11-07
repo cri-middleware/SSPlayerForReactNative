@@ -914,8 +914,7 @@ packages/**/build/
 packages/**/.cxx/
 
 # The Brain is never committed: scripts/download-sdk.sh installs the pinned SDK
-# release and scripts/build-runtime.sh builds it from the submodule (design doc
-# ch.7). Both write the same layout here.
+# release and scripts/build-runtime.sh builds it from the submodule. Both write the same layout here.
 packages/*/native/
 
 # Cached SDK release zip (scripts/download-sdk.*).

@@ -48,8 +48,8 @@ textures={{
 
 ::: info `require()` is allowed here, and nowhere else
 A *pack* cannot be named with one — it is a directory, and Metro does not ship
-directories. A replacement *texture* is a single standalone image with no
-siblings to resolve, which is exactly what Metro is good at.
+directories. A replacement *texture* is a single standalone image with nothing to
+resolve against it, which is exactly what Metro is good at.
 :::
 
 `useSsTextures` is the hook behind the prop, exported for a caller that wants

@@ -117,7 +117,7 @@ describe('ssCheckForLeaks', () => {
   it('reports a registry that grew', async () => {
     vi.spyOn(SsTextureRegistry.prototype, 'unregister').mockReturnValue(false)
     // A different cellmap name per load, so the entries stack rather than
-    // overwriting one another — which is the shape the collision bug had.
+    // overwriting one another.
     let load = 0
     vi.spyOn(SsInternalPlayer.prototype, 'getTextures').mockImplementation(() => [
       embedded(`common${load++}`),

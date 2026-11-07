@@ -104,7 +104,7 @@ Two consequences follow, and both are load-bearing:
 - **A `require()`d module is not a valid `source`.** It is the one form with no
   directory behind it.
 - **`assetExts` must stay clean of `ssab` / `ssqb`.** Teaching Metro about them
-  would produce exactly the flattened, sibling-less copy that cannot work.
+  would produce exactly the flattened copy, cut off from what it names, that cannot work.
 
 Pack directories ship as **native app assets** instead:
 

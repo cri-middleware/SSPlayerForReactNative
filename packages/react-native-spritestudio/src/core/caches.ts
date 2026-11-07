@@ -36,7 +36,7 @@ const clearHooks = new Set<() => void>()
  * Has `hook` run whenever {@link ssClearCaches} empties the caches.
  *
  * For a layer above that keeps its own record of what is in them: `ssPreload`
- * remembers which packs it holds, and a record that outlived the entries made a
+ * remembers which packs it holds, and a record that outlived the entries would make a
  * later preload of the same pack a no-op against a cold cache.
  */
 export function onCachesCleared(hook: () => void): void {

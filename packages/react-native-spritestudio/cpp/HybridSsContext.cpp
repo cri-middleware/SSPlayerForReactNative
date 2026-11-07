@@ -48,14 +48,12 @@ HybridSsContext::HybridSsContext(const std::shared_ptr<HybridSsResource>& resour
   // whole hierarchy once, at the source (position_y, rotation_z and pivot_y) —
   // so everything downstream reads one consistent space: the baked geometry, the
   // world matrices `getPartTransform` decomposes, and the box `measureContentBox`
-  // accumulates. Doing it in the root transform instead, as this used to, left
-  // those three disagreeing: the draw came out right way up while every matrix
-  // handed to a caller was still Y-up. ForWeb, ForFlutter, ForGodot and ForRenPy
-  // all set it here for the same reason.
+  // accumulates. Doing it in the root transform instead would leave
+  // those three disagreeing: the draw would come out right way up while every matrix
+  // handed to a caller stayed Y-up.
   ss_runtime_set_coordinate_system(ctx_, 1);
   // Read once: these are PartData, so they are fixed for the life of the
-  // resource. Re-reading them per frame would be the mistake the mask spec opens
-  // by warning against — the animated `mask` / `hide` come from FrameData.
+  // resource. The animated `mask` / `hide` come from FrameData.
   // Verified, on the Brain's copy of a pack `adopt()` already gated, because a
   // view that skipped the verifier would be a second path for every reader
   // below to trust.
@@ -114,8 +112,8 @@ void HybridSsContext::buildInstanceChildren() {
   instances_.build(view, [&](const sscore::SsInstancePart& part) -> sscore::SsInstanceChild* {
     const std::shared_ptr<HybridSsResource> resource = resolvePack(part.packNameHash);
     // An unresolved pack means the child is simply never drawn — the same
-    // fail-safe as an invisible slot, and the shape an unbound external pack
-    // takes before Stage B's `bindInstancePack` has run.
+    // fail-safe as an invisible slot, and what a pack that `bindInstancePack` has
+    // not bound yet comes to.
     if (resource == nullptr || resource->handle() == nullptr) return nullptr;
 
     HybridSsContext* child = nullptr;
@@ -167,9 +165,6 @@ void HybridSsContext::release() noexcept {
   drawScratch_ = {};
   partCount_ = 0;
   frameNo_ = 0.0f;
-  // Same signal an `update()` gives: anything JS is still holding from an
-  // earlier frame is stale now. JS has one rule to follow, not a special case
-  // for teardown.
   ++generation_;
 
   gLiveContexts.fetch_sub(1, std::memory_order_relaxed);
@@ -202,11 +197,9 @@ std::string HybridSsContext::lastErrorMessage() {
 bool HybridSsContext::setupAnimation(const std::string& name) {
   if (ctx_ == nullptr) return false;
   if (!ss_runtime_setup_animation(ctx_, name.c_str())) return false;
-  // setup_animation resets playback, so anything JS is still holding from the
-  // previous animation is stale for the same reason a frame advance makes it
-  // stale. Bump the generation and republish.
+  // setup_animation resets playback, so bump the generation and republish.
   ++generation_;
-  frameNo_ = 0.0f;
+  frameNo_ = ss_runtime_get_frame_no(ctx_);
   // A different animation has different `EventEffect` keys, so each slot's
   // memory of the last key it started is about a timeline that no longer
   // exists — without this the first key of the new animation is debounced as
@@ -233,8 +226,8 @@ double HybridSsContext::update(double dtMilliseconds) {
   // this spec's, deliberately — see the spec comment.
   frameNo_ = ss_runtime_update(ctx_, static_cast<float>(dtMilliseconds));
   // Rebuilt only when the pose can differ from the one built last. Rebuilding
-  // regardless re-evaluated and redrew the same pose on every tick of a frame
-  // that lasts several, and on every tick of a pause.
+  // regardless would re-evaluate and redraw the same pose on every tick of a
+  // frame that lasts several, and on every tick of a pause.
   const float drawFrame = subFrame_ ? frameNo_ : std::floor(frameNo_);
   if (stale_ || stackMoves || frame_ == nullptr || drawFrame != builtFrame_) {
     ++generation_;
@@ -246,7 +239,7 @@ double HybridSsContext::update(double dtMilliseconds) {
   }
   // The steps below are the ones a track call left pending.
   slotsStale_ = false;
-  // Read *after* the update: `is_looped` is cleared at the top of each one, so
+  // Read *after* the update: `just_looped` is cleared at the top of each one, so
   // what it reports here is this tick's loop **edge**, which is what re-arms a
   // synced effect. Read before, it would be the previous tick's.
   const bool looped = ss_runtime_just_looped(ctx_);
@@ -288,7 +281,7 @@ void HybridSsContext::refreshIfStale() {
   refreshFrame();
   // A track call can move track 0's playhead with no time passing, which is a
   // seek, and the slots follow it the way `resync()` has them follow one. Left
-  // to the next `update()`, a held player — which gets none — drew its own
+  // to the next `update()`, a held player — which gets none — would draw its own
   // parts at the new frame and its children and effects at the old one.
   if (slotsStale_) {
     slotsStale_ = false;
@@ -307,8 +300,8 @@ void HybridSsContext::stepEffects(float dtMilliseconds, bool looped) {
   // converts an independent slot's delta into frames — not the display's refresh
   // rate.
   const int32_t fps = ss_runtime_get_frame_rate(ctx_);
-  // `frame_` is the frame this tick draws, refreshed by every caller just
-  // before, so a part it hides skips the particles nothing would draw.
+  // `frame_` is the frame this tick draws, so a part it hides skips the particles
+  // nothing would draw.
   effects_.step(ctx_, frame_, frameNo_, dtMilliseconds / 1000.0f,
                 fps > 0 ? static_cast<float>(fps) : 60.0f, looped);
 }
@@ -383,9 +376,7 @@ void HybridSsContext::playFrom(double frameNo) {
 void HybridSsContext::pause() {
   if (ctx_ == nullptr) return;
   // One-way and idempotent on the C-API side, and ignored while nothing is
-  // playing, so this needs no guard: the runtime used to publish a *toggle*
-  // (`is_pausing = !is_pausing`), which is the wrong shape for a declarative
-  // `playing` prop to drive, and it was split into pause / resume.
+  // playing, so this needs no guard.
   ss_runtime_pause(ctx_);
   // Neither pause nor resume moves the playhead, so the published frame stands.
 }
@@ -509,13 +500,16 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
 
   static constexpr float kIdentity[6] = {1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
 
+  // The walk steps one frame per `update`, which only holds at the authored
+  // speed, and a setup keeps the host's.
+  const float hostSpeed = ss_runtime_get_speed_scale(ctx_);
+  ss_runtime_set_speed_scale(ctx_, 1.0f);
+
   for (const std::string& name : animations) {
     if (!setupAnimation(name)) continue;
 
     // Looping and playing, because `setup_animation` leaves the transport
-    // stopped and a walk that forgets this measures frame 0 N times — the trap
-    // CONTRIBUTING.md warns about, and which `ssbake_check` itself shipped with
-    // for a whole phase.
+    // stopped and a walk that forgets this measures frame 0 N times.
     ss_runtime_set_loop_count(ctx_, -1);
     ss_runtime_play(ctx_);
 
@@ -537,6 +531,8 @@ SsBox HybridSsContext::measureContentBox(const std::vector<std::string>& animati
       accumulateSubtreeBox(box, kIdentity);
     }
   }
+
+  ss_runtime_set_speed_scale(ctx_, hostSpeed);
 
   if (box[0] > box[2] || box[1] > box[3]) return SsBox(0.0, 0.0, 0.0, 0.0);
   return SsBox(static_cast<double>(box[0]), static_cast<double>(box[1]),
@@ -612,10 +608,9 @@ double HybridSsContext::hitTestPart(double x, double y, const std::vector<double
 bool HybridSsContext::isPartHidden(double partIndex) {
   // The DISPLAY frame, which `refreshFrame()` already floored when sub-frame is
   // off — so this reads the same frame the baker drew and cannot disagree with
-  // what is on screen. `frame_` is null before the first update, which is the
-  // one case where "not hidden" is a guess rather than a reading; a caller that
-  // needs to tell the two apart has `findPartIndex` for existence, and the
-  // frame itself only starts existing once something has played.
+  // what is on screen. `frame_` is null until `setupAnimation` has published
+  // a frame, which is the one case where "not hidden" is a guess rather than a
+  // reading; a caller that needs to tell the two apart has `findPartIndex`.
   refreshIfStale();
   if (ctx_ == nullptr || frame_ == nullptr || partIndex < 0) return false;
   const auto* parts = frame_->parts();
@@ -645,8 +640,8 @@ int32_t HybridSsContext::passedEventAnimation(int32_t i) const {
   // The animation of the source that **fired** the event, not the one a setup
   // selected: an event index addresses that source's `events`, and after a
   // crossfade on track 0 — or with a second source firing — the two differ.
-  // Resolved against the setup's table, a key came back as some other key of
-  // the same index, or was dropped as out of range.
+  // Resolved against the setup's table, a key would come back as some other key
+  // of the same index, or be dropped as out of range.
   const uint32_t handle = ss_runtime_get_passed_event_source_handle(ctx_, i);
   return ss_runtime_get_source_animation_index(ctx_, handle);
 }
@@ -1297,7 +1292,7 @@ std::vector<std::string> HybridSsContext::partNames() {
   std::vector<std::string> out;
   if (!view.valid()) return out;
   // Walk the `.ssab` parts table rather than `partCount_`: that one is derived
-  // from the Brain's world-matrix SoA and is zero until the first update, while
+  // from the Brain's world-matrix SoA and is zero until `setupAnimation`, while
   // the names are static for the resource and wanted before a frame has run.
   const uint32_t count = view.partCount();
   out.reserve(count);
@@ -1337,9 +1332,8 @@ SsLabelTable HybridSsContext::getLabelTable(const std::string& animationName) {
 }
 
 void HybridSsContext::refreshFrame() {
-  // Every caller guards already, but `release()` can now run at any time JS
-  // chooses rather than only at destruction, so the invariant is stated here
-  // too instead of resting on all of them staying correct.
+  // Every caller guards already, but `release()` can run at any time JS chooses, so
+  // the invariant is stated here too.
   if (ctx_ == nullptr) return;
   stale_ = false;
 

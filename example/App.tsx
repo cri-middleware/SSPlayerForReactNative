@@ -21,10 +21,6 @@ import { UiButtonScreen } from './src/ui/UiButtonScreen'
  * Only the active screen is mounted, so no two of them run frame loops or hold
  * native handles at the same time — which is what keeps the Viewer's own leak
  * check reading a clean baseline.
- *
- * (There used to be a second screen of a different kind — a measurement harness
- * that drove Layer 1 directly to decide where the L1/L2 boundary belongs. It was
- * retired once the question was settled; it is in git history if ever needed.)
  */
 type Tab = 'viewer' | 'follow' | 'blend' | 'ui'
 

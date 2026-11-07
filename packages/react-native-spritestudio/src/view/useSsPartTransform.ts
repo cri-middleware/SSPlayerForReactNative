@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSharedValue, type SharedValue } from 'react-native-reanimated'
 
 import { onFrameShown } from '../player/frames'
@@ -32,11 +32,9 @@ const ABSENT: SsPartScreenTransform = {
  * Sampled on the JS thread, once per frame the player shows (`player/frames`),
  * and published into a shared value, so the *consumer* runs on the UI thread
  * even though the sample does not. A player that stands still shows no new
- * frame, and is not read. That is the honest shape today: the frame loop, the
- * Brain and the whole player are JS-thread, so a hook that claimed to sample in
- * a worklet would be sampling a value the JS thread had already moved on from. Moving the tick itself to the UI thread is
- * a separate piece of work, and when it lands this hook's *consumers* do not
- * change — which is the point of publishing through a shared value now.
+ * frame, and is not read. The frame loop, the Brain and the whole player are
+ * JS-thread, so a hook that claimed to sample in a worklet would be sampling a
+ * value the JS thread had already moved on from.
  *
  * The reported transform is in **view pixels**, root transform applied, because
  * that is the space an `Animated.View` on top of the canvas lives in.
@@ -52,8 +50,15 @@ export function useSsPartTransform(
 ): SharedValue<SsPartScreenTransform> {
   const value = useSharedValue<SsPartScreenTransform>(ABSENT)
 
+  // A scene redraws every member when one of them moves, so a still part is
+  // read again, and writing the same pose would still have the UI thread re-run
+  // every style built on it. Outlives the effect: what is on the shared value
+  // does not change when the player or the part does.
+  const published = useRef<SsPartScreenTransform>(ABSENT)
+
   useEffect(() => {
     if (player == null) {
+      published.current = ABSENT
       value.value = ABSENT
       return
     }
@@ -61,10 +66,6 @@ export function useSsPartTransform(
     // One-shot, and only in dev: the check reads the `.ssab` across JSI, so it
     // runs on the first frame the part resolves and never again.
     let checked = false
-    // A scene redraws every member when one of them moves, so a still part is
-    // read again, and writing the same pose would still have the UI thread
-    // re-run every style built on it.
-    let published: SsPartScreenTransform = ABSENT
     const sample = (): void => {
       const local = player.getPartTransform(partName)
       const root = player.rootTransform
@@ -72,8 +73,8 @@ export function useSsPartTransform(
         // Only write when it changes: a shared value assignment crosses to the
         // UI thread, and an unresolved part would otherwise do that on every
         // frame to say the same thing.
-        if (published.valid) {
-          published = ABSENT
+        if (published.current.valid) {
+          published.current = ABSENT
           value.value = ABSENT
         }
         return
@@ -119,18 +120,19 @@ export function useSsPartTransform(
           : local.rotation
       const scaleX = local.scaleX * Math.abs(sx)
       const scaleY = local.scaleY * Math.abs(sy)
+      const last = published.current
       if (
-        published.valid &&
-        published.x === x &&
-        published.y === y &&
-        published.rotation === rotation &&
-        published.scaleX === scaleX &&
-        published.scaleY === scaleY
+        last.valid &&
+        last.x === x &&
+        last.y === y &&
+        last.rotation === rotation &&
+        last.scaleX === scaleX &&
+        last.scaleY === scaleY
       ) {
         return
       }
-      published = { valid: true, x, y, rotation, scaleX, scaleY }
-      value.value = published
+      published.current = { valid: true, x, y, rotation, scaleX, scaleY }
+      value.value = published.current
     }
 
     // The frame already shown: a follower mounted on a still player would

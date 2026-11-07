@@ -50,6 +50,8 @@ ref.current?.player?.setSpeedScale(0.5)
 | `getAnimationNames()` | What the loaded pack carries. |
 | `getLabelTable(animation?)` | The labels of the current animation, or of the one named, in frame order, with its first and last frame. `null` for an animation the pack does not have. |
 
+**`play()`, `pause()`, `resume()`, `stop()` and `seek()` do nothing until the pack has loaded**, so call them from `onLoad` or later. `setAnimation()` and the settings (`setSpeedScale()` and the like) are kept and applied when it lands.
+
 `setSpeedScale` and `setFrameRate` are both rate controls and they compose, but they
 say different things: **speed is a multiple** of whatever the clip was authored
 at, so it means the same against every clip; **frame rate replaces** it, so 60
