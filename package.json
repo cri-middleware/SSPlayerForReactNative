@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "SpriteStudio player for React Native — workspace root",
-  "packageManager": "pnpm@12.18.0",
+  "packageManager": "pnpm@12.21.0",
   "license": "BSD-3-Clause",
   "//scripts": [
     "Every entry point is a .js shim that picks the .sh or .ps1 implementation",
