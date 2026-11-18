@@ -22,16 +22,16 @@ minimumReleaseAgeExclude:
   - "@vitest/mocker@5.0.5"
   - "@vitest/spy@5.0.5"
   - vitest@5.0.5
-  - "@expo/cli@58.1.18 || 58.1.19"
-  - "@expo/metro-config@58.0.20 || 58.0.21"
+  - "@expo/cli@58.1.18 || 58.1.19 || 58.1.21"
+  - "@expo/metro-config@58.0.20 || 58.0.21 || 58.0.23"
   - "@expo/prebuild-config@58.0.18 || 58.0.19"
-  - "@expo/router-server@58.0.20 || 58.0.21"
-  - babel-preset-expo@58.0.23 || 58.0.24
+  - "@expo/router-server@58.0.20 || 58.0.21 || 58.0.23"
+  - babel-preset-expo@58.0.23 || 58.0.24 || 58.0.26
   - expo-asset@58.0.19 || 58.0.20
   - expo-keep-awake@58.0.3
   - expo-modules-core@58.0.29 || 58.0.30
   - expo-modules-jsi@58.0.21 || 58.0.22
-  - expo@58.0.22 || 58.0.23
+  - expo@58.0.22 || 58.0.23 || 58.0.26
   - react-is@19.3.1
   - "@expo/package-manager@1.14.2"
   - "@react-native/asset-utils@0.88.0"
@@ -49,8 +49,8 @@ minimumReleaseAgeExclude:
   - react-native-skia@3.6.1
   - "@expo/schema-utils@58.0.3"
   - expo-build-properties@58.0.12
-  - expo-dev-client@58.0.18
-  - expo-dev-launcher@58.0.18
+  - expo-dev-client@58.0.18 || 58.0.21
+  - expo-dev-launcher@58.0.18 || 58.0.21
   - typedoc-plugin-markdown@4.14.1
   - "@expo/config-plugins@58.0.11 || 58.0.12"
   - "@expo/config@58.0.10 || 58.0.11"
@@ -64,7 +64,7 @@ minimumReleaseAgeExclude:
   - expo-modules-autolinking@58.0.16 || 58.0.17
   - expo-status-bar@58.0.4
   - react-native-builder-bob@0.44.1
-  - expo-file-system@58.0.13
+  - expo-file-system@58.0.13 || 58.0.14
   - expo-font@58.0.11
   - expo-modules-cli@0.4.0
   - expo-server@58.0.6
