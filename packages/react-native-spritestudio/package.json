@@ -78,6 +78,10 @@
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   },
+  "homepage": "https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/packages/react-native-spritestudio#readme",
+  "bugs": {
+    "url": "https://github.com/cri-middleware/SSPlayerForReactNative/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/cri-middleware/SSPlayerForReactNative.git",
