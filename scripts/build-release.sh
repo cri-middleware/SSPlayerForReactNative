@@ -1,25 +1,26 @@
 #!/bin/bash
 #
-# Build the release locally and publish none of it: the tarball `release.sh`
-# would upload, packed where you can look inside it, with SHA256SUMS over it and
-# the checks that have to pass before it goes out.
+# Build the release locally and publish none of it: the two tarballs
+# `release.sh` would attach to the draft Release, packed where you can look
+# inside them, with SHA256SUMS over them and the checks that have to pass before
+# they go out. The packages have one version line: react-native-spritestudio-ui
+# carries the core's version and takes the core at it as a peer.
 #
 #   scripts/build-release.sh                      # the whole thing
 #   scripts/build-release.sh sdk=build            # compile the Brain here instead
 #   scripts/build-release.sh skip=install,checks  # iterate
 #   scripts/build-release.sh out=/tmp/rel         # somewhere else
 #
-# This is `release.sh` minus the publish. It bumps nothing and tags nothing: the
-# tarball carries the version the tree has right now.
+# `release.sh` is this with the draft Release on the end. This bumps nothing and
+# tags nothing: the tarball carries the version the tree has right now.
 #
 # **Only the pinned SDK release can be packed.** `download-sdk` writes
 # native/VERSION and native/BUILD_MODE; `build-runtime` deletes both, because a
 # local Brain comes from a submodule commit that moves — and `prepack` refuses a
-# tarball without them (ROADMAP.md, "The pinned SDK release does not exist
-# yet"). So `sdk=build` is a REHEARSAL: every stage runs, `lib/` is built, and
-# the pack is a dry run that reports the file list an upload would carry. No
-# archive, deliberately — there is no way around that gate and this does not
-# invent one.
+# tarball without them. So `sdk=build` is a REHEARSAL: every stage runs, `lib/`
+# is built, and the pack is a dry run that reports the file list an upload
+# would carry. No archive, deliberately — there is no way around that gate and
+# this does not invent one.
 #
 # What verification catches, from inside the finished archive rather than off
 # the disk `prepack` reads:
@@ -30,11 +31,10 @@
 #   Half a Brain — `build-runtime` without Xcode writes the Android slices and
 #   no xcframework. That package installs and then fails to link on iOS.
 #
-#   A licence left behind. The FlatBuffers one got away exactly here: `files`
-#   listed the headers and stopped short of the text beside them.
+#   A licence left behind: `files` can list the headers and miss the text beside
+#   them.
 #
-#   android/ carrying its own build output — `files` takes a directory whole,
-#   which is how that entry once packed 2.8 GB of `.cxx`.
+#   android/ carrying its own build output: `files` takes a directory whole.
 set -euo pipefail
 
 APP=$(basename "$0")
@@ -42,6 +42,7 @@ BASEDIR=$(dirname "$0")
 SCRIPTDIR=$(cd "$BASEDIR" && pwd -P)
 ROOTDIR=$(cd "$BASEDIR/.." && pwd -P)
 PKG_DIR="${ROOTDIR}/packages/react-native-spritestudio"
+UI_DIR="${ROOTDIR}/packages/react-native-spritestudio-ui"
 
 STAGES="install sdk codegen checks pack"
 
@@ -70,8 +71,8 @@ usage () {
     echo "                          shippable tarball can have. build ="
     echo "                          build-runtime.sh in release mode, from the"
     echo "                          submodule (needs rustup + the NDK, and Xcode for"
-    echo "                          the iOS half) — the way through while that release"
-    echo "                          does not exist, at the cost of the tarball itself."
+    echo "                          the iOS half) — and the tarball itself is out of"
+    echo "                          reach."
     echo "                          skip = keep native/ as it stands."
     echo "  skip=<a,b,...>          Stages to leave out. One or more of:"
     echo "                          ${STAGES}"
@@ -89,12 +90,12 @@ echo "  -h | --help             Show this help"
     echo "  sdk       the Brain in packages/*/native (not in git), per sdk="
     echo "  codegen   re-run nitrogen and flatc, and require no diff"
     echo "  checks    typecheck and the host checks that need no device"
-    echo "  pack      npm pack -> <out>/npm, or a dry run -> <out>/rehearsal"
+    echo "  pack      pack both packages -> <out>/npm, or dry runs -> <out>/rehearsal"
     echo ""
-    echo "Output: <out>/npm/<name>-<version>.tgz and its .files listing when the Brain"
-    echo "is the pinned release; <out>/rehearsal/ with the listing alone when it is a"
-    echo "local build. Either way <out>/manifest.json says which, and SHA256SUMS covers"
-    echo "the lot."
+    echo "Output: <out>/npm/<name>-<version>.tgz and its .files listing for each package"
+    echo "when the Brain is the pinned release; <out>/rehearsal/ with the listings alone"
+    echo "when it is a local build. Either way <out>/manifest.json says which, and"
+    echo "SHA256SUMS covers the lot."
     echo ""
     echo "This builds a release; it does not make one. Nothing here publishes, tags,"
     echo "commits or bumps a version."
@@ -188,10 +189,12 @@ fail () {
 
 # --- preflight --------------------------------------------------------------
 
-[ -f "${PKG_DIR}/package.json" ] || {
-    echo "${APP}: ${PKG_DIR}/package.json not found — is this the SSPlayerForReactNative repo?" >&2
-    exit 1
-}
+for dir in "$PKG_DIR" "$UI_DIR"; do
+    [ -f "${dir}/package.json" ] || {
+        echo "${APP}: ${dir}/package.json not found — is this the SSPlayerForReactNative repo?" >&2
+        exit 1
+    }
+done
 
 for tool in node pnpm npm tar git; do
     command -v "$tool" >/dev/null 2>&1 || { echo "${APP}: ${tool} not found" >&2; exit 1; }
@@ -213,6 +216,7 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf "${WORK}"' EXIT
 ENTRIES="${WORK}/entries"
+UI_ENTRIES="${WORK}/ui-entries"
 
 HOST=$(uname)
 PKG_NAME=$(node -p "require('${PKG_DIR}/package.json').name")
@@ -221,6 +225,19 @@ PINNED=$(tr -d ' \r\n' < "${SCRIPTDIR}/SDK_VERSION.txt")
 # npm's tarball name: the scope's @ dropped, its / turned into a dash.
 TGZ=$(printf '%s' "$PKG_NAME" | sed 's|^@||; s|/|-|g')-${VERSION}.tgz
 BASE="${TGZ%.tgz}"
+UI_NAME=$(node -p "require('${UI_DIR}/package.json').name")
+UI_VERSION=$(node -p "require('${UI_DIR}/package.json').version")
+UI_PEER=$(node -p "(require('${UI_DIR}/package.json').peerDependencies || {})['${PKG_NAME}'] || ''")
+UI_TGZ=$(printf '%s' "$UI_NAME" | sed 's|^@||; s|/|-|g')-${VERSION}.tgz
+UI_BASE="${UI_TGZ%.tgz}"
+
+# One version line: a UI package that names another version, or takes another
+# core, installs against a core it was not released with.
+if [ "$UI_VERSION" != "$VERSION" ] || [ "$UI_PEER" != "$VERSION" ]; then
+    echo "${APP}: ${UI_NAME} is ${UI_VERSION} and takes ${PKG_NAME} '${UI_PEER}', but ${PKG_NAME} is ${VERSION}" >&2
+    echo "${APP}: set both to ${VERSION} — the packages are released at one version" >&2
+    exit 1
+fi
 
 echo "options"
 echo "  out    => ${OUT}"
@@ -229,8 +246,9 @@ echo "  skip   => ${SKIP:-(nothing)}"
 echo "  verify => ${VERIFY}"
 echo "  clean  => ${CLEAN}"
 echo ""
-echo "package"
+echo "packages"
 echo "  ${PKG_NAME} ${VERSION}"
+echo "  ${UI_NAME} ${VERSION}"
 echo "  SDK pinned at ${PINNED}"
 
 if [ "$SDK" = "build" ] && ! skipping sdk && [ ! -d "${ROOTDIR}/SpriteStudio-SDK/libs/ssruntime" ]; then
@@ -265,8 +283,6 @@ esac
 if stage sdk "$sdk_what"; then
     case "$SDK" in
         download)
-            # While the SDK has no release tag this 404s, and that is the
-            # correct failure — there is nothing to publish against yet.
             "${SCRIPTDIR}/download-sdk.sh" || {
                 echo "" >&2
                 echo "${APP}: the pinned SDK release ${PINNED} could not be installed." >&2
@@ -362,6 +378,7 @@ if stage checks "typecheck and the host checks"; then
     fi
 
     pnpm run check-hidden
+    pnpm run check-motion
 
     # Both link the host libskia RN Skia ships, which has no Linux slice.
     if [ "$HOST" = "Darwin" ]; then
@@ -379,8 +396,9 @@ fi
 # instead: --ignore-scripts is what lets the listing be produced at all once the
 # guard has had its say.
 PACKED=""
+UI_PACKED=""
 
-if stage pack "pack ${TGZ}"; then
+if stage pack "pack ${TGZ} and ${UI_TGZ}"; then
     if [ "$SHIPPABLE" = "yes" ]; then
         mkdir -p "${OUT}/npm"
         ( cd "$PKG_DIR" && npm pack --pack-destination "${OUT}/npm" --foreground-scripts )
@@ -390,6 +408,17 @@ if stage pack "pack ${TGZ}"; then
         tar -tzf "$PACKED" | sed 's|^package/||' | grep -v '/$' | LC_ALL=C sort > "$ENTRIES"
         cp "$ENTRIES" "${OUT}/npm/${BASE}.files"
         echo "   npm/${TGZ}"
+
+        # pnpm rather than npm for this one: its devDependencies name the core as
+        # workspace:*, which pnpm writes out as the version and npm would ship as
+        # is. Its prepack is `bob build`, which reads the core's types from the
+        # lib/ the pack above built.
+        ( cd "$UI_DIR" && pnpm pack --pack-destination "${OUT}/npm" )
+        [ -f "${OUT}/npm/${UI_TGZ}" ] || { echo "${APP}: pnpm pack did not produce ${UI_TGZ}" >&2; exit 1; }
+        UI_PACKED="${OUT}/npm/${UI_TGZ}"
+        tar -tzf "$UI_PACKED" | sed 's|^package/||' | grep -v '/$' | LC_ALL=C sort > "$UI_ENTRIES"
+        cp "$UI_ENTRIES" "${OUT}/npm/${UI_BASE}.files"
+        echo "   npm/${UI_TGZ}"
     else
         mkdir -p "${OUT}/rehearsal"
         pnpm --filter "$PKG_NAME" run build
@@ -425,6 +454,18 @@ if stage pack "pack ${TGZ}"; then
         ' "${OUT}/rehearsal/${BASE}.pack.json" "$ENTRIES"
         cp "$ENTRIES" "${OUT}/rehearsal/${BASE}.files"
         echo "   rehearsal/${BASE}.files — no archive (see the header of this script)"
+
+        pnpm --filter "$UI_NAME" run build
+        ( cd "$UI_DIR" && npm pack --dry-run --ignore-scripts --json ) \
+            > "${OUT}/rehearsal/${UI_BASE}.pack.json"
+        node -e '
+            const p = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))[0];
+            require("node:fs").writeFileSync(process.argv[2],
+                p.files.map((f) => f.path).sort().join("\n") + "\n");
+            console.log(`   ${p.entryCount} entries, ${(p.unpackedSize / 1024).toFixed(1)} KB unpacked`);
+        ' "${OUT}/rehearsal/${UI_BASE}.pack.json" "$UI_ENTRIES"
+        cp "$UI_ENTRIES" "${OUT}/rehearsal/${UI_BASE}.files"
+        echo "   rehearsal/${UI_BASE}.files"
     fi
 fi
 
@@ -434,19 +475,19 @@ fi
 echo ""
 echo ">> [manifest] writing manifest.json"
 node -e '
-    const [out, name, version, brainVersion, brainMode, source, pinned, shippable, tgz] = process.argv.slice(1);
+    const [out, name, version, brainVersion, brainMode, source, pinned, shippable, tgz, uiName, uiTgz] = process.argv.slice(1);
     const { existsSync, writeFileSync } = require("node:fs");
     const manifest = {
         shippable: shippable === "yes",
-        package: { name, version },
+        packages: [{ name, version }, { name: uiName, version }],
         brain: { source, version: brainVersion, mode: brainMode, pinned },
         npm: [],
     };
-    if (existsSync(`${out}/npm/${tgz}`)) {
-        manifest.npm.push({ package: name, version, file: `npm/${tgz}` });
+    for (const [pkg, file] of [[name, tgz], [uiName, uiTgz]]) {
+        if (existsSync(`${out}/npm/${file}`)) manifest.npm.push({ package: pkg, version, file: `npm/${file}` });
     }
     writeFileSync(`${out}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
-' "$OUT" "$PKG_NAME" "$VERSION" "$BRAIN_VERSION" "$BRAIN_MODE" "$SDK" "$PINNED" "$SHIPPABLE" "$TGZ"
+' "$OUT" "$PKG_NAME" "$VERSION" "$BRAIN_VERSION" "$BRAIN_MODE" "$SDK" "$PINNED" "$SHIPPABLE" "$TGZ" "$UI_NAME" "$UI_TGZ"
 echo "   shippable: ${SHIPPABLE}"
 
 # --- checksums --------------------------------------------------------------
@@ -543,14 +584,39 @@ if [ "$VERIFY" = "yes" ] && [ -f "$ENTRIES" ]; then
         has_entry "$f" || fail "${f} is missing"
     done
 
-    # 7. build output that rode along. `files` takes a directory whole.
+    # 7. the documentation. docs/README.md is the front door to the pages the
+    #    package carries (scripts/copy-docs.mjs), and
+    #    skills/react-native-spritestudio/SKILL.md the front door to the same
+    #    pages as an Agent Skill; every page each links to is looked up here, so
+    #    renaming one fails the release instead of shipping a link that goes
+    #    nowhere. The skills CLIs know a skill by the name in its frontmatter,
+    #    which the Agent Skills format requires to be its folder's.
+    skill="react-native-spritestudio"
+    for front_door in docs/README.md "skills/${skill}/SKILL.md"; do
+        front="${PKG_DIR}/${front_door}"
+        if has_entry "$front_door" && [ -f "$front" ]; then
+            links=$(grep -oE ']\([^):#]+\.md' "$front" | sed 's/^](//' || true)
+            [ -n "$links" ] || fail "no page links parsed out of ${front_door} — the check proved nothing"
+            for link in $links; do
+                has_entry "${front_door%/*}/${link}" || fail "${front_door} links to ${link}, which is not in the package"
+            done
+        else
+            fail "${front_door} is not in the package (did scripts/copy-docs.mjs run?)"
+        fi
+    done
+    if [ -f "${PKG_DIR}/skills/${skill}/SKILL.md" ]; then
+        grep -Fxq "name: ${skill}" "${PKG_DIR}/skills/${skill}/SKILL.md" \
+            || fail "skills/${skill}/SKILL.md does not name the skill ${skill}"
+    fi
+
+    # 8. build output that rode along. `files` takes a directory whole.
     for bad in android/build/ android/.cxx/ node_modules/ example/; do
         if has_prefix "$bad"; then
             fail "'${bad}' is in the package — a files entry is taking a directory whole"
         fi
     done
 
-    # 8. what the archive says about itself. Only a real one can be asked.
+    # 9. what the archive says about itself. Only a real one can be asked.
     if [ -n "$PACKED" ]; then
         manifest="${WORK}/packed.json"
         tar -xzOf "$PACKED" package/package.json > "$manifest"
@@ -571,6 +637,49 @@ if [ "$VERIFY" = "yes" ] && [ -f "$ENTRIES" ]; then
         packed_sdk=$(tar -xzOf "$PACKED" package/native/VERSION 2>/dev/null | tr -d ' \r\n' || true)
         [ "$packed_mode" = "release" ] || fail "the tarball carries a '${packed_mode}' Brain — a debug build ships as a slow player with nothing to say why"
         [ "$packed_sdk" = "$PINNED" ] || fail "the tarball carries SDK '${packed_sdk}', expected the pinned ${PINNED}"
+    fi
+
+    # 10. the UI package, from its own listing: its entry points, what its
+    #     package.json points at, its files allow-list, and what its archive
+    #     says about itself.
+    if [ -f "$UI_ENTRIES" ]; then
+        ui_has () { grep -Fxq -- "$1" "$UI_ENTRIES"; }
+        ui_has_prefix () { awk -v p="$1" 'index($0, p) == 1 { hit = 1; exit } END { exit !hit }' "$UI_ENTRIES"; }
+        for f in lib/module/index.js lib/typescript/index.d.ts LICENSE.md; do
+            ui_has "$f" || fail "${UI_NAME}: ${f} is not in the package"
+        done
+        while IFS= read -r target; do
+            [ -n "$target" ] || continue
+            ui_has "$target" || fail "${UI_NAME}: package.json points at '${target}', which is not in the package"
+        done <<< "$(node -p "
+            const p = require('${UI_DIR}/package.json');
+            ['main', 'types', 'module', 'react-native', 'source']
+                .map((k) => p[k]).filter(Boolean).join('\n')
+        ")"
+        while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            case "$entry" in *'*'*) continue ;; esac
+            ui_has "$entry" || ui_has_prefix "${entry}/" \
+                || fail "${UI_NAME}: '${entry}' is in the files allow-list but not in the package"
+        done <<< "$(node -p "(require('${UI_DIR}/package.json').files || []).join('\n')")"
+        for bad in node_modules/ test/; do
+            ! ui_has_prefix "$bad" || fail "${UI_NAME}: '${bad}' is in the package"
+        done
+        if [ -n "$UI_PACKED" ]; then
+            ui_manifest="${WORK}/ui-packed.json"
+            tar -xzOf "$UI_PACKED" package/package.json > "$ui_manifest"
+            [ "$(node -p "require('${ui_manifest}').name")" = "$UI_NAME" ] || fail "${UI_NAME}: the tarball names another package"
+            [ "$(node -p "require('${ui_manifest}').version")" = "$VERSION" ] || fail "${UI_NAME}: the tarball is not version ${VERSION}"
+            [ "$(node -p "(require('${ui_manifest}').peerDependencies || {})['${PKG_NAME}']")" = "$VERSION" ] \
+                || fail "${UI_NAME}: the tarball does not take ${PKG_NAME} ${VERSION} as a peer"
+            [ "$(node -p "require('${ui_manifest}').private === true")" != "true" ] \
+                || fail "${UI_NAME}: the tarball is marked private — it cannot go to npm"
+            if grep -Eq '"(workspace|file|link):' "$ui_manifest"; then
+                fail "${UI_NAME}: the tarball has a workspace:/file:/link: range in its dependencies"
+            fi
+        fi
+    else
+        fail "${UI_NAME}: no listing — the pack stage did not reach it"
     fi
 
     ( cd "$OUT" && sha256 -c SHA256SUMS > /dev/null ) || fail "SHA256SUMS does not verify"
@@ -598,16 +707,15 @@ echo ""
 done )
 echo ""
 if [ "$SHIPPABLE" = "yes" ]; then
-    echo "${APP}: nothing was published. 'pnpm run release' is the same run with the publish on the end."
+    echo "${APP}: nothing was published. 'pnpm run release', on the tag, is the same run with the draft Release on the end."
     if [ -n "$PACKED" ]; then
         echo ""
         echo "${APP}: try it before shipping it — install the tarball into a scratch app:"
         echo "  npx create-expo-app scratch && cd scratch"
-        echo "  npm i ${PACKED} && npx expo prebuild"
+        echo "  npm i ${PACKED} ${UI_PACKED} && npx expo prebuild"
     fi
 else
     echo "${APP}: REHEARSAL — no tarball. The Brain in native/ is a local build, and"
-    echo "${APP}: prepack refuses to pack one (ROADMAP.md, 'The pinned SDK release does"
-    echo "${APP}: not exist yet'). Everything else ran; ${BASE}.files is what an upload"
-    echo "${APP}: would have carried."
+    echo "${APP}: prepack refuses to pack one. Everything else ran; ${BASE}.files and"
+    echo "${APP}: ${UI_BASE}.files are what an upload would have carried."
 fi

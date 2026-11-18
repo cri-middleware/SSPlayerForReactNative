@@ -3,8 +3,8 @@
 // Nitro `CustomType` interop for RN Skia's `SkCanvas` / `SkPaint` JS objects.
 //
 // Named for **RN Skia**, not Skia: the coupling here is to
-// `@shopify/react-native-skia`'s JSI object model, which carries no
-// compatibility promise and has already broken once. `SsSkiaDraw` is the other
+// `react-native-skia`'s JSI object model, which carries no
+// compatibility promise. `SsSkiaDraw` is the other
 // half and depends only on Skia's public API, which is stable — grep `RNSkia`
 // to find what an RN Skia bump can break.
 //
@@ -21,6 +21,8 @@
 
 #include <jsi/jsi.h>
 
+#include <memory>
+
 namespace margelo::nitro::ssplayer {
 
 /// A borrowed `SkCanvas*`. Valid only for the duration of the call it was
@@ -29,10 +31,22 @@ struct SkCanvasHandle final {
   void* canvas = nullptr;
 };
 
-/// A borrowed `SkPaint*`, same lifetime rule.
+/// An `SkPaint*`, kept alive by `owner` for as long as the handle is held — the
+/// texture table outlives the call that set it.
 struct SkPaintHandle final {
   void* paint = nullptr;
+  std::shared_ptr<void> owner;
 };
+
+/// An `SkImage` wrapper — RN Skia's `JsiSkImage` — kept alive by `owner`.
+struct SkImageHandle final {
+  void* image = nullptr;
+  std::shared_ptr<void> owner;
+};
+
+/// Decodes the image `handle` wraps, if it is lazily decoded, and puts the
+/// decoded pixels in its place. Blocking: run it off the JS thread.
+void DecodeImageInPlace(const SkImageHandle& handle);
 
 }  // namespace margelo::nitro::ssplayer
 
@@ -53,6 +67,7 @@ namespace margelo::nitro {
 /// below are the ones found.
 using SkCanvasHandle = ssplayer::SkCanvasHandle;
 using SkPaintHandle = ssplayer::SkPaintHandle;
+using SkImageHandle = ssplayer::SkImageHandle;
 
 template <>
 struct JSIConverter<ssplayer::SkCanvasHandle> final {
@@ -65,6 +80,13 @@ template <>
 struct JSIConverter<ssplayer::SkPaintHandle> final {
   static ssplayer::SkPaintHandle fromJSI(jsi::Runtime& runtime, const jsi::Value& value);
   static jsi::Value toJSI(jsi::Runtime& runtime, const ssplayer::SkPaintHandle& handle);
+  static bool canConvert(jsi::Runtime& runtime, const jsi::Value& value);
+};
+
+template <>
+struct JSIConverter<ssplayer::SkImageHandle> final {
+  static ssplayer::SkImageHandle fromJSI(jsi::Runtime& runtime, const jsi::Value& value);
+  static jsi::Value toJSI(jsi::Runtime& runtime, const ssplayer::SkImageHandle& handle);
   static bool canConvert(jsi::Runtime& runtime, const jsi::Value& value);
 };
 

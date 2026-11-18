@@ -28,8 +28,8 @@ def sdkVersion = sdkVersionFile.exists() ? sdkVersionFile.text.trim() : "unknown
  *
  * The fallback is React Native's default set **minus 32-bit `x86`**, which the
  * SDK deliberately does not build: emulator-only, no meaningful device share,
- * and `x86_64` already covers the emulator. Asking for it can only end at the
- * `libssruntime.a is missing` check below. An app that names the property is
+ * and `x86_64` already covers the emulator. Asking for it ends at the
+ * CMake `does not ship a x86 slice` error. An app that names the property is
  * still followed exactly (never widened, and never replaced by a hardcoded
  * `abiFilters`); the Expo plugin narrows that list before it gets here, and a bare
  * app without the plugin gets the check's error instead.
@@ -47,18 +47,17 @@ android {
   compileSdk rootProject.ext.has("compileSdkVersion") ? rootProject.ext.compileSdkVersion : 37
 
   defaultConfig {
-    // 24, not 21: React Native 0.79+ ships its own prefabs built for 24
-    // (`[CXX1214] ... library was built for 24 [//ReactAndroid/hermestooling]`),
-    // and Expo's root plugin defaults the app to the same. 21 was aspirational
-    // and never checked, because the Android side was not autolinked and so was
-    // never built at all.
-    minSdk 24
+    // 26: react-native-skia 3 renders with Vulkan, and the Graphite binaries
+    // this module links (`libskia.a`, through its `rnskia` prefab too) are built
+    // for API level 26.
+    minSdk 26
 
     externalNativeBuild {
       cmake {
         // -DSSPLAYER_SDK_VERSION is what HybridSsRuntime::getVersion() reports;
         // it must agree with the SDK release the .a files came from.
         arguments "-DANDROID_STL=c++_shared",
+                  "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                   "-DSSPLAYER_SDK_VERSION=${sdkVersion}"
         // Follow the app rather than pick our own. A hardcoded list builds ABIs
         // the app is not building, and their prefab dependencies are not
@@ -101,15 +100,11 @@ dependencies {
   // and, because RN Skia links libskia.a statically into librnskia.so, Skia's
   // symbols too. See the Skia block in CMakeLists.txt.
   //
-  // Autolinking derives a Gradle project name from the npm scope, so RN Skia is
-  // `:shopify_react-native-skia`; a hand-written `settings.gradle` include
-  // conventionally calls it `:react-native-skia`. Probe rather than hardcode —
-  // naming the wrong one fails the whole configuration phase, for every app that
-  // depends on this package.
-  def skiaProject = [":shopify_react-native-skia", ":react-native-skia"]
-      .find { rootProject.findProject(it) != null }
-  if (skiaProject != null) {
-    implementation project(skiaProject)
+  // Probed rather than named outright: naming a project the app does not have
+  // fails the whole configuration phase, for every app that depends on this
+  // package.
+  if (rootProject.findProject(":react-native-skia") != null) {
+    implementation project(":react-native-skia")
   } else {
     logger.warn("SsPlayer: react-native-skia not found — drawInto() will be unavailable")
   }

@@ -7,22 +7,6 @@ const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 // cannot build an absolute og:url on its own.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
-// Close to SSPlayerForWeb's shelves, with two deliberate divergences.
-//
-// What that site calls "Customize" is "Going further" here, and its pages stay
-// under /usage/. Nothing on that shelf customizes *the package* — this port
-// exposes no custom shaders and no extension points, so the sibling's name would
-// promise a surface that does not exist. It is the same audience as Usage, one
-// step in.
-//
-// And ROADMAP is not in the nav, where the sibling puts it. Every entry here
-// stays on the site; the sibling's fifth bounced to raw markdown on GitHub;
-// more to the point, it is a contributor's document — vertex ceilings, packaging
-// decisions, a thread-safety note — sitting at the same level as Usage. The
-// reader's version of "what is missing" is /limitations. Individual pages still
-// link ROADMAP where a specific caveat is tracked there, which is sourcing
-// rather than navigation.
-//
 // English at the root, Japanese under /ja/, and the TypeDoc reference shared by
 // both at /api/ because it is language neutral.
 //
@@ -46,7 +30,11 @@ export default withMermaid({
   base: '/SSPlayerForReactNative/',
 
 
-  head: [['meta', { property: 'og:site_name', content: 'SpriteStudio Player for React Native' }]],
+  // VitePress puts no `base` in front of a `head` href, so the icon's spells it out.
+  head: [
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/SSPlayerForReactNative/favicon.svg' }],
+    ['meta', { property: 'og:site_name', content: 'SpriteStudio Player for React Native' }],
+  ],
 
   // mermaid 12 defaults to the ELK layout and the redux-color theme, which draws
   // the diagram on setup/assets as a thin strip too small to read, and wraps
@@ -147,7 +135,8 @@ export default withMermaid({
               { text: 'Troubleshooting', link: '/troubleshooting' },
               { text: 'Limitations & Scope', link: '/limitations' },
               { text: 'License & notices', link: '/licenses' },
-              { text: 'Working from a checkout', link: '/development/from-source' },
+              { text: 'Build Guide', link: '/development/build' },
+              { text: 'How the Player Is Put Together', link: '/development/architecture' },
             ],
           },
           // The family entry point, carried in the nav of every sibling site so a reader who
@@ -168,6 +157,7 @@ export default withMermaid({
             items: [
               { text: 'Basic playback', link: '/usage/basic' },
               { text: 'Transport', link: '/usage/transport' },
+              { text: 'Motion blending', link: '/usage/motion-blending' },
               { text: 'Many animations: a scene', link: '/usage/scene' },
             ],
           },
@@ -176,6 +166,7 @@ export default withMermaid({
             items: [
               { text: 'Events & user data', link: '/usage/events' },
               { text: 'Part overrides & following', link: '/usage/parts' },
+              { text: 'UI buttons', link: '/usage/ui' },
               { text: 'Textures & resources', link: '/usage/textures' },
               { text: 'Reanimated', link: '/usage/reanimated' },
               { text: 'Performance', link: '/usage/performance' },
@@ -198,10 +189,11 @@ export default withMermaid({
             ],
           },
           {
-            text: 'Development',
+            text: 'For Player & SDK Developers',
             items: [
-              { text: 'Working from a checkout', link: '/development/from-source' },
-              { text: 'Working on this repository', link: `${GITHUB}/blob/main/CONTRIBUTING.md` },
+              { text: 'Build Guide', link: '/development/build' },
+              { text: 'How the Player Is Put Together', link: '/development/architecture' },
+              { text: 'Contributing', link: `${GITHUB}/blob/HEAD/CONTRIBUTING.md` },
             ],
           },
         ],
@@ -234,10 +226,11 @@ export default withMermaid({
               { text: 'トラブルシューティング', link: '/ja/troubleshooting' },
               { text: '制約と適用範囲', link: '/ja/limitations' },
               { text: 'ライセンスと表記', link: '/ja/licenses' },
-              { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
+              { text: 'ビルドガイド', link: '/ja/development/build' },
+              { text: 'プレイヤーの構成', link: '/ja/development/architecture' },
             ],
           },
-          // ポータルへの戻り導線。日本語ロケール（/ja/）を指すこと。
+          // Back-link to the portal; must point at the Japanese locale (/ja/).
           { text: 'SpriteStudio Docs', link: 'https://cri-middleware.github.io/SpriteStudio-Docs/ja/' },
         ],
         sidebar: [
@@ -254,6 +247,7 @@ export default withMermaid({
             items: [
               { text: '基本的な再生', link: '/ja/usage/basic' },
               { text: '再生の制御', link: '/ja/usage/transport' },
+              { text: 'モーションブレンディング', link: '/ja/usage/motion-blending' },
               { text: '複数アニメーション: シーン', link: '/ja/usage/scene' },
             ],
           },
@@ -262,6 +256,7 @@ export default withMermaid({
             items: [
               { text: 'イベントとユーザーデータ', link: '/ja/usage/events' },
               { text: 'パーツの上書きと追従', link: '/ja/usage/parts' },
+              { text: 'UI ボタン', link: '/ja/usage/ui' },
               { text: 'テクスチャとリソース', link: '/ja/usage/textures' },
               { text: 'Reanimated', link: '/ja/usage/reanimated' },
               { text: 'パフォーマンス', link: '/ja/usage/performance' },
@@ -285,10 +280,11 @@ export default withMermaid({
             ],
           },
           {
-            text: '開発',
+            text: 'Player・SDK 開発者向けガイド',
             items: [
-              { text: 'チェックアウトから動かす', link: '/ja/development/from-source' },
-              { text: 'このリポジトリで作業する', link: `${GITHUB}/blob/main/CONTRIBUTING.md` },
+              { text: 'ビルドガイド', link: '/ja/development/build' },
+              { text: 'プレイヤーの構成', link: '/ja/development/architecture' },
+              { text: 'コントリビューション', link: `${GITHUB}/blob/HEAD/CONTRIBUTING.md` },
             ],
           },
         ],

@@ -56,11 +56,10 @@ target_include_directories(SsPlayer PRIVATE
   # inline, so nothing links against flatc's own translation units and
   # flatbuffers/src stays off the path. The vendored version must match the
   # flatc that generated them — the headers static_assert on it.
-  # Same arrangement as SSPlayerForGodot's ss_player/sources.py.
   ../third_party/flatbuffers/include
 )
 
-# Variant (c) — drawing straight into RN Skia's SkCanvas — needs RN Skia's own
+# Drawing straight into RN Skia's SkCanvas needs RN Skia's own
 # C++ plus the Skia headers it includes, and it needs Skia's symbols to resolve
 # at link time.
 #
@@ -77,17 +76,11 @@ target_include_directories(SsPlayer PRIVATE
 # "JsiSkCanvas.h"` in SsRNSkiaInterop.cpp work the same way it does on iOS, and
 # those headers' own `#include "include/core/SkCanvas.h"` then resolves relative
 # to the including file.
-# The prefab package is named after the Gradle project, which autolinking
-# derives from the npm scope — `shopify_react-native-skia`. A hand-written
-# `settings.gradle` include conventionally drops the scope, so try both rather
-# than hardcode one.
-foreach(pkg shopify_react-native-skia react-native-skia)
-  find_package(${pkg} CONFIG QUIET)
-  if(TARGET ${pkg}::rnskia)
-    set(RNSKIA_TARGET ${pkg}::rnskia)
-    break()
-  endif()
-endforeach()
+# The prefab package is named after the Gradle project, `react-native-skia`.
+find_package(react-native-skia CONFIG QUIET)
+if(TARGET react-native-skia::rnskia)
+  set(RNSKIA_TARGET react-native-skia::rnskia)
+endif()
 
 if(DEFINED RNSKIA_TARGET)
   set(SSPLAYER_ENABLE_SKIA_DIRECT 1)
@@ -113,6 +106,16 @@ if(DEFINED RNSKIA_TARGET)
     "${RNSKIA_ROOT}/cpp"       # JsiSkCanvas.h, JsiSkPaint.h
     "${RNSKIA_ROOT}/cpp/api"   # their siblings, included unqualified
     "${RNSKIA_ROOT}/cpp/skia"  # satisfies RN Skia's "include/core/..." includes
+    "${RNSKIA_ROOT}/cpp/dawn/include"  # webgpu_cpp.h, which JsiSkImage.h reaches through RNDawnContext.h
+  )
+
+  # The defines react-native-skia compiles its own sources with. Skia's headers
+  # declare the Graphite API only under SK_GRAPHITE, and the RN Skia headers
+  # above include it, so every unit here sees Skia the way RN Skia does.
+  target_compile_definitions(SsPlayer PRIVATE
+    SK_GRAPHITE
+    SK_IMAGE_READ_PIXELS_DISABLE_LEGACY_API
+    SK_DISABLE_LEGACY_SHAPER_FACTORY
   )
 
   # `librnskia.so` is not enough on its own. Skia is built with hidden
@@ -133,8 +136,8 @@ if(DEFINED RNSKIA_TARGET)
   # linker satisfies everything from the archive and there really are two Skias.
   # RN Skia's own dependency, so it sits in the node_modules that holds RN Skia:
   # the hoisted tree under npm, RN Skia's store entry under pnpm.
-  get_filename_component(RNSKIA_NODE_MODULES "${RNSKIA_ROOT}/../.." ABSOLUTE)
-  set(SKIA_ARCHIVE "${RNSKIA_NODE_MODULES}/react-native-skia-android/libs/${ANDROID_ABI}/libskia.a")
+  get_filename_component(RNSKIA_NODE_MODULES "${RNSKIA_ROOT}/.." ABSOLUTE)
+  set(SKIA_ARCHIVE "${RNSKIA_NODE_MODULES}/react-native-skia-graphite-android/libs/${ANDROID_ABI}/libskia.a")
   if(NOT EXISTS "${SKIA_ARCHIVE}")
     message(FATAL_ERROR "SsPlayer: libskia.a not found at ${SKIA_ARCHIVE}")
   endif()

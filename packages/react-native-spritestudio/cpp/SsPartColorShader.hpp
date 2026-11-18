@@ -5,24 +5,19 @@
 /// **Included only from `SsSkiaDraw.cpp`, inside its `SSPLAYER_ENABLE_SKIA_DIRECT`
 /// guard** — same rule as `SsBlend.hpp`, and for the same reason.
 ///
-/// The port is of **SSPlayerForFlutter**'s `shaders/partcolor.frag`, which
-/// solved the same problem against the same primitives: Skia gives vertices only
-/// position / texcoord / colour, so the per-vertex `CUSTOM0` packing the
-/// Godot and Web ports use has nowhere to live. Each tinted part is therefore
+/// Skia gives vertices only
+/// position / texcoord / colour, so a per-vertex packing has nowhere to live. Each tinted part is therefore
 /// drawn on its own quad with the corner colours and rates as **uniforms**, and
 /// the gradient is reconstructed analytically in the shader.
 ///
-/// Where this departs from Flutter: Flutter reconstructs quad-local `(s,t)` from
-/// the *fragment position* and needs a CPU-computed world-space inverse affine
-/// to do it. Here the reconstruction runs off the **UV** instead. `drawVertices`
+/// The reconstruction runs off the **UV**, not the fragment position, so it needs
+/// no CPU-computed world-space inverse. `drawVertices`
 /// evaluates the paint's shader at the interpolated texcoord, so `coord` arrives
 /// in texture-pixel space already — which is independent of the canvas matrix,
 /// so the root transform, the device pixel ratio and any enclosing scale drop
 /// out of the problem. The quad's four UV corners are an affine image of the
-/// unit square exactly as its positions are, so inverting that map is exact and
-/// costs two CPU subtractions and a determinant.
-
-#include <cstdio>
+/// unit square even when a deformation has moved its positions, so inverting
+/// that map is exact and costs two CPU subtractions and a determinant.
 
 #include "include/core/SkColorFilter.h"
 #include "include/core/SkPaint.h"
@@ -30,6 +25,7 @@
 #include "include/core/SkString.h"
 #include "include/effects/SkRuntimeEffect.h"
 
+#include "SsLog.hpp"
 #include "SsPartColor.hpp"
 
 namespace ssplayer {
@@ -54,8 +50,9 @@ half4 main(float2 coord) {
     float s = clamp(uUvInv.x * d.x + uUvInv.y * d.y, 0.0, 1.0);
     float t = clamp(uUvInv.z * d.x + uUvInv.w * d.y, 0.0, 1.0);
 
-    float4 col = mix(mix(uColLT, uColRT, s), mix(uColLB, uColRB, s), t);
-    float rate = mix(mix(uRate.x, uRate.y, s), mix(uRate.z, uRate.w, s), t);
+    float4 w = ssFanWeights(float2(s, t));
+    float4 col = w.x * uColLT + w.y * uColRT + w.z * uColLB + w.w * uColRB;
+    float rate = dot(w, uRate);
 
     // Sampled at the raw UV: the atlas shader is the very one the batched path
     // uses, so this samples identically.
@@ -84,11 +81,11 @@ half4 main(float2 coord) {
 /// better failure than a missing one, and the log line says which it is.
 inline SkRuntimeEffect* PartColorEffect() {
   static SkRuntimeEffect* effect = [] () -> SkRuntimeEffect* {
-    SkRuntimeEffect::Result result =
-        SkRuntimeEffect::MakeForShader(SkString(kPartColorSkSL));
+    SkString source(sscore::kSsFanWeightsSkSL);
+    source.append(kPartColorSkSL);
+    SkRuntimeEffect::Result result = SkRuntimeEffect::MakeForShader(source);
     if (result.effect == nullptr) {
-      std::fprintf(stderr, "[SsPlayer] PartColor SkSL failed to compile: %s\n",
-                   result.errorText.c_str());
+      SsWarn("PartColor SkSL failed to compile: %s", result.errorText.c_str());
       return nullptr;
     }
     // Leaked deliberately: it lives for the process, and a function-local static

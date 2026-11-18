@@ -41,7 +41,7 @@ manifest, so a wrong key is a **type error** instead of a blank canvas.
 - **Did you `require()` the pack?** That is not a valid source. A pack is a
   *directory* and Metro ships a dependency graph, not directories.
 - **Did you add `ssab` to `assetExts`?** Remove it. Teaching Metro about the
-  extension produces exactly the flattened, sibling-less copy that cannot work.
+  extension produces exactly the flattened copy, cut off from what it names, that cannot work.
 
 ### You changed the pack and nothing changed
 
@@ -52,7 +52,7 @@ so a rebuild is enough — you do not need a fresh `prebuild`.
 ## A part is missing, or nothing draws
 
 Both are the same fault at different scales: **a texture did not resolve**.
-`drawInto` skips a batch it has no paint for, so one missing atlas is one
+A batch with no texture is skipped, so one missing atlas is one
 missing part and a pack that resolved none of its textures draws nothing.
 
 In a dev build the package already warns:
@@ -71,7 +71,7 @@ player.lastTextureReport?.unresolved   // ['characters/effects.png']
 The fix is almost always that the `.png` did not travel next to the `.ssab`.
 Every `image_path` resolves **relative to the `.ssab`**, so the converter's
 whole output directory has to reach the device intact. Converting to an
-**Embedded** pack (`--embedded`) sidesteps it by putting the atlas inside the
+**Embedded** pack (`--embedded`, or the **Embedded Assets** checkbox) sidesteps it by putting the atlas inside the
 file.
 
 ## An Instance part's child is missing
@@ -83,8 +83,9 @@ react-native-spritestudio: instance pack 'Enemy' referenced by '…' could not b
 loaded — those parts will not draw.
 ```
 
-An Instance part reaches a **sibling pack by name**. Same rule as the textures:
-it has to be in the output directory beside the `.ssab` that names it.
+An Instance part reaches an **external pack by name**. Same rule as the textures:
+it has to be in the output directory beside the `.ssab` that names it. An
+**Embedded** conversion does not change that — it embeds the textures, not the packs a part references.
 
 ## The sprite draws nothing and warns
 
@@ -136,9 +137,8 @@ opacity: transform.value.valid ? 1 : 0
 
 ### Two copies of a native module
 
-Two copies is not a duplicated dependency — it is **two autolinked pods fighting
-over one JSI registration**. Check with `npm ls @shopify/react-native-skia`, and
-in a monorepo pin every peer at the root.
+Keep **one copy of each peer**. Check with `npm ls react-native-skia`, and in a
+monorepo pin every peer at the root.
 
 ### Android, on an x86 emulator
 

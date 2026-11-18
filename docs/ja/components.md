@@ -1,17 +1,18 @@
 ---
 title: コンポーネント早見
-description: 4 つのコンポーネントと 5 つのフック、それぞれの役割と、動く最小の形。
+description: 4 つのコンポーネント、ボタン、5 つのフック、それぞれの役割と、動く最小の形。
 ---
 
 # コンポーネント早見
 
-コンポーネント 4 つとフック 5 つ。ほとんどのアプリはコンポーネント 1 つだけで足り、フックは使いません。
+コンポーネント 4 つとフック 5 つ、それに別のパッケージのボタン。ほとんどのアプリはコンポーネント 1 つだけで足り、フックは使いません。
 
 | | こういうとき |
 |---|---|
 | [`<SpriteStudioView>`](#spritestudioview) | アニメーションが**1 つ**。既定の選択肢。 |
 | [`<SpriteStudioScene>`](#spritestudioscene) + [`<SpriteStudioSprite>`](#spritestudiosprite) | **複数**あり、まとめてキャンバス 1 枚・クロック 1 つで済ませたい。 |
 | [`<SpriteStudioPartAnchor>`](#spritestudiopartanchor) | ビューをパーツに乗せたい — 頭の上の HP バーなど。 |
+| [`<SpriteStudioButton>`](#spritestudiobutton) | アニメーションをボタンにしたい。`react-native-spritestudio-ui` にあります。 |
 
 ## `<SpriteStudioView>`
 
@@ -21,16 +22,16 @@ description: 4 つのコンポーネントと 5 つのフック、それぞれ�
 import { SpriteStudioView } from 'react-native-spritestudio'
 
 <SpriteStudioView
-  source="ss/overall/Basic.ssab"
-  animation="anime_1"
+  source="ss/Ringo/Ringo.ssab"
+  animation="wait1"
   fit="contain"
-  style={{ flex: 1 }}
+  style={{ width: '100%' }}
 />
 ```
 
 | prop の分類 | |
 |---|---|
-| 何を再生するか | `source`・`animation`・`playing`・`speed`・`loop` |
+| 何を再生するか | `source`・`animation`・`transitionMs`・`playing`・`speed`・`loop` |
 | どこに置くか | `fit`・`align`・`offset`・`scale`・`flipX`・`flipY`・`style` |
 | ボックス | `frame`・`frameScope`・`measureFrames` |
 | 反応する | `onUserData`・`onAudio`・`onSignal`・`onLoad`・`onError`・`onAnimationFinished`・`onAnimationLooped`・`onAnimationStarted`・`onAnimationChanged` |
@@ -41,7 +42,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 
 サイズを指定しなければ、作者のキャンバスを表示する `<Image>` と同じように並びます。[基本的な再生](/ja/usage/basic#size)を参照してください。
 
-`ref.current.player` がレイヤー 3 の [`SpriteStudioPlayer`](/ja/usage/transport) です —
+`ref.current.player` が [`SpriteStudioPlayer`](/ja/usage/transport) です —
 シーク、アニメーション切り替え、コンテンツボックスの読み取り。
 
 ::: warning これを 20 個置けばキャンバスが 20 枚
@@ -54,6 +55,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 
 ```tsx
 import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio'
+import { SsAssets } from './ss-assets' // クイックスタートで生成する型付きマニフェスト
 
 <SpriteStudioScene style={{ flex: 1 }} paused={backgrounded}>
   <SpriteStudioSprite source={SsAssets['Ringo/Ringo']} x={100} y={200} />
@@ -66,7 +68,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 | `children` | スプライト群。 |
 | `style` | キャンバスの箱。 |
 | `paused` | **すべての**スプライトのクロックを一度に止めます。 |
-| `onError` | |
+| `onError` | フレームループが止まったとき。渡していなければ、エラーは `console.error` に出ます。 |
 
 ## `<SpriteStudioSprite>`
 
@@ -107,6 +109,25 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 
 [パーツの上書きと追従](/ja/usage/parts#following-a-part)を参照してください。
 
+## `<SpriteStudioButton>`
+
+別のパッケージ `react-native-spritestudio-ui` にあります。ボタンになった `<SpriteStudioView>` で、状態（`normal`・`hover`・`pressed`・`disabled`・`focused`）ごとに、1 つのアニメーションのうち状態と同じ名前のラベルから始まる区間を再生します。
+
+```tsx
+import { SpriteStudioButton } from 'react-native-spritestudio-ui'
+
+<SpriteStudioButton source="ss/ui/start.ssab" accessibilityLabel="Start" onPress={start} />
+```
+
+| prop | |
+|---|---|
+| `clips` | 状態のラベルの代わりに再生する区間。 |
+| `hitParts`・`hitOnArtwork` | 押下を、指定したパーツの輪郭、または輪郭を持つすべてのパーツに絞ります。 |
+| `reducedMotion` | 各状態を止めます。省略すると OS の設定に従います。 |
+| `accessibilityLabel` | ボタンとして読み上げられます。無ければ装飾です。 |
+
+アニメーションを読み込んで配置するビューの props と、`<Pressable>` の props が使えます。`playing`・`loop`・`transitionMs` は使えません。[UI ボタン](/ja/usage/ui)を参照してください。
+
 ## フック
 
 上記はすべてフックなしで作れます。コンポーネントで足りないときに手を伸ばしてください。
@@ -116,6 +137,8 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 Reanimated の shared value でパーツに追従します — 頭の上の HP バーなど。普通のアプリが欲しがる可能性があるのは、このフックだけです。
 
 ```tsx
+// <SpriteStudioView> の children の中のコンポーネントで
+const player = useSsViewPlayer()
 const transform = useSsPartTransform(player, 'head')
 ```
 
@@ -139,7 +162,7 @@ const images = useSsTextures({ Ringo: require('./winter.png') })
 
 ### `useSpriteStudioPlayer`
 
-コンポーネント 1 つ分のレイヤー 3 プレイヤーを所有します。ロードし、トランスポート系の
+コンポーネント 1 つ分の `SpriteStudioPlayer` を所有します。ロードし、トランスポート系の
 prop を反映し続け、描画可能になったら報告します。**意図的にクロックではありません** —
 プレイヤーを誰が進めるかは呼び出し側の裁量です。
 

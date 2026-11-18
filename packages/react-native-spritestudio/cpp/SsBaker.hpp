@@ -5,14 +5,15 @@
 // Deliberately free of Nitro and of JSI so `tools/ssbake_check.cpp` can link it
 // on the host and drive it under ASan, where an out-of-bounds walk shows up as a
 // report rather than as a wrong pixel on a device. The Nitro hybrid
-// (`HybridSsContext`) only wraps the buffers this produces in ArrayBuffers.
+// (`HybridSsContext`) owns one and hands it to `DrawBakedFrame`.
 //
 // SCOPE: Normal, Mask, Mesh, Effect and Shape batches. Normal and Mask are one textured
 // quad per part, so they bake identically — a Mask part differs only in what the
 // *draw* path does with the result, which is to write coverage instead of
 // colour. Instance contributes no geometry of its own — it records a mount and
-// the child's bake supplies the rest. Nines and the SHDR shaders are still
-// Later work, once the kinds beyond Normal landed.
+// the child's bake supplies the rest. An SHDR shader rides on a Normal part's
+// quad, which records the shader for the draw path (`needsShader`). Nines and Text
+// are not baked.
 
 #include <cstddef>
 #include <cstdint>
@@ -30,9 +31,9 @@ namespace sscore {
 /// What the draw path needs to know about one baked part, beyond its geometry.
 ///
 /// One entry per part actually baked, in bake order. The **ranges are carried
-/// rather than derived**: a Normal or Mask part is always four vertices and six
-/// indices, but a Mesh part is however many the Brain skinned, so multiplying by
-/// four stopped being an answer the moment Mesh arrived.
+/// rather than derived**: a Normal or Mask part is four vertices and six indices,
+/// or five and twelve when it is drawn around its centre, and a Mesh part is
+/// however many the Brain skinned, so the counts cannot come from the part count.
 struct SsPartDraw {
   /// Which part this is, and where it sits in `draw_order`.
   ///
@@ -44,16 +45,16 @@ struct SsPartDraw {
   int32_t drawRank = -1;
 
   /// Global ranges into `positions()`/`texCoords()`/`colors()` and `indices()`.
-  /// The index *values* stay relative to the owning batch's `vertexOffset`, as
-  /// they have always been.
+  /// The index *values* stay relative to the owning batch's `vertexOffset`.
   int32_t vertexOffset = 0;
   int32_t vertexCount = 0;
   int32_t indexOffset = 0;
   int32_t indexCount = 0;
 
-  /// Whether the four vertices are a sprite quad in `lt, rt, lb, rb` order.
+  /// Whether the vertices are a sprite quad: `lt, rt, lb, rb`, then the centre
+  /// when the part is drawn as a fan around it.
   ///
-  /// False for Mesh and for Effect, and everything that reconstructs a corner
+  /// False for Mesh, Shape and Effect, and everything that reconstructs a corner
   /// gradient from the UV depends on it: the PartColor shader and the mask replay
   /// both invert an affine quad, which neither a triangle soup nor a cloud of
   /// particle quads is. A Mesh's PartColor is whole-only, which is why it
@@ -100,7 +101,7 @@ struct SsPartDraw {
 ///
 /// The draw path has no SoA — it walks baked arrays — so the world matrix an
 /// Instance batch needs has to be carried out of the bake like everything else.
-/// Two floats' worth of it are dropped: an instance transform is the 2D affine
+/// An instance transform is the 2D affine
 /// slice of the column-major 4x4, exactly as a Normal part's vertices use it.
 struct SsInstanceDraw {
   uint32_t partIndex = 0;
@@ -116,7 +117,7 @@ struct SsInstanceDraw {
 
 /// The Brain's SoA buffers for the current frame, as lent by the
 /// `ss_runtime_get_*` getters. Every pointer is a borrow that dies at the next
-/// `ss_runtime_update` — the lifetime rule in `src/specs/SsRuntime.nitro.ts`.
+/// `ss_runtime_update`.
 struct SsSoAPointers {
   const float* worldMatrices = nullptr;  ///< 16 floats per part, column-major 4x4
   const float* localVertices = nullptr;  ///< 10 floats per part: lt, rt, lb, rb, center
@@ -124,14 +125,6 @@ struct SsSoAPointers {
   const float* cellMeta = nullptr;       ///< 6 floats per part
   size_t partCount = 0;
 
-  /// Mesh, in the CSR layout: the vertex
-  /// and index arrays are concatenated across every part, and the two `offsets`
-  /// arrays (length `partCount + 1`) slice them. A non-Mesh part contributes an
-  /// empty range, so the offsets double as the "is this a mesh" test.
-  ///
-  /// **These vertices are already world-space** — skinning happens in the Brain —
-  /// so the world matrix must NOT be applied again. UVs are static (resolved
-  /// once from frame 0's cell) and indices are **part-local 0-based**.
   /// Shape, in a fixed-stride layout rather than CSR: **24 floats per part**
   /// (12 vertices x, y), indexed `partIndex * 24`, with only the first
   /// `shapeVertexCounts[partIndex]` valid and the rest zero-filled. A non-shape
@@ -149,6 +142,14 @@ struct SsSoAPointers {
   size_t shapeBoxCoordCount = 0;
   size_t shapeVertexCountCount = 0;
 
+  /// Mesh, in the CSR layout: the vertex
+  /// and index arrays are concatenated across every part, and the two `offsets`
+  /// arrays (length `partCount + 1`) slice them. A non-Mesh part contributes an
+  /// empty range, so the offsets double as the "is this a mesh" test.
+  ///
+  /// **These vertices are already world-space** — skinning happens in the Brain —
+  /// so the world matrix must NOT be applied again. UVs are static (resolved
+  /// once from frame 0's cell) and indices are **part-local 0-based**.
   const float* meshVerticesX = nullptr;
   const float* meshVerticesY = nullptr;
   const uint32_t* meshVertexOffsets = nullptr;
@@ -180,8 +181,7 @@ class SsBaker {
             const SsEffectFrame& effects = {}, float alphaScale = 1.0f);
 
   /// Batch descriptors for *every* batch in the frame, in draw order — including
-  /// the kinds this spike does not draw, which come back with zero
-  /// vertex/index counts so a JS-side walk sees the real batch structure.
+  /// the kinds it does not bake, which come back with zero vertex/index counts.
   const std::vector<SsBatchDesc>& batches() const noexcept { return batches_; }
 
   /// 2 floats per vertex, world space.

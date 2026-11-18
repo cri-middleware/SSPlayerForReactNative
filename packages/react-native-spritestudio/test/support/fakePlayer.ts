@@ -1,4 +1,5 @@
 import type { SsPartOverrides } from '../../src/core/parts'
+import { frameChanged, frameShown } from '../../src/player/frames'
 import type { SsRootTransform } from '../../src/core/types'
 import type {
   SsAudioEvent,
@@ -49,6 +50,9 @@ export class SpriteStudioPlayer {
 
   currentAnimation: string | null = null
   isPlaying = false
+  /** What a frame loop asks before it records. A test sets it false for a player with nothing new to draw. */
+  needsDraw = true
+  advances = true
   isLoaded = false
   contentBox: SsBox | null = null
   canvasBox: SsBox | null = null
@@ -58,6 +62,8 @@ export class SpriteStudioPlayer {
 
   /** Animations the loaded pack has. `setAnimation` answers from it. */
   animations = ['Idle', 'Walk']
+  /** Cellmaps the loaded pack has, which a bare `textures` source resolves against. */
+  cellmaps = ['common']
 
   onAnimationFinished: ((animation: string) => void) | null = null
   onAnimationLooped: ((animation: string) => void) | null = null
@@ -119,6 +125,14 @@ export class SpriteStudioPlayer {
     return true
   }
 
+  /** Track 0 renames from the call, as the real one does. */
+  crossfade(track: number, name: string, durationMs: number): boolean {
+    this.record('crossfade', track, name, durationMs)
+    if (!this.isLoaded) return false
+    if (track === 0) this.currentAnimation = name
+    return true
+  }
+
   play(startFrame?: number): void {
     this.record('play', startFrame)
     this.isPlaying = true
@@ -144,6 +158,7 @@ export class SpriteStudioPlayer {
   draw(canvas: { drawn?: unknown[] }): number {
     this.record('draw')
     canvas.drawn?.push(this)
+    frameShown(this)
     return 0
   }
 
@@ -153,6 +168,17 @@ export class SpriteStudioPlayer {
 
   setLoopCount(loops: number): void {
     this.record('setLoopCount', loops)
+  }
+
+  /** Empty before a load, as the real one is. */
+  cellmapNames(): string[] {
+    return this.isLoaded ? [...this.cellmaps] : []
+  }
+
+  /** Refuses a name the loaded pack has no cellmap for, as the real one does. */
+  setCellmapTexture(name: string, image: unknown): boolean {
+    this.record('setCellmapTexture', name, image)
+    return !this.isLoaded || image == null || this.cellmaps.includes(name)
   }
 
   setPartOverrides(overrides: SsPartOverrides): void {
@@ -181,6 +207,7 @@ export class SpriteStudioPlayer {
   /** Publishes a change the way a load or a measurement does. */
   notify(): void {
     for (const listener of this.listeners) listener()
+    frameChanged(this)
   }
 
   dispose(): void {

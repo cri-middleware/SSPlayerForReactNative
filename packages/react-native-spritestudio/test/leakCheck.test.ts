@@ -21,7 +21,7 @@ const embedded = (name: string): SsTextureInfo => ({
   textureHash: SsRuntimeModule.hashString(name),
   name,
   imagePath: '',
-  embedded: new Uint8Array([1, 2, 3]).buffer as ArrayBuffer,
+  embeddedLength: 3,
 })
 
 beforeEach(() => {
@@ -117,7 +117,7 @@ describe('ssCheckForLeaks', () => {
   it('reports a registry that grew', async () => {
     vi.spyOn(SsTextureRegistry.prototype, 'unregister').mockReturnValue(false)
     // A different cellmap name per load, so the entries stack rather than
-    // overwriting one another — which is the shape the collision bug had.
+    // overwriting one another.
     let load = 0
     vi.spyOn(SsInternalPlayer.prototype, 'getTextures').mockImplementation(() => [
       embedded(`common${load++}`),

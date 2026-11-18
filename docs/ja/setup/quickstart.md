@@ -9,14 +9,26 @@ description: インストール済みの状態から、画面にアニメーシ�
 
 ::: tip SpriteStudio のデータが手元に無くても始められます
 [公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら
-[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら
-[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)
-が手頃です。
+[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)が手頃です。
 :::
 
 ## 1. パックを同梱する
 
-アニメーションは SpriteStudio で作成し、手元のマシンで `.ssab` の**ディレクトリ**へ変換します — [アセットの準備](/ja/setup/assets)を参照してください。ここがつまずきやすいところです。パックを置いたディレクトリを config plugin に指定します。
+アニメーションは SpriteStudio で作成し、手元のマシンで `.ssab` の**ディレクトリ**へ変換します — [アセットの準備](/ja/setup/assets)を参照してください。ここがつまずきやすいところです。コンバータが書き出したフォルダを、このパッケージの Expo config plugin が同梱するディレクトリ（ここでは `assets/ss/`）に置きます。
+
+```
+my-app/
+├── app.json
+├── App.tsx               ← source="ss/Ringo/Ringo.ssab"
+└── assets/
+    └── ss/               ← アプリに ss/ として入る
+        └── Ringo/        ← コンバータが書き出したフォルダ
+            ├── Ringo.ssab
+            ├── Ringo.png
+            └── …
+```
+
+そして、`app.json` の `plugins` 配列にプラグインのこの項目を追加し、ディレクトリを指定します。
 
 ```json
 {
@@ -26,7 +38,11 @@ description: インストール済みの状態から、画面にアニメーシ�
 }
 ```
 
+プラグインを追加するとネイティブプロジェクトが変わるので、アプリをビルドし直します。`npx expo prebuild` の後に `npx expo run:ios` か `run:android` を実行してください。
+
 ## 2. 再生する
+
+パックは、同梱したフォルダの中のパスで指定します。パスはそのフォルダの名前から始まり、`assets/ss/Ringo/Ringo.ssab` なら `ss/Ringo/Ringo.ssab` です。
 
 ```tsx
 import { SpriteStudioView } from 'react-native-spritestudio'
@@ -34,10 +50,10 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 export function Character() {
   return (
     <SpriteStudioView
-      source="ss/overall/Basic.ssab"
-      animation="anime_1"
+      source="ss/Ringo/Ringo.ssab"
+      animation="wait1"
       fit="contain"
-      style={{ flex: 1 }}
+      style={{ width: '100%' }}
     />
   )
 }
@@ -58,9 +74,9 @@ npx react-native-spritestudio assets --out src/ss-assets.ts
 ```
 
 ```tsx
-import { SsAssets } from './ss-assets'
+import { SsAssets } from './ss-assets' // src/ の中のファイルから
 
-<SpriteStudioView source={SsAssets['overall/Basic']} />
+<SpriteStudioView source={SsAssets['Ringo/Ringo']} />
 ```
 
-`--check` はマニフェストが古い場合に失敗します。CI が求めるのはこちらです。
+`--check` はマニフェストが古い場合に失敗します。CI が求めるのはこちらです。マニフェストを書き出したときと同じ `--out` を渡してください: `npx react-native-spritestudio assets --check --out src/ss-assets.ts`。

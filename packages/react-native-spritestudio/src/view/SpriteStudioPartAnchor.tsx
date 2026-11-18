@@ -30,8 +30,7 @@ export interface SpriteStudioPartAnchorProps {
  * and turns about it. Offset the children to attach a different point of them.
  *
  * The component form of `useSsPartTransform`, for the case that needs no code
- * of its own — the counterpart of ForFlutter's `SpriteStudioPartAnchor`,
- * ForUnity's part tracker and ForGodot's part attachment.
+ * of its own.
  */
 export function SpriteStudioPartAnchor({
   partName,

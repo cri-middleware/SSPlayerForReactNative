@@ -8,7 +8,7 @@ updates:
     ignore:
       - dependency-name: react
       - dependency-name: react-native
-      - dependency-name: '@shopify/react-native-skia'
+      - dependency-name: react-native-skia
       - dependency-name: react-native-reanimated
       - dependency-name: react-native-worklets
 
@@ -16,6 +16,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ['*']

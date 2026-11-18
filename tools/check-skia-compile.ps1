@@ -17,14 +17,16 @@ param (
 # round-trips, the path still masks) run tools/check-mask.sh on a Mac.
 #
 # It compiles the units whose includes are self-contained — Skia + FlatBuffers +
-# this package's own cpp/. SsRNSkiaInterop.cpp is left out on purpose: it pulls
-# in NitroModules/JSI headers that only exist inside a full RN build.
+# this package's own cpp/. SsRNSkiaInterop.cpp is left out on purpose: it
+# includes <NitroModules/...>, which resolves only through CocoaPods' header map
+# or a flattened copy of Nitro's cpp/ headers. tools/check-glue.sh builds the
+# latter, on macOS and Linux.
 #
 # Usage: tools/check-skia-compile.ps1 [ndk=<path>] [api=<level>] [-Object]
 #   ndk      : Android NDK root  (default: $env:ANDROID_NDK_HOME, else the
 #              newest under $env:ANDROID_HOME\ndk — the same resolution
 #              scripts/build-runtime.ps1 does)
-#   api      : Android API level to target (default: 24)
+#   api      : Android API level to target (default: 26)
 #   -Object  : emit an object file (full codegen) instead of -fsyntax-only;
 #              slower, but exercises the back end too
 
@@ -35,7 +37,7 @@ $rootDir = Split-Path -Parent $scriptDir
 $app = Split-Path -Leaf $PSCommandPath
 
 $ndkOverride = ""
-$apiLevel = "24"
+$apiLevel = "26"
 $emitObject = $false
 
 function Show-Usage {
@@ -52,7 +54,9 @@ foreach ($arg in $ArgsList) {
         '^api=(.*)$'  { $apiLevel = $Matches[1] }
         '^-?-?Object$' { $emitObject = $true }
         '^(-h|--help|help)$' { Show-Usage; exit 0 }
-        default { Write-Error "$app`: unknown argument '$arg'"; Show-Usage; exit 2 }
+        # Plain stderr, not Write-Error: under the Stop preference that would
+        # end the script before `exit 2`, and bad usage would arrive as 1.
+        default { [Console]::Error.WriteLine("${app}: unknown argument '$arg'"); Show-Usage; exit 2 }
     }
 }
 
@@ -87,7 +91,7 @@ if (-not (Test-Path $clang)) {
 # the root node_modules.
 Push-Location (Join-Path $rootDir "packages/react-native-spritestudio")
 try {
-    $rnskiaRoot = & node -p "require('path').dirname(require.resolve('@shopify/react-native-skia/package.json'))" 2> $null
+    $rnskiaRoot = & node -p "require('path').dirname(require.resolve('react-native-skia/package.json'))" 2> $null
 } finally {
     Pop-Location
 }
@@ -110,7 +114,7 @@ $commonArgs = @(
     "-std=c++20",
     "-DSSPLAYER_ENABLE_SKIA_DIRECT=1",
     # The Skia build flags RN Skia's own CMakeLists sets for the Android slice.
-    "-DSK_BUILD_FOR_ANDROID", "-DSK_GL", "-DSK_GANESH",
+    "-DSK_BUILD_FOR_ANDROID", "-DSK_GRAPHITE",
     "-DSK_DISABLE_LEGACY_SHAPER_FACTORY", "-DSK_IMAGE_READ_PIXELS_DISABLE_LEGACY_API",
     "-I$rnskia",
     "-I$flatbuffers",

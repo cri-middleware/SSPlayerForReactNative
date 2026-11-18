@@ -8,9 +8,9 @@ description: このパッケージが、あなたの公開するアプリの中�
 `react-native-spritestudio` は、SpriteStudio-SDK のライセンスに従い
 **BSD-3-Clause** で配布されています。Copyright © CRI Middleware Co., Ltd.
 
-- 全文: [`LICENSE.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/LICENSE.md)（参考訳: [`LICENSE.ja.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/LICENSE.ja.md)）
+- 全文: [`LICENSE.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/LICENSE.md)（参考訳: [`LICENSE.ja.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/LICENSE.ja.md)）
 - 表記の正本:
-  [`THIRD_PARTY_NOTICES.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/main/THIRD_PARTY_NOTICES.md)
+  [`THIRD_PARTY_NOTICES.md`](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/THIRD_PARTY_NOTICES.md)
 
 ## これがこちら側だけの話ではない理由
 
@@ -29,11 +29,10 @@ description: このパッケージが、あなたの公開するアプリの中�
 これらの本文を、アプリが既に持っているライセンス画面や謝辞ファイルに転記してください。その画面を自動生成する仕組みはありません。
 
 ::: tip npm ではなくチェックアウトから作業している場合
-`native/` の 2 ファイルは**リポジトリには入っていません**。ランタイムと一緒に届くので、
-`pnpm run download-sdk` か `pnpm run build-runtime` を実行した後にはじめて存在します。見落としやすいのはこの一点です。[チェックアウトから動かす](/ja/development/from-source)を参照してください。
+`native/` の 2 ファイルは**リポジトリには入っていません**。`pnpm run download-sdk` は両方を置きます。`pnpm run build-runtime` がコピーするのは `LICENSE.md` で、クレート一覧は SDK の `scripts/generate-licenses.sh` が先に生成していた場合にだけ取り込みます。そのためローカルビルドのあとは `THIRD-PARTY-LICENSES.ssruntime.md` が無いことがあり、見落としやすい点です（無いと `prepack` はパックを拒否します）。[ビルドガイド](/ja/development/build)を参照してください。
 :::
 
 ## このページが代弁しないもの
 
-`@shopify/react-native-skia`、`react-native-nitro-modules`、
+`react-native-skia`、`react-native-nitro-modules`、
 `react-native-reanimated`、`react-native-worklets` は **peer 依存**です。あなたのアプリケーションが自分でインストールするものであり、それぞれが独自のライセンスと表記を持っています。ここに名前を挙げているのは、この一覧がそれらを含まないことを明確にするためだけです。

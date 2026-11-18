@@ -13,10 +13,13 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { Canvas, Picture, Skia, type SkPicture } from '@shopify/react-native-skia'
-import { useSharedValue } from 'react-native-reanimated'
+import { Canvas, Picture, Skia } from 'react-native-skia'
 
+import { onFrameChanged } from '../player/frames'
 import { MAX_STEP_MS, type SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { CANVAS_BOX } from './canvasBox'
+import { reportError } from './reportError'
+import { useFramePicture } from './useFramePicture'
 
 /** One player enrolled in a scene, in the shape the scene's tick consumes. */
 export interface SsSceneMember {
@@ -27,7 +30,7 @@ export interface SsSceneMember {
   seq: number
 }
 
-interface SsSceneRegistry {
+export interface SsSceneRegistry {
   /** Enrols a player and returns the leave function. */
   join(member: Omit<SsSceneMember, 'seq'>): () => void
   /** The scene's pixel size, which is what a sprite fits itself against. */
@@ -51,6 +54,7 @@ export interface SpriteStudioSceneProps {
   style?: StyleProp<ViewStyle>
   /** Stops the whole scene's clock — every sprite in it, in one place. */
   paused?: boolean
+  /** The frame loop stopped. Without one, the error goes to `console.error` rather than nowhere. */
   onError?: (error: unknown) => void
 }
 
@@ -63,9 +67,7 @@ export interface SpriteStudioSceneProps {
  * order, advances each and draws each into a single recording.
  *
  * This is the arrangement Layer 3 was built for and the reason `advance(dt)` is
- * externally clocked — its own comment says "so the whole tree ticks off one
- * clock instead of N". Until this component existed, nothing above it took the
- * offer up.
+ * externally clocked.
  *
  * Ordering is `z` then enrolment order. Enrolment order rather than JSX order
  * because a sprite can be nested inside any component in between, and React
@@ -81,13 +83,13 @@ export function SpriteStudioScene({
   const [size, setSize] = useState({ width: 0, height: 0 })
   const members = useRef(new Set<SsSceneMember>()).current
   const seq = useRef(0)
+  // Re-sorted only on a join or a leave, which a `z` change is: the sprite
+  // enrols again.
+  const order = useRef({ list: [] as SsSceneMember[], stale: true }).current
+  // How a paused scene hears that it has something new to draw.
+  const wakeRef = useRef<(() => void) | null>(null)
 
-  const emptyPicture = useMemo(() => {
-    const recorder = Skia.PictureRecorder()
-    recorder.beginRecording()
-    return recorder.finishRecordingAsPicture()
-  }, [])
-  const picture = useSharedValue<SkPicture>(emptyPicture)
+  const { picture, publish } = useFramePicture()
 
   const errorRef = useRef(onError)
   errorRef.current = onError
@@ -102,51 +104,75 @@ export function SpriteStudioScene({
       join(member) {
         const entry: SsSceneMember = { ...member, seq: seq.current++ }
         members.add(entry)
+        order.stale = true
+        const unsubscribe = onFrameChanged(member.player, () => wakeRef.current?.())
+        wakeRef.current?.()
         return () => {
+          unsubscribe()
           members.delete(entry)
+          order.stale = true
+          wakeRef.current?.()
         }
       },
       get size() {
         return sizeRef.current
       },
     }),
-    [members]
+    [members, order]
   )
 
   // --- the one frame loop -------------------------------------------------
   useEffect(() => {
-    if (size.width === 0 || paused) return
+    if (size.width === 0) return
 
     let raf = 0
+    let failed = false
     let last = performance.now()
+    // One for the loop's life: a recorder records again after each finish.
+    const recorder = Skia.PictureRecorder()
 
     const tick = (): void => {
-      raf = requestAnimationFrame(tick)
+      // Paused, the clock stands and a frame runs only when something changed:
+      // a sprite that loads or moves still has to reach the canvas.
+      raf = paused ? 0 : requestAnimationFrame(tick)
       const now = performance.now()
       const dtMs = Math.min(now - last, MAX_STEP_MS)
       last = now
 
       try {
-        // Sorted per tick rather than kept sorted, because the cost is in the
-        // draw and a scene holds tens of members, not thousands. Sorting on
-        // enrolment would need the set to be a list and every leave to splice.
-        const ordered = [...members].sort((a, b) => a.z - b.z || a.seq - b.seq)
-        const recorder = Skia.PictureRecorder()
-        const canvas = recorder.beginRecording()
-        for (const member of ordered) {
-          member.player.advance(dtMs)
-          member.player.draw(canvas)
+        let redraw = order.stale
+        if (order.stale) {
+          order.list = [...members].sort((a, b) => a.z - b.z || a.seq - b.seq)
+          order.stale = false
         }
-        picture.value = recorder.finishRecordingAsPicture()
+        for (const member of order.list) {
+          if (!paused) member.player.advance(dtMs)
+          if (!redraw && member.player.needsDraw) redraw = true
+        }
+        if (!redraw) return
+        const canvas = recorder.beginRecording()
+        for (const member of order.list) member.player.draw(canvas)
+        publish(recorder.finishRecordingAsPicture())
       } catch (error) {
+        failed = true
         cancelAnimationFrame(raf)
-        errorRef.current?.(error)
+        raf = 0
+        reportError(errorRef.current, error, 'the scene’s frame loop stopped')
       }
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [members, picture, size.width, size.height, paused])
+    const wake = (): void => {
+      if (raf !== 0 || failed) return
+      raf = requestAnimationFrame(tick)
+    }
+
+    wake()
+    wakeRef.current = wake
+    return () => {
+      wakeRef.current = null
+      cancelAnimationFrame(raf)
+    }
+  }, [members, order, publish, size.width, size.height, paused])
 
   const onLayout = (event: LayoutChangeEvent): void => {
     const { width, height } = event.nativeEvent.layout
@@ -156,11 +182,13 @@ export function SpriteStudioScene({
   }
 
   return (
-    <View style={style} onLayout={onLayout}>
-      <Canvas style={{ flex: 1 }}>
-        <Picture picture={picture} />
-      </Canvas>
-      <SceneContext.Provider value={registry}>{children}</SceneContext.Provider>
+    <View style={style}>
+      <View style={CANVAS_BOX} onLayout={onLayout}>
+        <Canvas style={{ flex: 1 }}>
+          <Picture picture={picture} />
+        </Canvas>
+        <SceneContext.Provider value={registry}>{children}</SceneContext.Provider>
+      </View>
     </View>
   )
 }

@@ -4,9 +4,8 @@
 # tests/ParticleEffect, tests/Doll), and any project put under
 # example/SpriteStudio_Source/, into the .ssab assets the example app loads.
 #
-# Unlike the Flutter Player this repo bundles no converter: React Native has no
-# editor to hook an importer into, so `.sspj` -> `.ssab` is a host-side step
-# (design doc ch.5 / ch.9 G). This script is the developer convenience that runs
+# This repo bundles no converter: React Native has no editor to hook an importer
+# into, so `.sspj` -> `.ssab` is a host-side step. This script is the developer convenience that runs
 # the SDK submodule's own ssconverter-cli.
 #
 # Output lands in example/assets/ss/<stem>/ and is gitignored: it is derived
@@ -39,9 +38,8 @@ OUT_ROOT="${ROOTDIR}/example/assets/ss"
 #                     says whether the render path itself works before any
 #                     character's authoring choices are in the picture.
 #   Ringo           — the character case.
-#   ParticleEffect  — the worst case for vertex count; design doc ch.8 is
-#                     explicit that the ceiling is set by effects, not by
-#                     characters.
+#   ParticleEffect  — the worst case for vertex count: the ceiling is set
+#                     by effects, not by characters.
 PROJECTS=(
     "overall|overall.sspj"
     "Ringo|Ringo.sspj"
@@ -56,7 +54,7 @@ PROJECTS=(
 # `example/SpriteStudio_Source/` is not in this repository, and everything in it
 # is **optional**: the example, the asset manifest and `check-mask` all work
 # without it. It is where a project goes to be looked at on a device — put its
-# folder there, run this, and the Player screen offers it as `local/<directory
+# folder there, run this, and the Viewer screen offers it as `local/<directory
 # name>` with every `.ssab` it converted to. Nothing in the app names it.
 #
 # One of them is named here, as "<directory>|<output dir name>", because a card
@@ -77,11 +75,11 @@ LOCAL_DEPLOYED=()
 #
 # The example needs both conversions of every pack it shows, because the two
 # texture-supply modes reach different distances on React Native. A reference
-# pack's sibling image has to be findable at runtime, and Metro only ships what
+# pack's image has to be findable at runtime, and Metro only ships what
 # a `require()` names — so reference is the mode with a loading path to get
 # wrong, and embedded is the one that is self-contained everywhere. Keeping both
 # means the example exercises both branches of `SsTextureLoader`, and it has to
-# be per pack rather than once overall: the Player screen's texture toggle
+# be per pack rather than once overall: the Viewer screen's texture toggle
 # applies to whichever subject is selected, so a pack with only one conversion
 # would make that toggle silently do nothing for it.
 #
@@ -89,7 +87,7 @@ LOCAL_DEPLOYED=()
 # every `.ssab` that names it, and its two atlases are 1.9 MB and 2.8 MB across
 # 41 packs — roughly 150 MB of app assets, against 5.2 MB for the reference
 # conversion, to exercise a route the other three subjects already cover. The
-# Player screen disables the toggle for that subject and says why, rather than
+# Viewer screen disables the toggle for that subject and says why, rather than
 # offering it and pointing at a directory nothing produced.
 EMBEDDED_PROJECTS=(
     "overall|overall.sspj|overall-embedded"

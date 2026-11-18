@@ -1,4 +1,4 @@
-import type { SkCanvas, SkImage } from '@shopify/react-native-skia'
+import type { SkCanvas, SkImage } from 'react-native-skia'
 
 import { ssImageCache } from '../core/caches'
 import type { SsFrameScope } from '../core/fit'
@@ -21,11 +21,16 @@ import {
   SsPlaybackDirection,
   SsPlaybackStyle,
   type SsRootTransform,
+  type SsTrackBlend,
+  type SsTrackSync,
 } from '../core/types'
 import { SsRuntimeModule } from '../runtime'
+import { frameChanged, frameShown } from './frames'
 import type {
   SsAudioEvent,
   SsBox,
+  SsLabelTable,
+  SsPartQuad,
   SsPartTransform,
   SsResource,
   SsSignalEvent,
@@ -42,10 +47,8 @@ import {
 /**
  * The transport surface, with no drawing backend in it.
  *
- * Stated as an interface on purpose: react-native-web is to be served from the
- * existing `@spritestudio/ssplayer-webgl` rather than by a port, and only this API
- * and the Layer 4 prop types are shared between the two. Anything Skia-shaped
- * belongs on the class below, not here.
+ * Stated as an interface so the Layer 4 prop types and this API are shared without
+ * a drawing backend. Anything Skia-shaped belongs on the class below, not here.
  */
 export interface SpriteStudioPlayerApi {
   readonly frameNo: number
@@ -92,8 +95,18 @@ export interface SpriteStudioPlayerApi {
   setSpeedScale(rate: number): void
   /** 0 = infinite. */
   setLoopCount(loops: number): void
-  /** Restricts playback to `[startFrame, endFrame]` of the current animation. */
-  setAnimationSection(startFrame: number, endFrame: number): void
+  /**
+   * Restricts playback to `[startFrame, endFrame]` of the current animation.
+   * Returns false, and warns once per pair, when it did nothing.
+   */
+  setAnimationSection(startFrame: number, endFrame: number): boolean
+  /** {@link setAnimationSection} with the ends named by labels of the current animation. */
+  setAnimationSectionByLabel(
+    startLabel: string,
+    endLabel: string,
+    startOffset?: number,
+    endOffset?: number
+  ): boolean
   /**
    * Whether a long tick may skip frames to stay on the wall clock (the default)
    * or advance exactly one frame, stretching playback instead.
@@ -131,9 +144,7 @@ export interface SpriteStudioPlayerOptions {
  *
  * The name is not decoration: one player outlives the animations mounted on it,
  * so a handler that fires after a `setAnimation` cannot otherwise tell what
- * finished — and a scene of sprites shares one handler across many. The sibling
- * Players pass it for the same reason (`SpriteStudioPlayer2D` emits every one of
- * its four animation signals with `anim_name`).
+ * finished — and a scene of sprites shares one handler across many.
  */
 export type SsAnimationCallback = (animation: string) => void
 
@@ -141,10 +152,7 @@ export type SsAnimationCallback = (animation: string) => void
  * What to measure the content box over, and how far.
  *
  * The cost is a bake per frame walked, so the scope is the caller's call:
- * `animation` walks one, `pack` walks every animation in the file. Measured on
- * a debug-built Brain, `Ringo`'s 24 animations at 120 frames each took 1.3s;
- * `Basic`'s single one took 16ms. Release is far faster and the resource cache
- * makes it once-per-pack, but the ratio between the two scopes is the point.
+ * `animation` walks one, `pack` walks every animation in the file.
  */
 export interface SsMeasureRequest {
   scope: SsFrameScope
@@ -152,8 +160,7 @@ export interface SsMeasureRequest {
    * Frames to walk per animation; 0 walks one authored cycle.
    *
    * A cycle is right for a character and wrong for an effect, whose extent keeps
-   * growing for as long as it is simulated — `e030`'s box only settles after a
-   * couple of hundred frames.
+   * growing for as long as it is simulated.
    */
   maxFrames?: number
 }
@@ -166,6 +173,30 @@ export interface SsMeasureRequest {
  * every event on them.
  */
 export const MAX_STEP_MS = 1000 / 15
+
+/** A Layer 2 read's `NaN` — or no player at all — as the `null` this layer reports. */
+function orNull(value: number | undefined): number | null {
+  return value == null || Number.isNaN(value) ? null : value
+}
+
+/** The same, for the reads whose "nothing there" is `-1`. */
+function orNullIfNegative(value: number | undefined): number | null {
+  return value == null || value < 0 ? null : value
+}
+
+/**
+ * The frame `label` marks in `table`, or null. `_start` and `_end` are the
+ * animation's own first and last frame, as in SpriteStudio, where they are
+ * never in the table; a real label of the same name wins.
+ */
+function labelFrameOf(table: SsLabelTable, label: string): number | null {
+  for (const entry of table.labels) {
+    if (entry.name === label) return entry.frame
+  }
+  if (label === '_start') return table.startFrame
+  if (label === '_end') return table.endFrame
+  return null
+}
 
 /**
  * Layer 3 — the user-facing player: transport, clock and events.
@@ -203,6 +234,20 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private animation: string | null = null
   private wasFinished = false
+  /**
+   * Whether the last {@link advance} reached the Brain. The loop pulses are the
+   * Brain's, and they stand until its next update — so a tick that did not run
+   * (a held player, a finished one) would otherwise report the previous tick's
+   * loop again. A tick that did not run reports nothing.
+   */
+  private ran = false
+  /**
+   * Track, source and section commands already reported as having done
+   * nothing, keyed by the call and what it named — so a state machine repeating
+   * a refused call every frame says so once, and a second track, name or pair
+   * of frames gets its own line.
+   */
+  private readonly reportedTrackFailures = new Set<string>()
 
   /**
    * Pending transport settings, replayed onto each newly set-up animation.
@@ -213,8 +258,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * and the direction across a setup on its own.
    *
    * Whether it is **playing** is deliberately absent. Starting playback is
-   * `play()`'s job and nothing else's; folding it into a load or a switch is
-   * what made `setAnimation` start the animation it was only asked to select.
+   * `play()`'s job and nothing else's; folding it into a load or a switch would
+   * make `setAnimation` start an animation it was only asked to select.
    */
   private readonly settings = {
     speed: 1,
@@ -231,7 +276,6 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private root: SsRootTransform | null = null
 
-  /** What `load()` was asked to measure, kept so a later `setAnimation` can redo it. */
   /**
    * The last override map, replayed onto each newly loaded animation for the
    * same reason the transport settings are: `setupAnimation` is a fresh start,
@@ -241,8 +285,14 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /** Parts the last map touched, so dropping one from it can revert just that one. */
   private readonly overriddenParts = new Set<string>()
 
+  /** What `load()` was asked to measure, kept so a later `setAnimation` can redo it. */
   private measureRequest: SsMeasureRequest | null = null
   private contentBoxValue: SsBox | null = null
+  /**
+   * The animation the last measurement walked, so the `setAnimation` that
+   * follows `load()`'s own measurement does not walk the same frames again.
+   */
+  private measuredFor: string | null = null
 
   private clock: ReturnType<typeof requestAnimationFrame> | null = null
 
@@ -265,9 +315,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * Not on a re-`setAnimation` to the same name, which is a restart and reports
    * itself through `onAnimationStarted`.
    *
-   * The conventions do not require this event, on the grounds that a host that
-   * called `setAnimation` already knows.
-   * Here it earns its place: `animation` is a **prop**, so a re-render can
+   * `animation` is a **prop**, so a re-render can
    * mount a different clip without anything in the host calling `setAnimation`
    * at all — the switch happens in `applySettings`, below Layer 4. Without this
    * there is no way to observe it.
@@ -357,6 +405,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.resourceUri = uri
     this.instancePacks = packs
     const internal = new SsInternalPlayer(resource, this.textures)
+    this.partIndices.clear()
+    this.ran = false
+    // A new pack is a new set of tracks and names; what failed on the last one
+    // says nothing about this one.
+    this.reportedTrackFailures.clear()
     // Before `setAnimation` below, which is what spawns the child players — a
     // pack bound after that has nothing left to reach.
     for (const pack of packs) internal.bindInstancePack(pack.resource)
@@ -382,7 +435,12 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // happen while there is still a `setupAnimation` to come. Storing the
     // request as well as the result is what lets an *animation*-scoped box be
     // re-measured when the animation changes.
+    //
+    // Cleared first: a box measured over the last pack says nothing about this
+    // one, and a load that asks for none must not inherit it.
     this.measureRequest = options?.measure ?? null
+    this.contentBoxValue = null
+    this.measuredFor = null
     if (this.measureRequest != null && requested != null) {
       this.remeasure(requested)
     }
@@ -396,8 +454,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // rather than again per query. After `setAnimation` because the children —
     // and so their textures — do not exist until then, and before the
     // `loadTextures` early-out because a runtime override does not depend on the
-    // pack's own atlases being loaded. The names are copied strings, so retaining
-    // them past the borrowed `SsTextureInfo[]` is safe.
+    // pack's own atlases being loaded.
     const textureInfos = internal.getTextures()
     this.replaceableTextureNames = textureInfos.map((info) => info.name)
 
@@ -418,29 +475,29 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // After `notify()` on purpose — the animation is usable the moment the
     // context exists, and holding the load open for a texture fetch would delay
     // the first frame for no reason. It simply draws nothing until they arrive.
-    const report = await SsTextureLoader.load(this.textures, textureInfos, uri)
+    //
+    // The registry entries go into `registeredTextures` as they are made, so the
+    // `releaseNative` of a load that replaces this one — or `dispose` — takes
+    // back what this pass had put in by then. A replaced pass must not take them
+    // back itself: the hash is the cellmap name's, so the live load may have
+    // found the same atlas in place and skipped it.
+    const report = await SsTextureLoader.load(
+      this.textures,
+      textureInfos,
+      (hash) => internal.copyEmbeddedTexture(hash),
+      uri,
+      {
+        isCurrent: () => token === this.loadToken && !this.disposed,
+        registered: this.registeredTextures,
+      }
+    )
     if (token !== this.loadToken || this.disposed) {
       // The leases this pass took belong to a load that is no longer wanted.
       for (const key of report.imageKeys) ssImageCache.release(key)
-      // So do its registry entries: the loader registers as it decodes, which is
-      // before this check, so a superseded pass has already put its paints in.
-      // `releaseNative` cannot take them back — it ran before this pass recorded
-      // anything — so they would otherwise stay for the life of the player.
-      //
-      // Skipping what the *current* load registered matters when the two packs
-      // share a cellmap name: the hash is the same, and dropping it would take
-      // the live pack's atlas with it.
-      if (this.ownsTextures) {
-        const live = new Set(this.registeredTextures)
-        for (const hash of report.registered) {
-          if (!live.has(hash)) this.textures.unregister(hash)
-        }
-      }
       return
     }
     this.lastTextureReport = report
     this.imageKeys = report.imageKeys
-    this.registeredTextures = report.registered
 
     // A missing texture is otherwise **silent**: `drawInto` skips a batch it has
     // no paint for, so the symptom is a part that is simply not there, and a
@@ -471,9 +528,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * re-keying each by name against the pack that is now loaded.
    *
    * A name the new pack has no texture for is left recorded but unapplied — it
-   * may match again after a later `source` change, exactly as ForGodot keeps its
-   * `_cellmap_overrides` by name and simply skips a name the current resource
-   * does not resolve.
+   * may match again after a later `source` change.
    */
   private applyCellmapTextureOverrides(): void {
     if (this.cellmapTextureOverrides.size === 0) return
@@ -503,12 +558,15 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private textureReport: SsTextureLoadReport | null = null
   /** Atlas cache leases taken by the last load, given back on teardown. */
   private imageKeys: string[] = []
-  /** Registry entries the last load added, taken back out on teardown. */
+  /**
+   * Registry entries the last load added, taken back out on teardown. Filled by
+   * the loader as it registers, so it includes a load still in flight.
+   */
   private registeredTextures: number[] = []
 
   /**
    * Runtime texture replacements in effect, keyed by the cellmap (or external
-   * texture) **name** — the name-side record ForGodot keeps too, so
+   * texture) **name**, so
    * {@link getCellmapTexture} can answer and a source change can re-key onto the
    * new pack. The registry holds the hash-side effect; this is what survives the
    * registry being rebuilt under a new pack, and {@link applyCellmapTextureOverrides}
@@ -566,10 +624,11 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /**
    * Whether the last {@link advance} crossed a loop boundary. A **pulse**, true
    * only inside the tick that crossed — take {@link onAnimationLooped} instead if you would
-   * rather have it delivered than polled.
+   * rather have it delivered than polled. False after a tick that did not run.
+   * Track 0's {@link trackJustLooped}.
    */
   get justLooped(): boolean {
-    return this.internalPlayer?.justLooped ?? false
+    return this.ran && (this.internalPlayer?.justLooped ?? false)
   }
   /**
    * Which way the playhead is actually travelling this frame.
@@ -596,16 +655,30 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.partCount ?? 0
   }
 
-  /** See `SpriteStudioPlayerApi`. Empty before a load completes. */
   /** Resolve a part name to its index, or `-1` when the name is not in the animation. */
   findPartIndex(partName: string): number {
-    return this.internalPlayer?.findPartIndex(partName) ?? -1
+    const internal = this.internalPlayer
+    return internal == null ? -1 : this.partIndexOf(internal, partName)
   }
 
   /**
-   * Cellmap names in the pack, without the `.ssce` extension — the namespace a
-   * cell override takes. Empty before a load completes.
+   * Part indices by name, resolved once per animation.
+   *
+   * A follower reads its part by name every frame, and resolving one is a
+   * string across JSI and a scan of the part names. The answer only changes
+   * with the context or the animation, so the cache is emptied at both.
    */
+  private readonly partIndices = new Map<string, number>()
+
+  private partIndexOf(internal: SsInternalPlayer, name: string): number {
+    let index = this.partIndices.get(name)
+    if (index === undefined) {
+      index = internal.findPartIndex(name)
+      this.partIndices.set(name, index)
+    }
+    return index
+  }
+
   /**
    * Part names in part-index order, empty before a load finishes.
    *
@@ -617,6 +690,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.partNames() ?? []
   }
 
+  /**
+   * Cellmap names in the pack, without the `.ssce` extension — the namespace a
+   * cell override takes. Empty before a load completes.
+   */
   cellmapNames(): string[] {
     return this.internalPlayer?.cellmapNames() ?? []
   }
@@ -626,6 +703,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     return this.internalPlayer?.cellNames(cellmapName) ?? []
   }
 
+  /** See `SpriteStudioPlayerApi`. Empty before a load completes. */
   getAnimationNames(): string[] {
     return this.internalPlayer?.getAnimationNames() ?? []
   }
@@ -640,6 +718,13 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * the playhead stays, the loop budget is not re-armed, and the overrides
    * survive. That makes it safe for a state machine to assert its current clip
    * every frame. To restart, call {@link play}.
+   *
+   * "Already set up" is what track 0 plays **now**: after `crossfade(0, 'run')`
+   * that is `run`, even mid-fade, so naming it does nothing and the fade runs
+   * on — while naming the animation the fade is leaving is a real switch. A
+   * real switch collapses the track stack back to track 0, ending every
+   * overlay and fade and every setting of the tracks above 0. Track 0's
+   * playback settings stay.
    */
   setAnimation(name: string): boolean {
     const internal = this.internalPlayer
@@ -660,17 +745,18 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // An animation-scoped box describes *this* animation, so switching makes it
     // stale. A pack-scoped one is the union over the whole file and does not
     // change — which is the point of asking for it.
-    if (this.measureRequest?.scope === 'animation' && this.contentBoxValue != null) {
+    if (this.measureRequest?.scope === 'animation' && this.measuredFor !== name) {
       this.remeasure(name)
     }
 
+    this.partIndices.clear()
     if (!internal.setupAnimation(name)) {
       this.reportMissingAnimation(name)
       return false
     }
     // Assigned from the result, not ahead of it. `currentAnimation` reads this
-    // field, so assigning first left it naming an animation the runtime had
-    // never set up — and `onAnimationStarted` then published that name too.
+    // field, so assigning first would leave it naming an animation the runtime
+    // never set up, and `onAnimationStarted` would publish that name too.
     this.animation = name
     this.reportedMissingAnimation = null
     if (previous !== name) this.onAnimationChanged?.(name)
@@ -708,10 +794,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   private reportMissingAnimation(name: string): void {
     if (this.reportedMissingAnimation === name) return
     this.reportedMissingAnimation = name
-    // The Brain's own reason, verbatim. This used to say "has no animation",
-    // which is the common case and not the only one: the same call fails with
-    // "SSAB data is not loaded" on a player whose pack never bound, and telling
-    // that reader the name is missing sends them to the wrong place.
+    // The Brain's own reason, verbatim: the same call fails with "SSAB data is
+    // not loaded" on a player whose pack never bound, and telling that reader the
+    // name is missing would send them to the wrong place.
     const reason = this.internalPlayer?.lastErrorMessage
     console.warn(
       `react-native-spritestudio: '${this.resourceUri ?? 'the loaded pack'}' ` +
@@ -724,11 +809,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * **Head-out**: rewinds to the start of the section and re-arms the loop
    * count.
    *
-   * Not a resume — {@link resume} is. The two used to be one verb here, on the
-   * grounds that a `playing` prop means one thing; but a Player publishing three
-   * verbs where the contract asks for four leaves a host no way to lift a pause
-   * without losing the playhead. Mapping a boolean prop onto the four is Layer
-   * 4's job, and it is the only layer that knows the prop exists.
+   * Not a resume — {@link resume} is. Mapping a boolean prop onto the four verbs
+   * is Layer 4's job, and it is the only layer that knows the prop exists.
    */
   play(startFrame?: number): void {
     this.wasFinished = false
@@ -804,14 +886,97 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   /**
    * Restricts playback to `[startFrame, endFrame]` of the **current** animation,
-   * so `play`, looping and ping-pong all work within that range.
+   * both ends included, so `play`, looping and ping-pong all work within that
+   * range. An end outside the animation's frames is its edge on that side.
+   *
+   * Returns false, changing nothing, when both ends are inside the animation
+   * and the end is before the start, and says so on the console once per pair.
+   * False too before a pack is loaded.
    *
    * Not carried across a {@link setAnimation}: frame numbers only mean something
    * inside the animation they were measured in. Set it after each switch.
    */
-  setAnimationSection(startFrame: number, endFrame: number): void {
-    this.internalPlayer?.setSection(startFrame, endFrame)
+  setAnimationSection(startFrame: number, endFrame: number): boolean {
+    const internal = this.internalPlayer
+    if (internal == null) return false
+    const ok = this.trackCommand(
+      internal.setSection(startFrame, endFrame),
+      'setAnimationSection',
+      `${startFrame}, ${endFrame}`
+    )
+    if (ok) this.notify()
+    return ok
+  }
+
+  /**
+   * {@link setAnimationSection} with the ends named by labels of the **current**
+   * animation: from `startLabel`'s frame plus `startOffset` to `endLabel`'s
+   * frame plus `endOffset`, the rule an Instance part's start and end labels
+   * follow. `_start` and `_end` name the animation's first and last frame. It
+   * does not play.
+   *
+   * ```ts
+   * player.setAnimation('button')
+   * player.setAnimationSectionByLabel('hover', 'pressed', 0, -1)
+   * player.play()
+   * ```
+   *
+   * Returns false, changing nothing, when the animation has no such label or
+   * when the frames it lands on are a section {@link setAnimationSection}
+   * refuses, and says so on the console once. False too, and silent, before a
+   * pack is loaded. Like any section, {@link setAnimation} wipes it.
+   */
+  setAnimationSectionByLabel(
+    startLabel: string,
+    endLabel: string,
+    startOffset = 0,
+    endOffset = 0
+  ): boolean {
+    const internal = this.internalPlayer
+    const table = this.getLabelTable()
+    if (internal == null || table == null) return false
+    const animation = internal.currentAnimation ?? ''
+    const start = labelFrameOf(table, startLabel)
+    const end = labelFrameOf(table, endLabel)
+    if (start == null || end == null) {
+      const missing = start == null ? [startLabel] : []
+      if (end == null && endLabel !== startLabel) missing.push(endLabel)
+      this.reportTrackFailure(
+        `setAnimationSectionByLabel:${animation}:${missing.join(':')}`,
+        `animation '${animation}' of '${this.resourceUri ?? 'the loaded pack'}' has no label ` +
+          `${missing.map((label) => `'${label}'`).join(' or ')}, so the section stays as it was`
+      )
+      return false
+    }
+    const from = start + startOffset
+    const to = end + endOffset
+    if (!internal.setSection(from, to)) {
+      const reason = internal.lastErrorMessage
+      this.reportTrackFailure(
+        `setAnimationSection:${from}, ${to}`,
+        `setAnimationSectionByLabel('${startLabel}', '${endLabel}', ${startOffset}, ${endOffset}), ` +
+          `frames ${from} to ${to}, did nothing on '${this.resourceUri ?? 'the loaded pack'}'` +
+          (reason == null ? '' : ` — ${reason}`)
+      )
+      return false
+    }
     this.notify()
+    return true
+  }
+
+  /**
+   * The labels of `animation` — the current one when omitted — in frame order,
+   * with the animation's own first and last frame. Null before a load and for
+   * an animation the pack does not have. Read from the pack on every call, so
+   * hold the table rather than asking per frame.
+   */
+  getLabelTable(animation?: string): SsLabelTable | null {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return null
+    const name = animation ?? internal.currentAnimation
+    if (name == null) return null
+    const table = internal.getLabelTable(name)
+    return table.valid ? table : null
   }
 
   /**
@@ -858,9 +1023,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   setSubFrameEnabled(enabled: boolean): void {
     this.settings.subFrame = enabled
     this.internalPlayer?.setSubFrameEnabled(enabled)
+    frameChanged(this)
   }
 
-  /** See {@link setSubFrame}. */
+  /** See {@link setSubFrameEnabled}. */
   get subFrameEnabled(): boolean {
     return this.internalPlayer?.subFrameEnabled ?? this.settings.subFrame
   }
@@ -935,9 +1101,9 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // Playback is deliberately NOT started here: `setAnimation` selects, `play`
     // starts, and this runs inside the former.
     //
-    // After `setup_animation`, which resets the override layer along with
-    // everything else — and after the part indices are therefore valid again,
-    // since they are resolved against the animation that is now set up.
+    // After `setup_animation`, which clears every override that is not
+    // permanent — and after the part indices are therefore valid again, since
+    // they are resolved against the animation that is now set up.
     if (this.pendingOverrides != null) {
       this.overriddenParts.clear()
       this.setPartOverrides(this.pendingOverrides)
@@ -962,7 +1128,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     const internal = this.internalPlayer
     if (internal == null) return null
     const index =
-      typeof part === 'number' ? part : internal.findPartIndex(part)
+      typeof part === 'number' ? part : this.partIndexOf(internal, part)
     if (index < 0) return null
     const transform = internal.getPartTransform(index)
     return transform.valid ? transform : null
@@ -979,16 +1145,19 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * call a host makes alongside it.
    *
    * Read from the **display** frame — floored when sub-frame is off, the same
-   * frame that was drawn — so it cannot disagree with what is on screen. It
-   * reflects the animation's own hide, not a {@link setPartOverrides}
-   * `hide: true`. False for an unknown name, an out-of-range index and
-   * before the first `advance`; {@link findPartIndex} is the existence test.
+   * frame that was drawn — so it cannot disagree with what is on screen. It is
+   * that frame's hide: the animation's own, and a {@link setPartOverrides}
+   * `hide: true` too, on every descendant it hides when `cascade` is set. An
+   * override shows up once the player next advances or seeks, and at once on
+   * a stopped player. False for an
+   * unknown name, an out-of-range index and before the first `advance`;
+   * {@link findPartIndex} is the existence test.
    */
   isPartHidden(part: string | number): boolean {
     const internal = this.internalPlayer
     if (internal == null) return false
     const index =
-      typeof part === 'number' ? part : internal.findPartIndex(part)
+      typeof part === 'number' ? part : this.partIndexOf(internal, part)
     if (index < 0) return false
     return internal.isPartHidden(index)
   }
@@ -1007,16 +1176,74 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    *
    * False for a rigid (deform-only) mesh and every non-mesh part — those follow
    * correctly — and false for an unknown name or before a load. The judgement is
-   * the cross-player one (ForWeb and ForWgpu carry the same query): a
-   * `mesh_binding` present with at least one influence bone.
+   * a `mesh_binding` present with at least one influence bone.
    */
   isPartSkinnedMesh(part: string | number): boolean {
     const internal = this.internalPlayer
     if (internal == null) return false
     const index =
-      typeof part === 'number' ? part : internal.findPartIndex(part)
+      typeof part === 'number' ? part : this.partIndexOf(internal, part)
     if (index < 0) return false
     return internal.isPartSkinnedMesh(index)
+  }
+
+  /**
+   * The outline `part` is drawn with on the frame last built, in **view
+   * pixels** — the root transform applied, so the space a touch on the view
+   * reports, unlike {@link getPartTransform}. Null before a load, for an
+   * unknown or hidden part, and for a part that draws nothing of its own.
+   *
+   * A part with a cell is its four drawn corners, skew and vertex deform
+   * included; a Mesh part the axis-aligned box around its vertices; a Shape its
+   * size around its pivot. Null, bone, Instance and Effect parts have none, and
+   * a part drawn at alpha 0 still has one.
+   */
+  getPartQuad(part: string | number): SsPartQuad | null {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return null
+    const index = typeof part === 'number' ? part : this.partIndexOf(internal, part)
+    if (index < 0) return null
+    const quad = internal.getPartQuad(index)
+    if (!quad.valid) return null
+    const t = internal.rootTransform
+    const sx = t.flipX ? -t.scale : t.scale
+    const sy = t.flipY ? -t.scale : t.scale
+    return {
+      valid: true,
+      leftTopX: t.x + sx * quad.leftTopX,
+      leftTopY: t.y + sy * quad.leftTopY,
+      rightTopX: t.x + sx * quad.rightTopX,
+      rightTopY: t.y + sy * quad.rightTopY,
+      leftBottomX: t.x + sx * quad.leftBottomX,
+      leftBottomY: t.y + sy * quad.leftBottomY,
+      rightBottomX: t.x + sx * quad.rightBottomX,
+      rightBottomY: t.y + sy * quad.rightBottomY,
+    }
+  }
+
+  /**
+   * The index of the part on top whose {@link getPartQuad} outline holds
+   * `(x, y)`, a point in view pixels, among `parts` — names or indices, every
+   * part when omitted — on the frame last built. `-1` when none does, as
+   * {@link findPartIndex} answers; a name the animation does not have is
+   * skipped.
+   */
+  hitTestPart(x: number, y: number, parts?: ReadonlyArray<string | number>): number {
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) return -1
+    const targets: number[] = []
+    if (parts != null) {
+      for (const part of parts) {
+        const index = typeof part === 'number' ? part : this.partIndexOf(internal, part)
+        if (index >= 0) targets.push(index)
+      }
+      if (targets.length === 0) return -1
+    }
+    const t = internal.rootTransform
+    const sx = t.flipX ? -t.scale : t.scale
+    const sy = t.flipY ? -t.scale : t.scale
+    if (sx === 0 || sy === 0) return -1
+    return internal.hitTestPart((x - t.x) / sx, (y - t.y) / sy, targets)
   }
 
   /**
@@ -1038,7 +1265,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
     for (const name of this.overriddenParts) {
       if (name in overrides) continue
-      const index = internal.findPartIndex(name)
+      const index = this.partIndexOf(internal, name)
       if (index < 0) continue
       internal.clearPartVisibility(index)
       internal.clearPartColor(index)
@@ -1047,7 +1274,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.overriddenParts.clear()
 
     for (const [name, override] of Object.entries(overrides)) {
-      const index = internal.findPartIndex(name)
+      const index = this.partIndexOf(internal, name)
       if (index < 0) {
         console.warn(
           `react-native-spritestudio: no part called '${name}' in ` +
@@ -1056,48 +1283,502 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
         continue
       }
       this.overriddenParts.add(name)
-      // The family's default. `permanent` used to be it, which made an override
-      // outlive the animation switch that should have dropped it for anyone
-      // reaching past this map into Layer 2. The declarative behaviour is
-      // unchanged either way: `applySettings` replays the map after every setup.
       const priority = override.priority ?? SsOverridePriority.holdUntilNextAnimation
 
-      if (override.hide == null) internal.clearPartVisibility(index)
+      // `hide: false` reverts, like an absent key and like every sibling
+      // Player's `setPartVisibilityOverride(part, false)`: the Brain's override
+      // only force-hides, and it rejects the force-show the C ABI reserves.
+      if (!override.hide) internal.clearPartVisibility(index)
       else {
-        internal.setPartVisibility(
-          index,
-          // Layer 2 keeps the C ABI's tri-state force flag: 1 force-hides,
-          // 2 force-shows. An absent key is the third answer and took the
-          // branch above, so `hide: false` still means force-show rather than
-          // revert — the same three ways round the sibling Players offer as
-          // `setPartVisibilityOverride(part, false)` next to `clear…`.
-          override.hide ? 1 : 2,
-          // Off by default, as everywhere else: a keyframed hide never cascades
-          // in SpriteStudio, so cascading is the opt-in.
-          override.cascade ?? false
+        this.partCommand(
+          internal.setPartVisibility(
+            index,
+            1,
+            // Off by default, as everywhere else: a keyframed hide never cascades
+            // in SpriteStudio, so cascading is the opt-in.
+            override.cascade ?? false
+          ),
+          'setPartVisibility',
+          `'${name}'`
         )
       }
 
       if (override.color == null) internal.clearPartColor(index)
       else {
-        internal.setPartColor(
-          index,
-          override.blendOp ?? SsBlendOp.mix,
-          ssPackColor(override.color),
-          priority
+        this.partCommand(
+          internal.setPartColor(
+            index,
+            override.blendOp ?? SsBlendOp.mix,
+            ssPackColor(override.color),
+            priority
+          ),
+          'setPartColor',
+          `'${name}'`
         )
       }
 
       if (override.cell == null) internal.clearPartCell(index)
       else {
-        internal.setPartCell(
-          index,
-          SsRuntimeModule.hashString(override.cell.cellmap),
-          SsRuntimeModule.hashString(override.cell.cell),
-          priority
+        const { cellmap, cell } = override.cell
+        this.partCommand(
+          internal.setPartCell(
+            index,
+            SsRuntimeModule.hashString(cellmap),
+            SsRuntimeModule.hashString(cell),
+            priority
+          ),
+          'setPartCell',
+          `'${name}', '${cellmap}', '${cell}'`
         )
       }
     }
+    frameChanged(this)
+  }
+
+  // --- animation mixing --------------------------------------------------
+  //
+  // The Brain's track stack, under the family's names. A **track** layers onto
+  // the pose the tracks below it made, by its alpha and blend; a **source** is
+  // one animation blended within a track, and its handle is what
+  // `addTrackSource`, `trackMainSource` and every event's `source` give out.
+  // Track 0 is the one `setAnimation` lays, and `setAnimation` collapses the
+  // stack back to it.
+  //
+  // Commands return false when they did nothing and say why, once per call and
+  // target; reads return `null` for "nothing there". The playback settings of
+  // track 0 are the transport above under its own names — `setTrackSpeed(0, …)`
+  // is `setSpeedScale`, and both are kept here, so either survives a reload.
+
+  /** Tracks that exist, silent ones included. 0 before a load. */
+  get trackCount(): number {
+    return this.internalPlayer?.trackCount ?? 0
+  }
+
+  /**
+   * Lays `name` on `track`, replacing what it played, starting from its head
+   * (or at track 0's phase under {@link setTrackSync}). Tracks grow on demand.
+   *
+   * On **track 0** it is an animation switch with no fade: `currentAnimation`
+   * names it from the call, {@link onAnimationChanged} fires, and the loop count
+   * set with {@link setLoopCount} is put back on it — but unlike
+   * {@link setAnimation} the other tracks stay, and nothing is re-posed or
+   * restarted. A track above 0 that plays its loops out holds its last frame,
+   * still blended in, until you clear it or lay something else.
+   */
+  setTrackAnimation(track: number, name: string): boolean {
+    const internal = this.trackTarget('setTrackAnimation', track, name)
+    if (internal == null) return false
+    const ok = internal.setTrackAnimation(track, name)
+    if (ok && track === 0) this.trackZeroSwitched(internal, name)
+    return this.trackCommand(ok, 'setTrackAnimation', `${track}, '${name}'`)
+  }
+
+  /** Silences `track` and cancels its fade. Track 0 cannot be cleared — fade it instead. */
+  clearTrack(track: number): boolean {
+    const internal = this.trackTarget('clearTrack', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.clearTrack(track), 'clearTrack', `${track}`)
+  }
+
+  /**
+   * Fades `track` over to `name` in `durationMs` (the unit {@link advance}
+   * takes). Everything the track carries fades out together, and a crossfade
+   * started while one runs takes the pose over where it stands.
+   *
+   * On **track 0** the incoming animation takes over **from the call on**:
+   * `currentAnimation`, `isPlaying` / `isFinished` / `justLooped`, the frame,
+   * the events and the discrete attributes (cells, hiding, part colour) all
+   * belong to it at once, and the outgoing one only fades away — it no longer
+   * reports finishing, and by default fires no events
+   * ({@link setTrackOutgoingEventThreshold}). {@link onAnimationChanged} fires,
+   * {@link onAnimationStarted} does not: it is a switch, not a `play()`. The
+   * incoming animation plays at the track's speed, direction, frame rate and
+   * frame skip, and loops {@link setLoopCount} times; it starts from its head.
+   *
+   * Fades run on the playback clock, so on a paused or stopped player the fade
+   * waits for {@link resume} or {@link play}.
+   */
+  crossfade(track: number, name: string, durationMs: number): boolean {
+    const internal = this.trackTarget('crossfade', track, name)
+    if (internal == null) return false
+    const ok = internal.crossfade(track, name, durationMs)
+    if (ok && track === 0) this.trackZeroSwitched(internal, name)
+    return this.trackCommand(ok, 'crossfade', `${track}, '${name}'`, `${durationMs}`)
+  }
+
+  /**
+   * Drives `track`'s alpha to `alpha` over `durationMs`. Fading track 0 to 0
+   * brings the character to its setup pose.
+   */
+  fadeTrack(track: number, alpha: number, durationMs: number): boolean {
+    const internal = this.trackTarget('fadeTrack', track)
+    if (internal == null) return false
+    return this.trackCommand(
+      internal.fadeTrack(track, alpha, durationMs),
+      'fadeTrack',
+      `${track}`, `${alpha}, ${durationMs}`
+    )
+  }
+
+  /** How far the fade in flight on `track` has got, `0`–`1`; `null` when none is. */
+  trackFadeProgress(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackFadeProgress(track))
+  }
+
+  /** Stops the fade on `track` where it stands; the next crossfade takes what it left. */
+  cancelTrackFade(track: number): boolean {
+    const internal = this.trackTarget('cancelTrackFade', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.cancelTrackFade(track), 'cancelTrackFade', `${track}`)
+  }
+
+  /** How strongly `track` layers onto the pose below. Not clamped. */
+  setTrackAlpha(track: number, alpha: number): boolean {
+    const internal = this.trackTarget('setTrackAlpha', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackAlpha(track, alpha), 'setTrackAlpha', `${track}`, `${alpha}`)
+  }
+  trackAlpha(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackAlpha(track))
+  }
+
+  /** `mix` replaces the pose below by the track's alpha; `additive` adds its offset. */
+  setTrackBlend(track: number, blend: SsTrackBlend): boolean {
+    const internal = this.trackTarget('setTrackBlend', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackBlend(track, blend), 'setTrackBlend', `${track}`, `${blend}`)
+  }
+  trackBlend(track: number): SsTrackBlend | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackBlend(track)) as SsTrackBlend | null
+  }
+
+  /**
+   * Where an animation laid on `track` starts — set it **before** laying one.
+   * A track with nothing on it is created for it. Reset by {@link setAnimation}.
+   */
+  setTrackSync(track: number, sync: SsTrackSync): boolean {
+    const internal = this.trackTarget('setTrackSync', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackSync(track, sync), 'setTrackSync', `${track}`, `${sync}`)
+  }
+  trackSync(track: number): SsTrackSync | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackSync(track)) as SsTrackSync | null
+  }
+
+  /** Seeks `track`'s animation — how a modulation axis authored as an animation is driven. */
+  setTrackFrame(track: number, frameNo: number): boolean {
+    const internal = this.trackTarget('setTrackFrame', track)
+    if (internal == null) return false
+    return this.trackCommand(internal.setTrackFrame(track, frameNo), 'setTrackFrame', `${track}`, `${frameNo}`)
+  }
+  trackFrame(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackFrame(track))
+  }
+
+  /**
+   * `track`'s speed multiplier. **A track setting**: it holds for every
+   * animation laid on the track, both sides of a crossfade included, and a
+   * track with nothing on it is created for it. Track 0's is
+   * {@link setSpeedScale}.
+   */
+  setTrackSpeed(track: number, speed: number): boolean {
+    if (track === 0) this.settings.speed = speed
+    const internal = this.settingTarget('setTrackSpeed', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(internal.setTrackSpeed(track, speed), 'setTrackSpeed', `${track}`, `${speed}`)
+  }
+  /** What was stored — a negative speed reads back as the stop it became. */
+  trackSpeed(track: number): number | null {
+    const internal = this.internalPlayer
+    if (internal == null) return track === 0 ? this.settings.speed : null
+    return orNull(internal.getTrackSpeed(track))
+  }
+
+  /** `track`'s absolute frame-rate override; `0` clears it. Track 0's is {@link setFrameRate}. */
+  setTrackFrameRate(track: number, fps: number): boolean {
+    if (track === 0) this.settings.frameRate = fps
+    const internal = this.settingTarget('setTrackFrameRate', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(internal.setTrackFrameRate(track, fps), 'setTrackFrameRate', `${track}`, `${fps}`)
+  }
+  /** The rate `track`'s animation plays at — `0` with no animation and no override. */
+  trackFrameRate(track: number): number | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackFrameRate(track))
+  }
+
+  /** Track 0's is {@link setFrameSkipEnabled}. */
+  setTrackFrameSkipEnabled(track: number, enabled: boolean): boolean {
+    if (track === 0) this.settings.skipFrames = enabled
+    const internal = this.settingTarget('setTrackFrameSkipEnabled', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(
+      internal.setTrackSkipFrames(track, enabled),
+      'setTrackFrameSkipEnabled',
+      `${track}`, `${enabled}`
+    )
+  }
+  trackFrameSkipEnabled(track: number): boolean | null {
+    const internal = this.internalPlayer
+    if (internal == null || !this.trackExists(internal, track)) return null
+    return internal.getTrackSkipFrames(track)
+  }
+
+  /** Track 0's is {@link setPlaybackDirection}. */
+  setTrackPlaybackDirection(
+    track: number,
+    direction: SsPlaybackDirection,
+    style: SsPlaybackStyle = SsPlaybackStyle.normal
+  ): boolean {
+    if (track === 0) {
+      this.settings.direction = direction
+      this.settings.style = style
+    }
+    const internal = this.settingTarget('setTrackPlaybackDirection', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(
+      internal.setTrackPlaybackDirection(track, direction, style),
+      'setTrackPlaybackDirection',
+      `${track}`, `${direction}, ${style}`
+    )
+  }
+  trackPlaybackDirection(track: number): SsPlaybackDirection | null {
+    return orNullIfNegative(
+      this.internalPlayer?.getTrackPlaybackDirection(track)
+    ) as SsPlaybackDirection | null
+  }
+  trackPlaybackStyle(track: number): SsPlaybackStyle | null {
+    return orNullIfNegative(
+      this.internalPlayer?.getTrackPlaybackStyle(track)
+    ) as SsPlaybackStyle | null
+  }
+
+  /**
+   * How many times `track`'s animation plays before it holds its last frame;
+   * `0` is forever. **The animation's**, unlike the other track settings:
+   * laying another one on a track above 0 starts it looping forever again.
+   * Track 0's is {@link setLoopCount}, which this player puts back on every
+   * animation track 0 switches to.
+   */
+  setTrackLoopCount(track: number, loops: number): boolean {
+    if (track === 0) this.settings.loops = loops
+    const internal = this.settingTarget('setTrackLoopCount', track)
+    if (internal == null) return track === 0
+    return this.trackCommand(internal.setTrackLoopCount(track, loops), 'setTrackLoopCount', `${track}`, `${loops}`)
+  }
+  /** `-1` is forever; `null` for a track with no animation. */
+  trackLoopCount(track: number): number | null {
+    const loops = this.internalPlayer?.getTrackLoopCount(track) ?? 0
+    return loops === 0 ? null : loops
+  }
+
+  /**
+   * Whether `track`'s animation has played its loops out — a state, as
+   * {@link isFinished} is for track 0. A finished track above 0 holds its last
+   * frame; only track 0 finishing ends the character's playback.
+   */
+  isTrackFinished(track: number): boolean {
+    return this.internalPlayer?.isTrackFinished(track) ?? false
+  }
+
+  /**
+   * Whether the last {@link advance} wrapped `track`'s animation — a pulse, as
+   * {@link justLooped} is for track 0. False after a tick that did not run.
+   */
+  trackJustLooped(track: number): boolean {
+    return this.ran && (this.internalPlayer?.trackJustLooped(track) ?? false)
+  }
+
+  /**
+   * How far into a crossfade on `track` its outgoing side keeps firing events:
+   * while its share, `1 - progress`, is at least `threshold`. The default,
+   * `Infinity`, silences it from the moment the fade begins — the moment the
+   * incoming side starts firing. `0.5` keeps it firing through the first half.
+   */
+  setTrackOutgoingEventThreshold(track: number, threshold: number): boolean {
+    const internal = this.trackTarget('setTrackOutgoingEventThreshold', track)
+    if (internal == null) return false
+    return this.trackCommand(
+      internal.setTrackOutgoingEventThreshold(track, threshold),
+      'setTrackOutgoingEventThreshold',
+      `${track}`, `${threshold}`
+    )
+  }
+  trackOutgoingEventThreshold(track: number): number | null {
+    return orNull(this.internalPlayer?.getTrackOutgoingEventThreshold(track))
+  }
+
+  /**
+   * The source carrying `track`'s animation, or `null` when it has none. After
+   * a crossfade begins, the incoming one. A finished fade releases its outgoing
+   * sources and their handles are reused, so read this rather than keep one.
+   */
+  trackMainSource(track: number): number | null {
+    return orNullIfNegative(this.internalPlayer?.getTrackMainSource(track))
+  }
+
+  /**
+   * Adds `name` to `track` as another weighted source — locomotion-style
+   * blending within one track — and returns its handle, or `null` when it was
+   * refused. `weight` only sets proportions among the track's sources.
+   */
+  addTrackSource(track: number, name: string, weight = 1): number | null {
+    const internal = this.trackTarget('addTrackSource', track, name)
+    if (internal == null) return null
+    const source = internal.addTrackSource(track, name, weight)
+    this.trackCommand(source >= 0, 'addTrackSource', `${track}, '${name}'`, `${weight}`)
+    return source >= 0 ? source : null
+  }
+
+  /** A source's share of its track, against the track's other sources. */
+  setSourceWeight(source: number, weight: number): boolean {
+    const internal = this.sourceTarget('setSourceWeight', source)
+    if (internal == null) return false
+    return this.trackCommand(internal.setSourceWeight(source, weight), 'setSourceWeight', `${source}`, `${weight}`)
+  }
+  sourceWeight(source: number): number | null {
+    return orNull(this.internalPlayer?.getSourceWeight(source))
+  }
+
+  setSourceFrame(source: number, frameNo: number): boolean {
+    const internal = this.sourceTarget('setSourceFrame', source)
+    if (internal == null) return false
+    return this.trackCommand(internal.setSourceFrame(source, frameNo), 'setSourceFrame', `${source}`, `${frameNo}`)
+  }
+  sourceFrame(source: number): number | null {
+    return orNull(this.internalPlayer?.getSourceFrame(source))
+  }
+
+  /**
+   * The weight at or above which `source` fires its events. The default,
+   * `Infinity`, leaves every source but track 0's main one silent; lower it to
+   * hear an overlay's events, each arriving with its `source`.
+   */
+  setSourceEventThreshold(source: number, threshold: number): boolean {
+    const internal = this.sourceTarget('setSourceEventThreshold', source)
+    if (internal == null) return false
+    return this.trackCommand(
+      internal.setSourceEventThreshold(source, threshold),
+      'setSourceEventThreshold',
+      `${source}`, `${threshold}`
+    )
+  }
+  sourceEventThreshold(source: number): number | null {
+    return orNull(this.internalPlayer?.getSourceEventThreshold(source))
+  }
+
+  /**
+   * What a switch of track 0 that is not a setup — a crossfade, or a
+   * `setTrackAnimation` — owes the rest of this player, run as soon as the
+   * Brain accepted it, because the Brain hands track 0 over from the call on.
+   *
+   * The name, first: left on the outgoing animation, a `setAnimation` back to it
+   * would look like the one already selected and do nothing. The finished latch,
+   * so the incoming animation's own end fires `onAnimationFinished`. The loop
+   * count, which the Brain resets on every animation it lays. `started` is not
+   * fired — a switch that keeps playing is not a `play()`.
+   *
+   * Not done: re-measuring an animation-scoped content box (measuring re-sets
+   * the animation up, which would collapse the stack), and replaying the part
+   * overrides (a crossfade keeps them; only a setup drops them).
+   */
+  private trackZeroSwitched(internal: SsInternalPlayer, name: string): void {
+    const previous = this.animation
+    this.animation = name
+    this.reportedMissingAnimation = null
+    this.wasFinished = false
+    internal.setLoopCount(this.settings.loops)
+    if (previous !== name) this.onAnimationChanged?.(name)
+    this.notify()
+  }
+
+  /**
+   * The Layer 2 player a track command on `track` can go to, or null after
+   * reporting why not — no pack yet, or a track no index can be.
+   */
+  private trackTarget(call: string, track: number, name?: string): SsInternalPlayer | null {
+    return this.commandTarget(call, track, 'track', name)
+  }
+
+  /**
+   * {@link trackTarget} for a playback setting, which on track 0 is the
+   * player's own and was already recorded: with no pack yet there is nothing
+   * to refuse, and the next load replays it.
+   */
+  private settingTarget(call: string, track: number): SsInternalPlayer | null {
+    if (track === 0 && this.internalPlayer == null) return null
+    return this.trackTarget(call, track)
+  }
+
+  private sourceTarget(call: string, source: number): SsInternalPlayer | null {
+    return this.commandTarget(call, source, 'source')
+  }
+
+  private commandTarget(
+    call: string,
+    index: number,
+    what: 'track' | 'source',
+    name?: string
+  ): SsInternalPlayer | null {
+    const subject = name == null ? `${index}` : `${index}, '${name}'`
+    if (!Number.isInteger(index) || index < 0) {
+      this.reportTrackFailure(
+        `${call}:${what}:${index}`,
+        `${call}(${subject}) did nothing — a ${what} is a whole number from 0`
+      )
+      return null
+    }
+    const internal = this.internalPlayer
+    if (internal == null || internal.isDisposed) {
+      this.reportTrackFailure(
+        `${call}:unloaded`,
+        `${call}(${subject}) did nothing — no pack is loaded yet`
+      )
+      return null
+    }
+    return internal
+  }
+
+  /**
+   * Passes `ok` through, and says so the first time a call on a given target
+   * did nothing — a command that silently does nothing shows up only as an
+   * animation that "will not blend". Keyed by the call and its `target` (the
+   * track or source, and the name it was given; a section's two frames), not by
+   * `values`, so a slider dragging a refused alpha is still one line.
+   */
+  private trackCommand(ok: boolean, call: string, target: string, values?: string): boolean {
+    if (ok) {
+      frameChanged(this)
+      return true
+    }
+    this.reportRefused(call, target, values)
+    return false
+  }
+
+  /** {@link trackCommand} for a call whose caller announces the frame itself, once for the lot. */
+  private partCommand(ok: boolean, call: string, target: string): void {
+    if (!ok) this.reportRefused(call, target)
+  }
+
+  private reportRefused(call: string, target: string, values?: string): void {
+    // Read straight after the call that failed, which is the only moment it
+    // describes that call.
+    const reason = this.internalPlayer?.lastErrorMessage
+    this.reportTrackFailure(
+      `${call}:${target}`,
+      `${call}(${values == null ? target : `${target}, ${values}`}) did nothing on ` +
+        `'${this.resourceUri ?? 'the loaded pack'}'` +
+        (reason == null ? '' : ` — ${reason}`)
+    )
+  }
+
+  private reportTrackFailure(key: string, message: string): void {
+    if (this.reportedTrackFailures.has(key)) return
+    this.reportedTrackFailures.add(key)
+    console.warn(`react-native-spritestudio: ${message}.`)
+  }
+
+  private trackExists(internal: SsInternalPlayer, track: number): boolean {
+    return Number.isInteger(track) && track >= 0 && track < internal.trackCount
   }
 
   // --- runtime textures --------------------------------------------------
@@ -1114,7 +1795,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
    * for a name the loaded pack has no such texture for; a name set before the
    * first load is accepted and applied once the pack lands.
    *
-   * **Unlike ForGodot, the replacement reaches instance children.** The whole
+   * **The replacement reaches instance children.** The whole
    * player tree draws through one texture table here, so a child that samples the
    * same cellmap picks up the swap too — there is no per-child map to set
    * separately. It also **survives a `source` change**: the override is re-keyed
@@ -1146,7 +1827,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
     // Reject a name the loaded pack cannot bind, so a typo is a warning rather
     // than a paint nothing ever draws with. Only once a pack is loaded: before
-    // that there is nothing to check against, and the load's replay validates it.
+    // that there is nothing to check against.
     if (
       this.internalPlayer != null &&
       !this.replaceableTextureNames.includes(name)
@@ -1169,8 +1850,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   /**
    * The runtime replacement in effect for `name`, or `null` when none is — the
-   * **override value only**, never the pack's own texture (the same contract as
-   * ForGodot's `get_cellmap_texture`). Use it to read back what
+   * **override value only**, never the pack's own texture. Use it to read back what
    * {@link setCellmapTexture} set.
    */
   getCellmapTexture(name: string): SkImage | null {
@@ -1228,6 +1908,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       request.scope === 'pack' ? internal.getAnimationNames() : [animation]
     if (names.length === 0) return
     const box = internal.measureContentBox(names, request.maxFrames ?? 0)
+    this.measuredFor = animation
     // A zero-sized box means nothing drew — keep null rather than publishing a
     // box that a fit would divide by.
     this.contentBoxValue = box.width > 0 && box.height > 0 ? box : null
@@ -1248,6 +1929,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.root = { ...value }
     const internal = this.internalPlayer
     if (internal != null) internal.rootTransform = { ...value }
+    frameChanged(this)
   }
 
   // --- frame -------------------------------------------------------------
@@ -1255,21 +1937,37 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
   /**
    * Advances the animation and dispatches the frame's events.
    *
+   * A stopped player (never played, stopped, or finished) holds its frame:
+   * nothing advances, its parts with independent playback included, as in
+   * SSPlayerForWeb. A paused one still advances, so those keep running, unless
+   * it has no effect or instance part, in which case nothing could move. A
+   * finished one still advances while the rest of the stack moves the pose:
+   * track 0 ending does not stop the clock that runs on — see
+   * `SsContext.advances`.
+   *
    * `isFinished` is a *state* the Brain latches until the next play/setup, so
    * `onAnimationFinished` is fired off its rising edge — polling the state itself would
    * fire it on every frame after the end.
    */
   advance(dtMilliseconds: number): void {
     const internal = this.internalPlayer
+    this.ran = false
     if (internal == null || internal.isDisposed) return
+    if (!internal.advances) return
 
     internal.advance(dtMilliseconds)
+    this.ran = true
 
     // Read once and shared by both notifications below: `currentAnimation` is
     // what each is about, and re-reading it would say the same thing twice.
     const animation = this.animation ?? ''
 
-    if (internal.justLooped) this.onAnimationLooped?.(animation)
+    // Everything the tick reported is read before any handler runs: a handler
+    // that sets up an animation clears the pulse, the events and the finish.
+    //
+    // Gated like the events below: the pulse is a read across JSI, and most
+    // players have nobody listening for it.
+    const looped = this.onAnimationLooped != null && internal.justLooped
 
     // Two gates, both on the hot path. Nothing is lost by skipping: the Brain
     // rebuilds this list on every collection, so an unread tick's events are
@@ -1280,32 +1978,54 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // `passedEventCount` counts frames carrying *any* event, so it is read once
     // and shared: it cannot tell the two kinds apart, and asking it twice would
     // cross JSI twice to get the same number.
-    if (
+    const carriesEvents =
       (this.onUserData != null || this.onAudio != null || this.onSignal != null) &&
       internal.passedEventCount > 0
-    ) {
-      if (this.onUserData != null) {
-        for (const event of internal.getUserDataEvents()) this.onUserData(event)
-      }
-      if (this.onAudio != null) {
-        for (const event of internal.getAudioEvents()) this.onAudio(event)
-      }
-      if (this.onSignal != null) {
-        for (const event of internal.getSignalEvents()) this.onSignal(event)
-      }
-    }
+    const userData = carriesEvents && this.onUserData != null ? internal.getUserDataEvents() : null
+    const audio = carriesEvents && this.onAudio != null ? internal.getAudioEvents() : null
+    const signals = carriesEvents && this.onSignal != null ? internal.getSignalEvents() : null
 
     const finished = internal.isFinished
-    if (finished && !this.wasFinished) this.onAnimationFinished?.(animation)
+    const justFinished = finished && !this.wasFinished
+    // Written ahead of the handlers, since a setup in one of them resets it.
     this.wasFinished = finished
+
+    if (looped) this.onAnimationLooped?.(animation)
+    if (userData != null) for (const event of userData) this.onUserData?.(event)
+    if (audio != null) for (const event of audio) this.onAudio?.(event)
+    if (signals != null) for (const event of signals) this.onSignal?.(event)
+    if (justFinished) this.onAnimationFinished?.(animation)
+  }
+
+  /**
+   * Whether {@link draw} would draw something other than what it last drew.
+   * False for a stopped player whose frame, textures and placement are as they
+   * were, so a view can keep the picture it has.
+   */
+  get needsDraw(): boolean {
+    const internal = this.internalPlayer
+    // Loaded, reloaded or released since the last draw.
+    if (internal !== this.drawnInternal) return true
+    return internal != null && !internal.isDisposed && internal.needsDraw
+  }
+
+  /** Whether {@link advance} can change the frame. See `SsContext.advances`. */
+  get advances(): boolean {
+    const internal = this.internalPlayer
+    return internal != null && !internal.isDisposed && internal.advances
   }
 
   /** Draws the current frame. Returns the number of vertices drawn. */
   draw(canvas: SkCanvas): number {
     const internal = this.internalPlayer
-    if (internal == null || internal.isDisposed) return 0
-    return internal.draw(canvas)
+    this.drawnInternal = internal
+    const drawn = internal == null || internal.isDisposed ? 0 : internal.draw(canvas)
+    frameShown(this)
+    return drawn
   }
+
+  /** The Layer 2 player the last {@link draw} drew; `undefined` before any. */
+  private drawnInternal: SsInternalPlayer | null | undefined = undefined
 
   // --- fallback clock ----------------------------------------------------
 
@@ -1326,6 +2046,8 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
       // it missed.
       this.advance(Math.min(now - last, MAX_STEP_MS))
       last = now
+      // Nothing draws a player on this clock, so its step is the frame.
+      frameShown(this)
       this.clock = requestAnimationFrame(tick)
     }
     this.clock = requestAnimationFrame(tick)
@@ -1349,6 +2071,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
 
   private notify(): void {
     for (const listener of this.listeners) listener()
+    frameChanged(this)
   }
 
   // --- teardown ----------------------------------------------------------
@@ -1359,6 +2082,7 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     // down with it, which is why the mounted packs can only be released after.
     this.internalPlayer?.dispose()
     this.internalPlayer = null
+    this.partIndices.clear()
     // Leases, not handles: the cache disposes the resource when the last player
     // holding it lets go. Order still matters for the same reason it did — the
     // context borrows from the resource, so it goes first.
@@ -1371,13 +2095,10 @@ export class SpriteStudioPlayer implements SpriteStudioPlayerApi {
     this.imageKeys = []
     // The paints the last load put in the registry, taken back out with it.
     //
-    // `load()` documents that it replaces what was loaded before, and leaving
-    // these behind made that untrue in a way that draws: `texture_hash` is the
-    // FNV-1a of a *cellmap name*, so a second pack naming a cellmap the same
-    // thing as the first — `common`, on this repo's own example packs — kept
-    // drawing with the first pack's atlas. Silently, and only for the cellmaps
-    // whose names happened to collide. Without a collision it merely grew, one
-    // binding per load, all of them handed to `drawInto` every frame.
+    // `load()` replaces what was loaded before, so these must go: `texture_hash`
+    // is the FNV-1a of a *cellmap name*, so a second pack naming a cellmap the same
+    // thing as the first would keep drawing with the first pack's atlas. Without a
+    // collision the table would grow one binding per load.
     //
     // Only the ones this load registered: a caller-supplied texture is left
     // alone on the way in (`SsTextureLoader`), so it must be left alone on the

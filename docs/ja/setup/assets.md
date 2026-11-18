@@ -6,7 +6,7 @@ description: .sspj から .ssab への変換と、パックがファイルでは
 # アセットの準備（`.sspj` → `.ssab`）
 
 SpriteStudio が保存するのは `.sspj` プロジェクトで、このパッケージが再生するのは
-`.ssab` です。その間の変換は**あなた自身が**手元のマシンで、**ビルド時に一度だけ**実行する手順です。React Native にはインポータを載せるエディタが無いので、エンジン系のプレイヤーと違って自動の経路はなく、実行時に変換されるものもありません。変換はあなたが持つ手順です。
+`.ssab` です。その間の変換は**あなた自身が**手元のマシンで、**ビルド時に一度だけ**実行する手順です。React Native にはインポータを載せるエディタが無いので、自動の経路はなく、実行時に変換されるものもありません。変換はあなたが持つ手順です。
 
 ```mermaid
 graph LR
@@ -60,25 +60,21 @@ graph LR
 
 ::: tip 手元に `.sspj` がまだ無いときは
 [SpriteStudio 公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら
-[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら
-[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)
-が手頃です。ダウンロードしたプロジェクトは、下のどのコンバータにもそのまま渡せます。
+[Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)が手頃です。ダウンロードしたプロジェクトは、下のどのコンバータにもそのまま渡せます。
 :::
 
 | ツール | 向いている場面 | 入手方法 |
 |---|---|---|
-| `ssconverter-web` | 数個を手作業で変換。インストール不要 | <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">ホスト版のコンバータ</a>を開く |
-| SSConverter GUI | デスクトップ GUI で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
+| `ssconverter-web` | 数個を手作業で変換。インストール不要 | <a href="https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/" target="_blank" rel="noreferrer">ホスト版のコンバータ</a>を開く（ZIP でダウンロードされるので展開します） |
+| SSConverter GUI | デスクトップ GUI（macOS・Windows）で繰り返し変換 | [Releases](https://github.com/cri-middleware/SSConverterGUI/releases) のバイナリ |
 | `ssconverter-cli` | CI、バッチ、再現性 | [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) のバイナリ |
 
-::: warning `ssconverter-web` には Chromium 系ブラウザが必要です
-フォルダ選択に **File System Access API** を使うため、Chrome や Edge では動作し、
-Firefox と Safari では動作しません。パックは出口だけでなく、入口でもディレクトリです。
+::: info `ssconverter-web` へのフォルダのドロップには Chromium 系ブラウザが必要です
+ドロップされたフォルダは **File System Access API** で読むため、ドロップは Chrome や Edge で動作します。Firefox と Safari では **Browse...** でフォルダを選択してください。パックは出口だけでなく、入口でもディレクトリです。
 :::
 
 ::: tip 変換そのものは、全プレイヤー共通で 1 か所に書かれています
-[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)
-がこのパッケージの取る経路で、ツールの選び方とビルドや CI パイプラインへの組み込みを扱っています。[アセットの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/conversion/)は全体像です — 一部のエンジンが取り込み時に変換し、これがそうしない理由も含みます。
+[スタンドアロンツールでの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/convert-with-a-standalone-tool/)がこのパッケージの取る経路で、ツールの選び方とビルドや CI パイプラインへの組み込みを扱っています。[アセットの変換](https://cri-middleware.github.io/SpriteStudio-Docs/ja/overview/conversion/)は変換経路の全体像です。
 :::
 
 ## パックはファイルではなくディレクトリです
@@ -88,7 +84,7 @@ Firefox と Safari では動作しません。パックは出口だけでなく�
 Metro はこれを運べません。`require()` が名指ししたものだけをバンドルし、ディレクトリを走査することはなく、さらに Android のパッケージャが名指しされたものを `res/` に平坦化してしまいます。ここから 2 つの帰結が出てきますが、どちらも重要です。
 
 - **`require()` したモジュールは `source` として使えません。** 背後にディレクトリを持たない唯一の形式です。
-- **`assetExts` に `ssab` / `ssqb` を入れてはいけません。** Metro にこれらの拡張子を教えると、まさに動作しない「平坦化され、兄弟ファイルを失ったコピー」ができあがります。
+- **`assetExts` に `ssab` / `ssqb` を入れてはいけません。** Metro にこれらの拡張子を教えると、まさに動作しない「平坦化され、参照先のファイルを失ったコピー」ができあがります。
 
 パックのディレクトリは代わりに**ネイティブのアプリアセット**として同梱します。
 
@@ -103,13 +99,13 @@ Metro はこれを運べません。`require()` が名指ししたものだけ�
 プラグインはビルドのたびに再コピーするので、コンバータを再実行した後はリビルドだけで済み、`prebuild` のやり直しは不要です。
 
 ::: warning アセットは Fast Refresh されません
-パックを変更したらネイティブビルドが必要です。回避策はありません。このファイルはバンドルのエントリではなくアプリのアセットだからです。
+同梱したパックを変更したらネイティブビルドが必要です。このファイルはバンドルのエントリではなくアプリのアセットだからです。`http(s)` URL で配信するパックは例外で、そこから読み込むのでビルドし直す必要はありません（[基本的な再生](/ja/usage/basic)）。
 :::
 
 ## Reference パックと Embedded パック {#reference-and-embedded-packs}
 
 コンバータは 2 種類のどちらかを出力します。これは SDK 側の呼称です。
-`ssconverter-cli --embedded` は Embedded パックを、フラグなしなら Reference パックを生成します。
+`ssconverter-cli --embedded`、または ssconverter-web と SSConverter GUI の **Embedded Assets** チェックボックスで Embedded パックを `<project>_emb/` フォルダに生成し、指定しなければ Reference パックを生成します。
 
 | 種類 | 同梱される形 | トレードオフ |
 |---|---|---|

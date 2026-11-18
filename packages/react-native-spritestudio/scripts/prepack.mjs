@@ -62,12 +62,8 @@ for (const f of ['LICENSE.md', 'THIRD-PARTY-LICENSES.ssruntime.md']) {
   }
 }
 
-// The third is the FlatBuffers licence, and it is the one that got away: `files`
-// listed `third_party/flatbuffers/include` and stopped there, so the headers
-// were compiled into the consumer's binary while the Apache-2.0 text they are
-// told to redistribute was not in the package they installed. It sits beside
-// `include/`, not inside it, which is exactly why the check below is separate
-// from the header check.
+// The third is the FlatBuffers licence. It sits beside `include/`, not inside it,
+// so it needs a check of its own.
 if (!has('third_party', 'flatbuffers', 'LICENSE')) {
   fail('third_party/flatbuffers/LICENSE is missing', 'Apache-2.0 requires the text to travel with the headers — check `files` still lists it, and that the submodule is initialised')
 }
@@ -82,9 +78,9 @@ if (!has('third_party', 'flatbuffers', 'include', 'flatbuffers', 'flatbuffers.h'
 
 // --- 5. what `files` actually pulls in ---------------------------------------
 //
-// `files` takes directories recursively, which is how `"android"` came to carry
-// 2.8 GB of `.cxx` build output. Guarded two ways: the entry that did it is
-// named, and the total is measured, so the next way in is caught as well.
+// `files` takes directories recursively, so a build-output directory under
+// `android/` would ship whole. Guarded two ways: that entry is named, and the total
+// is measured, so another way in is caught as well.
 if (pkg.files?.includes('android')) {
   fail('files lists "android" whole', 'it takes the directory recursively, .cxx build output included — list CMakeLists.txt, build.gradle and src instead')
 }
@@ -118,8 +114,8 @@ if (missing.length > 0) {
        'npm ignores them silently, so an entry that was renamed reads as one that works')
 }
 
-// The Brain is ~57 MB of it and the sources are under 2 MB, so anything past
-// this is something new and unintended rather than growth.
+// The Brain is most of it, so anything past this is something new and unintended
+// rather than growth.
 const kCeilingMb = 100
 if (mb > kCeilingMb) {
   fail(`the pack would be ${mb.toFixed(0)} MB unpacked`, `over the ${kCeilingMb} MB ceiling — something is pulling in build output`)

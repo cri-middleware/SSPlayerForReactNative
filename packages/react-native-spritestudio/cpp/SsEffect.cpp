@@ -9,7 +9,7 @@ namespace {
 
 /// The seed for one part's slot: deterministic, yet different per part.
 ///
-/// SSPlayerForFlutter's and SSPlayerForGodot's formula. Two parts playing the
+/// Two parts playing the
 /// *same* effect would otherwise emit in visual lockstep, and a clock- or
 /// RNG-derived seed would make the same frame render differently on a second
 /// run. The runtime overrides it outright for effects authored
@@ -40,9 +40,10 @@ void SsEffectSlots::bind(void* resource, const SsAnimeBinaryView& view) {
   }
 }
 
-void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, float fps,
-                         bool parentLooped) {
+void SsEffectSlots::step(void* context, const ss::runtime::FrameData* frame, float parentFrame,
+                         float deltaSeconds, float fps, bool parentLooped) {
   if (context == nullptr || parts_.empty()) return;
+  const auto* states = frame != nullptr ? frame->parts() : nullptr;
 
   for (size_t i = 0; i < parts_.size(); ++i) {
     void* slot = slots_[i];
@@ -54,20 +55,20 @@ void SsEffectSlots::step(void* context, float parentFrame, float deltaSeconds, f
     }
 
     const ss_effect_event_info ev = ss_runtime_get_active_effect_event(context, partIndex);
+    // Whether the draw order has the part: the Brain leaves a hidden one out.
+    const bool draw =
+        states == nullptr || (partIndex < states->size() && !states->Get(partIndex)->hide());
     const ss_effect_step_result result =
         ss_effect_slot_step(slot, ev, parentFrame, deltaSeconds, fps, parentLooped,
                             // `y_flip = true`: the context runs Y-down (see
                             // `HybridSsContext`'s constructor), so the particles
                             // are mirrored here with everything else. Passing
                             // false would leave every effect mirrored about its
-                            // emitter relative to the parts around it. Same value
-                            // ForWeb, ForFlutter and ForGodot pass.
+                            // emitter relative to the parts around it.
                             /*y_flip=*/true,
                             // (x, y) pairs. The plan reports it back and the
                             // baker reads it there rather than assuming.
-                            /*vert_stride=*/2,
-                            // No draw_order here: every part builds its plan.
-                            /*draw=*/true);
+                            /*vert_stride=*/2, draw);
 
     planByPart_[partIndex] =
         result.visible && result.draw_plan_buf != nullptr && result.draw_plan_len > 0
@@ -80,8 +81,7 @@ void SsEffectSlots::reset() {
   for (void* slot : slots_) {
     if (slot != nullptr) ss_effect_slot_reset(slot);
   }
-  // The plans belong to the slots that just rewound, so they are stale here for
-  // the same reason a `release()` makes the SoA stale.
+  // The plans belong to the slots that just rewound, so they are stale.
   for (const uint8_t*& plan : planByPart_) plan = nullptr;
 }
 

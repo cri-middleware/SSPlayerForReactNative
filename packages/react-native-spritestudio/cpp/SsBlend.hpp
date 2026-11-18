@@ -9,8 +9,7 @@
 ///
 /// ## Where this comes from
 ///
-/// The ground truth is **ssplayer-webgl**'s `SSWebGLRenderer.applyBlend` /
-/// `SSBlendModes`, which realises every SS blend as a fixed-function GL blend
+/// Every SS blend is a fixed-function GL blend
 /// state `out = Cs·srcFactor + Cb·dstFactor` (RGB) with a premultiplied source
 /// and a premultiplied-coverage alpha channel `[ONE, 1-SRC_ALPHA]`:
 ///
@@ -25,14 +24,6 @@
 ///   | Invert          | 1-DST_COLOR     | ZERO            | ADD              |
 ///
 /// **Only RGB varies — alpha is premultiplied source-over for every mode.**
-///
-/// The mapping onto stock Skia blend modes is **SSPlayerForFlutter**'s
-/// (`packages/ssplayer_flutter/lib/src/render/blend.dart`), which is the closest
-/// possible reference: Flutter's `ui.BlendMode` *is* `SkBlendMode`, so its
-/// algebra carries over unchanged rather than being re-derived here. That file
-/// also carries the pixel tests (`test/blend_pixel_test.dart`) that measured each
-/// row against the GL formula instead of trusting the algebra — this port has no
-/// equivalent yet, which is the standing gap.
 ///
 /// Skia's separable blend modes are defined on **premultiplied** colours, so read
 /// against a premultiplied `Cs` most rows have an exact stock equivalent:
@@ -49,10 +40,9 @@
 /// assumes — it renders onto an opaque target) and diverges over transparency.
 /// `kModulate` would be the literal `DST_COLOR, ZERO` row and would fix that
 /// corner, at the cost of blacking out every semi-transparent texel of every Mul
-/// part; `kMultiply` stays, matching Flutter.
+/// part; `kMultiply` stays.
 ///
-/// Div2 and Overlay2 have no GL mapping upstream either (ssplayer-webgl's
-/// `default` clamps them to Mix), so they follow suit.
+/// Div2 and Overlay2 have no GL mapping either, so they draw as Mix.
 ///
 /// Sub and Invert have no single stock equivalent — Skia offers neither a
 /// reverse-subtract nor a "replace dst with `Cs·(1-Cb)`" — and are reconstructed
@@ -64,7 +54,7 @@
 /// These reach the framebuffer through `SkPaint::setBlendMode`, **not** through
 /// `drawVertices`'s `SkBlendMode` argument — that one blends against vertex
 /// colours and Skia ignores it when there are none, which renders every type as
-/// Mix. It shipped that way once.
+/// Mix.
 
 #include <cstdint>
 
@@ -80,9 +70,9 @@ namespace ssplayer {
 ///
 /// For Sub and Invert this returns the honest one-pass *approximation*
 /// (`kDifference`, exact only in the narrow regime each mode is authored for).
-/// `SsSkiaDraw` uses `BlendPlanFor` instead, which is exact — this exists so the
-/// mapping is stated in one place and so a future caller that cannot run a
-/// multi-pass plan has a defined answer.
+/// `SsSkiaDraw` uses `BlendPlanFor` where it can, which is exact; this is for a
+/// part that cannot run a multi-pass plan: a masked part, and a Mesh routed
+/// through the clip shader.
 inline SkBlendMode BlendModeFor(int32_t blendType) {
   switch (static_cast<ss::runtime::BlendType>(blendType)) {
     case ss::runtime::BlendType_Add:
@@ -187,10 +177,10 @@ inline BlendPlan BlendPlanFor(int32_t blendType) {
 ///
 /// The 255 coefficient on alpha saturates any non-zero alpha to 1, which is what
 /// makes this "did the part cover this pixel" rather than "how opaque was it".
-/// Unlike Flutter's `ColorFilter.matrix`, Skia's translation column is normalised
-/// 0..1, not 0..255 — the coefficients are unitless either way.
+/// Skia's translation column is normalised 0..1, not 0..255.
+///
 /// Built once, as `PartColorEffect()` builds its program once and for the same
-/// reasons: the matrix is a constant, so a filter per call was one Skia
+/// reasons: the matrix is a constant, so a filter per call would be one Skia
 /// allocation per pass per part per frame — and Sub and Invert are three-pass
 /// plans, two of whose passes come through here, on the path whose whole point
 /// is not allocating. The raw pointer is leaked deliberately: it lives for the

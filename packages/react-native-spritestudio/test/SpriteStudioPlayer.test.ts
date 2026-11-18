@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SkImage } from '@shopify/react-native-skia'
+import type { SkImage } from 'react-native-skia'
 
 import { ssClearCaches, ssImageCache } from '../src/core/caches'
 import { SsOverridePriority } from '../src/core/parts'
 import { SsPlaybackDirection, SsPlaybackStyle } from '../src/core/types'
+import { onFrameChanged, onFrameShown } from '../src/player/frames'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../src/player/SpriteStudioPlayer'
-import type { SsTextureInfo } from '../src/specs/SsRuntime.nitro'
+import type { SsAudioEvent, SsSignalEvent, SsTextureInfo, SsUserDataEvent } from '../src/specs/SsRuntime.nitro'
 import { pendingFrames, stepFrame } from './support/frameClock'
 import { SsInternalPlayer } from './support/fakeInternalPlayer'
 import { SsRuntimeModule, definePack, openPack, resetFakeRuntime } from './support/fakeRuntime'
@@ -39,7 +40,7 @@ function embeddedTexture(name: string, imagePath = ''): SsTextureInfo {
     textureHash: SsRuntimeModule.hashString(name),
     name,
     imagePath,
-    embedded: new Uint8Array(imagePath === '' ? [1, 2, 3] : []).buffer as ArrayBuffer,
+    embeddedLength: imagePath === '' ? 3 : 0,
   }
 }
 
@@ -135,9 +136,6 @@ describe('load', () => {
 })
 
 describe('setAnimation', () => {
-  // ForRN #78. `currentAnimation` used to be assigned ahead of the result, so it
-  // named an animation the runtime had never set up — and `onAnimationStarted`
-  // published that name too.
   it('does not take the name of an animation the runtime refused', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const player = await loaded({ animation: 'Idle' })
@@ -264,13 +262,137 @@ describe('the transport settings replayed onto each animation', () => {
   it('restricts playback to a section of the current animation', async () => {
     const player = await loaded()
 
-    player.setAnimationSection(10, 20)
+    expect(player.setAnimationSection(10, 20)).toBe(true)
 
     expect(SsInternalPlayer.last().argsOf('setSection')).toEqual([[10, 20]])
     expect(player.startFrame).toBe(10)
     expect(player.endFrame).toBe(20)
     // Both ends inclusive — feed it to a scrubber.
     expect(player.totalFrames).toBe(11)
+  })
+
+  // The Brain refuses an end before the start and keeps the section it had; a
+  // state machine repeating the call every frame is one line, a second pair
+  // another.
+  it('says once per pair that a section ending before it starts did nothing', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+    player.setAnimationSection(2, 5)
+
+    expect(player.setAnimationSection(20, 10)).toBe(false)
+    expect(player.setAnimationSection(20, 10)).toBe(false)
+    expect(player.startFrame).toBe(2)
+    expect(player.endFrame).toBe(5)
+    expect(warn).toHaveBeenCalledOnce()
+    const line = String(warn.mock.calls[0]?.[0])
+    expect(line).toContain('setAnimationSection(20, 10)')
+    expect(line).toContain(PACK)
+    expect(line).toContain('Invalid parameter')
+
+    player.setAnimationSection(30, 10)
+    expect(warn).toHaveBeenCalledTimes(2)
+  })
+
+  describe('by label', () => {
+    async function labelled(): Promise<SpriteStudioPlayer> {
+      const player = await loaded({ animation: 'Idle' })
+      SsInternalPlayer.last().labelTables = {
+        Idle: {
+          startFrame: 0,
+          endFrame: 30,
+          labels: [
+            { name: 'Start', frame: 10 },
+            { name: 'End', frame: 20 },
+          ],
+        },
+        Walk: { startFrame: 0, endFrame: 12, labels: [{ name: '_end', frame: 6 }] },
+      }
+      return player
+    }
+
+    it('sets the section from one label to another of the current animation, offsets added', async () => {
+      const player = await labelled()
+
+      expect(player.setAnimationSectionByLabel('Start', 'End', 1, -1)).toBe(true)
+
+      expect(SsInternalPlayer.last().argsOf('setSection')).toEqual([[11, 19]])
+      expect(player.startFrame).toBe(11)
+      expect(player.endFrame).toBe(19)
+    })
+
+    it('reads _start and _end as the animation’s own ends, unless a label has that name', async () => {
+      const player = await labelled()
+
+      player.setAnimationSectionByLabel('_start', 'Start')
+      player.setAnimation('Walk')
+      player.setAnimationSectionByLabel('_start', '_end')
+
+      expect(SsInternalPlayer.last().argsOf('setSection')).toEqual([
+        [0, 10],
+        [0, 6],
+      ])
+    })
+
+    it('says once that the animation has no such label, and changes nothing', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const player = await labelled()
+
+      expect(player.setAnimationSectionByLabel('Start', 'hover')).toBe(false)
+      expect(player.setAnimationSectionByLabel('Start', 'hover')).toBe(false)
+
+      expect(SsInternalPlayer.last().names()).not.toContain('setSection')
+      expect(warn).toHaveBeenCalledOnce()
+      const line = String(warn.mock.calls[0]?.[0])
+      expect(line).toContain("'hover'")
+      expect(line).toContain("'Idle'")
+      expect(line).not.toContain("'Start'")
+
+      player.setAnimationSectionByLabel('pressed', 'pressed')
+      expect(warn).toHaveBeenCalledTimes(2)
+      expect(String(warn.mock.calls[1]?.[0])).not.toContain('or')
+    })
+
+    it('says once, with the labels and the frames, that a section ending before it starts did nothing', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const player = await labelled()
+      player.setAnimationSection(2, 5)
+
+      expect(player.setAnimationSectionByLabel('End', 'Start')).toBe(false)
+      expect(player.setAnimationSectionByLabel('End', 'Start')).toBe(false)
+
+      expect(player.startFrame).toBe(2)
+      expect(player.endFrame).toBe(5)
+      expect(warn).toHaveBeenCalledOnce()
+      const line = String(warn.mock.calls[0]?.[0])
+      expect(line).toContain("'End', 'Start'")
+      expect(line).toContain('frames 20 to 10')
+      expect(line).toContain('Invalid parameter')
+    })
+
+    it('is false, and silent, before a load', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const player = new SpriteStudioPlayer()
+
+      expect(player.setAnimationSectionByLabel('Start', 'End')).toBe(false)
+      expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('reads the label table of the current animation, or of the one named', async () => {
+      const player = await labelled()
+
+      expect(player.getLabelTable()).toEqual({
+        valid: true,
+        startFrame: 0,
+        endFrame: 30,
+        labels: [
+          { name: 'Start', frame: 10 },
+          { name: 'End', frame: 20 },
+        ],
+      })
+      expect(player.getLabelTable('Walk')?.endFrame).toBe(12)
+      expect(player.getLabelTable('Nope')).toBeNull()
+      expect(new SpriteStudioPlayer().getLabelTable()).toBeNull()
+    })
   })
 
   it('replays them again after a switch, because setup drops them', async () => {
@@ -300,12 +422,16 @@ describe('advance', () => {
     const finished = vi.fn()
     player.onAnimationFinished = finished
     const internal = SsInternalPlayer.last()
+    player.play()
 
     player.advance(16)
     expect(finished).not.toHaveBeenCalled()
 
     internal.isFinished = true
     player.advance(16)
+    player.advance(16)
+    // How the Brain leaves a run that finished.
+    internal.isPlaying = false
     player.advance(16)
 
     expect(finished.mock.calls).toEqual([['Walk']])
@@ -315,12 +441,24 @@ describe('advance', () => {
     const player = await loaded({ animation: 'Walk' })
     const looped = vi.fn()
     player.onAnimationLooped = looped
+    player.play()
     SsInternalPlayer.last().justLooped = true
 
     player.advance(16)
     player.advance(16)
 
     expect(looped.mock.calls).toEqual([['Walk'], ['Walk']])
+  })
+
+  it('does not ask whether it looped when nothing is listening', async () => {
+    const player = await loaded()
+    player.play()
+    const read = vi.fn(() => true)
+    Object.defineProperty(SsInternalPlayer.last(), 'justLooped', { get: read })
+
+    player.advance(16)
+
+    expect(read).not.toHaveBeenCalled()
   })
 
   // Both gates are on the hot path: without them this is a vector allocation and
@@ -347,6 +485,7 @@ describe('advance', () => {
   it('reads only the kinds that have a handler', async () => {
     const player = await loaded()
     player.onAudio = vi.fn()
+    player.play()
     SsInternalPlayer.last().passedEventCount = 1
 
     player.advance(16)
@@ -355,6 +494,48 @@ describe('advance', () => {
     expect(calls).toContain('getAudioEvents')
     expect(calls).not.toContain('getUserDataEvents')
     expect(calls).not.toContain('getSignalEvents')
+  })
+
+  it('tells every handler what the tick reported, though the first sets up an animation', async () => {
+    const player = await loaded({ animation: 'Walk' })
+    const internal = SsInternalPlayer.last()
+    player.play()
+    internal.justLooped = true
+    internal.isFinished = true
+    internal.passedEventCount = 1
+    internal.userDataEvents = [{ partIndex: 1 } as SsUserDataEvent]
+    internal.audioEvents = [{ partIndex: 2 } as SsAudioEvent]
+    internal.signalEvents = [{ partIndex: 3 } as SsSignalEvent]
+    const heard: string[] = []
+    player.onAnimationLooped = (name) => {
+      heard.push(`looped ${name}`)
+      expect(player.setAnimation('Idle')).toBe(true)
+    }
+    player.onUserData = (event) => heard.push(`user data ${event.partIndex}`)
+    player.onAudio = (event) => heard.push(`audio ${event.partIndex}`)
+    player.onSignal = (event) => heard.push(`signal ${event.partIndex}`)
+    player.onAnimationFinished = (name) => heard.push(`finished ${name}`)
+
+    player.advance(16)
+
+    expect(heard).toEqual(['looped Walk', 'user data 1', 'audio 2', 'signal 3', 'finished Walk'])
+  })
+
+  it('fires finished again for the animation a finished handler set up', async () => {
+    const player = await loaded({ animation: 'Walk' })
+    const internal = SsInternalPlayer.last()
+    const finished = vi.fn(() => {
+      player.setAnimation('Idle')
+    })
+    player.onAnimationFinished = finished
+    player.play()
+    internal.isFinished = true
+    player.advance(16)
+
+    internal.isFinished = true
+    player.advance(16)
+
+    expect(finished.mock.calls).toEqual([['Walk'], ['Idle']])
   })
 
   it('is a no-op once the player is disposed', async () => {
@@ -366,6 +547,140 @@ describe('advance', () => {
     player.advance(16)
 
     expect(internal.names()).not.toContain('advance')
+  })
+
+  // As in SSPlayerForWeb: a stopped player builds no frame, steps no effect
+  // and fires nothing, so a view of one costs next to nothing.
+  it('holds a stopped player where it is, and advances a paused one', async () => {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    const advances = (): number => internal.names('advance').length
+
+    player.advance(16)
+    expect(advances()).toBe(0)
+
+    player.play()
+    player.advance(16)
+    expect(advances()).toBe(1)
+
+    // A paused player's independent effects and sub-animations keep running.
+    player.pause()
+    player.advance(16)
+    expect(advances()).toBe(2)
+
+    player.stop()
+    player.advance(16)
+    expect(advances()).toBe(2)
+  })
+
+  // A pause moves only the parts that keep their own clock, and only effect
+  // and instance parts can — so `playing={false}` on a pack with neither holds
+  // like a stop.
+  it('holds a paused player that has no effect or instance part', async () => {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    internal.hasOwnClocks = false
+    player.play()
+    player.pause()
+
+    player.advance(16)
+
+    expect(internal.names()).not.toContain('advance')
+  })
+})
+
+describe('needsDraw', () => {
+  it('asks for the first draw, and for one after every load', async () => {
+    const player = await loaded()
+    SsInternalPlayer.last().needsDraw = false
+    expect(player.needsDraw).toBe(true)
+
+    player.draw({} as never)
+    expect(player.needsDraw).toBe(false)
+
+    await player.load(PACK)
+    SsInternalPlayer.last().needsDraw = false
+    expect(player.needsDraw).toBe(true)
+  })
+
+  it('follows Layer 2 once a frame is drawn', async () => {
+    const player = await loaded()
+    player.draw({} as never)
+    const internal = SsInternalPlayer.last()
+
+    internal.needsDraw = false
+    expect(player.needsDraw).toBe(false)
+    internal.needsDraw = true
+    expect(player.needsDraw).toBe(true)
+  })
+
+  // Released: the view has to draw once more, to put down the empty frame.
+  it('asks for a draw once the player is released', async () => {
+    const player = await loaded()
+    player.draw({} as never)
+    player.dispose()
+
+    expect(player.needsDraw).toBe(true)
+    player.draw({} as never)
+    expect(player.needsDraw).toBe(false)
+  })
+})
+
+describe('advances', () => {
+  it('follows Layer 2, and is false before a load and after dispose', async () => {
+    const player = new SpriteStudioPlayer()
+    expect(player.advances).toBe(false)
+
+    await player.load(PACK)
+    expect(player.advances).toBe(false)
+    player.play()
+    expect(player.advances).toBe(true)
+
+    player.dispose()
+    expect(player.advances).toBe(false)
+  })
+})
+
+describe('frame changes', () => {
+  async function watched(): Promise<{ player: SpriteStudioPlayer; changes: () => number }> {
+    const player = await loaded()
+    SsInternalPlayer.last().parts = ['hat']
+    let count = 0
+    onFrameChanged(player, () => count++)
+    return { player, changes: () => count }
+  }
+
+  it('are announced for the transport and for a seek', async () => {
+    const { player, changes } = await watched()
+
+    player.play()
+    player.pause()
+    player.resume()
+    player.seek(3)
+    player.stop()
+
+    expect(changes()).toBe(5)
+  })
+
+  it('are announced for the calls that change the frame without a notification', async () => {
+    const { player, changes } = await watched()
+
+    player.setPartOverrides({ hat: { hide: true } })
+    player.setSubFrameEnabled(false)
+    player.setRootTransform({ x: 1, y: 2, scale: 3, flipX: false, flipY: false })
+    player.setTrackAlpha(0, 0.5)
+
+    expect(changes()).toBe(4)
+  })
+
+  it('are not announced for a track command that did nothing', async () => {
+    const { player, changes } = await watched()
+    vi.spyOn(SsInternalPlayer.last(), 'setTrackAlpha').mockReturnValue(false)
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    player.setTrackAlpha(1, 0.5)
+
+    expect(changes()).toBe(0)
   })
 })
 
@@ -391,13 +706,18 @@ describe('part overrides', () => {
     expect(internal.argsOf('setPartVisibility')).toEqual([[0, 1, false]])
   })
 
-  // The tri-state the C ABI keeps: 1 force-hides, 2 force-shows, absent reverts.
-  it('force-shows on hide: false rather than reverting', async () => {
+  // The Brain rejects the force-show the C ABI reserves, so `false` reverts, as
+  // in every sibling Player.
+  it('reverts on hide: false rather than force-showing', async () => {
     const player = await withParts()
+    player.setPartOverrides({ hat: { hide: true } })
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
 
     player.setPartOverrides({ hat: { hide: false } })
 
-    expect(SsInternalPlayer.last().argsOf('setPartVisibility')).toEqual([[0, 2, false]])
+    expect(internal.argsOf('clearPartVisibility')).toEqual([[0]])
+    expect(internal.names()).not.toContain('setPartVisibility')
   })
 
   it('hashes a cell override through the Brain, at the family default priority', async () => {
@@ -413,6 +733,21 @@ describe('part overrides', () => {
         SsOverridePriority.holdUntilNextAnimation,
       ],
     ])
+  })
+
+  it('warns once when the Brain refuses an override, with its reason', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await withParts()
+    const internal = SsInternalPlayer.last()
+    vi.spyOn(internal, 'setPartCell').mockReturnValue(false)
+    vi.spyOn(internal, 'lastErrorMessage', 'get').mockReturnValue('Invalid parameter')
+
+    const typo = { hat: { cell: { cellmap: 'common', cell: 'fcae' } } }
+    player.setPartOverrides(typo)
+    player.setPartOverrides(typo)
+
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn.mock.calls[0]?.[0]).toMatch(/'hat', 'common', 'fcae'.*Invalid parameter/)
   })
 
   it('warns about a part the animation does not have, and skips it', async () => {
@@ -448,6 +783,23 @@ describe('the content box', () => {
     })
 
     const player = await loaded({ measure: { scope: 'animation' } })
+
+    expect(player.contentBox).toBeNull()
+  })
+
+  // Each measurement is a bake of every frame it walks, and the switch that
+  // follows the load's own measurement is to the animation just measured.
+  it('measures an animation-scoped box once on a load', async () => {
+    await loaded({ animation: 'Idle', measure: { scope: 'animation' } })
+
+    expect(SsInternalPlayer.last().argsOf('measureContentBox')).toEqual([[['Idle'], 0]])
+  })
+
+  it('drops the last pack’s box on a load that measures nothing', async () => {
+    const player = await loaded({ measure: { scope: 'pack' } })
+    expect(player.contentBox).not.toBeNull()
+
+    await player.load(PACK)
 
     expect(player.contentBox).toBeNull()
   })
@@ -548,6 +900,102 @@ describe('getPartTransform', () => {
     SsInternalPlayer.last().parts = ['hat']
     expect(player.getPartTransform('hat')).toBeNull()
   })
+
+  // A follower reads its part by name every frame; resolving the name is a
+  // string across JSI and a scan of the part names.
+  it('resolves a part name once per animation', async () => {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    internal.parts = ['hat']
+    const resolves = (): number => internal.names('findPartIndex').length
+
+    player.getPartTransform('hat')
+    player.getPartTransform('hat')
+    player.isPartHidden('hat')
+    expect(resolves()).toBe(1)
+
+    player.setAnimation('Walk')
+    player.getPartTransform('hat')
+    expect(resolves()).toBe(2)
+  })
+})
+
+describe('part outlines', () => {
+  const LOCAL = {
+    valid: true,
+    leftTopX: -10,
+    leftTopY: -20,
+    rightTopX: 10,
+    rightTopY: -20,
+    leftBottomX: -10,
+    leftBottomY: 20,
+    rightBottomX: 10,
+    rightBottomY: 20,
+  }
+
+  async function withOutline(): Promise<SpriteStudioPlayer> {
+    const player = await loaded()
+    const internal = SsInternalPlayer.last()
+    internal.parts = ['button', 'face']
+    internal.partQuads.set(1, LOCAL)
+    return player
+  }
+
+  it('reads a part’s outline in view pixels, the root transform applied', async () => {
+    const player = await withOutline()
+    player.setRootTransform({ x: 100, y: 50, scale: 2, flipX: true, flipY: false })
+
+    expect(player.getPartQuad('face')).toEqual({
+      valid: true,
+      leftTopX: 120,
+      leftTopY: 10,
+      rightTopX: 80,
+      rightTopY: 10,
+      leftBottomX: 120,
+      leftBottomY: 90,
+      rightBottomX: 80,
+      rightBottomY: 90,
+    })
+    expect(player.getPartQuad(1)?.leftTopX).toBe(120)
+  })
+
+  it('is null for a part with no outline, an unknown name and before a load', async () => {
+    const player = await withOutline()
+
+    expect(player.getPartQuad('button')).toBeNull()
+    expect(player.getPartQuad('ghost')).toBeNull()
+    expect(new SpriteStudioPlayer().getPartQuad('face')).toBeNull()
+  })
+
+  it('tests a view point in the player’s own space, against every part when none is named', async () => {
+    const player = await withOutline()
+    const internal = SsInternalPlayer.last()
+    internal.hitPart = 1
+    player.setRootTransform({ x: 100, y: 50, scale: 2, flipX: true, flipY: true })
+
+    expect(player.hitTestPart(80, 70)).toBe(1)
+
+    expect(internal.argsOf('hitTestPart')).toEqual([[10, -10, []]])
+  })
+
+  it('tests against the parts named, skipping a name the animation does not have', async () => {
+    const player = await withOutline()
+    const internal = SsInternalPlayer.last()
+
+    expect(player.hitTestPart(0, 0, ['face', 'ghost', 0])).toBe(-1)
+    expect(player.hitTestPart(0, 0, ['ghost'])).toBe(-1)
+
+    expect(internal.argsOf('hitTestPart')).toEqual([[0, 0, [1, 0]]])
+  })
+
+  it('hits nothing before a load or under a zero scale', async () => {
+    const player = await withOutline()
+    SsInternalPlayer.last().hitPart = 1
+    player.setRootTransform({ x: 0, y: 0, scale: 0, flipX: false, flipY: false })
+
+    expect(player.hitTestPart(0, 0)).toBe(-1)
+    expect(new SpriteStudioPlayer().hitTestPart(0, 0)).toBe(-1)
+  })
 })
 
 describe('dispose', () => {
@@ -570,6 +1018,18 @@ describe('dispose', () => {
       'ss/overall/Child.ssab',
     ])
     expect(ssImageCache.size).toBe(0)
+  })
+
+  // Left encoded, an atlas decodes the first time a canvas draws it, on the UI
+  // thread. Every atlas a load registers has been through the worker first.
+  it('decodes each atlas off the UI thread before registering it', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = await loaded()
+    const registry = player.textures as unknown as SsTextureRegistry
+    const bound = registry.bound(SsRuntimeModule.hashString('common'))
+
+    expect(bound).toBeDefined()
+    expect(SsRuntimeModule.decoded).toEqual([bound])
   })
 
   // `texture_hash` is the hash of a *cellmap name*, so a second pack naming a
@@ -607,6 +1067,60 @@ describe('dispose', () => {
     player.dispose()
     player.dispose()
     expect(releaseResource).toHaveBeenCalledOnce()
+  })
+})
+
+describe('an Embedded pack’s atlases', () => {
+  // The bytes cross JSI as a copy, which a second player of the pack has no use
+  // for while the first one's decode is in the cache.
+  it('are copied only when the cache does not hold the decode', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    await loaded()
+    await loaded()
+
+    expect(SsInternalPlayer.created.map((p) => p.argsOf('copyEmbeddedTexture'))).toEqual([
+      [[SsRuntimeModule.hashString('common')]],
+      [],
+    ])
+  })
+})
+
+describe('a load that replaces one still decoding', () => {
+  // Both loads name the same atlases, so the live one skips whatever the
+  // replaced pass has already registered. Losing one of those is silent: the
+  // report says nothing is missing.
+  it('keeps every atlas the live load needs, and the leases balance', async () => {
+    const body = embeddedTexture('body')
+    const face = embeddedTexture('face')
+    definePack(PACK, { animations: ['Idle'], textures: [body, face] })
+    const decode = SsRuntimeModule.decodeImage
+    let finishFace: (() => void) | null = null
+    vi.spyOn(SsRuntimeModule, 'decodeImage')
+      .mockImplementationOnce(decode)
+      .mockImplementationOnce(async (image) => {
+        await new Promise<void>((resolve) => (finishFace = resolve))
+        return decode(image)
+      })
+
+    const player = new SpriteStudioPlayer()
+    const first = player.load(PACK)
+    await vi.waitFor(() => expect(finishFace).not.toBeNull())
+    const second = player.load(PACK)
+    await vi.waitFor(() => expect(SsInternalPlayer.created).toHaveLength(2))
+    finishFace!()
+    await first
+    await second
+
+    const registry = player.textures as unknown as SsTextureRegistry
+    expect(registry.has(body.textureHash)).toBe(true)
+    expect(registry.has(face.textureHash)).toBe(true)
+    expect([...(player.lastTextureReport?.registered ?? [])].sort()).toEqual(
+      [body.textureHash, face.textureHash].sort()
+    )
+    expect(ssImageCache.size).toBe(2)
+
+    player.dispose()
+    expect(ssImageCache.size).toBe(0)
   })
 })
 
@@ -659,6 +1173,21 @@ describe('runtime texture replacement', () => {
     expect(boundImage(player, 'common')).toBe(face)
     const registry = player.textures as unknown as SsTextureRegistry
     expect(registry.isOverridden(SsRuntimeModule.hashString('common'))).toBe(true)
+  })
+
+  it('keeps the pack atlas under a replacement set before the load', async () => {
+    definePack(PACK, { animations: ['Idle'], textures: [embeddedTexture('common')] })
+    const player = new SpriteStudioPlayer()
+    const face = fakeImage('face')
+
+    player.setCellmapTexture('common', face)
+    await player.load(PACK)
+    expect(boundImage(player, 'common')).toBe(face)
+
+    player.setCellmapTexture('common', null)
+
+    expect(boundImage(player, 'common')).toBeDefined()
+    expect(boundImage(player, 'common')).not.toBe(face)
   })
 
   it('restores the pack atlas when handed null', async () => {
@@ -752,10 +1281,62 @@ describe('runtime texture replacement', () => {
   })
 })
 
+describe('the frames a player shows', () => {
+  // What a part follower reads on: a frame is new when it is drawn.
+  it('run after each draw, and not on an advance alone', async () => {
+    const player = await loaded()
+    let frames = 0
+    const unsubscribe = onFrameShown(player, () => {
+      frames += 1
+    })
+
+    player.advance(16)
+    expect(frames).toBe(0)
+    player.draw({} as never)
+    expect(frames).toBe(1)
+
+    unsubscribe()
+    player.draw({} as never)
+    expect(frames).toBe(1)
+  })
+
+  // Released, the view draws once more to put down the empty frame — and a
+  // follower has to hear that its part is gone.
+  it('run after the draw that follows a release', async () => {
+    const player = await loaded()
+    let frames = 0
+    onFrameShown(player, () => {
+      frames += 1
+    })
+    player.dispose()
+
+    player.draw({} as never)
+
+    expect(frames).toBe(1)
+  })
+
+  // Nothing draws a player on its own clock, so the step is the frame.
+  it('run after each step of the fallback clock', async () => {
+    const player = await loaded()
+    let frames = 0
+    onFrameShown(player, () => {
+      frames += 1
+    })
+    player.startClock()
+
+    stepFrame(16)
+    stepFrame(16)
+
+    expect(frames).toBe(2)
+    player.stopClock()
+  })
+})
+
 describe('the fallback clock', () => {
   // Only for a player with no view attached — `<SpriteStudioView>` clocks its own.
   it('advances off requestAnimationFrame, capped so a backgrounded app does not fast-forward', async () => {
     const player = await loaded()
+    player.play()
     player.startClock()
 
     stepFrame(16)
@@ -777,5 +1358,248 @@ describe('the fallback clock', () => {
     stepFrame(16)
     player.dispose()
     expect(pendingFrames()).toBe(0)
+  })
+})
+
+describe('animation mixing: switching track 0', () => {
+  // The Brain hands track 0 over when the crossfade begins, so the player has
+  // to as well — left on the outgoing name, everything keyed on it lied.
+  it('names the incoming animation from the crossfade call on', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    const changed = vi.fn()
+    const started = vi.fn()
+    player.onAnimationChanged = changed
+    player.onAnimationStarted = started
+
+    expect(player.crossfade(0, 'Walk', 300)).toBe(true)
+
+    expect(player.currentAnimation).toBe('Walk')
+    expect(changed.mock.calls).toEqual([['Walk']])
+    // A switch that keeps playing is not a `play()`.
+    expect(started).not.toHaveBeenCalled()
+  })
+
+  // ForGodot's A-2, where this started: `setAnimation` compared against the
+  // outgoing name, took the call for a re-selection and did nothing.
+  it('can go back to the animation a crossfade left', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.crossfade(0, 'Walk', 300)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    expect(player.setAnimation('Idle')).toBe(true)
+
+    expect(internal.names()).toContain('setupAnimation')
+    expect(player.currentAnimation).toBe('Idle')
+  })
+
+  // "Walk is already chosen" — the fade runs on.
+  it('leaves a fade alone when its incoming animation is selected again', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.crossfade(0, 'Walk', 300)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    expect(player.setAnimation('Walk')).toBe(true)
+    expect(internal.calls).toEqual([])
+  })
+
+  it('switches on a track-0 setTrackAnimation too, but not on another track', async () => {
+    const player = await loaded({ animation: 'Idle' })
+
+    player.setTrackAnimation(1, 'Walk')
+    expect(player.currentAnimation).toBe('Idle')
+
+    player.setTrackAnimation(0, 'Walk')
+    expect(player.currentAnimation).toBe('Walk')
+  })
+
+  // The Brain lays every animation looping forever; the host's count is the
+  // player's to put back, after each switch of track 0.
+  it('puts the loop count back on the incoming animation', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.setLoopCount(2)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    player.crossfade(0, 'Walk', 300)
+    player.setTrackAnimation(0, 'Idle')
+    player.setTrackAnimation(1, 'Walk')
+
+    expect(internal.argsOf('setLoopCount')).toEqual([[2], [2]])
+  })
+
+  it('reports the incoming animation finishing after the outgoing one had', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    const finished = vi.fn()
+    player.onAnimationFinished = finished
+    const internal = SsInternalPlayer.last()
+    player.play()
+    internal.isFinished = true
+    player.advance(16)
+
+    player.crossfade(0, 'Walk', 300)
+    internal.isFinished = false
+    player.advance(16)
+    internal.isFinished = true
+    player.advance(16)
+
+    expect(finished.mock.calls).toEqual([['Idle'], ['Walk']])
+  })
+
+  // No fade on a refusal, and nothing renamed.
+  it('keeps the name when the crossfade is refused', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded({ animation: 'Idle' })
+
+    expect(player.crossfade(0, 'Typo', 300)).toBe(false)
+    expect(player.currentAnimation).toBe('Idle')
+  })
+})
+
+describe('animation mixing: track 0 settings under their track names', () => {
+  // The track forms are the same settings, so the player's own record has to
+  // move with them — it is what a reload replays.
+  it('keeps what the track-0 forms set, for the next load to replay', async () => {
+    const player = await loaded()
+    player.setTrackSpeed(0, 2)
+    player.setTrackLoopCount(0, 3)
+    player.setTrackFrameSkipEnabled(0, false)
+    player.setTrackFrameRate(0, 24)
+    player.setTrackPlaybackDirection(0, SsPlaybackDirection.backward, SsPlaybackStyle.pingPong)
+
+    await player.load(PACK)
+
+    const internal = SsInternalPlayer.last()
+    expect(internal.speedScale).toBe(2)
+    expect(internal.loopCount).toBe(3)
+    expect(internal.frameSkipEnabled).toBe(false)
+    expect(internal.frameRate).toBe(24)
+    expect(internal.playbackDirection).toBe(SsPlaybackDirection.backward)
+    expect(internal.playbackStyle).toBe(SsPlaybackStyle.pingPong)
+  })
+
+  it('puts a loop count set through the track form back after a crossfade', async () => {
+    const player = await loaded({ animation: 'Idle' })
+    player.setTrackLoopCount(0, 1)
+    const internal = SsInternalPlayer.last()
+    internal.calls.length = 0
+
+    player.crossfade(0, 'Walk', 300)
+
+    expect(internal.argsOf('setLoopCount')).toEqual([[1]])
+  })
+
+  // Accepted before a load, the same as `setSpeedScale`: it is a setting the
+  // player keeps, not a command against a track that does not exist yet.
+  it('accepts the track-0 forms before a load', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = new SpriteStudioPlayer()
+
+    expect(player.setTrackSpeed(0, 2)).toBe(true)
+    expect(player.trackSpeed(0)).toBe(2)
+    expect(warn).not.toHaveBeenCalled()
+  })
+})
+
+describe('animation mixing: reporting', () => {
+  // A command that did nothing shows up as an animation that "will not blend";
+  // the bool alone is one nobody has to read.
+  it('says why a track command did nothing, naming the call and the pack', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.setTrackAnimation(1, 'Typo')).toBe(false)
+
+    const line = String(warn.mock.calls[0]?.[0])
+    expect(line).toContain("setTrackAnimation(1, 'Typo')")
+    expect(line).toContain(PACK)
+    expect(line).toContain('Animation not found')
+  })
+
+  // A state machine repeats its commands every frame.
+  it('says it once per call and target, and a second target on its own line', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    player.crossfade(1, 'Typo', 300)
+    player.crossfade(1, 'Typo', 300)
+    expect(warn).toHaveBeenCalledOnce()
+
+    player.crossfade(1, 'Other typo', 300)
+    expect(warn).toHaveBeenCalledTimes(2)
+  })
+
+  // Keyed on the target, not the value: a slider dragging a refused alpha.
+  it('does not say it again for each new value', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    player.setTrackAlpha(5, 0.1)
+    player.setTrackAlpha(5, 0.2)
+
+    expect(warn).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a track no index can be', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.setTrackAlpha(-1, 0.5)).toBe(false)
+    expect(SsInternalPlayer.last().names()).not.toContain('setTrackAlpha')
+    expect(warn).toHaveBeenCalledOnce()
+  })
+
+  it('refuses a track command before a load, and says so', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = new SpriteStudioPlayer()
+
+    expect(player.setTrackAnimation(1, 'Walk')).toBe(false)
+    expect(String(warn.mock.calls[0]?.[0])).toContain('no pack is loaded')
+  })
+
+  // A lookup may fail quietly.
+  it('reads nothing there as null, without a word', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.trackAlpha(3)).toBeNull()
+    expect(player.trackBlend(3)).toBeNull()
+    expect(player.trackFadeProgress(0)).toBeNull()
+    expect(player.trackLoopCount(3)).toBeNull()
+    expect(player.trackMainSource(3)).toBeNull()
+    expect(player.trackFrameSkipEnabled(3)).toBeNull()
+    expect(player.sourceWeight(7)).toBeNull()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('hands back the handle of an added source, or null', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const player = await loaded()
+
+    expect(player.addTrackSource(1, 'Walk', 0.5)).toBe(101)
+    expect(player.addTrackSource(1, 'Typo')).toBeNull()
+  })
+})
+
+describe('animation mixing: the loop pulses', () => {
+  // The Brain's pulses stand until its next update, so a tick that did not
+  // reach it would report the previous tick's loop again.
+  it('reports no loop for a tick that did not run', async () => {
+    const player = await loaded({ animation: 'Walk' })
+    const internal = SsInternalPlayer.last()
+    player.play()
+    internal.justLooped = true
+    internal.loopedTracks.add(1)
+
+    player.advance(16)
+    expect(player.justLooped).toBe(true)
+    expect(player.trackJustLooped(1)).toBe(true)
+
+    // Nothing moves — Layer 1's `advances` said so — and no update ran.
+    internal.isPlaying = false
+    player.advance(16)
+    expect(player.justLooped).toBe(false)
+    expect(player.trackJustLooped(1)).toBe(false)
   })
 })

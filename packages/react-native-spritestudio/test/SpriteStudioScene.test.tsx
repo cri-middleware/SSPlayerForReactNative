@@ -28,7 +28,7 @@ async function layout(
   width: number,
   height: number
 ): Promise<void> {
-  const view = findHosts(renderer, 'View')[0]
+  const view = findHosts(renderer, 'View').find((host) => host.props.onLayout != null)
   await act(async () => {
     ;(view?.props as { onLayout(event: unknown): void }).onLayout({
       nativeEvent: { layout: { width, height } },
@@ -98,7 +98,25 @@ describe('SpriteStudioScene', () => {
         <SpriteStudioSprite source={PACK} />
       </SpriteStudioScene>
     )
+    await act(async () => stepFrame(16))
 
+    expect(pendingFrames()).toBe(0)
+  })
+
+  it('draws a scene that mounts paused, without running its clock', async () => {
+    const { renderer } = await render(
+      <SpriteStudioScene paused>
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+    const [sprite] = SpriteStudioPlayer.created
+    const advance = vi.spyOn(sprite!, 'advance')
+
+    await act(async () => stepFrame(16))
+
+    expect(drawn(renderer)).toEqual([sprite])
+    expect(advance).not.toHaveBeenCalled()
     expect(pendingFrames()).toBe(0)
   })
 
@@ -110,6 +128,55 @@ describe('SpriteStudioScene', () => {
       </SpriteStudioScene>
     )
     await layout(renderer, 300, 200)
+
+    await update(
+      <SpriteStudioScene>
+        <SpriteStudioSprite key="a" source={PACK} />
+      </SpriteStudioScene>
+    )
+    await act(async () => stepFrame(16))
+
+    const [kept] = SpriteStudioPlayer.created
+    expect(drawn(renderer)).toEqual([kept])
+  })
+
+  // Every sprite stopped and unchanged: the picture the scene has is the one it
+  // would record. One that has something new redraws the lot.
+  it('records only when a sprite has something new to draw', async () => {
+    const { renderer } = await render(
+      <SpriteStudioScene>
+        <SpriteStudioSprite source={PACK} />
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+    const picture = findHosts(renderer, 'Picture')[0]?.props.picture as { value: unknown }
+    const [a, b] = SpriteStudioPlayer.created
+    const first = picture.value
+
+    for (const player of SpriteStudioPlayer.created) player.needsDraw = false
+    await act(async () => stepFrame(16))
+    expect(picture.value).toBe(first)
+    // Still advanced: a paused sprite's independent effects keep running.
+    expect(a?.argsOf('advance')).toEqual([[16], [16]])
+
+    if (b != null) b.needsDraw = true
+    await act(async () => stepFrame(16))
+    expect(picture.value).not.toBe(first)
+    expect(drawn(renderer)).toEqual([a, b])
+  })
+
+  it('records again when a sprite leaves, even with nothing new to draw', async () => {
+    const { renderer, update } = await render(
+      <SpriteStudioScene>
+        <SpriteStudioSprite key="a" source={PACK} />
+        <SpriteStudioSprite key="b" source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+    await act(async () => stepFrame(16))
+    for (const player of SpriteStudioPlayer.created) player.needsDraw = false
 
     await update(
       <SpriteStudioScene>
@@ -179,5 +246,45 @@ describe('SpriteStudioSprite', () => {
     expect(SpriteStudioPlayer.last().argsOf('setRootTransform').at(-1)).toEqual([
       { x: 10, y: 20, scale: 2, flipX: false, flipY: false },
     ])
+  })
+})
+
+describe('an error in the scene’s frame loop', () => {
+  // A throwing tick would otherwise throw once per frame, forever.
+  it('stops the loop and reports the first error it hits', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'draw').mockImplementation(() => {
+      throw new Error('boom')
+    })
+    const onError = vi.fn()
+    const { renderer } = await render(
+      <SpriteStudioScene onError={onError}>
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+
+    await act(async () => stepFrame(16))
+
+    expect(onError).toHaveBeenCalledOnce()
+    expect(pendingFrames()).toBe(0)
+  })
+
+  // A frozen scene with nothing in the log reads as a renderer fault.
+  it('goes to console.error when nobody handles it', async () => {
+    vi.spyOn(SpriteStudioPlayer.prototype, 'draw').mockImplementation(() => {
+      throw new Error('boom')
+    })
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { renderer } = await render(
+      <SpriteStudioScene>
+        <SpriteStudioSprite source={PACK} />
+      </SpriteStudioScene>
+    )
+    await layout(renderer, 300, 200)
+
+    await act(async () => stepFrame(16))
+
+    expect(error).toHaveBeenCalledOnce()
+    expect(String(error.mock.calls[0]?.[0])).toContain('frame loop stopped')
   })
 })

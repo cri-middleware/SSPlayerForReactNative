@@ -14,7 +14,7 @@ import {
 import { sourceUriOf, type SsSource } from '../player/source'
 import type { SsFit, SsFrameScope } from '../core/fit'
 import { reportError } from './reportError'
-import { useSsTextures, type SsTextureSources } from './useSsTextures'
+import { SS_DEFAULT_CELLMAP, useDecodedTextures, type SsTextureSources } from './useSsTextures'
 
 /**
  * Everything about *which animation and how it plays* — as opposed to where it
@@ -32,6 +32,20 @@ export interface SsPlayerProps {
   textures?: SsTextureSources
   /** Which animation in the pack. Omitted, the pack's first one plays. */
   animation?: string
+  /**
+   * Milliseconds to crossfade over when `animation` **changes**. Default `0`,
+   * which switches outright — re-posing and heading out, as `setAnimation`
+   * does. Above `0` the change is a `crossfade` on track 0 instead: the outgoing
+   * animation fades while the incoming one plays from its head, and the other
+   * tracks stay. The first animation of a load is always set up outright.
+   *
+   * With this prop in use, switch track 0 through `animation` rather than
+   * through the player's `crossfade(0, …)` / `setTrackAnimation(0, …)` /
+   * `setAnimation`: the prop only acts when it changes, so a clip reached behind
+   * its back is one the prop cannot then return from. The tracks above 0 are
+   * the player's alone.
+   */
+  transitionMs?: number
   /** Default `true`. `false` leaves it on its first frame. */
   playing?: boolean
   /** Multiplier on the authored frame rate. Default `1`. */
@@ -104,6 +118,28 @@ export interface SsPlayerState {
   ready: boolean
 }
 
+function sameBox(a: SsBox | null, b: SsBox | null): boolean {
+  if (a == null || b == null) return a === b
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+}
+
+/**
+ * The cellmap a bare `textures` source replaces, or null while the pack has not
+ * loaded — or has several, which the shorthand cannot choose between.
+ */
+function soleCellmapOf(player: SpriteStudioPlayer): string | null {
+  const names = player.cellmapNames()
+  if (names.length === 1) return names[0]!
+  if (__DEV__ && names.length > 1) {
+    console.warn(
+      `react-native-spritestudio: a bare textures source is the shorthand for a pack ` +
+        `with one cellmap, and this one has ${names.length} (${names.join(', ')}). ` +
+        `Key the textures by cellmap name.`
+    )
+  }
+  return null
+}
+
 /**
  * Owns one Layer 3 player for a component: loads it, keeps the transport props
  * on it, and reports when it is drawable.
@@ -113,11 +149,6 @@ export interface SsPlayerState {
  * components: a `<SpriteStudioView>` runs its own frame loop, while every
  * `<SpriteStudioSprite>` in a scene is advanced by the one loop the scene owns.
  */
-function sameBox(a: SsBox | null, b: SsBox | null): boolean {
-  if (a == null || b == null) return a === b
-  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
-}
-
 export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   const {
     source,
@@ -137,7 +168,6 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   } = props
 
   const [player, setPlayer] = useState<SpriteStudioPlayer | null>(null)
-  const images = useSsTextures(textures)
 
   // Through a ref so a caller passing inline arrows does not restart the load.
   const callbacks = useRef({
@@ -163,6 +193,10 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     onAnimationChanged: props.onAnimationChanged,
   }
 
+  const images = useDecodedTextures(textures, (error) => {
+    reportError(callbacks.current.onError, error, 'a texture did not load')
+  })
+
   // --- load ---------------------------------------------------------------
   //
   // Keyed on the resolved URI rather than on `source`: an inline `{ uri }` is a
@@ -181,6 +215,10 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // would re-read the pack.
   const playingRef = useRef(playing)
   playingRef.current = playing
+  // Read when `animation` changes, never a trigger of its own: a new duration
+  // says how the *next* switch fades, not that one should happen now.
+  const transitionRef = useRef(props.transitionMs ?? 0)
+  transitionRef.current = props.transitionMs ?? 0
   // Bumped when a load lands, so that effect gets a second chance at a prop it
   // could not apply while the load was in flight.
   const [loadTick, setLoadTick] = useState(0)
@@ -214,33 +252,38 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
     next.setLoopCount(loop)
 
     applied.current = animation
+    // Set by the cleanup. A load this effect no longer wants still resolves —
+    // `dispose()` makes it drop what it built, not reject — so without this
+    // the callbacks below would start a disposed player and hand it to `onLoad`.
+    let cancelled = false
     next
       .load(sourceUri, { animation, measure })
       .then(() => {
+        if (cancelled) return
         // `load` selects and poses; starting is a separate verb, so the first
         // play happens here. `playing={false}` therefore leaves the animation on
         // its first frame without ever having played — which is what the prop
-        // says, and what it could not do while `setAnimation` started playback.
+        // says.
         if (playingRef.current) next.play()
         setLoadTick((tick) => tick + 1)
         callbacks.current.onLoad?.(next)
       })
-      .catch((error: unknown) =>
-        reportError(callbacks.current.onError, error, `'${sourceUri}' did not load`)
-      )
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          reportError(callbacks.current.onError, error, `'${sourceUri}' did not load`)
+        }
+      })
     return () => {
-      // Explicit teardown, never GC: every buffer Layer 1 handed out is a borrow
-      // of memory this player owns (the lifetime rule in `specs/SsRuntime.nitro.ts`).
-      // It also hands back the cache leases, which is what lets the pack be freed
-      // when the last user of it unmounts.
+      cancelled = true
+      // Explicit teardown, never GC: it hands back the cache leases, which is
+      // what lets the pack be freed when the last user of it unmounts.
       next.dispose()
       setPlayer(null)
     }
     // `animation` is deliberately **not** a dependency: switching animations
-    // must not tear the player down. Doing so dropped the cache leases, so the
-    // `.ssab` was re-read and its atlases re-decoded for a change `setAnimation`
-    // does in one call — every pick from the example's 24-animation dropdown was
-    // a reload from the APK. The effect below owns it instead; the value read
+    // must not tear the player down, which would drop the cache leases and reload
+    // the `.ssab` and its atlases for a change `setAnimation` does in one call. The
+    // effect below owns it instead; the value read
     // here is the one that render had, which is what `load()` should start on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceUri, measureScope, measureFrames])
@@ -252,9 +295,28 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // false while there is no resource yet — a prop that changed mid-load — and
   // `applied` is left alone so `loadTick` brings it back here when the load
   // lands.
+  //
+  // With `transitionMs`, a change of a clip already showing is a crossfade on
+  // track 0 rather than a setup. The player names the incoming animation from
+  // the call on, so a later change back to the one it left is a real switch.
+  // No `play()` after it: a crossfade keeps the clock as it is — a playing
+  // character plays into the new clip, a held one holds the fade too.
+  //
+  // Except on the run a load landing brings: what the load set up has not been
+  // shown yet, so there is nothing on screen to fade from — a change that
+  // arrived mid-load is the load's first animation, and is set up outright.
+  const landedTick = useRef(0)
   useEffect(() => {
+    const landing = loadTick !== landedTick.current
+    landedTick.current = loadTick
     if (player == null || animation == null) return
     if (applied.current === animation) return
+    const fade = landing ? 0 : transitionRef.current
+    if (fade > 0 && player.currentAnimation != null && player.isLoaded) {
+      if (player.currentAnimation !== animation && !player.crossfade(0, animation, fade)) return
+      applied.current = animation
+      return
+    }
     if (!player.setAnimation(animation)) return
     applied.current = animation
     // A switch selects and poses; it does not start. Head out into the new
@@ -263,12 +325,27 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   }, [player, animation, loadTick])
 
   // --- textures -----------------------------------------------------------
+  //
+  // Through `setCellmapTexture` rather than straight into the registry. The
+  // pack's own atlases land in that same registry, so a bare source registered
+  // under `SS_DEFAULT_CELLMAP` would meet a table of two and match no batch. The
+  // replacement seam keys by name, holds
+  // one set before the load until the pack lands, and puts the pack's own atlas
+  // back when the prop drops it.
+  //
+  // `loadTick` because the shorthand names the pack's one cellmap, which only a
+  // loaded pack can say.
   useEffect(() => {
     if (player == null || images == null) return
-    for (const [name, image] of Object.entries(images)) {
-      player.textures.register(name, image)
+    const replaced: string[] = []
+    for (const [key, image] of Object.entries(images)) {
+      const name = key === SS_DEFAULT_CELLMAP ? soleCellmapOf(player) : key
+      if (name != null && player.setCellmapTexture(name, image)) replaced.push(name)
     }
-  }, [player, images])
+    return () => {
+      for (const name of replaced) player.setCellmapTexture(name, null)
+    }
+  }, [player, images, loadTick])
 
   // --- transport ----------------------------------------------------------
   //
@@ -278,7 +355,7 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
   // running is a *restart* (`ss_runtime_play` rewinds) and reports itself as
   // one, so after a cached load — which resolves in a microtask, before React
   // commits the render that publishes the player — a `player`-keyed effect
-  // rewound the animation and fired a second `onAnimationStarted`.
+  // would rewind the animation and fire a second `onAnimationStarted`.
   useEffect(() => {
     player?.setSpeedScale(speed)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -385,8 +462,8 @@ export function useSpriteStudioPlayer(props: SsPlayerProps): SsPlayerState {
       return
     }
     // The canvas of the animation a load starts on, kept across switches:
-    // canvases differ within a pack (Ringo's `dead` is 1300 wide against 800),
-    // and following them would shrink the character as it dies. A load builds
+    // canvases differ within a pack, and following them would shrink a character
+    // mid-animation. A load builds
     // a new internal player, which is what takes the canvas again.
     let keptFor: unknown = null
     let kept: SsBox | null = null

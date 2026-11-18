@@ -6,15 +6,9 @@ import type { CustomType, HybridObject } from 'react-native-nitro-modules'
  * **Layer 1 owns the drawing**, not just the geometry: one draw call per player
  * per frame, with nothing per-vertex crossing into JS.
  *
- * Lifetime rule: **every ArrayBuffer handed out here is a borrow of native
- * memory that stays valid only until the next `update()`**.
- * Nothing may retain one across frames. `SsContext.generation` is the
- * enforcement handle — read it when you take a buffer, and compare it again
- * before you read through one.
- *
  * Disposal is not declared here: every Nitro `HybridObject` already carries a
  * `dispose()` (nitrogen rejects redeclaring it), and that is the explicit
- * teardown the borrow rule asks for — L3 calls it on unmount rather than waiting for GC.
+ * teardown — L3 calls it on unmount rather than waiting for GC.
  * Note that inheriting the method is only half of it: Nitro's
  * `HybridObject::dispose()` is a **no-op unless the C++ class overrides it**, so
  * both implementations here do, and `SsRuntime.liveHandles` is what proves it.
@@ -45,19 +39,25 @@ export type SkPaintHandle = CustomType<
   { include: 'SsRNSkiaInterop.hpp' }
 >
 
+/** An RN Skia `SkImage`, unwrapped the same way. */
+export type SkImageHandle = CustomType<
+  object,
+  'SkImageHandle',
+  { include: 'SsRNSkiaInterop.hpp' }
+>
+
 /**
  * One entry of the texture table `drawInto` resolves batches against.
  *
- * The table has to be handed over per call rather than registered once, because
- * the `SkPaint` is JS-owned: RN Skia can recycle or mutate it between frames and
- * C++ must never hold one past the call it was passed to.
+ * The table is handed over when it changes (`SsContext.setTextures`), and the
+ * context keeps each paint alive until the table is replaced.
  *
  * `textureHash` is `cellmap.name_hash`, which is exactly `DrawBatch.texture_hash`
  * — get it from `SsRuntime.hashString`, never by re-implementing FNV-1a.
  */
 export interface SsTextureBinding {
   textureHash: number
-  /** Carries the atlas image shader, and later the blend/colour state. */
+  /** Carries the atlas image shader. */
   paint: SkPaintHandle
 }
 
@@ -75,14 +75,13 @@ export interface SsTextureInfo {
   /** Path to the image **relative to the `.ssab`**, or empty when embedded-only. */
   imagePath: string
   /**
-   * Encoded image bytes for an embedded pack, empty for a reference one.
+   * Size of the encoded image an embedded pack carries, 0 for a reference one.
    *
-   * A **borrow** of the Brain's copy — decode it during the call that received
-   * it and do not retain it. Note that an embedded atlas stays resident for the
-   * resource's whole life even after decoding: it sits inside the same
-   * contiguous FlatBuffer the Brain holds, so it cannot be freed on its own.
+   * The bytes themselves come from `SsContext.copyEmbeddedTexture`, asked for
+   * only when the atlas is not decoded already: copying every one on every
+   * load would pay again for each atlas the image cache holds.
    */
-  embedded: ArrayBuffer
+  embeddedLength: number
 }
 
 /**
@@ -129,6 +128,25 @@ export interface SsPartTransform {
 }
 
 /**
+ * A part's outline as drawn: four corners in player-local units, Y-down, the
+ * space of `SsPartTransform` — `SpriteStudioPlayer.getPartQuad` hands it over
+ * in view pixels instead. The corners are the part's own, so `leftTop` is where
+ * the cell's top left was drawn, wherever the pose put it. `valid` is false for
+ * a hidden part and for one that draws nothing of its own.
+ */
+export interface SsPartQuad {
+  valid: boolean
+  leftTopX: number
+  leftTopY: number
+  rightTopX: number
+  rightTopY: number
+  leftBottomX: number
+  leftBottomY: number
+  rightBottomX: number
+  rightBottomY: number
+}
+
+/**
  * One authored user-data key the playhead crossed.
  *
  * Four independent payloads, each optional, which is how SpriteStudio authors
@@ -141,6 +159,13 @@ export interface SsUserDataEvent {
   partName: string
   /** The frame the key sits on, not the frame it was noticed on. */
   frameNo: number
+  /**
+   * The source that fired it — the handle `getTrackMainSource` and
+   * `addTrackSource` give out. With no animation mixing this is always track
+   * 0's main source; it tells two blended animations' keys apart once a second
+   * source fires too. `frameNo` is a frame of **that** source's animation.
+   */
+  source: number
 
   hasInteger: boolean
   integer: number
@@ -158,8 +183,7 @@ export interface SsUserDataEvent {
  *
  * **This package never produces sound.** It says what to play, how many times,
  * and where the file is; feeding an audio stack is the app's job, the same
- * division the sibling Players draw (`ssplayer-wgpu`'s `AudioEvent` says so in
- * as many words). There is no audio dependency here to make that decision for
+ * division the sibling Players draw. There is no audio dependency here to make that decision for
  * you, and an authored key is not a command — a caller that ignores these
  * simply has a silent animation.
  *
@@ -174,6 +198,8 @@ export interface SsAudioEvent {
   partName: string
   /** The frame the key sits on, not the frame it was noticed on. */
   frameNo: number
+  /** The source that fired it — see `SsUserDataEvent.source`. */
+  source: number
 
   /** The alias as authored — a name inside the sound list, not a file name. */
   soundName: string
@@ -197,9 +223,9 @@ export interface SsAudioEvent {
   totalMs: number
   /**
    * Whether the pack carries this file's bytes in `embedded_assets` — i.e. it
-   * was converted with `--embedded`, and `filePath` names a sibling that **is
-   * not on disk**. Reading those bytes out is not wired yet, so an embedded
-   * pack's audio is currently reportable but not playable; the flag is what
+   * was converted with `--embedded`, and `filePath` names a file that **is
+   * not on disk**. Those bytes cannot be read out, so an embedded pack's audio
+   * is reportable but not playable; the flag is what
    * keeps that legible instead of presenting as a missing file.
    */
   embedded: boolean
@@ -258,17 +284,35 @@ export interface SsSignalEvent {
   partName: string
   /** The frame the key sits on, not the frame it was noticed on. */
   frameNo: number
+  /** The source that fired it — see `SsUserDataEvent.source`. */
+  source: number
 
   /** The authored command name. Uninterpreted. */
   commandId: string
   params: SsSignalParam[]
 }
 
+/** One label of an animation: its name and the frame it marks. */
+export interface SsLabel {
+  name: string
+  frame: number
+}
+
+/**
+ * The labels of one animation in **frame order**, and the animation's own
+ * first and last frame. `valid` is false when the pack has no such animation.
+ */
+export interface SsLabelTable {
+  valid: boolean
+  startFrame: number
+  endFrame: number
+  labels: SsLabel[]
+}
+
 /**
  * How many native handles are alive right now — the leak check, made observable.
  *
- * "No leaked native handles" was an assertion with nothing behind it until this
- * existed: a handle that outlives
+ * A handle that outlives
  * its player has no symptom on the JS side at all. It shows up as memory the
  * Brain never gives back, which on a simulator is invisible and on a device is
  * a crash several minutes later.
@@ -306,7 +350,7 @@ export interface SsResource
    *
    * **Resolution is transitive and that walk is the caller's**: an external
    * pack can reach further still, so a loader has to ask each pack it loads.
-   * `Ringo_tyu` → `Ringo` is one level; nothing stops there being more.
+   * One pack reaching another is one level; nothing stops there being more.
    */
   getExternalInstancePackNames(): string[]
 }
@@ -317,6 +361,34 @@ export interface SsContext
   readonly partCount: number
   readonly generation: number
   readonly frameNo: number
+
+  /**
+   * Whether the last `drawInto` drew the frame as it stands.
+   *
+   * False after anything that changes what would be drawn: an `update()` that
+   * moves the pose, a call that moves the playhead, a new animation, a
+   * sub-frame switch, an override, or a track call. An `update()` that lands on
+   * the pose already drawn leaves it true — a frame that lasts several ticks,
+   * or a pause, unless an effect or instance part moves on its own clock. A
+   * view that finds it true, with the same texture table and transform as last
+   * time, can keep the picture it has.
+   */
+  readonly frameDrawn: boolean
+
+  /**
+   * Whether `update()` can change the frame. False for a stopped player, and
+   * for a paused one with no effect or instance part: a pause moves only the
+   * parts that keep their own clock, and only those two kinds can. Layer 3
+   * sends a player that does not advance no `update()`.
+   *
+   * **Not** `isPlaying`, which goes false when track 0 finishes: the Brain's
+   * clock runs on from `play()` until `stop()` or a setup, and the rest of the
+   * stack still moves on it — a fade in flight, or a source other than track
+   * 0's main one, track 0's own included, still playing where it is heard. So
+   * a finished track 0 advances while the Brain says one of those does, and
+   * only then. A pause holds them as it holds track 0.
+   */
+  readonly advances: boolean
 
   /**
    * Makes `pack` available to this player's Instance parts.
@@ -368,8 +440,7 @@ export interface SsContext
   // not a second state machine.
   //
   // Every call marked "moves the playhead" bumps `generation` and refreshes the
-  // frame, so it invalidates outstanding buffers exactly the way `update()`
-  // does.
+  // frame, the way `update()` does.
 
   /**
    * Whether the transport is running. **Stays true while paused** — pausing sets
@@ -391,17 +462,17 @@ export interface SsContext
   readonly startFrame: number
   readonly endFrame: number
   /**
-   * Configured loop count. `-1` is infinite, and it is what you read back for
-   * one: `setLoopCount` normalizes everything at or below zero to `-1`, so passing
-   * `0` asks for infinite but never comes back as `0`.
-   */
-  /**
    * The speed the Brain **stored**, which is not always the one that was passed:
    * `0` and negatives clamp to a stop, so a host that dragged a slider negative
    * can see the stop it actually got rather than assuming it got reverse.
    */
   readonly speedScale: number
 
+  /**
+   * Configured loop count. `-1` is infinite, and it is what you read back for
+   * one: `setLoopCount` normalizes everything at or below zero to `-1`, so passing
+   * `0` asks for infinite but never comes back as `0`.
+   */
   readonly loopCount: number
   readonly remainingLoops: number
   /** `SsPlaybackDirection` wire value. */
@@ -442,10 +513,8 @@ export interface SsContext
    * Holds playback on the current frame, and does nothing if already held or
    * if nothing is playing.
    *
-   * Maps onto `ss_runtime_pause`, which is one-way and idempotent. It used to
-   * be a **toggle** (`is_pausing = !is_pausing`) — the wrong shape for a
-   * declarative `playing` prop, since a second call resumed — and the runtime
-   * split it into `pause` / `resume`.
+   * Maps onto `ss_runtime_pause`, which is one-way and idempotent: a toggle would
+   * make a second call from a declarative `playing` prop resume.
    */
   pause(): void
   /**
@@ -490,8 +559,14 @@ export interface SsContext
    * frame — and so every event on it — observed, at the cost of catching up.
    */
   setSkipFrames(skip: boolean): void
-  /** Restricts playback to `[startFrame, endFrame]`. Moves the playhead. */
-  setSection(startFrame: number, endFrame: number): void
+  /**
+   * Restricts playback to `[startFrame, endFrame]`, both ends included. An end
+   * out of the animation's range is its edge on that side. Moves the playhead.
+   *
+   * Returns false, changing nothing, when both ends are in range and the end
+   * is before the start; `lastErrorMessage` then says why.
+   */
+  setSection(startFrame: number, endFrame: number): boolean
   /**
    * Overrides the advance rate, in absolute frames per second.
    *
@@ -518,9 +593,7 @@ export interface SsContext
    *
    * This is the box a caller asks for when the authored canvas (`canvasBox`)
    * is not the one it wants: the canvas is where the artist composed, and art
-   * can overflow it. Measured on this repo's own packs, `Basic` (480 wide)
-   * draws into `x[-250.5, 232.0]` and `Shape` (320 wide) into
-   * `x[-248.0, 131.9]`.
+   * can overflow it.
    *
    * **Moves the playhead and leaves the last of `animations` set up**, so it
    * runs *before* `setupAnimation` — the same ordering rule `bindInstancePack`
@@ -556,6 +629,22 @@ export interface SsContext
   getPartTransform(partIndex: number): SsPartTransform
 
   /**
+   * Part `partIndex`'s outline on the frame last built — see `SsPartQuad`. A
+   * part with a cell is its four drawn corners, skew and vertex deform
+   * included; a Mesh part the axis-aligned box around its vertices; a part
+   * with a size and no cell, a Shape, that size around its pivot. Null, bone,
+   * Instance and Effect parts have none.
+   */
+  getPartQuad(partIndex: number): SsPartQuad
+
+  /**
+   * The part on top, in draw order, whose outline holds `(x, y)` — a point in
+   * the space `getPartQuad` answers in — among `parts`, or among every part
+   * when `parts` is empty. `-1` when none does. Builds no frame.
+   */
+  hitTestPart(x: number, y: number, parts: number[]): number
+
+  /**
    * Whether part `partIndex` is hidden on the frame being displayed.
    *
    * The companion to `getPartTransform`, which reports where a part *would* be
@@ -565,9 +654,12 @@ export interface SsContext
    *
    * Read from the **display** frame's `FrameData` — floored when sub-frame is
    * off, the same frame the renderer bakes — so it cannot disagree with what is
-   * on screen. It reflects the animation's own hide, not a
-   * `setPartVisibility` force-hide. False for an out-of-range index and before
-   * the first `update()`, when there is no frame to read.
+   * on screen. It is that frame's `hide`, which the Brain also sets for a
+   * `setPartVisibility` force-hide and, with `cascade`, for every descendant it
+   * reaches, from the next `update()` or call that moves the playhead (at once
+   * on a player that does not advance — see the override layer below). False
+   * for an out-of-range index and before the first `update()`, when there is
+   * no frame to read.
    */
   isPartHidden(partIndex: number): boolean
 
@@ -651,9 +743,14 @@ export interface SsContext
   // part index from `findPartIndex`, and every one returns false rather than
   // throwing when the part cannot take that kind of override — a Shape has no
   // cell, so `setPartCell` on one is a no-op and says so.
+  //
+  // The Brain applies an override when it builds a frame. A player that
+  // `advances` shows it from the next `update()`. One that does not has no
+  // `update()` coming, so its frame is rebuilt at the next read or draw.
 
   /**
-   * `force`: 0 reverts to the animation, 1 force-hides, 2 force-shows.
+   * `force`: 0 reverts to the animation, 1 force-hides. 2 (force-show) is
+   * reserved: the runtime rejects it and returns false.
    * `cascade` propagates a force-hide to descendants, which is what "hide this
    * limb" almost always means.
    */
@@ -694,6 +791,148 @@ export interface SsContext
   /** Drops every per-part override on this player at once. */
   clearPartOverrides(): boolean
 
+  // --- animation mixing: the track stack ------------------------------------
+  //
+  // Straight through to the Brain's track calls (`ss_runtime_set_track_*`,
+  // `ss_runtime_crossfade`, `ss_runtime_*_source_*`), with their names and their
+  // argument order. A **track** layers onto the pose the tracks below it made; a
+  // **source** is one animation blended within a track. Track 0 is the one
+  // `setupAnimation` lays, and `setupAnimation` collapses the stack back to it.
+  //
+  // The track-0 forms of the playback settings are the transport calls above:
+  // `setSpeedScale` is track 0's `setTrackSpeed`, and the Brain stores one value
+  // for both. A `crossfade` or `setTrackAnimation` on track 0 changes what track
+  // 0 plays **from the call on** — `frameNo`, `isPlaying` / `isFinished` /
+  // `justLooped`, `canvasBox` and `currentAnimationIndex` all answer for the
+  // incoming animation at once — and lays it looping forever, as a setup does.
+  //
+  // Every setter returns false when the Brain refused it, with the reason in
+  // `lastErrorMessage`. A read with nothing to report returns the C ABI's
+  // sentinel, translated only where the C one cannot cross as a number: `NaN`
+  // for a missing float, `-1` for a missing integer or source handle.
+  //
+  // A call that changes the pose marks the frame stale, so a player that does
+  // not advance still shows it, the same way an override does.
+
+  /** How many tracks exist, silent ones included. At least 1 once set up. */
+  readonly trackCount: number
+  /**
+   * Which animation track 0 plays, as an index into `getAnimationNames()`, or
+   * `-1` before anything is set up. Follows a track-0 `crossfade` from the call.
+   */
+  readonly currentAnimationIndex: number
+
+  /**
+   * Lays `name` on `track`, replacing what it played. Tracks grow on demand;
+   * track 0 must have been set up first. Cancels a fade in flight on the track.
+   */
+  setTrackAnimation(track: number, name: string): boolean
+  /** Silences `track` and cancels its fade. Track 0 cannot be cleared. */
+  clearTrack(track: number): boolean
+  /**
+   * Fades `track` over to `name` in `durationMs` — the same unit as `update`.
+   * Everything the track carried fades out together; a fade in flight is folded
+   * into the outgoing side where it stands.
+   */
+  crossfade(track: number, name: string, durationMs: number): boolean
+  /** Drives `track`'s alpha to `targetAlpha` over `durationMs`. */
+  fadeTrack(track: number, targetAlpha: number, durationMs: number): boolean
+  /** How far the fade in flight on `track` has got, `[0, 1]`; `NaN` when none. */
+  getTrackFadeProgress(track: number): number
+  /** Stops the fade on `track` where it stands. */
+  cancelTrackFade(track: number): boolean
+
+  /** How strongly `track` layers onto the pose below. Not clamped. */
+  setTrackAlpha(track: number, alpha: number): boolean
+  /** `NaN` for a track that does not exist. */
+  getTrackAlpha(track: number): number
+  /** `SsTrackBlend` wire value: 0 Mix, 1 Additive. */
+  setTrackBlend(track: number, blend: number): boolean
+  /** `SsTrackBlend` wire value, or `-1` for a track that does not exist. */
+  getTrackBlend(track: number): number
+  /**
+   * `SsTrackSync` wire value: 0 Free, 1 Start. Set it before laying an
+   * animation; a track with nothing on it is created for it.
+   */
+  setTrackSync(track: number, sync: number): boolean
+  /** `SsTrackSync` wire value, or `-1` for a track that does not exist. */
+  getTrackSync(track: number): number
+
+  /** Seeks the track's main animation. */
+  setTrackFrame(track: number, frameNo: number): boolean
+  /** `NaN` when the track has no animation. */
+  getTrackFrame(track: number): number
+  /**
+   * The track's speed — a track setting, so it holds for every animation laid
+   * on the track, a crossfade's both sides included. Track 0's is `speedScale`.
+   */
+  setTrackSpeed(track: number, speed: number): boolean
+  /** What was stored (a negative speed reads back as 0); `NaN` for no track. */
+  getTrackSpeed(track: number): number
+  /** Absolute fps override; `0` or less clears it. A track setting. */
+  setTrackFrameRate(track: number, fps: number): boolean
+  /**
+   * The rate the track's animation plays at: `0` with no animation and no
+   * override, `-1` for a track that does not exist.
+   */
+  getTrackFrameRate(track: number): number
+  /** A track setting. */
+  setTrackSkipFrames(track: number, skip: boolean): boolean
+  /** False for a track that does not exist. */
+  getTrackSkipFrames(track: number): boolean
+  /** Wire values as `setPlaybackDirection`. A track setting. */
+  setTrackPlaybackDirection(track: number, direction: number, style: number): boolean
+  /** `-1` for a track that does not exist. */
+  getTrackPlaybackDirection(track: number): number
+  /** `-1` for a track that does not exist. */
+  getTrackPlaybackStyle(track: number): number
+  /**
+   * How many times the track's animation plays before it holds its last frame;
+   * `0` or less loops forever. **The animation's**, not the track's: laying
+   * another one on the track starts it looping forever again.
+   */
+  setTrackLoopCount(track: number, loops: number): boolean
+  /** `-1` forever, `0` for a track with no animation. */
+  getTrackLoopCount(track: number): number
+  /** True once the track's animation has played its loops out. A state. */
+  isTrackFinished(track: number): boolean
+  /**
+   * True for the update in which the track's animation wrapped. A pulse, and
+   * the Brain's own: it stands until the next `update`, however long that is.
+   */
+  trackJustLooped(track: number): boolean
+  /**
+   * How far into a crossfade on `track` its outgoing side keeps firing events:
+   * while its share, `1 - t`, is at least `threshold`. Default `+∞`, silent from
+   * the moment the fade begins.
+   */
+  setTrackOutgoingEventThreshold(track: number, threshold: number): boolean
+  /** `NaN` for a track that does not exist. */
+  getTrackOutgoingEventThreshold(track: number): number
+
+  /**
+   * The handle of the source carrying the track's animation, or `-1` when it
+   * has none. Released handles are reused, so do not hold one across a fade.
+   */
+  getTrackMainSource(track: number): number
+  /** Adds another weighted source to `track`. The new handle, or `-1`. */
+  addTrackSource(track: number, name: string, weight: number): number
+  setSourceWeight(source: number, weight: number): boolean
+  /** `NaN` for a handle that names no source. */
+  getSourceWeight(source: number): number
+  setSourceFrame(source: number, frameNo: number): boolean
+  /** `NaN` for a handle that names no source. */
+  getSourceFrame(source: number): number
+  /**
+   * Which animation `source` plays, as an index into `getAnimationNames()`, or
+   * `-1` for a handle that names no source.
+   */
+  getSourceAnimationIndex(source: number): number
+  /** The weight at or above which `source` fires events. Default `+∞`. */
+  setSourceEventThreshold(source: number, threshold: number): boolean
+  /** `NaN` for a handle that names no source. */
+  getSourceEventThreshold(source: number): number
+
   // --- `.ssab` metadata ---------------------------------------------------
   //
   // The Brain returns none of the metadata rendering needs — cellmap names,
@@ -720,26 +959,39 @@ export interface SsContext
    */
   getTextures(): SsTextureInfo[]
 
+  /**
+   * A copy of the encoded image an embedded texture carries, by
+   * `SsTextureInfo.textureHash`, out of the same tree `getTextures` lists.
+   * Empty when that texture is not embedded, or once the context is released.
+   *
+   * A copy because the decode runs across an `await`, which the resource may
+   * not outlive. The Brain's own copy stays resident for the resource's whole
+   * life either way: it sits inside the same contiguous FlatBuffer as the rest
+   * of the pack, so it cannot be freed on its own.
+   */
+  copyEmbeddedTexture(textureHash: number): ArrayBuffer
+
   /** Animation names in this pack, for feeding back to `setupAnimation`. */
   getAnimationNames(): string[]
+
+  /**
+   * Part names in part-index order, read from the `.ssab` and so available
+   * before the first `update()`.
+   *
+   * A part authored without a name holds its slot as `''` rather than being
+   * skipped, so the list stays aligned with the `partIndex` every event carries
+   * — turning one back into something a human reads is the point. `length` is
+   * the part count, which `partCount` reports only once a frame has run.
+   */
+  partNames(): string[]
 
   /**
    * Cellmap names in this pack, without the `.ssce` extension — the namespace
    * `setPartCell` hashes against.
    *
    * Read from the `.ssab` rather than the texture table, because a cellmap
-   * whose atlas is embedded still has a name.
+   * inside an Embedded pack still has a name.
    */
-  /**
-   * Part names in part-index order, empty before an animation is set up.
-   *
-   * A part authored without a name holds its slot as `''` rather than being
-   * skipped, so the list stays aligned with the `partIndex` every event carries
-   * — turning one back into something a human reads is the point. `length` is
-   * the part count.
-   */
-  partNames(): string[]
-
   cellmapNames(): string[]
 
   /**
@@ -748,25 +1000,46 @@ export interface SsContext
    */
   cellNames(cellmapName: string): string[]
 
+  /** See `SsLabelTable`. */
+  getLabelTable(animationName: string): SsLabelTable
+
+  /**
+   * The texture table `drawInto` resolves batches against, kept until the next
+   * call. Set it when the table changes, not every frame: it is an array
+   * marshalled across JSI.
+   *
+   * It resolves each batch's `texture_hash` to the paint it draws with, so a
+   * pack with several cellmaps still costs one `drawInto` and — unlike drawing
+   * per texture — keeps the batches in the order the Brain emitted them, which
+   * is the whole of the depth sorting. A batch whose hash is absent is skipped
+   * rather than drawn with the wrong atlas.
+   *
+   * The context holds a reference to every paint until the table is replaced
+   * or the context disposed, so a registry that drops a paint meanwhile leaves
+   * nothing dangling.
+   */
+  setTextures(textures: SsTextureBinding[]): void
+
   /**
    * Bake **and draw** the current frame, entirely in C++.
    *
    * Nothing per-vertex crosses into JS — no `SkPoint` host objects to allocate
-   * and no `MakeVertices` array to unmarshal. JS is left with one call per
-   * player per frame.
+   * and no `MakeVertices` array to unmarshal. JS is left with one draw call
+   * per player per frame.
    *
-   * `textures` resolves each batch's `texture_hash` to the paint it draws with,
-   * so a pack with several cellmaps still costs one call and — unlike drawing
-   * per texture — keeps the batches in the order the Brain emitted them, which
-   * is the whole of the depth sorting. A batch whose hash is absent is skipped
-   * rather than drawn with the wrong atlas; a single-entry table is matched
-   * unconditionally, so a one-cellmap pack does not need the hash to be right.
-   *
-   * The canvas and every paint come straight from RN Skia; the caller keeps
-   * owning them and this only borrows them for the duration of the call.
-   * Returns the number of vertices drawn.
+   * The root placement is applied here, around the draw: translate by
+   * `(x, y)`, then scale by `(scaleX, scaleY)`, a negative scale mirroring that
+   * axis. The canvas comes from RN Skia and is borrowed for the call. Draws
+   * nothing until `setTextures` has given it a table. Returns the number of
+   * vertices drawn.
    */
-  drawInto(canvas: SkCanvasHandle, textures: SsTextureBinding[]): number
+  drawInto(
+    canvas: SkCanvasHandle,
+    x: number,
+    y: number,
+    scaleX: number,
+    scaleY: number
+  ): number
 }
 
 /** The module root. One instance per app. */
@@ -803,8 +1076,7 @@ export interface SsRuntime
   createResourceFromPath(path: string): SsResource
 
   /**
-   * The fallback for sources `fopen` cannot reach, which after the asset-path
-   * work means one thing: an `http(s)` URL, so a Metro dev server or a CDN. The
+   * The fallback for sources `fopen` cannot reach: an `http(s)` URL, so a Metro dev server or a CDN. The
    * bytes pass through the JS heap, which is exactly what the two calls either
    * side of this one exist to avoid.
    */
@@ -814,7 +1086,7 @@ export interface SsRuntime
    * Loads a `.ssab` out of the app's **asset directory** — the pack tree the
    * build copied in, addressed as `ss/overall/Basic.ssab`.
    *
-   * This is the route that makes sibling references work. Everything a pack
+   * This is the route that makes the names a pack carries resolve. Everything a pack
    * points at — a cellmap's `image_path`, an `external_textures` entry, an
    * Instance part's external `.ssab`, a `.ssqb`'s `ref_anime_pack` — is a name
    * relative to the `.ssab`, so it can only be resolved where the whole
@@ -850,4 +1122,16 @@ export interface SsRuntime
    * silent disagreement shows up as a texture that simply never resolves.
    */
   hashString(value: string): number
+
+  /**
+   * Decodes `image` on a worker thread if it is still encoded, and swaps the
+   * decoded pixels into it.
+   *
+   * `Skia.Image.MakeImageFromEncoded` returns an image that decodes the first
+   * time it is drawn, and a large atlas stalls the thread rendering the canvas
+   * for tens of milliseconds. Decoded here, the image keeps its pixels
+   * (width × height × 4 bytes) for as long as it lives. Leave the image alone
+   * until the promise settles.
+   */
+  decodeImage(image: SkImageHandle): Promise<void>
 }

@@ -90,7 +90,7 @@ void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
   // The `.ssab`'s own identity and its instance manifest, read here because
   // this is the last moment the bytes are reachable: the Brain has taken its
   // copy and the C-API will not give one back. Both are tiny and both are
-  // needed before any context exists — the pack walk that loads siblings runs
+  // needed before any context exists — the pack walk that loads what this one names runs
   // in JS, before `createContext`.
   packNameHash_ = view.packNameHash();
   for (const sscore::SsExternalPack& pack : view.externalInstancePacks()) {
@@ -104,10 +104,21 @@ void HybridSsResource::adopt(const uint8_t* bytes, size_t byteLength,
   gLiveResources.fetch_add(1, std::memory_order_relaxed);
 }
 
+const sscore::SsAnimeBinaryView& HybridSsResource::view(void* boundContext) {
+  if (!view_.valid() && resource_ != nullptr && boundContext != nullptr) {
+    view_ = sscore::SsAnimeBinaryView(ss_runtime_get_ssab_buf(boundContext),
+                                      ss_runtime_get_ssab_len(boundContext));
+  }
+  return view_;
+}
+
 void HybridSsResource::release() noexcept {
   if (resource_ == nullptr) return;
-  // Safe even while contexts are still bound: the Brain refcounts internally
-  // (see ss_runtime_bind_resource's "Lifetime Safety" note). That is what makes
+  // Contexts still bound keep copies of the view, valid while the Brain keeps
+  // the pack for them; no new context can bind a released resource.
+  view_ = {};
+  // Safe even while contexts are still bound: the Brain refcounts internally.
+  // That is what makes
   // an eager `dispose()` safe to expose at all — releasing here cannot pull the
   // `.ssab` out from under a context that is still playing it.
   ss_resource_destroy(resource_);

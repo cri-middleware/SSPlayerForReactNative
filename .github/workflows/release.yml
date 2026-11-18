@@ -1,36 +1,43 @@
 name: Release
 
-# One-shot publish of `react-native-spritestudio` to npm, dispatched by hand.
+# One release of `react-native-spritestudio` and `react-native-spritestudio-ui`,
+# which share a version, dispatched by hand.
 #
-# This is a thin wrapper around `scripts/release.sh` on purpose. That script is
-# what a maintainer runs on a laptop, and re-stating its order here would give
-# the two routes a chance to disagree about what a release is. Everything it
-# enforces — a clean tree, the *pinned* Brain rather than a local build,
-# generated code that still matches its inputs, the four host checks, and a
-# `prepack` that refuses a tarball a consumer could not use — holds identically
-# whichever way it is run.
+# The ref decides what the run is. From a branch it is the QA run:
+# scripts/build-release.sh -- the pinned Brain, the generated code, the host
+# checks and `prepack`, then the tarball opened and checked again -- and the
+# result kept on the run, nothing uploaded. A release is a v* tag on main, pushed
+# first and dispatched from second. There upload_release runs scripts/release.sh,
+# which is the same build with a DRAFT GitHub Release on the end, carrying the
+# two tarballs it checked with SHA256SUMS and generated notes, unless the tag has a
+# Release already -- and which a maintainer runs on a Mac to cut the release
+# without this workflow. Publishing the draft starts pages.yml.
 #
-# **macOS only, and not by oversight.** The tarball carries the Brain's iOS
-# xcframework, which only Xcode can build, and `check-mask` / `check-shader`
-# link the host `libskia.a` that RN Skia ships with a macOS slice and no Linux
-# one. `release.sh` refuses to start anywhere else.
+# On a v* tag, with or without upload_release, publish_npm stages each tarball
+# the build checked on npm through trusted publishing, unless npm already has
+# that version, staged or published, under the dist-tag scripts/npm-dist-tag.sh
+# picks. Nothing is public until a maintainer approves it with 2FA, on
+# npmjs.com or with `npm stage approve` (RELEASING.md, step 6).
+# Off, the Release alone carries the tarballs. That is how a package's first
+# version ships: npm sets up a trusted publisher only for a package it already
+# has, so a maintainer publishes that version by hand from the tarball.
 #
-# 🚧 **Blocked today, and the failure is the correct one.** `scripts/SDK_VERSION.txt`
-# names a SpriteStudio-SDK release tag that has not been published, so
-# `download-sdk.sh` — step 2 of the script — cannot resolve it and the run stops
-# there. See ROADMAP.md. Nothing here works around that: this workflow exists so
-# the channel is ready the moment the tag lands, not so a green tick can be had
-# without one.
+# **macOS only, and not by oversight.** `check-mask` / `check-shader` link the
+# host `libskia.a` that RN Skia ships with a macOS slice and no Linux one, and
+# build-release.sh skips them anywhere else -- which a release cannot afford.
 #
-# Secrets:
-#   SS_NPM_TOKEN  an npm automation token. Automation tokens bypass 2FA, which CI
-#                 cannot answer interactively — which is why `release.sh --otp`
-#                 has no counterpart input here.
+# Staging needs no secret: each package on npm has a trusted publisher for this
+# repository and this workflow file, allowed to stage, and the job's id-token is
+# what npm trusts.
 on:
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: 'Verify only — everything up to npm pack, publish nothing'
+      upload_release:
+        description: 'Draft the GitHub Release, to publish by hand. Only from a v* tag that has no Release yet; from a branch the run is a build.'
+        type: boolean
+        default: true
+      publish_npm:
+        description: 'Stage the tarball on npm, for a maintainer to approve. Only from a v* tag, with or without upload_release.'
         type: boolean
         default: true
 
@@ -41,30 +48,38 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read # release.sh bumps nothing and tags nothing — both are decisions
+  contents: read
 
 jobs:
   release:
     name: 🍎 Release (macOS)
     runs-on: macos-latest
     timeout-minutes: 60
+    permissions:
+      contents: write # the draft Release; the version and the tag are a maintainer's
+      id-token: write # trusted publishing on npm
 
     steps:
+      # The only checkout that keeps its credentials: scripts/release.sh asks
+      # origin for the release tag with git ls-remote.
       - name: Checkout (with both submodules)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # `release.sh` runs its own `git submodule update --init` over the same
-          # two paths, which is a no-op once this step has done it.
           submodules: recursive
+          # Full history + tags, for the previous tag the notes start at.
+          fetch-depth: 0
 
-      - name: A real publish comes from main
-        # `release.sh` only prints a note when it runs off main, which is right
-        # for a laptop: verifying a branch is a normal thing to want. Publishing
-        # is not undoable, so that half is refused rather than noted.
-        if: ${{ !inputs.dry_run && github.ref != 'refs/heads/main' }}
+      # A v* tag releases -- a draft, npm, or both -- so it has to name the
+      # version they carry. A branch releases nothing and has nothing to check.
+      # The build refuses packages that disagree with each other.
+      - name: The tag names this version
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          echo "::error::a publish must be dispatched from main (this ref: ${GITHUB_REF}) — re-run with dry_run to verify a branch"
-          exit 1
+          version="$(node -p "require('./packages/react-native-spritestudio/package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "v${version}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match the package version (v${version})."
+            exit 1
+          fi
 
       - name: Setup pnpm
         # Before setup-node, whose pnpm cache needs the binary. The version is
@@ -72,13 +87,22 @@ jobs:
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
-          # Writes the .npmrc that NODE_AUTH_TOKEN is read through. Without it
-          # the token is set and ignored, and the publish fails as anonymous.
+          node-version: 26
+          # The registry the staging step's trusted publishing talks to, set the
+          # way npm's own trusted publishing example sets it.
           registry-url: 'https://registry.npmjs.org'
           cache: pnpm
+
+      # The runner image's preinstalled Rust can lag behind the SDK's
+      # rust-version, which the example conversion and the host checks build
+      # against.
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          # Pinned by SHA, so the channel must be named explicitly here.
+          toolchain: stable
 
       - name: Install
         run: pnpm install --frozen-lockfile
@@ -86,23 +110,70 @@ jobs:
       - name: Install flatc
         # `check-framedata` is the only check that needs it, and it compiles its
         # probe against brew's flatbuffers headers as well as the vendored ones.
-        # The vendored copy is 25.12.19 and its `static_assert` on the version is
-        # what catches a formula that has moved past it — a failure there reads
+        # The vendored copy's `static_assert` on the version is what catches a formula that has moved past it — a failure there reads
         # as "wrong flatc", not "stale output".
         run: brew install flatbuffers
 
-      - name: Release
+      # check-hidden, check-motion, check-mask and check-framedata read packs
+      # converted from the SDK submodule's projects, which are gitignored, so a
+      # fresh checkout has none to read. A runner has no
+      # example/SpriteStudio_Source/, so the manifest this rewrites comes out as
+      # committed.
+      - name: Convert the example packs
+        run: bash scripts/deploy-examples.sh
+
+      # scripts/build-release.sh IS the release build, and the tarball it packs and
+      # checks is the file attached and published below. Every option is spelled
+      # out, so a release cannot change because a default did; release.sh spells
+      # out the same ones.
+      - name: Build and check the release
+        if: ${{ !(inputs.upload_release && startsWith(github.ref, 'refs/tags/v')) }}
+        run: ./scripts/build-release.sh skip=install sdk=download out=release-dist verify=yes clean=yes
+
+      - name: Build and check the release, and draft the GitHub Release
+        if: inputs.upload_release && startsWith(github.ref, 'refs/tags/v')
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.SS_NPM_TOKEN }}
-          # npm provenance attestation needs a PUBLIC repository, and npm rejects
-          # the publish outright rather than degrading. Flip to 'true' when this
-          # repository goes public — nothing else has to change. SSPlayerForWeb
-          # carries the same line for the same reason.
-          NPM_CONFIG_PROVENANCE: 'false'
-          DRY_RUN: ${{ inputs.dry_run }}
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/release.sh
+
+      - name: Upload the release build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: react-native-spritestudio-release-dist
+          path: release-dist
+          if-no-files-found: error
+          retention-days: 7
+
+      # npm 11.21 is the first CLI that sets a dist-tag through trusted
+      # publishing, and Node 22 ships npm 10.
+      - name: Update npm
+        if: startsWith(github.ref, 'refs/tags/v') && inputs.publish_npm
+        run: npm install -g npm@11.21.0
+
+      # Last, so that a failure here leaves the draft in place for a re-run or a
+      # maintainer to finish. npm lists a staged version only once it is
+      # approved, so staging one again is refused with a 409, which is skipped
+      # like a version npm already has. The core first: the UI package takes it
+      # as a peer at this version.
+      - name: Stage on npm
+        if: startsWith(github.ref, 'refs/tags/v') && inputs.publish_npm
         run: |
-          if [ "$DRY_RUN" = "true" ]; then
-            ./scripts/release.sh --dry-run
-          else
-            ./scripts/release.sh
-          fi
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          for package in react-native-spritestudio react-native-spritestudio-ui; do
+            if [ -n "$(npm view "${package}@${version}" version 2>/dev/null || true)" ]; then
+              echo "::notice::${package}@${version} is already on npm — skipping."
+              continue
+            fi
+            dist_tag="$(scripts/npm-dist-tag.sh "$package" "$version")"
+            if ! out="$(npm stage publish "release-dist/npm/${package}-${version}.tgz" --tag "$dist_tag" 2>&1)"; then
+              echo "$out"
+              if grep -qE "409 Conflict.*previously (published|staged) version \"${version}\"" <<< "$out"; then
+                echo "::notice::${package}@${version} is already staged — skipping."
+                continue
+              fi
+              exit 1
+            fi
+            echo "$out"
+            echo "::notice::Staged ${package}@${version} under '${dist_tag}' — approve it on npmjs.com or with npm stage approve."
+          done

@@ -45,10 +45,6 @@ namespace {
 /// Linear: a pack has a handful of cellmaps, so a map would cost more to build
 /// each frame than the scan saves.
 const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t textureHash) {
-  if (count == 0) return nullptr;
-  // Single-entry tables match anything — see the header for why.
-  if (count == 1) return static_cast<const SkPaint*>(textures[0].paint);
-
   const auto hash = static_cast<uint32_t>(textureHash);
   for (size_t i = 0; i < count; ++i) {
     if (textures[i].textureHash == hash) return static_cast<const SkPaint*>(textures[i].paint);
@@ -56,14 +52,14 @@ const SkPaint* PaintFor(const SsPaintBinding* textures, size_t count, int32_t te
   return nullptr;
 }
 
-/// Indices per quad. `SsBaker` emits exactly one quad per Normal part, which is
-/// what makes peeling a single part out of a batch arithmetic rather than a
-/// second bake — the kinds that are not quads carry their own ranges instead.
-constexpr int kIndicesPerQuad = 6;
+/// The most indices one quad has: twelve when `SsBaker` draws it as a fan
+/// around its centre, six otherwise. One quad per Normal part is what makes
+/// peeling a single part out of a batch arithmetic rather than a second bake —
+/// the kinds that are not quads carry their own ranges instead.
+constexpr int kMaxQuadIndices = 12;
 
-/// `drawVertices`'s own mode blends the shader against *vertex colours*, and
-/// Skia ignores it when there are none — which is always, here. `kModulate` is
-/// what it will have to be once PartColor bakes them.
+/// `drawVertices`'s own mode blends the shader against *vertex colours*:
+/// `kModulate` multiplies the atlas by the baked per-vertex alpha.
 constexpr SkBlendMode kVertexColorBlend = SkBlendMode::kModulate;
 
 /// The paint one pass draws with. Copied, never mutated in place: the caller's
@@ -86,14 +82,15 @@ SkPaint PaintForPass(const SkPaint& base, const BlendPass& pass) {
   return paint;
 }
 
-/// A quad's six indices, rebased onto its own four vertices.
+/// A quad's indices, rebased onto its own vertices.
 ///
-/// Read back from the baker rather than assumed: the winding is `{0,1,2,1,3,2}`
-/// today, and reading it keeps this correct if that ever changes.
-/// `quadIndices` points at the quad's own six entries; `vertexBase` is its first
-/// vertex relative to the batch, which is what the baker's values are relative to.
-void RebaseQuadIndices(const uint16_t* quadIndices, int vertexBase, uint16_t* out) {
-  for (int i = 0; i < kIndicesPerQuad; ++i) {
+/// Read back from the baker rather than assumed: whether a part is a fan or two
+/// triangles is the baker's call, per part and per frame.
+/// `quadIndices` points at the quad's own `count` entries; `vertexBase` is its
+/// first vertex relative to the batch, which is what the baker's values are
+/// relative to.
+void RebaseQuadIndices(const uint16_t* quadIndices, int count, int vertexBase, uint16_t* out) {
+  for (int i = 0; i < count; ++i) {
     out[i] = static_cast<uint16_t>(quadIndices[i] - vertexBase);
   }
 }
@@ -131,7 +128,8 @@ const sscore::SsBatchDesc* BatchOfPart(const sscore::SsBaker& baker, int32_t par
 /// `SsMaskShader.hpp` for why the bits are not in RGB. Only the planes the
 /// frame actually reaches are built, so the usual pack pays for exactly one.
 SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBaker& baker,
-                             const SsPaintBinding* textures, size_t textureCount) {
+                             const SsPaintBinding* textures, size_t textureCount,
+                             SsDrawScratch& scratch) {
   SsMaskCoverage out;
   const float w = plan.width();
   const float h = plan.height();
@@ -194,7 +192,8 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
     // six, a polygon's fan, a mesh's triangles. The subtraction is the same one
     // the peel path makes, and it is the general form rather than a quad case.
     const int vertexBase = part.vertexOffset - batch->vertexOffset;
-    std::vector<uint16_t> localIdx(static_cast<size_t>(part.indexCount));
+    std::vector<uint16_t>& localIdx = scratch.indices;
+    localIdx.resize(static_cast<size_t>(part.indexCount));
     for (int32_t i = 0; i < part.indexCount; ++i) {
       localIdx[static_cast<size_t>(i)] =
           static_cast<uint16_t>(indices[static_cast<size_t>(part.indexOffset) + i] - vertexBase);
@@ -247,32 +246,100 @@ SsMaskCoverage BuildCoverage(const sscore::SsMaskPlan& plan, const sscore::SsBak
   // A deferred picture image rather than a render target, because `drawInto`
   // runs on a **recording** canvas — Layer 4 records one `SkPicture` per frame —
   // so there is no `GrDirectContext` here to make a surface from. Skia
-  // rasterises this when the outer picture is played back, in the same frame,
-  // which is also why size classes and one-frame-delay
-  // countermeasures have nothing to do here: there is no delay to cover for.
+  // rasterises this when the outer picture is played back, in the same frame.
   //
-  // sRGB, and it no longer matters which: the bits ride in alpha, which Skia
+  // sRGB, and it does not matter which: the bits ride in alpha, which Skia
   // passes through untouched whatever the destination turns out to be. What
   // does still matter is that it is **not null** — `DeferredFromPicture`
   // returns null outright for a null colour space, whatever its doc comment
   // says, and the whole mask then silently does nothing.
-  out.image = SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
-                                            SkISize::Make(pw * columns, ph * rows), nullptr,
-                                            nullptr, SkImages::BitDepth::kU8,
-                                            SkColorSpace::MakeSRGB());
+  SsSetMaskCoverageImage(
+      out, SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                         SkISize::Make(pw * columns, ph * rows), nullptr,
+                                         nullptr, SkImages::BitDepth::kU8,
+                                         SkColorSpace::MakeSRGB()));
   out.width = pw;
   out.height = ph;
   out.planeCount = planeCount;
   return out;
 }
 
+template <typename T>
+void AppendBytes(std::vector<uint8_t>& out, const T* values, size_t count) {
+  const auto* bytes = reinterpret_cast<const uint8_t*>(values);
+  out.insert(out.end(), bytes, bytes + count * sizeof(T));
+}
+
+/// Everything `BuildCoverage` reads, flattened into `out`, so that two frames
+/// with equal bytes rasterise the same coverage.
+///
+/// The atlas goes in as its shader's address. That is safe to compare across
+/// frames because the kept coverage holds a reference to the shader it
+/// sampled, so the address cannot be reused while it is the one compared
+/// against.
+void CoverageInputs(const sscore::SsMaskPlan& plan, const sscore::SsBaker& baker,
+                    const SsPaintBinding* textures, size_t textureCount,
+                    std::vector<uint8_t>& out) {
+  out.clear();
+  const float box[4] = {plan.left(), plan.top(), plan.width(), plan.height()};
+  AppendBytes(out, box, 4);
+  for (const sscore::SsMaskWriter& writer : plan.writers()) {
+    const bool foreign = writer.foreignBaker != nullptr;
+    const int32_t head[3] = {writer.bit, writer.partDrawIndex, foreign ? 1 : 0};
+    AppendBytes(out, head, 3);
+    AppendBytes(out, &writer.threshold, 1);
+    if (foreign) AppendBytes(out, writer.foreignXf, 6);
+
+    const sscore::SsBaker& src = foreign ? *writer.foreignBaker : baker;
+    const std::vector<sscore::SsPartDraw>& parts = src.parts();
+    if (writer.partDrawIndex < 0 ||
+        static_cast<size_t>(writer.partDrawIndex) >= parts.size()) {
+      continue;
+    }
+    const sscore::SsPartDraw& part = parts[writer.partDrawIndex];
+    const sscore::SsBatchDesc* batch = BatchOfPart(src, writer.partDrawIndex);
+    if (batch == nullptr) continue;
+    const bool untextured = batch->kind == ss::runtime::DrawBatchKind_Shape;
+    const SkPaint* paint =
+        untextured ? nullptr : PaintFor(textures, textureCount, batch->textureHash);
+    const auto atlas = reinterpret_cast<uintptr_t>(paint != nullptr ? paint->getShader() : nullptr);
+    AppendBytes(out, &atlas, 1);
+    const int32_t shape[4] = {untextured ? 1 : 0, part.vertexCount, part.indexCount,
+                              part.vertexOffset - batch->vertexOffset};
+    AppendBytes(out, shape, 4);
+    if (part.vertexCount <= 0 || part.indexCount <= 0) continue;
+    const size_t base = static_cast<size_t>(part.vertexOffset) * 2;
+    const size_t floats = static_cast<size_t>(part.vertexCount) * 2;
+    AppendBytes(out, src.positions().data() + base, floats);
+    if (!untextured) AppendBytes(out, src.texCoords().data() + base, floats);
+    AppendBytes(out, src.indices().data() + part.indexOffset,
+                static_cast<size_t>(part.indexCount));
+  }
+}
+
+/// This frame's coverage: the kept one when the writers read the same inputs
+/// as last frame, else a fresh one, kept in its place.
+const SsMaskCoverage& CoverageFor(const sscore::SsMaskPlan& plan, const sscore::SsBaker& baker,
+                                  const SsPaintBinding* textures, size_t textureCount,
+                                  SsDrawScratch& scratch) {
+  CoverageInputs(plan, baker, textures, textureCount, scratch.nextCoverageInputs);
+  if (scratch.coverage == nullptr || scratch.nextCoverageInputs != scratch.coverageInputs) {
+    if (scratch.coverage == nullptr) scratch.coverage = std::make_shared<SsMaskCoverage>();
+    *scratch.coverage = BuildCoverage(plan, baker, textures, textureCount, scratch);
+    scratch.coverageInputs.swap(scratch.nextCoverageInputs);
+  }
+  return *scratch.coverage;
+}
+
 }  // namespace
 
 size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t textureCount,
                       const sscore::SsBaker& baker, const SsMaskInput& mask,
-                      SsInstanceRenderer* instances) {
+                      SsInstanceRenderer* instances, SsDrawScratch* scratchPtr) {
   auto* canvas = static_cast<SkCanvas*>(canvasPtr);
   if (canvas == nullptr || textures == nullptr || textureCount == 0) return 0;
+  SsDrawScratch ownScratch;
+  SsDrawScratch& scratch = scratchPtr != nullptr ? *scratchPtr : ownScratch;
 
   const std::vector<float>& positions = baker.positions();
   const std::vector<float>& texCoords = baker.texCoords();
@@ -287,11 +354,12 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   // Built here only by the root, which owns the whole tree's writers. A
   // sub-animation is handed the root's instead — see `SsMaskInput::coverage`.
   const bool haveWriters = mask.plan != nullptr && !mask.plan->empty();
-  SsMaskCoverage built;
   const SsMaskCoverage* coverage = mask.coverage;
   if (coverage == nullptr && mask.active() && haveWriters) {
-    built = BuildCoverage(*mask.plan, baker, textures, textureCount);
-    coverage = &built;
+    coverage = &CoverageFor(*mask.plan, baker, textures, textureCount, scratch);
+  } else if (coverage == nullptr) {
+    // No writers this frame: let go of the atlases the kept coverage samples.
+    scratch.coverage.reset();
   }
   const bool masking = haveWriters && coverage != nullptr && coverage->valid();
 
@@ -317,10 +385,9 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     // Three geometries, three routes to a coverage UV. A **quad** inverts its own
     // UV (below). A **Shape** samples no atlas, so its texcoord channel is free
     // and the coverage UV goes straight in per vertex. A **Mesh** has neither — it
-    // needs that one channel for its atlas — so it is masked by drawing into a
-    // layer and cutting the layer with the coverage, the covering-texture form
-    // ForGodot and the wgpu coverage backend use. Anything else that is neither
-    // quad nor Shape (an Effect) has no single shape to cut and draws unmasked.
+    // needs that one channel for its atlas — so the test reaches it as a clip
+    // shader instead. Anything else that is neither quad nor Shape (an Effect)
+    // draws unmasked.
     if (!info.quadShaped && !info.untextured && !meshTarget) return MaskRoute::kPlain;
     // Writers that failed to rasterise degrade to the unmasked draw rather than
     // hiding every part that draws inside them — a part that ignores its mask
@@ -438,7 +505,40 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
     }
   };
 
-  for (const sscore::SsBatchDesc& batch : baker.batches()) {
+  // A batch survives as one draw only if nothing in it needs peeling. The
+  // three reasons peel to the same shape — one part at a time — but they are
+  // independent: the blend plan is a property of the batch, while a PartColor
+  // tint and a mask test are each a property of one part inside it.
+  const auto batchPeels = [&](const sscore::SsBatchDesc& b) {
+    const bool mesh = b.kind == ss::runtime::DrawBatchKind_Mesh;
+    for (int p = 0; p < b.partCount; ++p) {
+      const sscore::SsPartDraw& info = parts[b.partOffset + p];
+      sscore::SsMaskBits bits;
+      // A pure mask forces the peel too — the batched draw has no way to leave
+      // one part out, and leaving it in is the bug this exists to prevent. A
+      // hidden target is the same case.
+      if (info.needsPartColorShader || info.needsShader || pureMaskOf(info) ||
+          maskRouteOf(info, mesh, &bits) != MaskRoute::kPlain)
+        return true;
+    }
+    return false;
+  };
+  const auto mergeableKind = [](int32_t kind) {
+    return kind == ss::runtime::DrawBatchKind_Normal || kind == ss::runtime::DrawBatchKind_Mesh ||
+           kind == ss::runtime::DrawBatchKind_Effect;
+  };
+  // Merged batches keep their triangles in order inside one draw, which a single
+  // coefficient pass composites exactly as it would draw by draw.
+  const auto coefficientBlend = [](int32_t blendType) {
+    const BlendPlan p = BlendPlanFor(blendType);
+    if (p.multiPass()) return false;
+    const SkBlendMode m = p.passes[0].mode;
+    return m == SkBlendMode::kSrcOver || m == SkBlendMode::kPlus || m == SkBlendMode::kScreen;
+  };
+
+  const std::vector<sscore::SsBatchDesc>& batches = baker.batches();
+  for (size_t bi = 0; bi < batches.size(); ++bi) {
+    const sscore::SsBatchDesc& batch = batches[bi];
     drawMountsBefore(batch.startRank);
     if (batch.vertexCount == 0 || batch.indexCount == 0) continue;
     // A pure mask writes coverage and draws no colour. Its geometry was
@@ -447,13 +547,10 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
     // A Shape samples nothing: its colour is entirely in the baked vertex
     // colours (a Shape bypasses the composite formula), and its `texture_hash` is
-    // 0 because it resolves no cell. So it must **not** go through `PaintFor` —
-    // the single-entry rule matches unconditionally and would hand it the
-    // atlas, texturing a polygon that was never meant to sample one.
+    // 0 because it resolves no cell, so it does not go through `PaintFor`.
     const bool untextured = batch.kind == ss::runtime::DrawBatchKind_Shape;
-    // A Mesh target is masked by the layer route in the peel below rather than by
-    // the UV reconstruction a quad uses; the flag rides down to `maskBitsOf` so a
-    // Mesh is no longer rejected there, and to the peel so it takes that route.
+    // A Mesh target is masked by the clip-shader route in the peel below rather
+    // than by the UV reconstruction a quad uses.
     const bool isMesh = batch.kind == ss::runtime::DrawBatchKind_Mesh;
     SkPaint plain;
     // **White, explicitly.** With no shader, `drawVertices` uses the paint's
@@ -480,19 +577,61 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
 
     const BlendPlan plan = BlendPlanFor(batch.blendType);
 
-    // A batch survives as one draw only if nothing in it needs peeling. The
-    // three reasons peel to the same shape — one part at a time — but they are
-    // independent: the blend plan is a property of the batch, while a PartColor
-    // tint and a mask test are each a property of one part inside it.
-    bool anyPeel = false;
-    for (int p = 0; p < batch.partCount && !anyPeel; ++p) {
-      const sscore::SsPartDraw& info = parts[batch.partOffset + p];
-      sscore::SsMaskBits bits;
-      // A pure mask forces the peel too — the batched draw has no way to leave
-      // one part out, and leaving it in is the bug this exists to prevent. A
-      // hidden target is the same case.
-      anyPeel = info.needsPartColorShader || info.needsShader || pureMaskOf(info) ||
-                maskRouteOf(info, isMesh, &bits) != MaskRoute::kPlain;
+    const bool anyPeel = batchPeels(batch);
+
+    if (!plan.multiPass() && !anyPeel && mergeableKind(batch.kind) && coefficientBlend(batch.blendType)) {
+      // The Brain cuts a batch wherever the part kind changes, so a Normal run
+      // and a Mesh run on the same texture and blend arrive as two. Following
+      // batches join this draw while they share its paint, carry straight on in
+      // the bake, and have no instance mounted between them.
+      size_t last = bi;
+      int32_t vertexEnd = batch.vertexOffset + batch.vertexCount;
+      int32_t indexEnd = batch.indexOffset + batch.indexCount;
+      for (size_t next = bi + 1; next < batches.size(); ++next) {
+        const sscore::SsBatchDesc& nb = batches[next];
+        if (nb.vertexCount == 0 || nb.indexCount == 0) {
+          if (nb.kind == ss::runtime::DrawBatchKind_Mask) break;
+          continue;
+        }
+        if (!mergeableKind(nb.kind) || nb.textureHash != batch.textureHash ||
+            nb.blendType != batch.blendType)
+          break;
+        if (nb.vertexOffset != vertexEnd || nb.indexOffset != indexEnd) break;
+        if (nb.vertexOffset + nb.vertexCount - batch.vertexOffset > 65535) break;
+        if (instances != nullptr && nextMount < mounts.size() &&
+            mounts[nextMount].drawRank < nb.startRank)
+          break;
+        if (batchPeels(nb)) break;
+        last = next;
+        vertexEnd = nb.vertexOffset + nb.vertexCount;
+        indexEnd = nb.indexOffset + nb.indexCount;
+      }
+      if (last > bi) {
+        const int32_t vertexCount = vertexEnd - batch.vertexOffset;
+        const int32_t indexCount = indexEnd - batch.indexOffset;
+        // Each batch's indices are relative to its own first vertex; rebase them
+        // onto this draw's.
+        std::vector<uint16_t>& merged = scratch.indices;
+        merged.resize(static_cast<size_t>(indexCount));
+        for (size_t m = bi; m <= last; ++m) {
+          const sscore::SsBatchDesc& mb = batches[m];
+          if (mb.vertexCount == 0 || mb.indexCount == 0) continue;
+          const auto shift = static_cast<uint16_t>(mb.vertexOffset - batch.vertexOffset);
+          const uint16_t* src = indices.data() + mb.indexOffset;
+          uint16_t* dst = merged.data() + (mb.indexOffset - batch.indexOffset);
+          for (int32_t i = 0; i < mb.indexCount; ++i) dst[i] = static_cast<uint16_t>(src[i] + shift);
+        }
+        sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
+            SkVertices::kTriangles_VertexMode, vertexCount, pos, uv,
+            reinterpret_cast<const SkColor*>(col), indexCount, merged.data());
+        if (vertices != nullptr) {
+          const SkPaint passPaint = PaintForPass(*paint, plan.passes[0]);
+          canvas->drawVertices(vertices, kVertexColorBlend, passPaint);
+          drawn += static_cast<size_t>(vertexCount);
+        }
+        bi = last;
+        continue;
+      }
     }
 
     if (!plan.multiPass() && !anyPeel) {
@@ -543,14 +682,14 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       const int indexBase = info.indexOffset - batch.indexOffset;
       const float* partUv = texCoords.data() + static_cast<size_t>(info.vertexOffset) * 2;
 
-      // A quad's six indices are rebased onto its own four vertices; a mesh's
-      // are already part-local plus the batch base, so the same subtraction
-      // serves both — it is the general form, not a quad special case.
-      uint16_t localIdx[kIndicesPerQuad];
+      // A quad's indices are rebased onto its own vertices; a mesh's are
+      // already part-local plus the batch base, so the same subtraction serves
+      // both — it is the general form, not a quad special case.
+      uint16_t localIdx[kMaxQuadIndices];
       const uint16_t* useIdx = idx + indexBase;
-      std::vector<uint16_t> meshIdx;
-      if (info.indexCount == kIndicesPerQuad && info.quadShaped) {
-        RebaseQuadIndices(idx + indexBase, base, localIdx);
+      std::vector<uint16_t>& meshIdx = scratch.indices;
+      if (info.quadShaped && info.indexCount <= kMaxQuadIndices) {
+        RebaseQuadIndices(idx + indexBase, info.indexCount, base, localIdx);
         useIdx = localIdx;
       } else {
         meshIdx.resize(static_cast<size_t>(info.indexCount));
@@ -570,7 +709,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
         // Twelve of the thirteen built-ins fold the PartColor composite as their
         // own output tail, so the effect takes the corners and
         // `MakePartColorShader` is deliberately **not** also run — that would
-        // apply the tint twice. A built-in with no body yet returns null here
+        // apply the tint twice. A built-in that would not compile returns null here
         // and falls through to the tint below, which is the same degradation an
         // unrecognised `id_hash` takes.
         tint = MakePartShaderShader(info.partShader, info.partColor, partUv,
@@ -586,15 +725,15 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // A masked Mesh takes a route of its own. It cannot carry the coverage UV
       // in its texcoord channel — the atlas already owns that — and its triangle
       // soup has no affine UV to invert, so neither the quad nor the Shape path
-      // fits. Instead it is drawn into an isolated layer and the layer is cut by
-      // the coverage test (the covering-texture form): the mesh goes down
-      // once with its atlas, then the same triangles go down again carrying the
-      // per-vertex coverage UV, through the replay shader, with `kDstIn` — so a
-      // fragment the mask rejects has its layer alpha multiplied to zero. The
-      // layer then composites with the part's own blend.
+      // fits. But the coverage UV is affine in the mesh's own position, so the
+      // test goes in as a **clip shader** evaluated at the canvas's local
+      // coordinates: a fragment the mask rejects is clipped away, and the mesh
+      // draws once, with its own blend, as it would through a stencil test. A
+      // layer would cost an offscreen render per masked mesh per frame.
       if (partMasked && isMesh) {
         SkPaint meshPaint = *paint;
         if (tint != nullptr) meshPaint.setShader(tint);
+        meshPaint.setBlendMode(BlendModeFor(batch.blendType));
 
         sk_sp<SkVertices> meshVerts = SkVertices::MakeCopy(
             SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base, uv + base,
@@ -602,71 +741,39 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
             info.indexCount, useIdx);
         if (meshVerts == nullptr) continue;
 
-        // Unit square twice over, exactly as the Shape peel does it: the coverage
-        // UV rides in the texcoord channel per vertex, so the replay's `(s,t)`
-        // reconstruction is the identity and it samples the coverage where the
-        // texcoord says.
+        // Unit square twice over, exactly as the Shape peel does it: the replay's
+        // `(s,t)` reconstruction is the identity, so it samples the coverage at
+        // the coordinate it is evaluated at — which the local matrix below makes
+        // the coverage UV.
         static constexpr float kUnitSquare[8] = {0.0f, 0.0f, 1.0f, 0.0f,
                                                  0.0f, 1.0f, 1.0f, 1.0f};
-        sk_sp<SkShader> cut = MakeMaskReplayShader(SkShaders::Color(SK_ColorWHITE), *coverage,
-                                                   bits, kUnitSquare, kUnitSquare);
-        if (cut == nullptr) {
-          // A replay that would not build degrades to the unmasked mesh — a mesh
+        sk_sp<SkShader> test = MakeMaskReplayShader(SkShaders::Color(SK_ColorWHITE), *coverage,
+                                                    bits, kUnitSquare, kUnitSquare);
+        // This frame's space -> the coverage's (`toCoverageSpace`) -> the coverage
+        // UV (`SsMaskPlan::coverageUv`), as one matrix. The shader's local matrix
+        // is its inverse: a shader samples at the local matrix's inverse of the
+        // point it is evaluated at.
+        SkMatrix toCoverageUv =
+            SkMatrix::Scale(1.0f / mask.plan->width(), 1.0f / mask.plan->height());
+        toCoverageUv.preTranslate(-mask.plan->left(), -mask.plan->top());
+        SkMatrix slot;
+        slot.setAffine(mask.slotXf);
+        toCoverageUv.preConcat(slot);
+        SkMatrix fromCoverageUv;
+        if (test == nullptr || !toCoverageUv.invert(&fromCoverageUv)) {
+          // A test that would not build degrades to the unmasked mesh — a mesh
           // that ignores its mask beats one clipped against the wrong shape, the
           // same trade every other kind's degrade path makes.
-          meshPaint.setBlendMode(BlendModeFor(batch.blendType));
           canvas->drawVertices(meshVerts, kVertexColorBlend, meshPaint);
           drawn += static_cast<size_t>(info.vertexCount);
           continue;
         }
 
-        // The coverage UV per vertex, and the mesh's local-space bounds in the
-        // same walk — the bounds cap the layer below, and the vertices are
-        // already in hand here.
-        std::vector<SkPoint> covTex(static_cast<size_t>(info.vertexCount));
-        float minX = pos[base].fX, maxX = minX, minY = pos[base].fY, maxY = minY;
-        for (int c = 0; c < info.vertexCount; ++c) {
-          const SkPoint& p = pos[base + c];
-          minX = std::min(minX, p.fX);
-          maxX = std::max(maxX, p.fX);
-          minY = std::min(minY, p.fY);
-          maxY = std::max(maxY, p.fY);
-          float cx = 0.0f, cy = 0.0f;
-          toCoverageSpace(p.fX, p.fY, &cx, &cy);
-          mask.plan->coverageUv(cx, cy, &covTex[static_cast<size_t>(c)].fX,
-                                &covTex[static_cast<size_t>(c)].fY);
-        }
-        sk_sp<SkVertices> cutVerts = SkVertices::MakeCopy(
-            SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base, covTex.data(),
-            nullptr, info.indexCount, useIdx);
-        if (cutVerts == nullptr) continue;
-
-        // The layer is bounded to the mesh so Skia allocates no more offscreen
-        // than the mesh covers. The part's blend rides on the layer's own paint
-        // (composited on restore); the mesh itself goes down `kSrcOver` inside.
-        SkRect bounds = SkRect::MakeLTRB(minX, minY, maxX, maxY);
-        SkPaint layerPaint;
-        layerPaint.setBlendMode(BlendModeFor(batch.blendType));
-
-        // The guard, not a bare save/restore: `drawVertices` and `saveLayer` both
-        // allocate, and a `bad_alloc` between the save and the restore would leave
-        // the layer standing — every later part would then draw into it. Restores
-        // to the count recorded now, whichever way the scope exits.
-        SkAutoCanvasRestore restore(canvas, false);
-        canvas->saveLayer(&bounds, &layerPaint);
-
-        meshPaint.setBlendMode(SkBlendMode::kSrcOver);
+        // The guard, not a bare save/restore: `drawVertices` allocates, and a
+        // throw between the two would leave the clip on every later part.
+        SkAutoCanvasRestore restore(canvas, true);
+        canvas->clipShader(test->makeWithLocalMatrix(fromCoverageUv));
         canvas->drawVertices(meshVerts, kVertexColorBlend, meshPaint);
-
-        SkPaint cutPaint;
-        cutPaint.setShader(std::move(cut));
-        cutPaint.setBlendMode(SkBlendMode::kDstIn);
-        // Nearest and no AA, the same reason the coverage pass has them: a partial
-        // edge alpha would multiply the layer by a fraction and leave a masked
-        // fringe the binary test never intended.
-        cutPaint.setAntiAlias(false);
-        canvas->drawVertices(cutVerts, kVertexColorBlend, cutPaint);
-
         drawn += static_cast<size_t>(info.vertexCount);
         continue;
       }
@@ -674,15 +781,14 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // The shader the part's own pass draws with, or null to keep the paint's.
       sk_sp<SkShader> partShader = tint;
       // Only set for an untextured target, whose coverage UVs are written per
-      // vertex rather than reconstructed. Declared out here so it outlives the
-      // `MakeCopy` that reads it.
-      std::vector<SkPoint> covTex;
+      // vertex rather than reconstructed. Read by the `MakeCopy` below.
+      const SkPoint* covTex = nullptr;
       if (partMasked) {
         // The unit square, twice over. `SsMakeUvInverse` turns the first into
         // the identity, so the shader's `(s, t)` *is* the interpolated
-        // texcoord, and bilinear-ing the second by it gives back `(s, t)`
-        // again. Net effect: the coverage is sampled exactly where the texcoord
-        // says — which is what the branch below writes there.
+        // texcoord, and weighting the second's corners at it gives back
+        // `(s, t)` again. Net effect: the coverage is sampled exactly where the
+        // texcoord says — which is what the branch below writes there.
         static constexpr float kUnitSquare[8] = {0.0f, 0.0f, 1.0f, 0.0f,
                                                  0.0f, 1.0f, 1.0f, 1.0f};
         const float* replayUv = partUv;
@@ -693,13 +799,15 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
           // interpolate is exact, not an approximation. This is the whole
           // reason a Shape can be masked at all where a Mesh cannot: it has a
           // texcoord channel going spare.
-          covTex.resize(static_cast<size_t>(info.vertexCount));
+          scratch.coverageUvs.resize(static_cast<size_t>(info.vertexCount) * 2);
+          auto* uvs = reinterpret_cast<SkPoint*>(scratch.coverageUvs.data());
           for (int c = 0; c < info.vertexCount; ++c) {
             const SkPoint& p = pos[base + c];
             float cx = 0.0f, cy = 0.0f;
             toCoverageSpace(p.fX, p.fY, &cx, &cy);
-            mask.plan->coverageUv(cx, cy, &covTex[c].fX, &covTex[c].fY);
+            mask.plan->coverageUv(cx, cy, &uvs[c].fX, &uvs[c].fY);
           }
+          covTex = uvs;
           replayUv = kUnitSquare;
           for (int i = 0; i < 8; ++i) covUv[i] = kUnitSquare[i];
         } else {
@@ -712,8 +820,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
         }
         // An untextured part has no atlas for the replay to gate, so it gates
         // opaque white and `kModulate` against the vertex colours keeps the
-        // shape's own gradient — SSPlayerForFlutter's trick, and the reason its
-        // masked-shape path reuses the PartColor program as a no-op.
+        // shape's own gradient.
         sk_sp<SkShader> inner = tint;
         if (inner == nullptr) {
           inner = info.untextured ? SkShaders::Color(SK_ColorWHITE) : paint->refShader();
@@ -728,7 +835,7 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
       // A masked untextured part carries the coverage UV in the texcoord slot;
       // an unmasked one carries nothing at all.
       const SkPoint* useUv = untextured ? nullptr : uv + base;
-      if (!covTex.empty()) useUv = covTex.data();
+      if (covTex != nullptr) useUv = covTex;
       sk_sp<SkVertices> vertices = SkVertices::MakeCopy(
           SkVertices::kTriangles_VertexMode, info.vertexCount, pos + base, useUv,
           tint != nullptr ? nullptr : reinterpret_cast<const SkColor*>(col + base),
@@ -769,15 +876,32 @@ size_t DrawBakedFrame(void* canvasPtr, const SsPaintBinding* textures, size_t te
   return drawn;
 }
 
+int SaveAndPlaceCanvas(void* canvasPtr, float x, float y, float scaleX, float scaleY) {
+  auto* canvas = static_cast<SkCanvas*>(canvasPtr);
+  if (canvas == nullptr) return 0;
+  const int saveCount = canvas->save();
+  canvas->translate(x, y);
+  canvas->scale(scaleX, scaleY);
+  return saveCount;
+}
+
+void RestoreCanvas(void* canvasPtr, int saveCount) {
+  auto* canvas = static_cast<SkCanvas*>(canvasPtr);
+  if (canvas != nullptr) canvas->restoreToCount(saveCount);
+}
+
 #else
 
 // Must match the declaration parameter-for-parameter, including the instance
 // renderer — an arity mismatch here is a link error in exactly the build this
 // branch exists to keep linking.
 size_t DrawBakedFrame(void*, const SsPaintBinding*, size_t, const sscore::SsBaker&,
-                      const SsMaskInput&, SsInstanceRenderer*) {
+                      const SsMaskInput&, SsInstanceRenderer*, SsDrawScratch*) {
   return 0;
 }
+
+int SaveAndPlaceCanvas(void*, float, float, float, float) { return 0; }
+void RestoreCanvas(void*, int) {}
 
 #endif
 

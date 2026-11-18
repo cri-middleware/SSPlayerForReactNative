@@ -10,16 +10,16 @@
 #      see: headers that are internally consistent but stale relative to the
 #      `libssruntime` in `native/`, which reads as a silently misread buffer.
 #
-# Host-only, and the only place flatc and the flatbuffers headers are needed as
-# tools: the shipped package vendors the headers (third_party/flatbuffers) and
-# has no flatc dependency.
+# Host-only, and the only place flatc is needed as a tool: the shipped package
+# vendors the flatbuffers headers (third_party/flatbuffers) and has no flatc
+# dependency.
 #
 # Usage: tools/check-framedata.sh [ssab] [animation] [frames]
 #   ssab       default: example/assets/ss/Ringo/Ringo.ssab
 #   animation  default: dance
 #   frames     default: 300
 #
-# Prerequisites: flatc and the flatbuffers C++ headers (brew install flatbuffers).
+# Prerequisites: flatc (brew install flatbuffers, or any flatc on PATH).
 
 set -euo pipefail
 
@@ -35,12 +35,11 @@ FRAMES="${3:-300}"
 
 command -v flatc >/dev/null || { echo "check-framedata.sh: flatc not found (brew install flatbuffers)" >&2; exit 1; }
 
-# Where brew keeps flatbuffers/flatbuffers.h. Only the host build needs this;
-# the package builds against the vendored third_party/flatbuffers instead.
-FB_INCLUDE=$(brew --prefix flatbuffers 2>/dev/null)/include
-[ -d "$FB_INCLUDE" ] || FB_INCLUDE=$(brew --prefix 2>/dev/null)/include
+# The vendored headers, which the committed cpp/format/ is generated for and the
+# package ships against. Whether flatc itself is current is check 1's question.
+FB_INCLUDE="$ROOT_DIR/packages/react-native-spritestudio/third_party/flatbuffers/include"
 [ -f "$FB_INCLUDE/flatbuffers/flatbuffers.h" ] || {
-  echo "check-framedata.sh: flatbuffers headers not found under $FB_INCLUDE" >&2
+  echo "check-framedata.sh: $FB_INCLUDE has no flatbuffers.h — run: git submodule update --init" >&2
   exit 1
 }
 

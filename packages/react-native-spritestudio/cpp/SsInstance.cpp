@@ -1,5 +1,7 @@
 #include "SsInstance.hpp"
 
+#include <cmath>
+
 #include "SsAnimeBinary.hpp"
 #include "ssruntime.h"
 
@@ -32,7 +34,15 @@ void SsInstanceSlots::step(void* parentContext, float parentFrame, float dtMilli
 
     // A new `EventInstance` edge. See `SsInstanceChild::instancePlay` for why
     // this is required rather than a notification.
-    if (r.transitioned) state.child->instancePlay();
+    if (r.transitioned) {
+      state.child->instancePlay();
+      // The child restarts from its section start, so its own grandchildren and
+      // effects restart with it. Left alone they carry on from where they were,
+      // and a finite independent one inside never shows again. Before the step
+      // below, which is what lets them see their first key afresh. This slot is
+      // not reset: it is the one that just started the child.
+      state.child->instanceResetSlots();
+    }
 
     state.visible = r.visible;
     if (!r.visible) continue;
@@ -49,7 +59,16 @@ void SsInstanceSlots::step(void* parentContext, float parentFrame, float dtMilli
     // `child_looped` rather than `parentLooped`: an independent child runs on
     // its own elapsed time, so "the parent looped" for a grandchild is this
     // pulse and not the root animation's.
-    state.child->instanceStepSlots(state.childFrame, dtMilliseconds, r.child_looped);
+    //
+    // The delta is scaled by the speed the slot just stepped the child at, read
+    // *after* the step. The child itself moved at that speed inside the step, so
+    // an unscaled delta runs its independent grandchildren and effects at 1x
+    // under a key of any other speed. Not `ev.speed`: before the first real key
+    // the Brain reports an implicit 1x key that the slot ignores once it has
+    // started an independent one, and the subtree would drop to 1x there.
+    const float childDtMilliseconds =
+        dtMilliseconds * std::fabs(ss_instance_slot_get_speed(state.slot));
+    state.child->instanceStepSlots(state.childFrame, childDtMilliseconds, r.child_looped);
   }
 }
 
@@ -68,8 +87,7 @@ void SsInstanceSlots::reset() {
 void SsInstanceSlots::release() noexcept {
   for (SsInstanceState& state : states_) {
     // Child first, then the slot that drove it. The child borrows nothing from
-    // the slot, but both reference ports order it this way and a future child
-    // that does would break silently under the other order.
+    // the slot today, and one that did would break silently under the other order.
     delete state.child;
     state.child = nullptr;
     if (state.slot != nullptr) {

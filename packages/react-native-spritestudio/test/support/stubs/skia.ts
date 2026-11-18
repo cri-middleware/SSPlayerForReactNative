@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react'
 
 /**
- * Stands in for `@shopify/react-native-skia` under vitest.
+ * Stands in for `react-native-skia` under vitest.
  *
  * Recording rather than inert: a `<SpriteStudioView>` or a `<SpriteStudioScene>`
  * tick is "record one picture, hand it to the canvas", so the picture is the
@@ -21,6 +21,8 @@ export interface StubCanvas {
 export interface StubPicture {
   readonly canvas: StubCanvas
   readonly drawn: unknown[]
+  disposed: boolean
+  dispose(): void
 }
 
 function makeCanvas(): StubCanvas {
@@ -52,6 +54,10 @@ export const Skia = {
       finishRecordingAsPicture: (): StubPicture => ({
         canvas,
         drawn: canvas.drawn,
+        disposed: false,
+        dispose() {
+          this.disposed = true
+        },
       }),
     }
   },

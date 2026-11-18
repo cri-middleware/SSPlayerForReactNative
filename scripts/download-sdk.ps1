@@ -7,8 +7,8 @@ param (
 # directory.
 #
 # THIS IS THE NORMAL PATH. It needs no Rust toolchain and no submodule, which is
-# what lets someone who has never touched the SDK build the package (design doc
-# ch.7). scripts/build-runtime.ps1 is the other path, and on Windows it can only
+# what lets someone who has never touched the SDK build the package.
+# scripts/build-runtime.ps1 is the other path, and on Windows it can only
 # produce the Android slice — so this is the only way to get a complete native/
 # there.
 #
@@ -41,7 +41,9 @@ foreach ($arg in $ArgsList) {
             Write-Host "  --force  re-install even when the pinned version is already installed"
             exit 0
         }
-        default { Write-Error "$app`: unknown argument '$arg'"; exit 2 }
+        # Plain stderr, not Write-Error: under the Stop preference that would
+        # end the script before `exit 2`, and bad usage would arrive as 1.
+        default { [Console]::Error.WriteLine("${app}: unknown argument '$arg'"); exit 2 }
     }
 }
 

@@ -1,12 +1,14 @@
 #pragma once
 
-// Variant (c)'s drawing step: turn a baked frame into Skia draw calls, in C++.
+// The drawing step: turn a baked frame into Skia draw calls, in C++.
 //
 // Declared with opaque pointers so `HybridSsContext` — which is compiled on
 // every target — never needs the Skia headers. Only SsSkiaDraw.cpp does.
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 #include "SsMask.hpp"
 
@@ -84,12 +86,28 @@ struct SsInstanceRenderer {
 
 /// One `cellmap.name_hash` → `SkPaint*` entry of the texture table.
 ///
-/// Deliberately not the Nitro struct: this header is included by
-/// `HybridSsContext`, which must stay free of both Skia and (for the host test
-/// harness) Nitro.
+/// Deliberately not the Nitro struct: this header is shared with the host checks,
+/// which link no Nitro.
 struct SsPaintBinding {
   uint32_t textureHash;
   void* paint;
+};
+
+/// Buffers `DrawBakedFrame` rebuilds for one part at a time. Resized in place,
+/// so after the first frames a draw allocates nothing here.
+struct SsDrawScratch {
+  std::vector<uint16_t> indices;
+  /// Coverage UVs, `x, y` per vertex.
+  std::vector<float> coverageUvs;
+
+  /// The last coverage this root built, and the inputs it was built from.
+  ///
+  /// Kept because the GPU caches a rasterised image under the image itself: a
+  /// new image every frame is an offscreen render every frame. A frame whose
+  /// writers read the same inputs hands the same image on instead.
+  std::shared_ptr<SsMaskCoverage> coverage;
+  std::vector<uint8_t> coverageInputs;
+  std::vector<uint8_t> nextCoverageInputs;
 };
 
 /// Draws every batch the baker produced into `canvas`, picking each batch's
@@ -98,9 +116,7 @@ struct SsPaintBinding {
 /// Walking the batches in the Brain's order — rather than once per texture — is
 /// what keeps the depth sorting intact when a pack has more than one cellmap.
 /// A batch whose hash matches nothing is skipped, so a mis-keyed texture shows
-/// up as a missing part rather than a part wearing the wrong atlas. The one
-/// exception is a single-entry table, which matches unconditionally: a
-/// one-cellmap pack is then drawable without knowing the cellmap's name.
+/// up as a missing part rather than a part wearing the wrong atlas.
 ///
 /// `canvas` is an `SkCanvas*` and each `paint` an `SkPaint*`, all borrowed for
 /// the duration of the call. Returns the number of vertices drawn, or 0 when the
@@ -112,9 +128,19 @@ struct SsPaintBinding {
 ///
 /// `instances` is called for each live instance part, or may be null in a pack
 /// that has none — in which case an Instance batch simply draws nothing.
+///
+/// `scratch` holds the per-part buffers the peel and the coverage pass build,
+/// kept by the caller so a frame allocates none of its own. Null draws with
+/// buffers of the call's own.
 size_t DrawBakedFrame(void* canvas, const SsPaintBinding* textures, size_t textureCount,
                       const sscore::SsBaker& baker, const SsMaskInput& mask,
-                      SsInstanceRenderer* instances = nullptr);
+                      SsInstanceRenderer* instances = nullptr,
+                      SsDrawScratch* scratch = nullptr);
+
+/// Saves `canvas` and applies the root placement: translate by `(x, y)`, then
+/// scale by `(scaleX, scaleY)`. Returns the save count to give `RestoreCanvas`.
+int SaveAndPlaceCanvas(void* canvas, float x, float y, float scaleX, float scaleY);
+void RestoreCanvas(void* canvas, int saveCount);
 
 /// Whether this build can draw natively at all.
 bool SkiaDirectAvailable();

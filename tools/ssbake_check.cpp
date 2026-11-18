@@ -1,7 +1,6 @@
 // Host-side guard for the FrameData read path.
 //
-// The reader itself is flatc-generated now (`cpp/format/framedata.h`), so field
-// offsets no longer need diffing against a reference walk — `check-framedata.sh`
+// The reader is flatc-generated (`cpp/format/framedata.h`); `check-framedata.sh`
 // regenerates that header and diffs it, which covers schema drift outright.
 //
 // What a static check cannot cover is a *stale committed header against a newer
@@ -13,7 +12,8 @@
 //      is deliberately *not* paid per-frame on device (see `refreshFrame()`);
 //   2. bakes it with the shipping `SsBaker` under ASan, so an out-of-bounds walk
 //      is a report here instead of a wrong pixel on a device;
-//   3. asserts the baker's own range invariants;
+//   3. asserts the baker's own range invariants, and holds each Normal batch to
+//      the vertex and index counts the Brain gave it;
 //   4. builds the mask plan the draw path builds, and asserts its range
 //      invariants too — the plan indexes the baked quads and the `.ssab`'s parts
 //      from two different tables, which is exactly the shape of read that ASan
@@ -88,9 +88,7 @@ void CheckPartCounts(const ss::runtime::FrameData* fd, size_t soaPartCount, int 
 /// What one frame's mask plan turned up, accumulated so the run can say whether
 /// the path was exercised at all.
 ///
-/// A plan that never fires reports the same "0 problems" a working one does, and
-/// this repo has already shipped one measurement whose constant number meant
-/// "nothing ran" rather than "nothing changed". The totals are printed either
+/// A plan that never fires reports the same "0 problems" a working one does. The totals are printed either
 /// way, so a `.ssab` with masks that reports 0 writers is a visible result
 /// rather than a silent pass.
 struct MaskTotals {
@@ -191,6 +189,12 @@ struct EffectTotals {
   size_t framesWithGeometry = 0;
   size_t peakQuads = 0;
   size_t quadFrames = 0;
+};
+
+struct NormalTotals {
+  size_t batches = 0;
+  size_t quadFrames = 0;
+  size_t fanFrames = 0;
 };
 
 /// Whether an authored audio key survives the walk from the Brain's passed-event
@@ -303,6 +307,96 @@ void CountAudio(void* ctx, const sscore::SsAnimeBinaryView& view, int32_t animat
     }
   }
   if (totals.keys != before) ++totals.framesWithKeys;
+}
+
+/// Checks the Normal and Mask quads a frame baked: each is two triangles or a
+/// fan around its centre, and each Normal batch holds as many vertices and
+/// indices as the Brain counted for it.
+///
+/// The Brain sizes a Normal part as four vertices and six indices, or five and
+/// twelve when it gives the part a centre vertex, and `SsBaker` decides which
+/// parts are fans by the same test. A batch that disagrees has a part drawn as
+/// two triangles where the Brain meant a fan, which folds a deformed part along
+/// its diagonal. A fan's centre must also be the mean of its corners — position,
+/// UV and alpha — because the shaders weight the corners on that assumption.
+void CheckNormalBatches(const ss::runtime::FrameData* fd, const sscore::SsBaker& baker, int frame,
+                        NormalTotals* totals) {
+  static constexpr uint16_t kFan[12] = {4, 0, 1, 4, 1, 3, 4, 3, 2, 4, 2, 0};
+  const std::vector<float>& pos = baker.positions();
+  const std::vector<float>& uv = baker.texCoords();
+  const std::vector<uint32_t>& col = baker.colors();
+  const std::vector<uint16_t>& idx = baker.indices();
+
+  for (const sscore::SsBatchDesc& d : baker.batches()) {
+    const bool normal = d.kind == ss::runtime::DrawBatchKind_Normal;
+    if (!normal && d.kind != ss::runtime::DrawBatchKind_Mask) continue;
+
+    for (int32_t p = d.partOffset; p < d.partOffset + d.partCount; ++p) {
+      const sscore::SsPartDraw& info = baker.parts()[static_cast<size_t>(p)];
+      const bool fan = info.vertexCount == 5;
+      if (!info.quadShaped || (info.vertexCount != 4 && !fan) ||
+          info.indexCount != (fan ? 12 : 6)) {
+        Fail("quad.shape", info.indexCount, info.vertexCount, frame, info.drawRank);
+        continue;
+      }
+      ++totals->quadFrames;
+      if (!fan) continue;
+      ++totals->fanFrames;
+
+      const int base = info.vertexOffset - d.vertexOffset;
+      for (int i = 0; i < 12; ++i) {
+        const int got = idx[static_cast<size_t>(info.indexOffset + i)] - base;
+        if (got != kFan[i]) {
+          Fail("quad.fanIndex", got, kFan[i], frame, info.drawRank);
+          break;
+        }
+      }
+      const size_t v = static_cast<size_t>(info.vertexOffset);
+      for (int axis = 0; axis < 2; ++axis) {
+        const auto mean = [&](const std::vector<float>& a) {
+          float sum = 0.0f;
+          for (size_t c = 0; c < 4; ++c) sum += a[(v + c) * 2 + axis];
+          return sum * 0.25f;
+        };
+        const auto off = [](float a, float b) {
+          return std::fabs(a - b) > 1e-3f * (1.0f + std::fabs(b));
+        };
+        if (off(pos[(v + 4) * 2 + axis], mean(pos))) {
+          Fail("quad.centrePosition", static_cast<long long>(pos[(v + 4) * 2 + axis]),
+               static_cast<long long>(mean(pos)), frame, info.drawRank);
+        }
+        if (off(uv[(v + 4) * 2 + axis], mean(uv))) {
+          Fail("quad.centreUv", static_cast<long long>(uv[(v + 4) * 2 + axis]),
+               static_cast<long long>(mean(uv)), frame, info.drawRank);
+        }
+      }
+      // Each corner's byte is rounded on its own, so the mean of four rounded
+      // bytes may sit a byte from the centre's.
+      int alphaSum = 0;
+      for (size_t c = 0; c < 4; ++c) alphaSum += static_cast<int>(col[v + c] >> 24);
+      const int centreAlpha = static_cast<int>(col[v + 4] >> 24);
+      if (std::abs(centreAlpha * 4 - alphaSum) > 4) {
+        Fail("quad.centreAlpha", centreAlpha, alphaSum / 4, frame, info.drawRank);
+      }
+    }
+
+    if (!normal) continue;
+    // The Brain's own count for the same batch: the one at this rank of this
+    // kind, since a mask twin shares the rank.
+    for (const ss::runtime::DrawBatch* b : *fd->draw_batches()) {
+      if (b->kind() != ss::runtime::DrawBatchKind_Normal || b->start_rank() != d.startRank) {
+        continue;
+      }
+      ++totals->batches;
+      if (d.vertexCount != b->vertex_count()) {
+        Fail("normal.vertexCount", d.vertexCount, b->vertex_count(), frame, d.startRank);
+      }
+      if (d.indexCount != b->index_count()) {
+        Fail("normal.indexCount", d.indexCount, b->index_count(), frame, d.startRank);
+      }
+      break;
+    }
+  }
 }
 
 /// Counts the effect geometry in a baked frame, and checks the batches it made.
@@ -462,6 +556,7 @@ int main(int argc, char** argv) {
   sscore::SsBaker baker;
   MaskTotals maskTotals;
   EffectTotals effectTotals;
+  NormalTotals normalTotals;
   effectTotals.parts = view.effectParts().size();
   InstanceTotals instanceTotals;
   instanceTotals.parts = view.instanceParts().size();
@@ -479,39 +574,42 @@ int main(int argc, char** argv) {
   size_t maxBatches = 0;
 
   for (int frame = 0; frame < frames; ++frame) {
-    // Milliseconds, like the C-API and like `HybridSsContext::update` — the
-    // delta this loop used to pass was `1/60`, which is 0.0167 ms and would have
-    // advanced roughly nothing had anything here been time-driven. Nothing was,
-    // until the effect slots arrived.
+    // Milliseconds, like the C-API and like `HybridSsContext::update`: a delta in
+    // seconds would advance the effect slots by almost nothing.
     const float deltaMs = 1000.0f / 60.0f;
     const float frameNo = ss_runtime_update(ctx, deltaMs);
-    // After the update, so `is_looped` is this tick's edge — the same ordering
-    // `HybridSsContext::update` keeps.
-    effects.step(ctx, frameNo, deltaMs / 1000.0f, fps > 0 ? static_cast<float>(fps) : 60.0f,
-                 ss_runtime_just_looped(ctx));
-
-    // Before the FrameData fetch below, which `continue`s past a frame with no
-    // buffer — an audio key is authored on a frame, not on geometry, so a pack
-    // that draws nothing can still be the one carrying every key.
-    CountAudio(ctx, view, animationIndex, audioTotals);
-    CountSignals(ctx, view, animationIndex, signalTotals);
 
     const unsigned char* fdPtr = nullptr;
     size_t fdLen = 0;
     ss_runtime_get_frame_data(ctx, frameNo, &fdPtr, &fdLen);
-    if (fdPtr == nullptr || fdLen == 0) continue;
-
-    // The structural check the device path skips. If this rejects a buffer the
-    // Brain just wrote, the committed `format/framedata.h` is out of step with
-    // `native/libssruntime` — regenerate it (`pnpm run generate-fbs-code`).
-    ::flatbuffers::Verifier verifier(fdPtr, fdLen);
-    if (!ss::runtime::VerifyFrameDataBuffer(verifier)) {
-      std::fprintf(stderr, "frame %d: VerifyFrameDataBuffer rejected a %zu byte buffer\n", frame,
-                   fdLen);
-      ++g_failures;
-      continue;
+    const ss::runtime::FrameData* fd = nullptr;
+    if (fdPtr != nullptr && fdLen != 0) {
+      // The structural check the device path skips. If this rejects a buffer the
+      // Brain just wrote, the committed `format/framedata.h` is out of step with
+      // `native/libssruntime` — regenerate it (`pnpm run generate-fbs-code`).
+      ::flatbuffers::Verifier verifier(fdPtr, fdLen);
+      if (ss::runtime::VerifyFrameDataBuffer(verifier)) {
+        fd = ss::runtime::GetFrameData(fdPtr);
+      } else {
+        std::fprintf(stderr, "frame %d: VerifyFrameDataBuffer rejected a %zu byte buffer\n",
+                     frame, fdLen);
+        ++g_failures;
+      }
     }
-    const ss::runtime::FrameData* fd = ss::runtime::GetFrameData(fdPtr);
+
+    // After the update, so `is_looped` is this tick's edge, and after the frame,
+    // whose hidden parts step without a plan — the same ordering
+    // `HybridSsContext::update` keeps. Every frame, buffer or not.
+    effects.step(ctx, fd, frameNo, deltaMs / 1000.0f, fps > 0 ? static_cast<float>(fps) : 60.0f,
+                 ss_runtime_just_looped(ctx));
+
+    // Before the `continue` past a frame with no buffer — an audio key is
+    // authored on a frame, not on geometry, so a pack that draws nothing can
+    // still be the one carrying every key.
+    CountAudio(ctx, view, animationIndex, audioTotals);
+    CountSignals(ctx, view, animationIndex, signalTotals);
+
+    if (fd == nullptr) continue;
 
     // Exercise the baker on the same buffer so an out-of-bounds read shows up
     // here (under ASan) rather than on a device.
@@ -555,6 +653,7 @@ int main(int argc, char** argv) {
     }
 
     CheckMaskPlan(fd, baker, maskFlags, frame, &maskTotals);
+    CheckNormalBatches(fd, baker, frame, &normalTotals);
     CheckEffectBatches(baker, frame, &effectTotals);
     CheckInstances(baker, soa.partCount, frame, &instanceTotals);
     CheckShapes(baker, frame, &shapeTotals);
@@ -576,6 +675,12 @@ int main(int argc, char** argv) {
   // are the evidence the plan ran, and on one without they say so plainly.
   std::printf("    mask: %zu frames with a plan, %zu writer-frames, %zu target-frames\n",
               maskTotals.framesWithPlan, maskTotals.writers, maskTotals.targets);
+  // `fan` is the evidence the centre-vertex path ran: zero on a pack with no
+  // vertex deformation and no PartColor, and nothing above would notice it
+  // staying zero on one that has them.
+  std::printf("    normal: %zu batches held to the Brain's counts, %zu quad-frames, %zu of them "
+              "fans\n",
+              normalTotals.batches, normalTotals.quadFrames, normalTotals.fanFrames);
   // Same contract as the mask line. `parts > 0` with `peak 0` is the shape of a
   // pack whose effects were enumerated and then never emitted a particle — the
   // one failure the rest of this program cannot see, because a path that does

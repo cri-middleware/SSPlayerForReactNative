@@ -20,7 +20,7 @@ const embedded = (name: string): SsTextureInfo => ({
   textureHash: SsRuntimeModule.hashString(name),
   name,
   imagePath: '',
-  embedded: new Uint8Array([1, 2, 3]).buffer as ArrayBuffer,
+  embeddedLength: 3,
 })
 
 beforeEach(() => {
@@ -96,7 +96,7 @@ describe('ssUnload', () => {
   // Two packs naming one sibling image lease one atlas entry, and each retains it.
   it('leaves an atlas another preloaded pack shares', async () => {
     const OTHER = 'ss/overall/Other.ssab'
-    const sibling: SsTextureInfo = { ...embedded('common'), imagePath: 'common.png', embedded: new ArrayBuffer(0) }
+    const sibling: SsTextureInfo = { ...embedded('common'), imagePath: 'common.png', embeddedLength: 0 }
     definePack(PACK, { animations: ['Idle'], textures: [sibling] })
     definePack(OTHER, { animations: ['Idle'], textures: [sibling] })
     await ssPreload(PACK)
@@ -108,6 +108,20 @@ describe('ssUnload', () => {
 
     ssUnload(OTHER)
     expect(ssImageCache.size).toBe(0)
+  })
+
+  // `ssClearCaches` is documented as balancing every preload at once. A record
+  // that outlived it made the next preload of the pack a no-op against a cold
+  // cache.
+  it('forgets every preload when the caches are cleared', async () => {
+    await ssPreload(PACK)
+
+    ssClearCaches()
+    expect(ssPreloadedSources()).toEqual([])
+
+    await ssPreload(PACK)
+    expect(loadResource).toHaveBeenCalledTimes(2)
+    expect(ssImageCache.size).toBe(1)
   })
 
   it('is a no-op for a source nothing preloaded', () => {

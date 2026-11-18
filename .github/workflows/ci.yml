@@ -1,23 +1,29 @@
 name: CI
 
-# Everything here runs with **no secrets and no submodules**, which is the whole
-# reason it can exist today: SpriteStudio-SDK is private, so a job that needed it
-# would fail for every external contributor and every fork.
+# Two tiers, as in SpriteStudio-SDK. Every pull request runs two Linux jobs.
+# The checks run with **no submodules**: typecheck, tests, the Nitro bindings,
+# the package build, the web stub, Layer 2's imports, the Japanese line breaks,
+# the scripts' syntax and the `files` guard. The host checks build a host Brain
+# from the SDK submodule and read the packs converted from its projects:
+# `check-framedata` (`cpp/format/` regenerated and compared, then the read path
+# under ASan/UBSan), `check-hidden`, `check-motion` and the asset manifest. The
+# weekly run, a dispatch and the release PR (release/X.Y into main) also run
+# `check-shader` on macOS, build the example app for Android and iOS on the
+# Brain built from the SDK submodule, run `check-mask` and `check-glue` on it,
+# and build the Pages site. A pull request that touches only Markdown runs none
+# of this.
+# The site goes through docs.yml, which a pull request that touches the docs
+# runs on its own.
 #
-# What that leaves out, so nobody mistakes a green tick for more than it is:
+# What the pull-request tier leaves out, so nobody mistakes a green tick for more
+# than it is:
 #
-#   * the host checks (`check-framedata`, `check-mask`, `check-shader`,
-#     `check-hidden`) — they build a host Brain out of the SDK submodule, and
-#     `check-mask` / `check-shader` also link the macOS-only libskia RN Skia
-#     ships. They want a macOS job with SDK access.
-#   * `cpp/format/` being current — regenerating needs a `flatc` whose version
-#     matches the vendored headers, which `static_assert` on it. An
-#     apt-installed flatc would report a diff that means "wrong flatc", not
-#     "stale output". `pnpm run check-framedata` is where that check lives.
-#   * anything that needs the Brain — `prepack`, and therefore `npm pack`.
-#
-# Add a macOS job with `secrets.SDK_SUBMODULE_TOKEN` when there is one; the
-# sibling players already carry that pattern.
+#   * the host checks that need macOS or a device toolchain: `check-mask` and
+#     `check-shader` link the macOS-only libskia RN Skia ships, and `check-glue`
+#     compiles the Nitro glue with Xcode's iphoneos SDK, and with the NDK
+#     against the fbjni headers the Android app build unpacks.
+#   * anything that needs a device Brain — the example apps, `prepack`, and
+#     therefore `npm pack`.
 
 on:
   pull_request:
@@ -25,8 +31,13 @@ on:
       - '**/*.md'
       - '.gitignore'
       - 'LICENSE*'
-  push:
-    branches: [main]
+  # The weekly run also writes the caches that PRs restore from, since PRs do not
+  # save. It runs on the default branch.
+  schedule:
+    # Each repository of the family takes its own hour on Sunday, so their
+    # weekly runs do not queue for the organization's runners; :17 keeps clear
+    # of the top of the hour, when GitHub delays scheduled runs.
+    - cron: '17 8 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -45,9 +56,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        # No submodules on purpose. `third_party/flatbuffers` is only needed to
-        # *compile* the C++, which happens in the consumer's build, and the SDK
-        # is private. Nothing below opens either.
+        # No submodules on purpose: nothing below opens `third_party/flatbuffers`
+        # or the SDK. They are for compiling the C++ and building the Brain, which
+        # the weekly tier's example apps do.
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
         # Before setup-node, whose pnpm cache needs the binary. The version is
@@ -55,24 +68,24 @@ jobs:
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
 
       - name: Install
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        # Passes with no submodules, no `native/` and no SDK access — the
-        # property this whole workflow is built on.
+        # Passes with no submodules and no `native/` — the property this tier
+        # is built on.
         run: pnpm run typecheck
 
       - name: Unit tests
         # `core/`, `player/` and `view/`. Nitro, Skia and Reanimated are aliased
         # to stubs and the Brain is faked at the package's own module boundary,
         # so none of it needs a device — what is left to the host checks and the
-        # example's Player screen is the drawing, which a fake cannot judge.
+        # example's Viewer screen is the drawing, which a fake cannot judge.
         run: pnpm test
 
       - name: The Nitro bindings are current
@@ -85,11 +98,11 @@ jobs:
           git diff --exit-code -- packages/react-native-spritestudio/nitrogen \
             || { echo "::error::nitrogen/ is stale — run 'pnpm run generate-nitro-code' and commit the result"; exit 1; }
 
-      - name: The package builds
+      - name: The packages build
         # What `prepack` runs before publishing, minus the parts that need the
         # Brain. A TypeScript error that only `bob` sees would otherwise surface
         # at release time.
-        run: pnpm --filter react-native-spritestudio run build
+        run: pnpm run build
 
       - name: The web stub barrel still imports clean
         # The one check here that runs the code rather than reading it: it
@@ -101,6 +114,16 @@ jobs:
         # import-clean is the whole property.
         run: pnpm run check-web-barrel
 
+      - name: Layer 2 imports nothing from react or react-native
+        # Typecheck and the tests both pass a violation: vitest aliases
+        # `react-native` to a stub. Reads the source, so no build is needed.
+        run: pnpm run check-layers
+
+      - name: No line break between two Japanese characters
+        # Chrome renders one as a space. Reads the tracked Markdown, so no build
+        # is needed.
+        run: pnpm run check-ja-breaks
+
       - name: Both halves of every toolchain script parse
         # Each package.json script is a `.js` shim over a `.sh` + `.ps1` pair so Windows
         # contributors are not shut out — which only holds if the `.ps1` half is
@@ -109,7 +132,7 @@ jobs:
           for f in scripts/*.sh tools/*.sh; do bash -n "$f"; done
           pwsh -NoProfile -Command '
             $bad = 0
-            Get-ChildItem scripts/*.ps1 | ForEach-Object {
+            Get-ChildItem scripts/*.ps1, tools/*.ps1 | ForEach-Object {
               $errors = $null
               [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors)
               if ($errors) { Write-Host "::error file=$($_.Name)::$($errors[0].Message)"; $bad = 1 }
@@ -117,8 +140,8 @@ jobs:
             exit $bad'
 
       - name: The published tarball would not carry build output
-        # `files` takes a directory *recursively*, which is how `"android"` once
-        # pulled 2.8 GB of `.cxx` into `npm pack`. `prepack` guards the rest, but
+        # `files` takes a directory *recursively*, so a build-output directory under
+        # android/ would ship whole. `prepack` guards the rest, but
         # it needs the Brain and so cannot run here.
         run: |
           node -e '
@@ -128,3 +151,273 @@ jobs:
               process.exit(1)
             }
           '
+
+  # The host checks that run on Linux, on a Brain built for the runner from the
+  # SDK submodule, so a pull request that bumps the submodule or touches cpp/ is
+  # read through the real Brain. The ones that need macOS or a device toolchain
+  # are the weekly tier's (see the top of this file).
+  host:
+    name: 🐧 Host checks (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout (with both submodules)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          # Pinned by SHA, so the channel must be named explicitly here.
+          toolchain: stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: SpriteStudio-SDK
+          # Only develop writes caches. A PR's cache is visible to that PR alone,
+          # so saving one per PR would only fill the 10 GB quota and evict the
+          # develop caches every PR restores from.
+          save-if: ${{ github.ref == 'refs/heads/develop' }}
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # build-runtime.sh builds for iOS and Android only. The checks build the
+      # host libssruntime themselves, but read the C-API header the build emits
+      # from where build-runtime.sh puts it.
+      - name: Build the host Brain and place its header
+        run: |
+          ( cd SpriteStudio-SDK && cargo build -p ssruntime-ffi --features libc_alloc,panic-handler )
+          mkdir -p packages/react-native-spritestudio/native/include
+          cp SpriteStudio-SDK/libs/ssruntime-ffi/target/ssruntime.h packages/react-native-spritestudio/native/include/
+
+      # check-framedata regenerates cpp/format/ and diffs it against the committed
+      # headers, which static_assert on the flatbuffers version they were
+      # generated for. An apt-installed flatc follows Ubuntu, not the vendored
+      # copy, so its diff could mean "wrong flatc" rather than "stale output";
+      # one built from the vendored source cannot disagree with it.
+      - name: Build flatc from the vendored flatbuffers
+        run: |
+          cmake -S packages/react-native-spritestudio/third_party/flatbuffers -B "$RUNNER_TEMP/flatc" \
+            -DCMAKE_BUILD_TYPE=Release -DFLATBUFFERS_BUILD_TESTS=OFF \
+            -DFLATBUFFERS_BUILD_FLATLIB=OFF -DFLATBUFFERS_BUILD_FLATHASH=OFF
+          cmake --build "$RUNNER_TEMP/flatc" --target flatc -j "$(nproc)"
+          echo "$RUNNER_TEMP/flatc" >> "$GITHUB_PATH"
+
+      - name: Convert the example packs
+        run: bash scripts/deploy-examples.sh
+
+      # deploy-examples rewrites the manifest from the packs it converted. A
+      # runner has no example/SpriteStudio_Source/, so what it writes is the
+      # committed state, and any difference is a manifest nobody regenerated.
+      - name: The committed asset manifest is current
+        run: |
+          git diff --exit-code -- example/src/ss-assets.ts \
+            || { echo "::error::example/src/ss-assets.ts is stale — run 'pnpm run deploy-examples' and commit it"; exit 1; }
+
+      - name: Host checks
+        run: |
+          pnpm run check-framedata
+          pnpm run check-hidden
+          pnpm run check-motion
+
+  # The weekly tier. `github.base_ref == 'main'` is the release PR: under git-flow
+  # only release/X.Y is merged into main.
+  #
+  # The one host check that needs neither the Brain nor a pack: no Rust, and of
+  # the two submodules only the flatbuffers headers `SsPartColor.hpp` includes.
+  # It links the host libskia RN Skia ships, which has a macOS slice only.
+  shader:
+    name: 🍎 ss-* shaders (macOS)
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The vendored flatbuffers headers
+        run: git submodule update --init --depth 1 -- packages/react-native-spritestudio/third_party/flatbuffers
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: The ss-* shaders compile, and their arithmetic holds
+        run: pnpm run check-shader
+
+  android:
+    name: 🤖 Example app (Android)
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with both submodules)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          # Pinned by SHA, so the channel must be named explicitly here.
+          toolchain: stable
+          targets: aarch64-linux-android, armv7-linux-androideabi, x86_64-linux-android
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: SpriteStudio-SDK
+          # Only develop writes caches. A PR's cache is visible to that PR alone,
+          # so saving one per PR would only fill the 10 GB quota and evict the
+          # develop caches every PR restores from.
+          save-if: ${{ github.ref == 'refs/heads/develop' }}
+
+      # The NDK SpriteStudio-SDK's release.yml builds the Brain with, handed to
+      # build-runtime.sh as ndk=; the app itself builds with the NDK its Gradle
+      # build names.
+      - name: Setup Android NDK
+        id: ndk
+        uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+        with:
+          ndk-version: r23c
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the Brain, then the example data
+        run: |
+          bash scripts/build-runtime.sh platform=android build=release "ndk=${{ steps.ndk.outputs.ndk-path }}"
+          bash scripts/deploy-examples.sh
+
+      # scripts/run-android.sh's prebuild, then a build instead of its
+      # `expo run:android`, which wants a device. One ABI is enough to compile
+      # and link the Nitro module against the Brain.
+      - name: Build the app
+        working-directory: example
+        run: |
+          pnpm exec expo prebuild --platform android --no-install
+          cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a
+
+      # After the app build, which unpacks the fbjni headers the JNI units need;
+      # without them check-glue skips those units and still passes, so the log
+      # is read for a skip. The newest NDK the image carries, not the r23c the
+      # Brain is built with: the glue is C++20.
+      - name: The Nitro glue compiles for Android
+        shell: bash
+        run: |
+          ndk=$(ls -d "$ANDROID_HOME"/ndk/*/ | sort -V | tail -1)
+          pnpm run check-glue "ndk=${ndk%/}" | tee "$RUNNER_TEMP/glue.log"
+          if sed -n '/^==> Android/,$p' "$RUNNER_TEMP/glue.log" | grep -q SKIPPED; then
+            echo "::error::check-glue skipped part of its Android half"
+            exit 1
+          fi
+
+  ios:
+    name: 🍏 Example app (iOS)
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with both submodules)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-ios, aarch64-apple-ios-sim, x86_64-apple-ios
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: SpriteStudio-SDK
+          save-if: ${{ github.ref == 'refs/heads/develop' }}
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the Brain, then the example data
+        run: |
+          bash scripts/build-runtime.sh platform=ios build=release
+          bash scripts/deploy-examples.sh
+
+      # The two host checks that need macOS, on the submodule's Brain and the
+      # packs just converted; the host job runs the others on every pull request.
+      # check-mask's instance half reports itself skipped here: the MaskInstance
+      # sample is third-party and never on a runner. check-glue's iOS half must
+      # not skip.
+      - name: Host checks (macOS)
+        shell: bash
+        run: |
+          pnpm run check-mask
+          pnpm run check-glue | tee "$RUNNER_TEMP/glue.log"
+          if sed -n '/^==> iOS/,/^==> Android/p' "$RUNNER_TEMP/glue.log" | grep -q SKIPPED; then
+            echo "::error::check-glue skipped its iOS half"
+            exit 1
+          fi
+
+      # scripts/run-ios.sh's prebuild (with the pod install), then a device build
+      # with no signing instead of its `expo run:ios`, which wants a simulator.
+      - name: Build the app
+        working-directory: example
+        run: |
+          pnpm exec expo prebuild --platform ios
+          xcodebuild -workspace ios/SSPlayerExample.xcworkspace -scheme SSPlayerExample \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO build
+
+  # docs.yml, the build pages.yml publishes: both locales in one VitePress
+  # build. A pull request into anything but main that touches the docs runs it
+  # on its own.
+  docs:
+    name: 📚 Pages site
+    if: github.event_name != 'pull_request' || github.base_ref == 'main'
+    uses: ./.github/workflows/docs.yml

@@ -8,8 +8,8 @@
 // ## Why a plugin at all
 //
 // A converted pack is a directory — `.ssab` files, the `.ssqb` that sequences
-// them, and the textures they name — and every reference inside it is a sibling
-// *name*. Metro cannot host that. It ships a dependency graph, so it bundles
+// them, and the textures they name — and every reference inside it is a *name*
+// relative to the pack. Metro cannot host that. It ships a dependency graph, so it bundles
 // only what a `require()` names and never walks a directory; and on an Android
 // release build the packager then flattens and lowercases what it did name into
 // `res/`, losing the extension too. So the directory is copied in out-of-band,
@@ -96,7 +96,7 @@ function withSpriteStudio(config, options = {}) {
  * the emulator. Left alone, Gradle configures a CMake variant for it and the
  * build dies at `configureCMakeDebug[x86]` naming a path that was never going to
  * exist. Editing `android/gradle.properties` by hand does not stick — `prebuild`
- * rewrites it from the template, which is measurable in about a minute — so the
+ * rewrites it from the template — so the
  * narrowing has to happen here, where it survives.
  *
  * Read off `native/libs/android/` rather than hardcoded, so a Brain built with a
@@ -279,7 +279,7 @@ function androidGradle(packs) {
 // Stages the converted pack directories and adds them as an asset source set,
 // so each lands in the APK as assets/<name>/... with its layout intact. That
 // layout is the point: a pack names its textures, its Instance parts' external
-// .ssab files and its .ssqb targets as siblings, so C++ (SsAssets) reads them
+// .ssab files and its .ssqb targets relative to itself, so C++ (SsAssets) reads them
 // back through AAssetManager relative to the same root.
 
 def ssplayerStaging = new File(project.layout.buildDirectory.get().asFile,

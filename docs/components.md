@@ -1,17 +1,19 @@
 ---
 title: Components at a glance
-description: The four components and five hooks, what each is for, and the smallest thing that works.
+description: The four components, the button and the five hooks, what each is for, and the smallest thing that works.
 ---
 
 # Components at a glance
 
-Four components and five hooks. Most apps use one component and no hooks.
+Four components and five hooks, and a button in a package of its own. Most
+apps use one component and no hooks.
 
 | | Use it when |
 |---|---|
 | [`<SpriteStudioView>`](#spritestudioview) | You have **one** animation. The default. |
 | [`<SpriteStudioScene>`](#spritestudioscene) + [`<SpriteStudioSprite>`](#spritestudiosprite) | You have **many**, and want one canvas and one clock for the lot. |
 | [`<SpriteStudioPartAnchor>`](#spritestudiopartanchor) | A view should ride on a part — a health bar over a head. |
+| [`<SpriteStudioButton>`](#spritestudiobutton) | The animation is a button. From `react-native-spritestudio-ui`. |
 
 ## `<SpriteStudioView>`
 
@@ -22,16 +24,16 @@ canvas and a frame loop inside it.
 import { SpriteStudioView } from 'react-native-spritestudio'
 
 <SpriteStudioView
-  source="ss/overall/Basic.ssab"
-  animation="anime_1"
+  source="ss/Ringo/Ringo.ssab"
+  animation="wait1"
   fit="contain"
-  style={{ flex: 1 }}
+  style={{ width: '100%' }}
 />
 ```
 
 | Prop group | |
 |---|---|
-| What plays | `source`, `animation`, `playing`, `speed`, `loop` |
+| What plays | `source`, `animation`, `transitionMs`, `playing`, `speed`, `loop` |
 | Where it lands | `fit`, `align`, `offset`, `scale`, `flipX`, `flipY`, `style` |
 | The box | `frame`, `frameScope`, `measureFrames` |
 | Reacting | `onUserData`, `onAudio`, `onSignal`, `onLoad`, `onError`, `onAnimationFinished`, `onAnimationLooped`, `onAnimationStarted`, `onAnimationChanged` |
@@ -43,7 +45,7 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 Given no size, it lays out like an `<Image>` of the authored canvas — see
 [Basic playback](/usage/basic#size).
 
-`ref.current.player` is the Layer 3 [`SpriteStudioPlayer`](/usage/transport) —
+`ref.current.player` is the [`SpriteStudioPlayer`](/usage/transport) —
 seek, switch animation, read the content box.
 
 ::: warning Twenty of these is twenty canvases
@@ -58,6 +60,7 @@ itself beyond the canvas they share.
 
 ```tsx
 import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio'
+import { SsAssets } from './ss-assets' // the typed manifest from Quick Start
 
 <SpriteStudioScene style={{ flex: 1 }} paused={backgrounded}>
   <SpriteStudioSprite source={SsAssets['Ringo/Ringo']} x={100} y={200} />
@@ -70,7 +73,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 | `children` | The sprites. |
 | `style` | The canvas's box. |
 | `paused` | Stops the clock for **every** sprite at once. |
-| `onError` | |
+| `onError` | The frame loop stopped. Without one, the error goes to `console.error`. |
 
 ## `<SpriteStudioSprite>`
 
@@ -116,6 +119,30 @@ that view's player; anywhere else, pass one as `player`.
 
 See [Part overrides & following](/usage/parts#following-a-part).
 
+## `<SpriteStudioButton>`
+
+From `react-native-spritestudio-ui`, a package of its own. A
+`<SpriteStudioView>` that is a button: each state — `normal`, `hover`,
+`pressed`, `disabled`, `focused` — plays the section of one animation that
+starts at the label of its name.
+
+```tsx
+import { SpriteStudioButton } from 'react-native-spritestudio-ui'
+
+<SpriteStudioButton source="ss/ui/start.ssab" accessibilityLabel="Start" onPress={start} />
+```
+
+| Prop | |
+|---|---|
+| `clips` | A section of your own in place of a state's label. |
+| `hitParts`, `hitOnArtwork` | A press counts only on these parts' outlines, or on any part's. |
+| `reducedMotion` | Hold each state still. Omitted, the system setting decides. |
+| `accessibilityLabel` | Read as a button. Without one it is decoration. |
+
+The view's props that load and place the animation apply, and so do a
+`<Pressable>`'s; `playing`, `loop` and `transitionMs` do not. See
+[UI buttons](/usage/ui).
+
 ## Hooks
 
 You can build everything above without these. Reach for them when the
@@ -127,6 +154,8 @@ Follows a part with a Reanimated shared value — a health bar over a head. The
 one hook an ordinary app is likely to want.
 
 ```tsx
+// in a component rendered inside <SpriteStudioView>'s children
+const player = useSsViewPlayer()
 const transform = useSsPartTransform(player, 'head')
 ```
 
@@ -153,7 +182,7 @@ See [Textures & resources](/usage/textures#replacing-a-texture).
 
 ### `useSpriteStudioPlayer`
 
-Owns one Layer 3 player for a component: loads it, keeps the transport props on
+Owns one `SpriteStudioPlayer` for a component: loads it, keeps the transport props on
 it, reports when it is drawable. **Deliberately not a clock** — who advances the
 player is the caller's business.
 

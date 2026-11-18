@@ -5,7 +5,7 @@ import {
   TileMode,
   type SkImage,
   type SkPaint,
-} from '@shopify/react-native-skia'
+} from 'react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
 import type { SsTextureBinding } from '../specs/SsRuntime.nitro'
@@ -13,8 +13,7 @@ import type { SsTextureBinding } from '../specs/SsRuntime.nitro'
 /**
  * How a cellmap's texture is sampled.
  *
- * The caller's choice, never the cellmap's: the Porting Guide leaves filtering
- * and wrapping to the engine. `filter` is Linear by default (`FilterMode.Nearest`
+ * The caller's choice, never the cellmap's. `filter` is Linear by default (`FilterMode.Nearest`
  * for crisp pixel art) and the tiles are Clamp. Left to the paint's default,
  * `drawVertices` samples nearest-neighbour and every scaled or rotated sprite
  * comes out jaggy.
@@ -25,20 +24,32 @@ export interface SsTextureOptions {
   tileY?: TileMode
 }
 
+function makePaint(image: SkImage, options?: SsTextureOptions): SkPaint {
+  const shader = image.makeShaderOptions(
+    options?.tileX ?? TileMode.Clamp,
+    options?.tileY ?? TileMode.Clamp,
+    options?.filter ?? FilterMode.Linear,
+    // No mipmaps: the atlas is sampled in texture-pixel space with UVs the
+    // Brain hands over unnormalised, and a mip chain would blur a sprite that
+    // is only ever drawn near 1:1.
+    MipmapMode.None
+  )
+  const paint = Skia.Paint()
+  paint.setShader(shader)
+  return paint
+}
+
 /**
  * `cellmap.name_hash` → the `SkPaint` its batches draw with.
  *
  * The hash is what `DrawBatch.texture_hash` carries, so this is the whole of
- * texture resolution — mirrors the sibling ports' hash-keyed texture map (Godot
- * `_textures`, Flutter `TextureRegistry`, Unity's material map). Hashes come
+ * texture resolution. Hashes come
  * from the Brain via `SsRuntime.hashString`; **never** re-implement FNV-1a here,
  * because a second implementation that disagrees shows up as a texture that
  * silently never resolves.
  *
  * A paint rather than an image, because a paint is what `drawInto` needs and
- * building one per frame would allocate on the hot path. The blend mode and the
- * colour state ride on that same paint, and the per-batch selection did not have
- * to change shape to carry them.
+ * building one per frame would allocate on the hot path.
  *
  * ## Ownership
  *
@@ -79,25 +90,40 @@ export class SsTextureRegistry {
     image: SkImage,
     options?: SsTextureOptions
   ): void {
-    const shader = image.makeShaderOptions(
-      options?.tileX ?? TileMode.Clamp,
-      options?.tileY ?? TileMode.Clamp,
-      options?.filter ?? FilterMode.Linear,
-      // No mipmaps: the atlas is sampled in texture-pixel space with UVs the
-      // Brain hands over unnormalised, and a mip chain would blur a sprite that
-      // is only ever drawn near 1:1.
-      MipmapMode.None
-    )
-    const paint = Skia.Paint()
-    paint.setShader(shader)
-
-    this.paints.set(textureHash, paint)
+    this.paints.set(textureHash, makePaint(image, options))
     this.cachedBindings = null
   }
 
-  /** Whether something is already registered — lets a loader skip a re-decode. */
+  /** Whether something is already registered. */
   has(textureHash: number): boolean {
     return this.paints.has(textureHash)
+  }
+
+  /**
+   * Whether the texture {@link restore} would bring back is in, so a loader can
+   * skip a re-decode. An {@link override} alone does not count: the pack's own
+   * atlas still has to go underneath it.
+   */
+  hasBase(textureHash: number): boolean {
+    return this.baseUnderOverride.has(textureHash)
+      ? this.baseUnderOverride.get(textureHash) != null
+      : this.paints.has(textureHash)
+  }
+
+  /**
+   * As {@link registerByHash}, for what a pack loads. Under an {@link override}
+   * it goes where {@link restore} looks, and the override keeps drawing.
+   */
+  registerBase(
+    textureHash: number,
+    image: SkImage,
+    options?: SsTextureOptions
+  ): void {
+    if (this.baseUnderOverride.has(textureHash)) {
+      this.baseUnderOverride.set(textureHash, makePaint(image, options))
+    } else {
+      this.registerByHash(textureHash, image, options)
+    }
   }
 
   /**

@@ -1,13 +1,11 @@
 // Host-side guard for the mask draw path.
 //
-// `ssbake_check` covers the plan — roles, scope, ranges — but the plan was never
-// the fragile half. Everything that actually broke lived on the Skia side and
-// broke *silently*: the coverage image came back null, so `masking` stayed false
-// and every target drew unmasked. Nothing threw, nothing logged, and the plan
-// still reported seven healthy writers. That is the failure this program exists
-// to make loud.
+// `ssbake_check` covers the plan — roles, scope, ranges. On the Skia side the
+// coverage image can come back null, and then `masking` stays false and every
+// target draws unmasked, with nothing thrown or logged. That is the failure this
+// program exists to make loud.
 //
-// Four checks, in order of how early they would catch a regression:
+// Six checks, in order of how early they would catch a regression:
 //
 //   1. **The SkSL compiles.** Runtime effects are ES2-restricted, so an ordinary
 //      -looking edit (a bitwise operator, a non-constant loop bound) fails at
@@ -16,21 +14,31 @@
 //      an 8-bit image and a colour-managed sampler, and any transfer function
 //      between the two decodes as writers that never covered the pixel. Checked
 //      for all 96 bits, through the real write *and* replay shaders.
+//   2b. **A deformed target reads the coverage where it is drawn.** Its corners
+//      are not a parallelogram, so the replay has to weight their coverage UVs
+//      over the fan the part is drawn as; any other weighting reads the mask a
+//      few pixels from the part.
 //   3. **The whole path still masks something.** The real `DrawBakedFrame` over
 //      a real `.ssab`, rendered twice — with the mask input and without — and
 //      the two framebuffers must differ. This is the one that catches "the
-//      coverage silently became null" again.
+//      coverage silently became null" again. The masked frame must also open
+//      no layer: each one is an offscreen render on the UI thread every frame.
 //   4. **A mask reaches into an instance child.** The same draw, over a scene
 //      whose mask has to cross an instance boundary. One mount at
 //      a time, against the pack's real atlases, with the caller's coverage
 //      withheld / its transform zeroed / its polarity flipped as controls.
 //      **Skipped when its pack is not deployed** — it needs sample art this
 //      repository does not ship.
+//   5. **The coverage is kept while its writers stand still.** One frame drawn
+//      twice through one scratch must reuse the first coverage image and draw
+//      the same pixels as a fresh one; a new atlas must replace it. A kept
+//      image that went stale would mask with last frame's shapes.
 //
 // macOS only: it links the `libskia.a` that RN Skia ships for the host, which
 // has no Linux slice. Build and run: tools/check-mask.sh
 
 #include <algorithm>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
@@ -50,6 +58,7 @@
 #include "include/core/SkVertices.h"
 #include "include/effects/SkRuntimeEffect.h"
 #include "include/encode/SkPngEncoder.h"
+#include "include/utils/SkNoDrawCanvas.h"
 
 #include "../packages/react-native-spritestudio/cpp/SsAnimeBinary.hpp"
 #include "../packages/react-native-spritestudio/cpp/SsBaker.hpp"
@@ -68,7 +77,7 @@ bool ss_runtime_setup_animation(void* context, const char* name);
 void ss_runtime_set_render_mode(void* context, uint8_t mode);
 void ss_runtime_play(void* context);
 float ss_runtime_update(void* context, float delta);
-void ss_runtime_get_frame_data(void* context, float frame_no, const unsigned char** out_data,
+bool ss_runtime_get_frame_data(void* context, float frame_no, const unsigned char** out_data,
                                size_t* out_len);
 void ss_runtime_get_world_matrices(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_local_vertices(void* context, const float** out_data, size_t* out_len);
@@ -81,9 +90,8 @@ void ss_runtime_get_mesh_vertex_offsets(void* context, const uint32_t** out_data
 void ss_runtime_get_mesh_uvs(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_mesh_indices(void* context, const int32_t** out_data, size_t* out_len);
 void ss_runtime_get_mesh_index_offsets(void* context, const uint32_t** out_data, size_t* out_len);
-// Shape. Not optional here even though only check 3 and 4 load a `.ssab`: a
-// converted Spine clipping arrives as a Shape mask, so without these a pack
-// whose every writer is a Shape presents as a pack with no writers at all.
+// Shape. Not optional here even though only check 3 and 4 load a `.ssab`: without
+// these a pack whose every writer is a Shape presents as a pack with no writers.
 void ss_runtime_get_shape_vertices(void* context, const float** out_data, size_t* out_len);
 void ss_runtime_get_shape_vertex_box_coords(void* context, const float** out_data,
                                             size_t* out_len);
@@ -159,7 +167,7 @@ sk_sp<SkShader> GreenAtlas() {
 
 /// The `[x0, x1) x [0, h)` slice of a box as `SkVertices`, positions and
 /// texcoords equal, so the replay's `(s,t)` reconstruction is the identity on
-/// the unit box and the coverage UV bilinear is exercised without a cell's UV
+/// the unit box and the coverage UV weighting is exercised without a cell's UV
 /// layout in the way.
 sk_sp<SkVertices> SliceQuad(float x0, float x1, float h) {
   const SkPoint pos[4] = {{x0, 0}, {x1, 0}, {x0, h}, {x1, h}};
@@ -172,18 +180,21 @@ sk_sp<SkVertices> UnitQuad(float w, float h) { return SliceQuad(0.0f, w, h); }
 // --- 1. the shaders compile ------------------------------------------------
 
 void CheckShadersCompile() {
+  // Through the effects the draw path calls, not a private compile of the SkSL
+  // text: the replay only compiles with `ssFanWeights` ahead of it, and those
+  // functions are where that is put together.
   const struct {
     const char* name;
-    const char* sksl;
+    SkRuntimeEffect* (*effect)();
   } kAll[] = {
-      {"mask-write", ssplayer::kSsMaskWriteSkSL},
-      {"mask-replay", ssplayer::kSsMaskReplaySkSL},
+      {"mask-write", ssplayer::SsMaskWriteEffect},
+      {"mask-replay", ssplayer::SsMaskReplayEffect},
   };
   for (const auto& s : kAll) {
-    SkRuntimeEffect::Result r = SkRuntimeEffect::MakeForShader(SkString(s.sksl));
-    if (r.effect == nullptr) {
-      Fail("%s did not compile (runtime effects are ES2 — no bitwise ops):\n%s", s.name,
-           r.errorText.c_str());
+    if (s.effect() == nullptr) {
+      Fail("%s did not compile (runtime effects are ES2 — no bitwise ops) — see the "
+           "[SsPlayer] line above",
+           s.name);
     }
   }
 }
@@ -210,10 +221,8 @@ struct CoverSpec {
 /// runs on a *recording* canvas, which has no colour space at all, so
 /// `BuildCoverage`'s "match the destination" fallback is taken every single
 /// time and the coverage is **always** sRGB. Handing this the destination's
-/// space — which is what this program used to do — wires src and dst together,
-/// makes every conversion the identity by construction, and tests nothing. It
-/// is why an RGB encoding that six of `Mask.ssab`'s nine writers did not
-/// survive on a Display P3 destination passed here for a whole phase.
+/// space would wire src and dst together, make every conversion the identity by
+/// construction, and test nothing.
 ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int w, int h) {
   ssplayer::SsMaskCoverage out;
 
@@ -257,10 +266,11 @@ ssplayer::SsMaskCoverage BuildCoverage(const std::vector<CoverSpec>& specs, int 
   // Non-null, because a null colour space makes `DeferredFromPicture` return
   // null outright — whatever its doc comment says — and the whole mask then
   // silently does nothing.
-  out.image = SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
-                                            SkISize::Make(w * columns, h * rows), nullptr,
-                                            nullptr, SkImages::BitDepth::kU8,
-                                            SkColorSpace::MakeSRGB());
+  ssplayer::SsSetMaskCoverageImage(
+      out, SkImages::DeferredFromPicture(recorder.finishRecordingAsPicture(),
+                                         SkISize::Make(w * columns, h * rows), nullptr,
+                                         nullptr, SkImages::BitDepth::kU8,
+                                         SkColorSpace::MakeSRGB()));
   out.width = w;
   out.height = h;
   out.planeCount = planeCount;
@@ -305,8 +315,7 @@ void CheckBitRoundTrip(const char* label, sk_sp<SkColorSpace> dstCs, bool flat =
     const ssplayer::SsMaskCoverage coverage =
         BuildCoverage({{bit, 0.0f, 0.5f, flat}}, kW, kH);
     if (!coverage.valid()) {
-      // Exactly the regression that shipped: a null image disables masking with
-      // no other symptom.
+      // A null image disables masking with no other symptom.
       Fail("%s bit %d: coverage image is null (DeferredFromPicture rejects a null "
            "colour space — the mask then silently does nothing)",
            label, bit);
@@ -397,6 +406,99 @@ void CheckPlaneIsolation(const char* label, sk_sp<SkColorSpace> dstCs) {
   }
 }
 
+// --- 2b. a deformed target reads the coverage where it is drawn -------------
+
+/// One target whose corners are not a parallelogram — `rb` pulled in, as a
+/// vertex deformation does — drawn as the bake's fan over a coverage that
+/// covers the left of the box. The coverage UV is the position over the box,
+/// so every pixel's answer follows from where it is: kept left of the seam,
+/// dropped right of it. A bilinear replay got 12 of this target's pixels wrong,
+/// inside the part and clear of the seam: it read the mask from where the part
+/// was not drawn.
+void CheckDeformedTarget() {
+  constexpr int kN = 64;
+  constexpr float kSeam = 24.0f;
+  const ssplayer::SsMaskCoverage coverage =
+      BuildCoverage({{0, 0.0f, kSeam / kN, false}}, kN, kN);
+  if (!coverage.valid()) {
+    Fail("deformed target: coverage image is null");
+    return;
+  }
+
+  // lt, rt, lb, rb, then the centre at the corners' mean, which is where the
+  // Brain puts a deformed part's fifth vertex. The texcoords are the cell's,
+  // which a deformation does not move.
+  SkPoint pos[5] = {{0, 0}, {kN, 0}, {0, kN}, {24, 48}, {0, 0}};
+  pos[4] = {(pos[0].fX + pos[1].fX + pos[2].fX + pos[3].fX) * 0.25f,
+            (pos[0].fY + pos[1].fY + pos[2].fY + pos[3].fY) * 0.25f};
+  const SkPoint tex[5] = {{0, 0}, {kN, 0}, {0, kN}, {kN, kN}, {kN * 0.5f, kN * 0.5f}};
+  const uint16_t fan[12] = {4, 0, 1, 4, 1, 3, 4, 3, 2, 4, 2, 0};
+  const float uv[8] = {0, 0, kN, 0, 0, kN, kN, kN};
+  float covUv[8];
+  for (int c = 0; c < 4; ++c) {
+    covUv[c * 2] = pos[c].fX / kN;
+    covUv[c * 2 + 1] = pos[c].fY / kN;
+  }
+
+  sscore::SsMaskBits bits;
+  bits.set(0, false);
+  bits.visibleInside = true;
+  sk_sp<SkShader> replay =
+      ssplayer::MakeMaskReplayShader(WhiteAtlas(), coverage, bits, uv, covUv);
+  if (replay == nullptr) {
+    Fail("deformed target: replay shader would not build");
+    return;
+  }
+
+  sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kN, kN));
+  SkCanvas* canvas = surface->getCanvas();
+  canvas->clear(SK_ColorTRANSPARENT);
+  SkPaint paint;
+  paint.setShader(std::move(replay));
+  paint.setAntiAlias(false);
+  canvas->drawVertices(
+      SkVertices::MakeCopy(SkVertices::kTriangles_VertexMode, 5, pos, tex, nullptr, 12, fan),
+      SkBlendMode::kModulate, paint);
+  SkBitmap out;
+  out.allocN32Pixels(kN, kN);
+  surface->readPixels(out, 0, 0);
+
+  // The outline, lt -> rt -> rb -> lb. A pixel within a pixel of it, or of the
+  // seam, is left out: what is asked is where the mask is read, not how an
+  // edge rasterises.
+  const SkPoint ring[4] = {pos[0], pos[1], pos[3], pos[2]};
+  const auto deepInside = [&](float x, float y) {
+    for (int e = 0; e < 4; ++e) {
+      const SkPoint a = ring[e];
+      const SkPoint b = ring[(e + 1) % 4];
+      const float cross = (b.fX - a.fX) * (y - a.fY) - (b.fY - a.fY) * (x - a.fX);
+      if (cross / SkPoint::Length(b.fX - a.fX, b.fY - a.fY) < 1.0f) return false;
+    }
+    return true;
+  };
+  int checked = 0;
+  int wrong = 0;
+  for (int y = 0; y < kN; ++y) {
+    for (int x = 0; x < kN; ++x) {
+      const float cx = x + 0.5f;
+      const float cy = y + 0.5f;
+      if (!deepInside(cx, cy) || std::fabs(cx - kSeam) < 1.0f) continue;
+      ++checked;
+      const bool kept = SkColorGetA(out.getColor(x, y)) != 0;
+      if (kept != (cx < kSeam)) {
+        if (wrong < 4) {
+          Fail("deformed target: pixel (%d, %d) %s — the mask was read from where the part "
+               "is not drawn",
+               x, y, kept ? "survived right of the seam" : "was dropped left of it");
+        }
+        ++wrong;
+      }
+    }
+  }
+  if (wrong > 4) Fail("deformed target: %d more pixels like these", wrong - 4);
+  if (wrong == 0) std::printf("    %d pixels, each read at its own position\n", checked);
+}
+
 // --- a loaded, baked pack --------------------------------------------------
 
 /// One `.ssab` played to a frame and baked, with everything the draw path wants.
@@ -482,6 +584,18 @@ struct Baked {
   const ss::runtime::FrameData* fd = nullptr;
 };
 
+/// One binding per batch of `baker`'s frame, all to `paint`. These checks count
+/// where pixels land, not which atlas they came from, and a batch with no
+/// binding is not drawn.
+std::vector<::ssplayer::SsPaintBinding> BindEveryBatch(const sscore::SsBaker& baker,
+                                                       SkPaint* paint) {
+  std::vector<::ssplayer::SsPaintBinding> bindings;
+  for (const sscore::SsBatchDesc& batch : baker.batches()) {
+    bindings.push_back({static_cast<uint32_t>(batch.textureHash), paint});
+  }
+  return bindings;
+}
+
 // --- 3. the whole path still masks -----------------------------------------
 
 /// Renders `.ssab` twice, with and without the mask input, and requires the two
@@ -502,7 +616,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
 
   SkPaint paint;
   paint.setShader(WhiteAtlas());
-  const ::ssplayer::SsPaintBinding binding{0u, &paint};
+  const std::vector<::ssplayer::SsPaintBinding> bindings = BindEveryBatch(baker, &paint);
 
   constexpr int kSize = 512;
   const auto render = [&](bool withMask, SkBitmap* out) {
@@ -519,7 +633,7 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
       input.flags = flags.data();
       input.flagCount = flags.size();
     }
-    ::ssplayer::DrawBakedFrame(canvas, &binding, 1, baker, input);
+    ::ssplayer::DrawBakedFrame(canvas, bindings.data(), bindings.size(), baker, input);
     out->allocN32Pixels(kSize, kSize);
     surface->readPixels(*out, 0, 0);
   };
@@ -548,6 +662,24 @@ void CheckEndToEnd(const char* ssabPath, const char* animation, int atFrame) {
     Fail("the mask changed nothing — %zu writers were planned and none reached the "
          "framebuffer",
          plan.writers().size());
+  }
+
+  struct LayerCounter : SkNoDrawCanvas {
+    LayerCounter() : SkNoDrawCanvas(kSize, kSize) {}
+    int layers = 0;
+    SaveLayerStrategy getSaveLayerStrategy(const SaveLayerRec& rec) override {
+      ++layers;
+      return SkNoDrawCanvas::getSaveLayerStrategy(rec);
+    }
+  } counter;
+  ::ssplayer::SsMaskInput input;
+  input.plan = &plan;
+  input.flags = flags.data();
+  input.flagCount = flags.size();
+  ::ssplayer::DrawBakedFrame(&counter, bindings.data(), bindings.size(), baker, input);
+  if (counter.layers != 0) {
+    Fail("the masked frame opened %d layer%s — each is an offscreen render every frame",
+         counter.layers, counter.layers == 1 ? "" : "s");
   }
 }
 
@@ -757,13 +889,14 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
   if (!atlases.load(parentView, dir)) return;
   SkPaint childPaint;
   childPaint.setShader(GreenAtlas());
-  const ::ssplayer::SsPaintBinding childBinding{0u, &childPaint};
+  const std::vector<::ssplayer::SsPaintBinding> childBindings =
+      BindEveryBatch(child.baker, &childPaint);
 
   constexpr int kSize = 512;
   const auto render = [&](MountRecorder& renderer, SkBitmap* out) {
     renderer.child = &child;
-    renderer.bindings = &childBinding;
-    renderer.bindingCount = 1;
+    renderer.bindings = childBindings.data();
+    renderer.bindingCount = childBindings.size();
     sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
     SkCanvas* canvas = surface->getCanvas();
     canvas->clear(SK_ColorBLACK);
@@ -932,6 +1065,73 @@ void CheckInstanceInheritance(const char* dir, const char* parentFile, const cha
   }
 }
 
+// --- 5. the coverage is kept while its writers stand still -----------------
+
+void CheckCoverageKept(const char* ssabPath, const char* animation, int atFrame) {
+  Baked pack;
+  if (!pack.load(ssabPath, animation, atFrame)) return;
+  sscore::SsMaskPlan plan;
+  if (!plan.build(pack.fd, pack.baker, pack.flags.data(), pack.flags.size())) {
+    Fail("%s / %s has no mask writers at frame %d", ssabPath, animation, atFrame);
+    return;
+  }
+
+  SkPaint white;
+  white.setShader(WhiteAtlas());
+  SkPaint green;
+  green.setShader(GreenAtlas());
+
+  constexpr int kSize = 512;
+  const auto render = [&](SkPaint* paint, ::ssplayer::SsDrawScratch* scratch, SkBitmap* out) {
+    sk_sp<SkSurface> surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(kSize, kSize));
+    SkCanvas* canvas = surface->getCanvas();
+    canvas->clear(SK_ColorBLACK);
+    canvas->translate(kSize / 2.0f, kSize / 2.0f);
+    canvas->scale(1.0f, -1.0f);
+    ::ssplayer::SsMaskInput input;
+    input.plan = &plan;
+    input.flags = pack.flags.data();
+    input.flagCount = pack.flags.size();
+    const std::vector<::ssplayer::SsPaintBinding> bindings = BindEveryBatch(pack.baker, paint);
+    ::ssplayer::DrawBakedFrame(canvas, bindings.data(), bindings.size(), pack.baker, input, nullptr,
+                               scratch);
+    out->allocN32Pixels(kSize, kSize);
+    surface->readPixels(*out, 0, 0);
+  };
+  const auto keptImage = [](const ::ssplayer::SsDrawScratch& scratch) -> const SkImage* {
+    return scratch.coverage != nullptr ? scratch.coverage->image.get() : nullptr;
+  };
+
+  ::ssplayer::SsDrawScratch scratch;
+  SkBitmap first;
+  SkBitmap again;
+  SkBitmap fresh;
+  SkBitmap recoloured;
+  render(&white, &scratch, &first);
+  const SkImage* kept = keptImage(scratch);
+  if (kept == nullptr) {
+    Fail("the first frame kept no coverage");
+    return;
+  }
+  render(&white, &scratch, &again);
+  if (keptImage(scratch) != kept) Fail("an unchanged frame rebuilt its coverage");
+  render(&white, nullptr, &fresh);
+  size_t differing = 0;
+  for (int y = 0; y < kSize; ++y) {
+    for (int x = 0; x < kSize; ++x) {
+      if (again.getColor(x, y) != fresh.getColor(x, y)) ++differing;
+    }
+  }
+  if (differing != 0) {
+    Fail("the kept coverage draws %zu px differently from a fresh one", differing);
+  }
+  render(&green, &scratch, &recoloured);
+  if (keptImage(scratch) == kept) Fail("a new atlas kept the old coverage");
+  std::printf("    kept across an unchanged frame (%zu px differ from a fresh build), "
+              "rebuilt for a new atlas\n",
+              differing);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -952,8 +1152,7 @@ int main(int argc, char** argv) {
   CheckBitRoundTrip("sRGB dst", SkColorSpace::MakeSRGB());
   // **Wide gamut, and it is not hypothetical**: an iOS surface is routinely
   // Display P3 while the Android emulator is sRGB, so this is the one axis on
-  // which the two platforms genuinely disagree — and the first bug it caught
-  // showed up as three unrelated parts masking wrongly on iOS only.
+  // which the two platforms genuinely disagree.
   sk_sp<SkColorSpace> p3 =
       SkColorSpace::MakeRGB(SkNamedTransferFn::kSRGB, SkNamedGamut::kDisplayP3);
   CheckBitRoundTrip("Display P3 dst", p3);
@@ -967,6 +1166,9 @@ int main(int argc, char** argv) {
   CheckPlaneIsolation("sRGB dst", SkColorSpace::MakeSRGB());
   CheckPlaneIsolation("Display P3 dst", p3);
 
+  std::printf("==> a deformed target reads the coverage where it is drawn\n");
+  CheckDeformedTarget();
+
   std::printf("==> the whole draw path still masks\n");
   CheckEndToEnd(ssab, animation, frame);
 
@@ -978,6 +1180,9 @@ int main(int argc, char** argv) {
   // where the mask takes roughly two thirds of the child.
   CheckInstanceInheritance("example/assets/ss/MaskInstance", "Walk_Gate.ssab", "Walk_gate",
                            "Instance_Maid.ssab", 150);
+
+  std::printf("==> the coverage is kept while its writers stand still\n");
+  CheckCoverageKept(ssab, animation, frame);
 
   if (g_failures > 0) {
     std::fprintf(stderr, "\nFAILED: %d problems\n", g_failures);

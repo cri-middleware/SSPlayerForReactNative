@@ -34,6 +34,7 @@ export {
   useSsScene,
   type SpriteStudioSceneProps,
   type SsSceneMember,
+  type SsSceneRegistry,
 } from './view/SpriteStudioScene'
 export {
   SpriteStudioSprite,
@@ -46,8 +47,7 @@ export {
   type SsPlayerState,
 } from './view/useSpriteStudioPlayer'
 /**
- * Part following, published through a Reanimated shared value — the seam that
- * does not change when the frame tick eventually moves to the UI thread.
+ * Part following, published through a Reanimated shared value.
  */
 export {
   useSsPartTransform,
@@ -108,11 +108,11 @@ export { SsRefCache, type SsRefCacheOptions } from './core/SsRefCache'
 export {
   SsTextureLoader,
   loadImageData,
+  type SsTextureLoadPass,
   type SsTextureLoadReport,
 } from './core/SsTextureLoader'
 /**
- * Path resolution, shared by everything a pack points at. `resolveAgainst` is
- * the seam Instance parts and `.ssqb` sequences will resolve through too.
+ * Path resolution, shared by everything a pack points at.
  */
 export {
   fileSystemPathOf,
@@ -135,6 +135,8 @@ export {
 export {
   SsPlaybackDirection,
   SsPlaybackStyle,
+  SsTrackBlend,
+  SsTrackSync,
   SS_ROOT_TRANSFORM_IDENTITY,
   type SsRootTransform,
 } from './core/types'
@@ -157,6 +159,9 @@ export type {
   SsRuntime,
   SsAudioEvent,
   SsBox,
+  SsLabel,
+  SsLabelTable,
+  SsPartQuad,
   SsPartTransform,
   SsSignalEvent,
   SsSignalParam,
@@ -166,4 +171,7 @@ export type {
   SsResource,
   SsTextureBinding,
   SsTextureInfo,
+  SkCanvasHandle,
+  SkImageHandle,
+  SkPaintHandle,
 } from './specs/SsRuntime.nitro'

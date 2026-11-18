@@ -6,7 +6,7 @@ description: SpriteStudio animation in React Native — one component, no animat
 hero:
   name: SpriteStudio Player
   text: for React Native
-  tagline: Drop artist-authored 2D animation into your app — one component, no animation code, no video files.
+  tagline: Drop artist-authored 2D raster animation into your app — one component, no animation code, no video files.
   actions:
     - theme: brand
       text: Quick Start
@@ -21,14 +21,14 @@ hero:
 features:
   - title: Zero animation code
     details: The motion is authored visually in SpriteStudio — bone rigs, mesh deform, masks, particles — and the player plays the exported file. No Animated or Reanimated timeline per part, no spritesheet to slice.
-  - title: Raster, drawn natively
-    details: It rigs and deforms raster sprite art, so hand-painted characters animate exactly as authored. A different fit from vector tools, and lighter than shipping a .gif or an .mp4.
-  - title: Smooth, not locked to a frame rate
-    details: The playhead is a float and the frame is built at the moment it is drawn, so motion follows your display's refresh rate and the speed you set.
-  - title: One JS call per frame, per player
-    details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI). That is what lets a busy scene stay at 60 fps.
-  - title: Dynamic costumes
-    details: Swap the atlas a cellmap draws from at runtime — a colour variant, an equipment change, an avatar built from parts — without re-exporting the animation. `player.setCellmapTexture(name, image)`, and `null` puts the original back.
+  - title: Raster art, smooth at any refresh rate
+    details: It animates hand-painted raster (PNG/bitmap) sprite art — a different fit from vector animation tools, and lighter than a .gif or .mp4 — with a float playhead evaluated at draw time so motion follows your display's refresh rate and playback speed.
+  - title: No vertex passes through JavaScript
+    details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI), and a frame costs no React render. JavaScript makes the same few native calls per frame however complex the animation is.
+  - title: Events, overrides and dynamic costumes
+    details: React to timeline events from JavaScript, recolour, hide or swap individual parts at runtime, or replace the atlas a cellmap draws from via `player.setCellmapTexture(name, image)` (`null` restores the original) without re-exporting.
+  - title: Blend animations instead of cutting
+    details: Crossfade between animations with `transitionMs`, layer tracks over what is playing, mixed in or added on top (e.g. a facial expression or hit reaction over an idle loop), and mix track weights at runtime.
 ---
 
 ## Related Repositories

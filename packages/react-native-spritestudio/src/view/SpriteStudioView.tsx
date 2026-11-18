@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -17,13 +16,15 @@ import {
   type ViewProps,
   type ViewStyle,
 } from 'react-native'
-import { Canvas, Picture, Skia, type SkPicture } from '@shopify/react-native-skia'
-import { useSharedValue } from 'react-native-reanimated'
+import { Canvas, Picture, Skia } from 'react-native-skia'
 
 import { resolveRootTransform, type SsAlign } from '../core/fit'
+import { onFrameChanged } from '../player/frames'
 import { MAX_STEP_MS, SpriteStudioPlayer } from '../player/SpriteStudioPlayer'
+import { CANVAS_BOX } from './canvasBox'
 import { intrinsicSize } from './intrinsicSize'
 import { reportError } from './reportError'
+import { useFramePicture } from './useFramePicture'
 import {
   useSpriteStudioPlayer,
   type SsPlayerProps,
@@ -53,7 +54,7 @@ export interface SpriteStudioViewProps
   flipY?: boolean
   /**
    * Pixels from where `fit`/`align` put the art. Under `fit="none"` this is
-   * measured from the view's centre, which is what it always meant.
+   * measured from the view's centre.
    */
   offset?: { x: number; y: number }
   /** Multiplier **on top of** the fit's scale. */
@@ -108,6 +109,7 @@ const OWN_PROPS: Record<
   source: true,
   textures: true,
   animation: true,
+  transitionMs: true,
   playing: true,
   speed: true,
   loop: true,
@@ -190,14 +192,7 @@ export const SpriteStudioView = forwardRef<
   const [size, setSize] = useState({ width: 0, height: 0 })
   const { player, measured, canvas, ready } = useSpriteStudioPlayer(props)
 
-  // `<Picture>` has no null state, so seed it with an empty recording rather
-  // than letting the first frame render before the loop has run once.
-  const emptyPicture = useMemo(() => {
-    const recorder = Skia.PictureRecorder()
-    recorder.beginRecording()
-    return recorder.finishRecordingAsPicture()
-  }, [])
-  const picture = useSharedValue<SkPicture>(emptyPicture)
+  const { picture, publish } = useFramePicture()
 
   const errorRef = useRef(props.onError)
   errorRef.current = props.onError
@@ -242,10 +237,13 @@ export const SpriteStudioView = forwardRef<
     if (player == null || size.width === 0 || size.height === 0) return
 
     let raf = 0
-    let last = performance.now()
+    let last = 0
+    let failed = false
+    // One for the loop's life: a recorder records again after each finish.
+    const recorder = Skia.PictureRecorder()
 
     const tick = (): void => {
-      raf = requestAnimationFrame(tick)
+      raf = 0
       const now = performance.now()
       // `performance.now()` is milliseconds and so is `advance` — the unit runs
       // unconverted from here down to `ss_runtime_update`. Capped so returning
@@ -255,46 +253,63 @@ export const SpriteStudioView = forwardRef<
 
       try {
         player.advance(dtMs)
-        const recorder = Skia.PictureRecorder()
-        const canvas = recorder.beginRecording()
-        player.draw(canvas)
-        picture.value = recorder.finishRecordingAsPicture()
+        // A stopped player whose frame, textures and placement have not changed
+        // would record the same picture again, and have the canvas redraw it.
+        if (player.needsDraw) {
+          const canvas = recorder.beginRecording()
+          player.draw(canvas)
+          publish(recorder.finishRecordingAsPicture())
+        }
+        if (raf === 0 && player.advances) raf = requestAnimationFrame(tick)
       } catch (error) {
+        failed = true
         cancelAnimationFrame(raf)
+        raf = 0
         reportError(errorRef.current, error, 'the frame loop stopped')
       }
     }
 
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [player, size.width, size.height, picture])
+    const wake = (): void => {
+      if (raf !== 0 || failed) return
+      last = performance.now()
+      raf = requestAnimationFrame(tick)
+    }
+
+    wake()
+    const unsubscribe = onFrameChanged(player, wake)
+    return () => {
+      unsubscribe()
+      cancelAnimationFrame(raf)
+    }
+  }, [player, size.width, size.height, publish])
 
   const onLayout = (event: LayoutChangeEvent): void => {
     const { width, height } = event.nativeEvent.layout
     setSize((prev) =>
       prev.width === width && prev.height === height ? prev : { width, height }
     )
-    viewProps.onLayout?.(event)
   }
 
   // Under the caller's style, so whatever it does say wins.
   const intrinsic = intrinsicSize(style, box)
 
   return (
-    <View {...viewProps} style={[intrinsic, style]} onLayout={onLayout}>
-      <Canvas style={{ flex: 1 }}>
-        <Picture picture={picture} />
-      </Canvas>
-      {!ready && placeholder != null && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {placeholder}
-        </View>
-      )}
-      {ready && children != null && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          <ViewPlayerContext.Provider value={player}>{children}</ViewPlayerContext.Provider>
-        </View>
-      )}
+    <View {...viewProps} style={[intrinsic, style]}>
+      <View style={CANVAS_BOX} onLayout={onLayout}>
+        <Canvas style={{ flex: 1 }}>
+          <Picture picture={picture} />
+        </Canvas>
+        {!ready && placeholder != null && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {placeholder}
+          </View>
+        )}
+        {ready && children != null && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            <ViewPlayerContext.Provider value={player}>{children}</ViewPlayerContext.Provider>
+          </View>
+        )}
+      </View>
     </View>
   )
 })

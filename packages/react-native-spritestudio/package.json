@@ -1,12 +1,14 @@
 {
   "name": "react-native-spritestudio",
   "version": "7.0.0-beta.1",
-  "description": "SpriteStudio animation player for React Native (New Architecture / Nitro + Skia)",
+  "description": "SpriteStudio Player for React Native: plays SpriteStudio animations (.ssab) in React Native apps on the New Architecture, drawn natively through React Native Skia.",
   "license": "BSD-3-Clause",
   "main": "lib/module/index.js",
   "types": "lib/typescript/index.d.ts",
   "files": [
     "src",
+    "docs",
+    "skills",
     "lib",
     "bin",
     "cpp",
@@ -31,28 +33,27 @@
     "nitrogen": "nitrogen",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
-    "prepack": "bob build && node scripts/prepack.mjs",
-    "build": "bob build"
+    "prepack": "bob build && node scripts/copy-docs.mjs && node scripts/prepack.mjs",
+    "build": "bob build && node scripts/copy-docs.mjs"
   },
   "//peerDependencies": [
     "One line per package: the oldest line the Nitro/Skia side was compiled",
-    "against, so a wider range would claim a version nobody has built. The",
-    "workspace `overrides` pin the line example/ builds and runs against, which",
-    "is the same or newer; `expo install` gives users Expo's own, which is also",
-    "inside the range. Move the overrides by hand, not when the registry does;",
-    "that is why Dependabot is told to leave these five alone.",
-    "The caret does the right thing on both shapes: ^0.88.0-rc.1 is the 0.88",
-    "line, its release candidates included (a caret locks the minor below 1.0.0),",
-    "^2.11.2 and ^4.6.0 span their majors.",
+    "against, so a wider range would claim a version nobody has built.",
+    "example/ pins the version it builds and runs against, which is the same or",
+    "newer; `expo install` gives users Expo's own, which is also inside the",
+    "range. Move example/'s pins by hand, not when the registry does; that is",
+    "why Dependabot and npm-check-updates are told to leave these five alone.",
+    "The caret does the right thing on both shapes: ^0.88.0 is the 0.88 line",
+    "(a caret locks the minor below 1.0.0), ^3.6.1 and ^4.6.0 span their majors.",
     "`expo` is the exception: optional, and only the config plugin loads it."
   ],
   "peerDependencies": {
-    "@shopify/react-native-skia": "^2.11.2",
     "expo": "*",
     "react": "^19.3.0",
-    "react-native": "^0.88.0-rc.1",
+    "react-native": "^0.88.0",
     "react-native-nitro-modules": "^0.37.0",
-    "react-native-reanimated": "^4.6.0"
+    "react-native-reanimated": "^4.6.0",
+    "react-native-skia": "^3.6.1"
   },
   "peerDependenciesMeta": {
     "expo": {
@@ -60,47 +61,52 @@
     }
   },
   "//devDependencies": [
-    "`react-test-renderer` is pinned to the exact `react` the workspace `overrides`",
-    "chose, not a caret: React refuses to run against a renderer from a",
-    "different build, so the two move together. It is deprecated in React 19 and",
+    "`react-test-renderer` is pinned to the exact `react` example/ pins, not a",
+    "caret: a renderer shares React's internals and is released in lockstep with",
+    "it, so the two move together. It is deprecated in React 19 and",
     "is still the only renderer that does not need a DOM, which is what the",
-    "`view/` tests need -- @testing-library/react-native sits on it for the same",
-    "reason. Move it when react moves."
+    "`view/` tests need. Move it when react moves."
   ],
   "devDependencies": {
     "@types/react": "^19.3.0",
-    "@types/react-test-renderer": "^19.3.0",
-    "expo": "^58.0.2",
-    "nitrogen": "^0.37.1",
-    "react-native-builder-bob": "^0.43.1",
-    "react-native-nitro-modules": "^0.37.1",
+    "@types/react-test-renderer": "^19.3.1",
+    "expo": "^58.0.26",
+    "nitrogen": "^0.37.2",
+    "react-native-builder-bob": "^0.44.1",
+    "react-native-nitro-modules": "^0.37.2",
     "react-test-renderer": "19.3.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.1.0"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cri-middleware/SSPlayerForReactNative.git"
+    "url": "git+https://github.com/cri-middleware/SSPlayerForReactNative.git",
+    "directory": "packages/react-native-spritestudio"
   },
   "keywords": [
-    "react-native",
     "spritestudio",
+    "spritestudio7",
     "animation",
+    "2d",
+    "sprite",
+    "skeletal-animation",
+    "gamedev",
+    "react-native",
+    "expo",
     "skia",
-    "nitro"
+    "react-native-skia",
+    "nitro",
+    "ios",
+    "android"
   ],
   "bin": {
     "react-native-spritestudio": "./bin/spritestudio.js"
   },
-  "//publishConfig": "npm tags whatever is published as `latest` regardless of the prerelease identifier, so a 7.0.0-beta.1 with no tag here would be what a bare `npm i react-native-spritestudio` installs. `beta` matches the identifier in the version and what SSPlayerForWgpu publishes under.",
-  "publishConfig": {
-    "tag": "beta"
-  },
   "module": "lib/module/index.js",
   "react-native": "src/index.ts",
   "source": "src/index.ts",
-  "//browser": "Not web support — the stub barrel, so an app that ships web as well as native can still build its web bundle (src/index.web.ts). Still points at source while `main` resolves into lib/; moving it there is the open half of the npm-publishing item in ROADMAP.md.",
-  "browser": "src/index.web.ts",
+  "//browser": "Not web support — the stub barrel, so an app that ships web as well as native can still build its web bundle (built from src/index.web.ts).",
+  "browser": "lib/module/index.web.js",
   "react-native-builder-bob": {
     "source": "src",
     "output": "lib",

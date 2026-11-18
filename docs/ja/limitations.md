@@ -8,15 +8,32 @@ description: この移植版が今描けるもの、描けないもの、そし�
 ## 現在描けるもの
 
 Normal / Mesh / Shape / Instance / Effect の各パーツ。Normal / Mesh / Shape のターゲットに対するマスクとクリッピング。フレームバッファのブレンドテーブル全種。PartColor。
-13 個の `ss-*` 統合シェーダー。オーバーライドレイヤー。ユーザーデータ・オーディオ・シグナルのイベント。アニメーションライフサイクル。`fit`/`align` による配置。リソースとアトラスのキャッシュ。`<SpriteStudioScene>`。Expo config plugin。
+Normal パーツへの 13 個の `ss-*` 統合シェーダー。オーバーライドレイヤー。ユーザーデータ・オーディオ・シグナルのイベント。アニメーションライフサイクル。モーションブレンディング（トラック・クロスフェード・weight 付きのソース）。`fit`/`align` による配置。リソースとアトラスのキャッシュ。`<SpriteStudioScene>`。Expo config plugin。
 
 ## 未対応
 
 - **`Nines` と `Text`** パーツ。
+- **マスクされた Effect** — エフェクトはマスクされずに描かれます。SpriteStudio ではパーティクルがクリップされます。
+
+## モーションブレンディング
+
+**インスタンスとエフェクトの子はレイヤー化されません。** トラックが混ぜるのは、あなたが持っているプレイヤーのキャラクターです。別のアニメーションを再生するパーツは、ルートが組み立てたフレームから自分の再生で動きます。トラック 0 のクロスフェードをまたいで、その子をどのキーで動かすかも対象外です。[モーションブレンディング](/ja/usage/motion-blending#two-limits)を参照してください。
+
+## シークと逆再生
+
+**シークは、飛ばしたフレームのイベントを発火しません。** `seek()` は、移動前と移動後のあいだにあるユーザーデータ・オーディオ・シグナルのキーを通知せずに再生位置を動かします。
+
+**独立再生の Instance・Effect パーツが正しく描かれるのは、順方向に再生しているあいだだけです。** 逆再生（`SsPlaybackDirection.backward`、またはピンポンの戻り）や `seek()` のあとでは、正しい位置になりません。順方向のフレームスキップには追従します。共通の制約は[共通の制約](https://cri-middleware.github.io/SpriteStudio-Docs/ja/sdk/limitations/)にまとまっています。
 
 ## マスク
 
 **同時に使えるマスク writer は 96 個までです。** インスタンスの階層全体のマスクパーツとクリッピングパーツが 1 つの枠を分け合い、インスタンスの writer は置いた回数だけ数え直しになります。96 個を超えた分は、警告を出して無視します。
+
+**マスクされるパーツの Sub と Invert は近似です。** 1 パスの差分で描くので、Sub のパーツが背景より明るいところは、黒にならず明るく出ます。
+
+## シェーダー
+
+**`ss-*` シェーダーが効くのは Normal パーツだけです。** Mesh・Shape・Effect パーツに付いたシェーダーは無視され、パーツはシェーダー無しで描かれます。
 
 ## プラットフォーム
 
@@ -25,6 +42,7 @@ Normal / Mesh / Shape / Instance / Effect の各パーツ。Normal / Mesh / Shap
 | iOS / Android | サポート対象 |
 | web | **何も描画されません** — ただしこのパッケージを入れても web ビルドは壊れません。web 用のエントリはスタブなので、native と web の両方を出荷するアプリのバンドルは通り、throw するのはそこでプレイヤーを描画したときだけです。web 上の SpriteStudio は [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です。 |
 | Windows | 手段がありません — Nitro も RN Skia も react-native-windows に対応していません。 |
+| tvOS / visionOS | 手段がありません — SDK の XCFramework に tvOS と visionOS のスライスがありません。 |
 
 ## Expo Go と Fast Refresh
 

@@ -1,13 +1,16 @@
-import type { SkCanvas } from '@shopify/react-native-skia'
+import type { SkCanvas } from 'react-native-skia'
 
 import { SsRuntimeModule } from '../runtime'
 import type {
   SsAudioEvent,
   SsBox,
   SsContext,
+  SsLabelTable,
+  SsPartQuad,
   SsPartTransform,
   SsResource,
   SsSignalEvent,
+  SsTextureBinding,
   SsTextureInfo,
   SsUserDataEvent,
 } from '../specs/SsRuntime.nitro'
@@ -17,6 +20,8 @@ import {
   SsPlaybackDirection,
   SsPlaybackStyle,
   type SsRootTransform,
+  type SsTrackBlend,
+  type SsTrackSync,
 } from './types'
 
 /**
@@ -25,8 +30,7 @@ import {
  *
  * This layer is thin on purpose. With the batch walk, the geometry bake and the
  * Skia calls all in C++, what is left up here is lifetime and placement, not
- * rendering — `draw()` is a canvas transform and a single `drawInto`, whatever
- * the vertex count.
+ * rendering — `draw()` is a single `drawInto`, whatever the vertex count.
  *
  * **Imports nothing from `react` or `react-native`**, which is what keeps a
  * headless test, a non-React renderer and the react-native-web route
@@ -40,19 +44,13 @@ import {
  *
  * ## Naming
  *
- * **This layer follows the C API, not the Player API conventions.** It takes part
+ * **This layer follows the C API, not the family's names.** It takes part
  * *indices* and name *hashes*, and its override methods keep the C API's argument
  * order (`blendOp` before the colour) — so `setSection` and `setPartColor` are
  * the right names here even though `setAnimationSection` and
  * `setPartColorOverride` are the right names one layer up.
  *
- * That list used to be longer. `isLooped` and `fps` were on it, because the C
- * API spelled them that way; it now says `ss_runtime_just_looped` and
- * `ss_runtime_get_frame_rate`, so following the C API and following the
- * vocabulary are the same thing for those two, and this layer says
- * `justLooped` and `frameRate` like everyone else.
- *
- * Layer 3 — `SpriteStudioPlayer` — is where the conventions apply: it takes part
+ * Layer 3 — `SpriteStudioPlayer` — is where the family's names apply: it takes part
  * names, puts the value before its modifiers, and is what a host should reach for.
  * Coming here means deliberately trading the ergonomics for the raw calls, and
  * the names are the signpost that you have.
@@ -127,14 +125,19 @@ export class SsInternalPlayer {
   }
 
   /**
-   * The animation the Brain currently has set up, or null before the first
-   * successful `setupAnimation`.
+   * The animation track 0 plays, or null before the first successful
+   * `setupAnimation`.
    *
    * Tracked here, at the layer that owns the native context, so that "already
    * set up" cannot be confused with "the name the host most recently asked
    * for". A player is built per load, so this resets with the resource — which
    * is what keeps a second pack that names an animation the same way as the
    * first from being mistaken for one that is already selected.
+   *
+   * **A `crossfade` or `setTrackAnimation` on track 0 changes it from the
+   * call on**, as the Brain changes what track 0 plays from the call on. Left
+   * naming the outgoing animation, a `setupAnimation` back to it would read as a
+   * re-selection of the one already up, and could never return.
    */
   get currentAnimation(): string | null {
     return this.setUpAnimation
@@ -154,6 +157,39 @@ export class SsInternalPlayer {
   }
 
   /**
+   * Whether {@link draw} would draw something other than what it last drew:
+   * the frame changed, or the texture table, or the root transform.
+   *
+   * The frame is the context's to judge, through `frameDrawn`: an `advance`
+   * that lands on the pose already drawn leaves it true, so a frame that lasts
+   * several ticks, or a pause, is drawn once.
+   */
+  get needsDraw(): boolean {
+    const context = this.context
+    if (context == null) return false
+    const bindings = this.textures.bindings()
+    if (bindings !== this.drawnBindings) return true
+    const t = this.rootTransform
+    const d = this.drawnTransform
+    if (
+      t.x !== d.x ||
+      t.y !== d.y ||
+      t.scale !== d.scale ||
+      t.flipX !== d.flipX ||
+      t.flipY !== d.flipY
+    ) {
+      return true
+    }
+    // With no textures, `draw` never reaches `drawInto`, so the context's frame
+    // is never drawn; and nothing would show anyway.
+    if (bindings.length === 0) return false
+    return !context.frameDrawn
+  }
+
+  private drawnBindings: SsTextureBinding[] | null = null
+  private drawnTransform: SsRootTransform = { ...SS_ROOT_TRANSFORM_IDENTITY }
+
+  /**
    * Draws the current frame.
    *
    * The transform is composed here and nowhere else. The base Y scale is
@@ -167,31 +203,32 @@ export class SsInternalPlayer {
   draw(canvas: SkCanvas): number {
     const context = this.require()
     const bindings = this.textures.bindings()
+    const t = this.rootTransform
+    const d = this.drawnTransform
+    // Only when it changed: the table is an array marshalled across JSI.
+    if (bindings !== this.drawnBindings) context.setTextures(bindings)
+    this.drawnBindings = bindings
+    d.x = t.x
+    d.y = t.y
+    d.scale = t.scale
+    d.flipX = t.flipX
+    d.flipY = t.flipY
     if (bindings.length === 0) return 0
 
-    const t = this.rootTransform
-    canvas.save()
-    try {
-      canvas.translate(t.x, t.y)
-      canvas.scale(
-        t.flipX ? -t.scale : t.scale,
-        t.flipY ? -t.scale : t.scale
-      )
-      return context.drawInto(canvas, bindings)
-    } finally {
-      // The canvas is the caller's, and RN Skia keeps drawing into it after we
-      // return: an unbalanced save() would leak this player's transform onto
-      // everything drawn next.
-      canvas.restore()
-    }
+    return context.drawInto(
+      canvas,
+      t.x,
+      t.y,
+      t.flipX ? -t.scale : t.scale,
+      t.flipY ? -t.scale : t.scale
+    )
   }
 
   /**
    * Releases the native context.
    *
-   * Explicit rather than left to GC (the lifetime rule in `specs/SsRuntime.nitro.ts`):
-   * every ArrayBuffer L1 ever handed out is a borrow of memory this context owns.
-   * Idempotent.
+   * Explicit rather than left to GC, so `SsRuntime.liveHandles` is exact and the
+   * native memory goes when the player does. Idempotent.
    */
   dispose(): void {
     if (this.disposed) return
@@ -218,6 +255,14 @@ export class SsInternalPlayer {
   }
   get isPausing(): boolean {
     return this.context?.isPausing ?? false
+  }
+  /**
+   * Whether {@link advance} can change the frame: playing, and not paused
+   * unless an effect or instance part keeps its own clock. After track 0 has
+   * finished, while another track or a fade still moves — see the spec.
+   */
+  get advances(): boolean {
+    return this.context?.advances ?? false
   }
   /** A state, not a pulse — take its rising edge for a one-shot completion. */
   get isFinished(): boolean {
@@ -249,7 +294,7 @@ export class SsInternalPlayer {
    * see `resume()`.
    *
    * One entry point rather than two: the binding's `playFrom` is reached through
-   * the argument, which is the shape the conventions give it (`play(startFrame)`).
+   * the argument: `play(startFrame)`.
    */
   play(startFrame?: number): void {
     if (startFrame == null) this.require().play()
@@ -286,8 +331,8 @@ export class SsInternalPlayer {
   setFrameSkipEnabled(skip: boolean): void {
     this.require().setSkipFrames(skip)
   }
-  setSection(startFrame: number, endFrame: number): void {
-    this.require().setSection(startFrame, endFrame)
+  setSection(startFrame: number, endFrame: number): boolean {
+    return this.require().setSection(startFrame, endFrame)
   }
   setFrameRate(fps: number): void {
     this.require().setFrameRate(fps)
@@ -356,19 +401,27 @@ export class SsInternalPlayer {
     return this.require().canvasBox()
   }
 
-  /**
-   * Every texture this pack needs, read out of the `.ssab` in C++.
-   *
-   * The `embedded` buffers are borrows of the Brain's copy — decode them during
-   * the call that asked for them and do not retain them.
-   */
+  /** Every texture this pack needs, read out of the `.ssab` in C++. */
   getTextures(): SsTextureInfo[] {
     return this.require().getTextures()
+  }
+
+  /** A copy of embedded texture `textureHash`'s encoded image — see the spec. */
+  copyEmbeddedTexture(textureHash: number): ArrayBuffer {
+    return this.require().copyEmbeddedTexture(textureHash)
   }
 
   /** Where part `partIndex` is this frame, in player-local units. */
   getPartTransform(partIndex: number): SsPartTransform {
     return this.require().getPartTransform(partIndex)
+  }
+
+  getPartQuad(partIndex: number): SsPartQuad {
+    return this.require().getPartQuad(partIndex)
+  }
+
+  hitTestPart(x: number, y: number, parts: number[]): number {
+    return this.require().hitTestPart(x, y, parts)
   }
 
   /**
@@ -454,9 +507,149 @@ export class SsInternalPlayer {
     return this.require().clearPartOverrides()
   }
 
-  /** Animation names in this pack, for feeding to `setupAnimation`. */
+  // --- animation mixing: the track stack -----------------------------------
+  //
+  // Straight through, with the C API's names and its sentinels: `NaN` for a
+  // missing float, `-1` for a missing integer or source handle. Turning those
+  // into `null` is Layer 3's, which is also where a refused call is reported.
+
+  /** Tracks that exist, silent ones included. */
+  get trackCount(): number {
+    return this.context?.trackCount ?? 0
+  }
+  /** Which animation track 0 plays, as an index into `getAnimationNames()`, or `-1`. */
+  get currentAnimationIndex(): number {
+    return this.context?.currentAnimationIndex ?? -1
+  }
+
+  setTrackAnimation(track: number, name: string): boolean {
+    const ok = this.require().setTrackAnimation(track, name)
+    if (ok && track === 0) this.setUpAnimation = name
+    return ok
+  }
+  clearTrack(track: number): boolean {
+    return this.require().clearTrack(track)
+  }
+  crossfade(track: number, name: string, durationMs: number): boolean {
+    const ok = this.require().crossfade(track, name, durationMs)
+    if (ok && track === 0) this.setUpAnimation = name
+    return ok
+  }
+  fadeTrack(track: number, targetAlpha: number, durationMs: number): boolean {
+    return this.require().fadeTrack(track, targetAlpha, durationMs)
+  }
+  getTrackFadeProgress(track: number): number {
+    return this.context?.getTrackFadeProgress(track) ?? NaN
+  }
+  cancelTrackFade(track: number): boolean {
+    return this.require().cancelTrackFade(track)
+  }
+  setTrackAlpha(track: number, alpha: number): boolean {
+    return this.require().setTrackAlpha(track, alpha)
+  }
+  getTrackAlpha(track: number): number {
+    return this.context?.getTrackAlpha(track) ?? NaN
+  }
+  setTrackBlend(track: number, blend: SsTrackBlend): boolean {
+    return this.require().setTrackBlend(track, blend)
+  }
+  getTrackBlend(track: number): number {
+    return this.context?.getTrackBlend(track) ?? -1
+  }
+  setTrackSync(track: number, sync: SsTrackSync): boolean {
+    return this.require().setTrackSync(track, sync)
+  }
+  getTrackSync(track: number): number {
+    return this.context?.getTrackSync(track) ?? -1
+  }
+  setTrackFrame(track: number, frameNo: number): boolean {
+    return this.require().setTrackFrame(track, frameNo)
+  }
+  getTrackFrame(track: number): number {
+    return this.context?.getTrackFrame(track) ?? NaN
+  }
+  setTrackSpeed(track: number, speed: number): boolean {
+    return this.require().setTrackSpeed(track, speed)
+  }
+  getTrackSpeed(track: number): number {
+    return this.context?.getTrackSpeed(track) ?? NaN
+  }
+  setTrackFrameRate(track: number, fps: number): boolean {
+    return this.require().setTrackFrameRate(track, fps)
+  }
+  getTrackFrameRate(track: number): number {
+    return this.context?.getTrackFrameRate(track) ?? -1
+  }
+  setTrackSkipFrames(track: number, skip: boolean): boolean {
+    return this.require().setTrackSkipFrames(track, skip)
+  }
+  getTrackSkipFrames(track: number): boolean {
+    return this.context?.getTrackSkipFrames(track) ?? false
+  }
+  setTrackPlaybackDirection(
+    track: number,
+    direction: SsPlaybackDirection,
+    style: SsPlaybackStyle
+  ): boolean {
+    return this.require().setTrackPlaybackDirection(track, direction, style)
+  }
+  getTrackPlaybackDirection(track: number): number {
+    return this.context?.getTrackPlaybackDirection(track) ?? -1
+  }
+  getTrackPlaybackStyle(track: number): number {
+    return this.context?.getTrackPlaybackStyle(track) ?? -1
+  }
+  setTrackLoopCount(track: number, loops: number): boolean {
+    return this.require().setTrackLoopCount(track, loops)
+  }
+  /** `-1` forever, `0` for a track with no animation. */
+  getTrackLoopCount(track: number): number {
+    return this.context?.getTrackLoopCount(track) ?? 0
+  }
+  isTrackFinished(track: number): boolean {
+    return this.context?.isTrackFinished(track) ?? false
+  }
+  /** The Brain's pulse, standing until its next update — see Layer 3. */
+  trackJustLooped(track: number): boolean {
+    return this.context?.trackJustLooped(track) ?? false
+  }
+  setTrackOutgoingEventThreshold(track: number, threshold: number): boolean {
+    return this.require().setTrackOutgoingEventThreshold(track, threshold)
+  }
+  getTrackOutgoingEventThreshold(track: number): number {
+    return this.context?.getTrackOutgoingEventThreshold(track) ?? NaN
+  }
+  getTrackMainSource(track: number): number {
+    return this.context?.getTrackMainSource(track) ?? -1
+  }
+  addTrackSource(track: number, name: string, weight: number): number {
+    return this.require().addTrackSource(track, name, weight)
+  }
+  setSourceWeight(source: number, weight: number): boolean {
+    return this.require().setSourceWeight(source, weight)
+  }
+  getSourceWeight(source: number): number {
+    return this.context?.getSourceWeight(source) ?? NaN
+  }
+  setSourceFrame(source: number, frameNo: number): boolean {
+    return this.require().setSourceFrame(source, frameNo)
+  }
+  getSourceFrame(source: number): number {
+    return this.context?.getSourceFrame(source) ?? NaN
+  }
+  getSourceAnimationIndex(source: number): number {
+    return this.context?.getSourceAnimationIndex(source) ?? -1
+  }
+  setSourceEventThreshold(source: number, threshold: number): boolean {
+    return this.require().setSourceEventThreshold(source, threshold)
+  }
+  getSourceEventThreshold(source: number): number {
+    return this.context?.getSourceEventThreshold(source) ?? NaN
+  }
+
   /**
-   * Part names in part-index order, empty before an animation is set up.
+   * Part names in part-index order, read from the `.ssab` and so available
+   * before the first advance.
    *
    * An unnamed part holds its slot as `''`, so the list stays aligned with the
    * `partIndex` every event carries. `length` is the part count — {@link partCount}
@@ -479,7 +672,12 @@ export class SsInternalPlayer {
     return this.context?.cellNames(cellmapName) ?? []
   }
 
+  /** Animation names in this pack, for feeding to `setupAnimation`. */
   getAnimationNames(): string[] {
     return this.require().getAnimationNames()
+  }
+
+  getLabelTable(animationName: string): SsLabelTable {
+    return this.require().getLabelTable(animationName)
   }
 }

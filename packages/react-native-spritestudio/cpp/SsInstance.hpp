@@ -7,8 +7,7 @@
 // **Every** playback attribute — start/end labels, loop count, speed, reverse,
 // pingpong, independent — is resolved inside `ss_instance_slot_step`, against
 // the child's own Context. Nothing here reads `PartAttributeInstance` and
-// nothing branches on `ev.is_synthetic_default`; the SDK calls that out
-// explicitly. The Body's whole job is to hand the slot a child Context, react to
+// nothing branches on `ev.is_synthetic_default`. The Body's whole job is to hand the slot a child Context, react to
 // the transition edge, and draw the child at the frame it reports.
 //
 // Skia-free and Nitro-free like `SsEffect`, and for the same reason. The child
@@ -33,7 +32,7 @@ struct SsInstancePart {
   uint32_t partIndex = 0;
   /// `PartTypeInstance.ref_anime_pack` — the pack holding the child animation.
   /// May name this player's own pack (a same-file sub-animation, the common
-  /// case) or an external sibling listed in `external_instances`. **0 means the
+  /// case) or an external pack listed in `external_instances`. **0 means the
   /// author left it pack-less**, which resolves to the own pack.
   uint32_t packNameHash = 0;
   /// `PartTypeInstance.ref_anime_name` — the animation to select on the child.
@@ -53,8 +52,7 @@ struct SsExternalPack {
 /// The child player a slot drives.
 ///
 /// Implemented by `HybridSsContext`, which is both a root player and — one level
-/// down — somebody's instance child, exactly as `SpriteStudioInternalPlayer` is
-/// in SSPlayerForFlutter. The interface exists so the slot logic sits *below*
+/// down — somebody's instance child. The interface exists so the slot logic sits *below*
 /// the hybrid rather than inside it.
 struct SsInstanceChild {
   virtual ~SsInstanceChild() = default;
@@ -65,13 +63,8 @@ struct SsInstanceChild {
 
   /// Starts the child from its just-configured start frame.
   ///
-  /// Not a courtesy. The two reference ports disagree about whether `step`
-  /// leaves the child playing — SSPlayerForGodot says it does and calls `play()`
-  /// only for the host-side event, SSPlayerForFlutter says it does not and that
-  /// an independent child otherwise freezes forever on a stopped controller.
-  /// Calling it is correct under both readings: a transition *is* "start this
-  /// instance from its start", so a rewind is the intended effect and not a
-  /// side effect.
+  /// Right whether or not `step` leaves the child playing: a transition *is*
+  /// "start this instance from its start", so a rewind is the intended effect.
   virtual void instancePlay() = 0;
 
   /// Halts the child's own clock. Called once at setup, because a child must not
@@ -79,11 +72,15 @@ struct SsInstanceChild {
   virtual void instanceStop() = 0;
 
   /// Re-arms the child's own slot debounces, recursively — the head-out half of
-  /// `instancePlay`, without touching playback.
+  /// `instancePlay`, without touching playback. Called on every transition as
+  /// well as on the host's head-out, so a restarted child restarts its subtree.
   virtual void instanceResetSlots() = 0;
 
   /// Drives the child's *own* per-frame slots (its effects and its nested
   /// instances) at the frame the Brain just stepped it to.
+  ///
+  /// `dtMilliseconds` is already scaled by the speed the slot stepped the child
+  /// at, so the subtree runs at the child's pace rather than the parent's.
   ///
   /// The child's animation clock belongs to `ss_instance_slot_step`, so this
   /// must **not** run `ss_runtime_update` on the child.
@@ -153,8 +150,7 @@ class SsInstanceSlots {
   /// and starts it in the right place.
   void reset();
 
-  /// Destroys every child and slot. Children first, then the slots that drove
-  /// them, mirroring the reference ports.
+  /// Destroys every child and slot. Children first, then the slots that drove them.
   void release() noexcept;
 
   /// The live state for `partIndex`, or null when that part has no child.

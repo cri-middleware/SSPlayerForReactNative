@@ -37,6 +37,17 @@ export class SsTextureRegistry {
     return this.entries.has(textureHash)
   }
 
+  hasBase(textureHash: number): boolean {
+    return this.baseUnderOverride.has(textureHash)
+      ? this.baseUnderOverride.get(textureHash) != null
+      : this.entries.has(textureHash)
+  }
+
+  registerBase(textureHash: number, image: unknown): void {
+    if (this.baseUnderOverride.has(textureHash)) this.baseUnderOverride.set(textureHash, image)
+    else this.entries.set(textureHash, image)
+  }
+
   /** Test-only: what is bound under a hash right now, or undefined. */
   bound(textureHash: number): unknown {
     return this.entries.get(textureHash)

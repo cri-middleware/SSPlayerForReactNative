@@ -31,9 +31,11 @@ that is useful information, not a problem.
 - [ ] Follows the style of the files it touches.
 - [ ] Docs updated if behaviour changed.
 - [ ] Anything that exists twice changed twice — a page and its translation, a `.sh` and its `.ps1`.
-- [ ] Layer 2 imports nothing from `react` / `react-native` — nothing enforces this.
-- [ ] Nothing per-vertex crosses JSI, and a buffer handed to JS is read only until the next `update()`.
+- [ ] Layer 2 imports nothing from `react` / `react-native`; `pnpm run check-layers` says whether it does.
+- [ ] Nothing per-vertex crosses JSI.
 - [ ] No per-frame allocations, on either side of JSI.
+- [ ] A pack stays a directory (no `require()` source, no `ssab` / `ssqb` in `assetExts`), and each native peer keeps one copy.
+- [ ] Core logic goes to SpriteStudio-SDK, and nothing is committed inside the submodule.
 - [ ] `nitrogen/generated/` and `cpp/format/` regenerated, never hand-edited; the source is `src/specs/*.nitro.ts`.
 
 ## Anything reviewers should know? / レビュー時の注意点

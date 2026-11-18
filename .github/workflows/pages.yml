@@ -8,7 +8,7 @@ name: Deploy Pages
 # immediate refresh, e.g. a docs fix that should not wait for the next release.
 #
 # No submodules and no secrets: TypeDoc reads `src/`, which is TypeScript, and
-# VitePress renders markdown. Neither needs the Brain or the private SDK.
+# VitePress renders markdown. Neither needs the Brain or the SDK.
 
 on:
   release:
@@ -25,12 +25,54 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A Release deploys the site only when it becomes Latest
+  # (scripts/release-channel.sh, read from the default branch): a pre-release
+  # once its package has a full release, or a patch to an earlier line, leaves
+  # the site as it is. A dispatch deploys from a tag, and refuses a branch such
+  # as develop.
+  channel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.channel.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-tags: true
+          persist-credentials: false
+      - id: channel
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != release ]; then
+            case "$GITHUB_REF" in
+              refs/tags/*)
+                echo "deploy=true" >> "$GITHUB_OUTPUT"
+                exit 0
+                ;;
+            esac
+            echo "::error::a dispatch deploys from a tag, and ${GITHUB_REF_NAME} is a branch"
+            exit 1
+          fi
+          channel="$(./scripts/release-channel.sh "$TAG")"
+          echo "::notice::${TAG} is a ${channel} release"
+          if [ "$channel" = latest ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: channel
+    if: needs.channel.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup pnpm
         # Before setup-node, whose pnpm cache needs the binary. The version is
@@ -38,9 +80,9 @@ jobs:
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
           cache: pnpm
 
       # Its own step, rather than left to build-pages.sh below (which is why that
@@ -70,6 +112,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Least privilege: only this job gets the Pages write and OIDC tokens.
     permissions:
       pages: write

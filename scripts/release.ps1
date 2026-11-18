@@ -1,8 +1,8 @@
 # Windows cannot cut a release, and this says so rather than producing a broken
-# one. The tarball carries the Brain's iOS xcframework; only Xcode builds it, so
-# a release from here would ship an Android-only package that installs and then
-# fails to link on iOS. `build-runtime.ps1` draws the same line for the same
-# reason.
+# one. A release has to pass check-mask and check-shader, which link the host
+# libskia RN Skia ships with a macOS slice and no other, so build-release skips
+# them here — and a release cut without them is one nobody checked the drawing
+# of.
 #
 # The `.js` shim next to this file picks between the two by host OS, so this
 # exists to make the refusal explicit — without it, `pnpm run release` on Windows
@@ -12,11 +12,11 @@
 Write-Error @"
 release: macOS only.
 
-The published tarball bundles the Brain's iOS xcframework, and only Xcode can
-build one. Releasing from Windows would ship a package that installs and then
-fails to link on iOS, with nothing in it to say why.
+A release has to pass check-mask and check-shader, and both link a libskia
+that RN Skia ships for macOS alone. Releasing from Windows would skip them.
 
-Run `pnpm run release` on macOS. Everything else in this repository — including
-`build-runtime` for the Android slices — works here.
+Run `pnpm run release` on macOS, or dispatch release.yml (RELEASING.md, step 5).
+Everything else in this repository — including `build-release`, to look at the
+tarball — works here.
 "@
 exit 1

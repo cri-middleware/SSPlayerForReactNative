@@ -9,19 +9,46 @@ description: What this port draws today, what it does not, and what it will not.
 
 Normal, Mesh, Shape, Instance and Effect parts; mask and clipping on Normal,
 Mesh and Shape targets; the full framebuffer blend table; PartColor; the thirteen `ss-*`
-integration shaders; the override layer; user-data, audio and signal events; the
-animation lifecycle; `fit`/`align` placement; the resource and atlas caches;
+integration shaders on Normal parts; the override layer; user-data, audio and signal events; the
+animation lifecycle; motion blending (tracks, crossfades, weighted sources); `fit`/`align` placement; the resource and atlas caches;
 `<SpriteStudioScene>`; the Expo config plugin.
 
 ## Not yet
 
 - **`Nines` and `Text`** parts.
+- **A masked Effect** — an effect draws unmasked, where SpriteStudio clips its
+  particles.
+
+## Motion blending
+
+**Instance and effect children are not layered.** Tracks blend the character whose player you
+hold; a part that plays another animation runs its own playback from the frame the root
+composes, and which key drives it across a crossfade on track 0 is outside motion blending.
+See [Motion blending](/usage/motion-blending#two-limits).
+
+## Seeking and reverse playback
+
+**Seeking fires no events for the frames it skips.** `seek()` moves the playhead without reporting the
+user-data, audio and signal keys between the old frame and the new one.
+
+**Instance and effect parts with independent playback are drawn correctly only while playing
+forward.** Under reverse playback (`SsPlaybackDirection.backward`, or the return leg of ping-pong) or
+after a `seek()` they are not placed correctly; forward frame skips are fine. The shared constraints
+are listed in [Shared Limitations](https://cri-middleware.github.io/SpriteStudio-Docs/sdk/limitations/).
 
 ## Masks
 
 **At most 96 mask writers at once.** Every mask and clipping part of an
 instance tree shares one budget, and an instance's count again each time it
 is placed. Past 96 the rest are ignored, with a warning.
+
+**A masked part's Sub and Invert blends are approximate.** It draws them in one pass as a difference,
+so where a Sub part is brighter than what is behind it, the result comes out light rather than black.
+
+## Shaders
+
+**An `ss-*` shader applies to Normal parts only.** On a Mesh, Shape or Effect
+part it is ignored, and the part draws without it.
 
 ## Platforms
 
@@ -30,6 +57,7 @@ is placed. Past 96 the rest are ignored, with a warning.
 | iOS / Android | supported |
 | web | **nothing draws** — but installing the package does not break a web build: the web entry is a stub, so an app shipping both halves still bundles, and only rendering a player there throws. [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) is SpriteStudio on the web. |
 | Windows | no route — neither Nitro nor RN Skia supports react-native-windows. |
+| tvOS / visionOS | no route — the SDK's XCFramework has no tvOS or visionOS slice. |
 
 ## Expo Go, and Fast Refresh
 

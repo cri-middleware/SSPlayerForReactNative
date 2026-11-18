@@ -90,6 +90,58 @@ describe('the player’s lifetime', () => {
   })
 })
 
+describe('the transitionMs prop', () => {
+  // Track 0 switches through the one prop either way, so the prop can always
+  // return to where it was.
+  it('crossfades a change of animation instead of setting it up', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle', transitionMs: 250 })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 250 })
+    await harness.rerender({ source: PACK, animation: 'Idle', transitionMs: 250 })
+
+    expect(player.argsOf('crossfade')).toEqual([
+      [0, 'Walk', 250],
+      [0, 'Idle', 250],
+    ])
+    expect(player.names()).not.toContain('setAnimation')
+  })
+
+  // A crossfade is a switch, not a start: no rewind of the clip it brings in.
+  it('does not head out after a crossfade', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle', transitionMs: 250 })
+    const player = SpriteStudioPlayer.last()
+    const plays = player.argsOf('play').length
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 250 })
+
+    expect(player.argsOf('play')).toHaveLength(plays)
+  })
+
+  // There is nothing to fade from before the first clip is up.
+  it('sets the first animation of a load up outright', async () => {
+    SpriteStudioPlayer.holdLoads = true
+    const harness = await mount({ source: PACK, animation: 'Idle', transitionMs: 250 })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 250 })
+    await act(async () => player.finishLoad())
+
+    expect(player.names()).not.toContain('crossfade')
+    expect(player.currentAnimation).toBe('Walk')
+  })
+
+  it('switches outright at 0, as without the prop', async () => {
+    const harness = await mount({ source: PACK, animation: 'Idle' })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK, animation: 'Walk', transitionMs: 0 })
+
+    expect(player.argsOf('setAnimation')).toEqual([['Walk']])
+    expect(player.names()).not.toContain('crossfade')
+  })
+})
+
 describe('the playing prop', () => {
   // `load` selects and poses; starting is a separate verb, so this leaves the
   // animation on its first frame without ever having played.
@@ -143,6 +195,48 @@ describe('the transport props', () => {
 
     expect(player.argsOf('setSpeedScale')).toEqual([[2], [0.5]])
     expect(player.argsOf('setLoopCount')).toEqual([[3]])
+  })
+})
+
+describe('the textures prop', () => {
+  /** What the hook last asked of each cellmap: an image, or null for the pack's own. */
+  const lastReplacement = (player: SpriteStudioPlayer): Map<string, unknown> =>
+    new Map(player.argsOf('setCellmapTexture').map(([name, image]) => [name as string, image]))
+
+  // The pack loads its own atlas into the same registry, so a bare source
+  // registered under the default key met a table of two and matched no batch.
+  it('replaces the pack’s one cellmap with a bare source', async () => {
+    const harness = await mount({ source: PACK, textures: 'ss/winter.png' })
+    await harness.flush()
+    const player = SpriteStudioPlayer.last()
+
+    expect([...lastReplacement(player).keys()]).toEqual(['common'])
+    expect(lastReplacement(player).get('common')).not.toBeNull()
+  })
+
+  it('leaves a bare source unapplied on a pack with several cellmaps, and says why', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    SpriteStudioPlayer.holdLoads = true
+    const harness = await mount({ source: PACK, textures: 'ss/winter.png' })
+    const player = SpriteStudioPlayer.last()
+    player.cellmaps = ['body', 'face']
+
+    await act(async () => player.finishLoad())
+    await harness.flush()
+
+    expect(player.argsOf('setCellmapTexture')).toEqual([])
+    expect(String(warn.mock.calls[0]?.[0])).toMatch(/Key the textures by cellmap name/)
+  })
+
+  // Declarative, like `parts`: the prop describes the atlases in effect.
+  it('puts the pack’s own atlas back when the prop goes away', async () => {
+    const harness = await mount({ source: PACK, textures: { common: 'ss/winter.png' } })
+    await harness.flush()
+    const player = SpriteStudioPlayer.last()
+
+    await harness.rerender({ source: PACK })
+
+    expect(lastReplacement(player).get('common')).toBeNull()
   })
 })
 
@@ -316,6 +410,21 @@ describe('the load’s outcome', () => {
     await mount({ source: PACK, onLoad })
 
     expect(onLoad).toHaveBeenCalledWith(SpriteStudioPlayer.last())
+  })
+
+  // `dispose()` makes an abandoned load drop what it built and resolve, so the
+  // hook has to know it no longer wants the result.
+  it('neither starts nor hands over a player its unmount abandoned', async () => {
+    SpriteStudioPlayer.holdLoads = true
+    const onLoad = vi.fn()
+    const harness = await mount({ source: PACK, onLoad })
+    const player = SpriteStudioPlayer.last()
+
+    await harness.unmount()
+    await act(async () => player.finishLoad())
+
+    expect(onLoad).not.toHaveBeenCalled()
+    expect(player.names('play')).toEqual([])
   })
 
   it('goes to onError when there is one', async () => {

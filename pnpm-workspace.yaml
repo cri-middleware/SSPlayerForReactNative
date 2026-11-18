@@ -3,20 +3,6 @@ packages:
   - "example"
   - "docs"
 
-# One copy of each native module, at the version example/ builds and runs
-# against. Expo's compatibility table sets it; moving one ahead of the table is
-# a by-hand call, made once the native side has been built against it. Skia is
-# at the table's 2.13.1. The package names these as peers, and a peer
-# resolved on its own can land a second copy beside the app's: two autolinked
-# pods/prefabs fighting over one JSI registration, not a duplicated dependency.
-# Bump them together.
-overrides:
-  "@shopify/react-native-skia": "2.13.1"
-  react-native-reanimated: "4.7.0"
-  react-native-worklets: "0.13.0"
-  react-native: "0.88.0-rc.1"
-  react: "19.3.0"
-
 # vitepress-plugin-mermaid 2.0.17 is the latest and its peer range stops at 11,
 # but the three calls it makes into mermaid (initialize, render,
 # registerExternalDiagrams) are the same in 12. Drop this once its range widens.
@@ -33,21 +19,64 @@ allowBuilds:
 # pnpm adds an entry when a version is inside its minimum release age. Nothing
 # else needs it: drop each entry once its version has aged out.
 minimumReleaseAgeExclude:
-  - "@shopify/react-native-skia@2.13.1"
-  - "@vitest/mocker@5.0.3"
-  - "@vitest/spy@5.0.3"
-  - vitest@5.0.3
-  - "@expo/cli@58.1.1"
-  - "@expo/log-box@58.0.8"
-  - "@expo/metro-config@58.0.7"
-  - "@expo/prebuild-config@58.0.7"
-  - "@expo/router-server@58.0.6"
-  - babel-preset-expo@58.0.8
-  - expo-asset@58.0.10
-  - expo-file-system@58.0.5
-  - expo-font@58.0.5
+  - "@vitest/mocker@5.0.5"
+  - "@vitest/spy@5.0.5"
+  - vitest@5.0.5
+  - "@expo/cli@58.1.18 || 58.1.19 || 58.1.21"
+  - "@expo/metro-config@58.0.20 || 58.0.21 || 58.0.23"
+  - "@expo/prebuild-config@58.0.18 || 58.0.19"
+  - "@expo/router-server@58.0.20 || 58.0.21 || 58.0.23"
+  - babel-preset-expo@58.0.23 || 58.0.24 || 58.0.26
+  - expo-asset@58.0.19 || 58.0.20
   - expo-keep-awake@58.0.3
-  - expo-modules-autolinking@58.0.7
-  - expo-modules-core@58.0.11
-  - expo-modules-jsi@58.0.7
-  - expo@58.0.2
+  - expo-modules-core@58.0.29 || 58.0.30
+  - expo-modules-jsi@58.0.21 || 58.0.22
+  - expo@58.0.22 || 58.0.23 || 58.0.26
+  - react-is@19.3.1
+  - "@expo/package-manager@1.14.2"
+  - "@react-native/asset-utils@0.88.0"
+  - "@react-native/babel-plugin-codegen@0.88.0"
+  - "@react-native/codegen@0.88.0"
+  - "@react-native/debugger-frontend@0.88.0"
+  - "@react-native/debugger-shell@0.88.0"
+  - "@react-native/dev-middleware@0.88.0"
+  - "@react-native/js-polyfills@0.88.0"
+  - "@react-native/normalize-colors@0.88.0"
+  - "@react-native/community-cli-plugin@0.88.0"
+  - "@react-native/gradle-plugin@0.88.0"
+  - "@react-native/virtualized-lists@0.88.0"
+  - react-native@0.88.0
+  - react-native-skia@3.6.1
+  - "@expo/schema-utils@58.0.3"
+  - expo-build-properties@58.0.12
+  - expo-dev-client@58.0.18 || 58.0.21
+  - expo-dev-launcher@58.0.18 || 58.0.21
+  - typedoc-plugin-markdown@4.14.1
+  - "@expo/config-plugins@58.0.11 || 58.0.12"
+  - "@expo/config@58.0.10 || 58.0.11"
+  - "@expo/env@2.5.3 || 2.5.4"
+  - "@expo/fingerprint@0.21.8 || 0.21.9"
+  - "@expo/inline-modules@0.2.8 || 0.2.9"
+  - "@expo/local-build-cache-provider@58.0.10 || 58.0.11"
+  - "@expo/log-box@58.0.14 || 58.0.15"
+  - expo-audio@58.0.11
+  - expo-constants@58.0.14 || 58.0.15
+  - expo-modules-autolinking@58.0.16 || 58.0.17
+  - expo-status-bar@58.0.4
+  - react-native-builder-bob@0.44.1
+  - expo-file-system@58.0.13 || 58.0.14
+  - expo-font@58.0.11
+  - expo-modules-cli@0.4.0
+  - expo-server@58.0.6
+  - expo-dev-menu@58.0.12
+  - "@expo/image-utils@0.12.6"
+  - "@expo/modules-macros-linux-arm64@0.27.1"
+  - "@expo/modules-macros-linux-x64@0.27.1"
+  - "@expo/modules-macros-win32-arm64@0.27.1"
+  - "@expo/modules-macros-win32-x64@0.27.1"
+  - "@expo/require-utils@58.0.5"
+  - expo-modules-macros@0.27.1
+  - mermaid@12.3.0
+  - nitro-core@0.37.2
+  - nitrogen@0.37.2
+  - react-native-nitro-modules@0.37.2

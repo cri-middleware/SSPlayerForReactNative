@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -12,6 +13,7 @@
 #include "SsEffect.hpp"
 #include "SsInstance.hpp"
 #include "SsMask.hpp"
+#include "SsPartQuad.hpp"
 #include "SsRNSkiaInterop.hpp"
 // For `SsPaintBinding` only. Safe in a header: SsSkiaDraw.hpp keeps its Skia
 // pointers opaque precisely so consumers never need the Skia headers.
@@ -32,20 +34,9 @@ struct SsInstancePackEntry {
 
 /// One playing animation.
 ///
-/// Every buffer handed to JS is a borrow that `update()` invalidates. Two
-/// separate things can dangle and they are kept apart deliberately:
-///
-///   - the Brain's SoA buffers and FrameData, recycled inside `libssruntime`;
-///   - this object's own baker vectors, resized here.
-///
-/// Neither is refcounted by the JS side, so `generation_` is the only thing
-/// standing between a retained ArrayBuffer and a read of recycled memory. It is
-/// stamped into every struct handed out; JS compares before it reads.
-///
-/// The geometry no longer leaves C++ at all — `drawInto` bakes and
-/// draws in one call — so the only buffer still crossing is an embedded atlas on
-/// its way to Skia. The rule stays, because the next thing to cross will be
-/// subject to it too.
+/// `generation_` counts every change to what this player would draw.
+/// `getGeneration()` exposes it, and `getFrameDrawn()` compares it with the
+/// generation `drawInto` last drew.
 
 class HybridSsContext final : public HybridSsContextSpec,
                               public sscore::SsInstanceChild,
@@ -62,9 +53,6 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// promises to run. Mounting and unmounting a screen a few times would then
   /// hold several packs at once.
   ///
-  /// Also the moment every outstanding borrow dies: `generation_` is bumped, so
-  /// JS holding an ArrayBuffer from a previous frame sees the same staleness it
-  /// would see after an `update()` rather than reading freed memory.
   /// Idempotent; the destructor runs the same release.
   void dispose() override;
 
@@ -74,6 +62,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   double getPartCount() override { return static_cast<double>(partCount_); }
   double getGeneration() override { return static_cast<double>(generation_); }
   double getFrameNo() override { return static_cast<double>(frameNo_); }
+  bool getFrameDrawn() override;
+  bool getAdvances() override { return advances(); }
 
   bool getIsPlaying() override;
   bool getIsPausing() override;
@@ -91,9 +81,9 @@ class HybridSsContext final : public HybridSsContextSpec,
   bool getSkipFrames() override;
   bool getSubFrame() override { return subFrame_; }
 
-  /// Takes the *spec* type, because that is what nitrogen declares — every
-  /// `SsResource` crossing from JS is one of ours, so the downcast below is
-  /// checked rather than assumed only to keep a hand-rolled implementer honest.
+  /// Binds an external pack that Instance parts can mount, keyed by its
+  /// `name_hash`. False when `pack` is not an `SsResource` from this module, is
+  /// disposed, or the first `setupAnimation` has already built the children.
   bool bindInstancePack(const std::shared_ptr<HybridSsResourceSpec>& pack) override;
   bool setupAnimation(const std::string& name) override;
   std::string lastErrorMessage() override;
@@ -109,7 +99,7 @@ class HybridSsContext final : public HybridSsContextSpec,
   void setSpeedScale(double rate) override;
   void setPlaybackDirection(double direction, double style) override;
   void setSkipFrames(bool skip) override;
-  void setSection(double startFrame, double endFrame) override;
+  bool setSection(double startFrame, double endFrame) override;
   void setFrameRate(double fps) override;
   void setSubFrame(bool enabled) override;
 
@@ -118,6 +108,8 @@ class HybridSsContext final : public HybridSsContextSpec,
   SsBox measureContentBox(const std::vector<std::string>& animations,
                           double maxFrames) override;
   SsBox canvasBox() override;
+  SsPartQuad getPartQuad(double partIndex) override;
+  double hitTestPart(double x, double y, const std::vector<double>& parts) override;
 
   SsPartTransform getPartTransform(double partIndex) override;
   bool isPartHidden(double partIndex) override;
@@ -136,18 +128,62 @@ class HybridSsContext final : public HybridSsContextSpec,
   bool clearPartCell(double partIndex) override;
   bool clearPartOverrides() override;
 
+  double getTrackCount() override;
+  double getCurrentAnimationIndex() override;
+  bool setTrackAnimation(double track, const std::string& name) override;
+  bool clearTrack(double track) override;
+  bool crossfade(double track, const std::string& name, double durationMs) override;
+  bool fadeTrack(double track, double targetAlpha, double durationMs) override;
+  double getTrackFadeProgress(double track) override;
+  bool cancelTrackFade(double track) override;
+  bool setTrackAlpha(double track, double alpha) override;
+  double getTrackAlpha(double track) override;
+  bool setTrackBlend(double track, double blend) override;
+  double getTrackBlend(double track) override;
+  bool setTrackSync(double track, double sync) override;
+  double getTrackSync(double track) override;
+  bool setTrackFrame(double track, double frameNo) override;
+  double getTrackFrame(double track) override;
+  bool setTrackSpeed(double track, double speed) override;
+  double getTrackSpeed(double track) override;
+  bool setTrackFrameRate(double track, double fps) override;
+  double getTrackFrameRate(double track) override;
+  bool setTrackSkipFrames(double track, bool skip) override;
+  bool getTrackSkipFrames(double track) override;
+  bool setTrackPlaybackDirection(double track, double direction, double style) override;
+  double getTrackPlaybackDirection(double track) override;
+  double getTrackPlaybackStyle(double track) override;
+  bool setTrackLoopCount(double track, double loops) override;
+  double getTrackLoopCount(double track) override;
+  bool isTrackFinished(double track) override;
+  bool trackJustLooped(double track) override;
+  bool setTrackOutgoingEventThreshold(double track, double threshold) override;
+  double getTrackOutgoingEventThreshold(double track) override;
+  double getTrackMainSource(double track) override;
+  double addTrackSource(double track, const std::string& name, double weight) override;
+  bool setSourceWeight(double source, double weight) override;
+  double getSourceWeight(double source) override;
+  bool setSourceFrame(double source, double frameNo) override;
+  double getSourceFrame(double source) override;
+  double getSourceAnimationIndex(double source) override;
+  bool setSourceEventThreshold(double source, double threshold) override;
+  double getSourceEventThreshold(double source) override;
+
   std::vector<SsTextureInfo> getTextures() override;
+  std::shared_ptr<ArrayBuffer> copyEmbeddedTexture(double textureHash) override;
   std::vector<std::string> getAnimationNames() override;
   std::vector<std::string> partNames() override;
   std::vector<std::string> cellmapNames() override;
   std::vector<std::string> cellNames(const std::string& cellmapName) override;
+  SsLabelTable getLabelTable(const std::string& animationName) override;
 
-  double drawInto(SkCanvasHandle canvas, const std::vector<SsTextureBinding>& textures) override;
+  void setTextures(const std::vector<SsTextureBinding>& textures) override;
+  double drawInto(SkCanvasHandle canvas, double x, double y, double scaleX,
+                  double scaleY) override;
 
   // --- `SsInstanceChild`: this player driven as somebody else's instance ----
   //
-  // The same object is a root player and a child, exactly as
-  // `SpriteStudioInternalPlayer` is in SSPlayerForFlutter. What differs is only
+  // The same object is a root player and a child, and what differs is only
   // who owns the clock: a root advances its own in `update()`, a child has
   // `ss_instance_slot_step` seek it and then only refreshes.
 
@@ -207,8 +243,7 @@ class HybridSsContext final : public HybridSsContextSpec,
 
   /// Spawns one child per instance part, once.
   ///
-  /// Deferred to the first `setupAnimation` rather than done in the constructor,
-  /// which is what SSPlayerForWeb's `PackResolver` does and for the same reason:
+  /// Deferred to the first `setupAnimation` rather than done in the constructor:
   /// an external pack has to be bound before its child can resolve, and binding
   /// happens after `createContext`.
   void buildInstanceChildren();
@@ -217,10 +252,13 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// already present. Recursive, so a pack three mounts down still contributes.
   void collectTextures(std::vector<SsTextureInfo>& out);
 
+  /// The entry `collectTextures` keeps for `textureHash` — the first in the same
+  /// walk — or false when no pack in the tree has one.
+  bool findTexture(uint32_t textureHash, sscore::SsTextureEntry& out) const;
+
   /// The resource holding `packNameHash`'s animations, or null.
   ///
-  /// External packs win, then the own pack, matching SSPlayerForGodot's
-  /// `_resolve_ssab_by_hash`. A hash of 0 is an author who left the reference
+  /// External packs win, then the own pack. A hash of 0 is an author who left the reference
   /// pack-less, which also means the own pack.
   std::shared_ptr<HybridSsResource> resolvePack(uint32_t packNameHash) const;
   /// Refreshes `frame_`, the SoA pointers and `partCount_` from the Brain for
@@ -247,17 +285,40 @@ class HybridSsContext final : public HybridSsContextSpec,
   /// Drives every effect slot one tick at the current playhead.
   ///
   /// `dtMilliseconds` is what `update()` was handed (0 for a seek) and `looped`
-  /// the parent's loop edge for this tick. Called from `update()` and from
-  /// `resync()`, never from the draw:
-  /// stepping must not be driven off `draw_order`, since the Brain drops a
-  /// hidden effect from it and an independent one would then freeze in mid-air.
+  /// the parent's loop edge for this tick. Called once the frame for the playhead is published,
+  /// never from the draw: a part `frame_` hides steps without building its
+  /// particles, but it still steps. Stepping must not be driven off
+  /// `draw_order`, since the Brain drops a hidden effect from it and an
+  /// independent one would then freeze in mid-air.
   void stepEffects(float dtMilliseconds, bool looped);
+
+  /// Whether `update()` can change the frame. A pause moves only the parts that
+  /// keep their own clock, and only effect and instance parts can. Once track 0
+  /// has finished, only the rest of the stack still can. See `SsAdvances`.
+  bool advances() const;
+  /// Whether this player has an effect or instance part: one keeps its own
+  /// clock through a pause, and moves on a tick that leaves the frame alone.
+  bool hasSlots() const;
+  /// After a track call the Brain accepted: track 0's playhead may now be
+  /// another animation's, and neither the pose nor the slots are where `frame_`
+  /// and the last step left them.
+  void tracksChanged();
+  /// The animation index each passed event is resolved in, read with the same
+  /// index as `ss_runtime_get_passed_event_index`.
+  int32_t passedEventAnimation(int32_t i) const;
+  /// The source that fired passed event `i`, or -1.
+  double passedEventSource(int32_t i) const;
+  /// Without this an override never shows: a player that does not advance gets
+  /// no `update()`, and one that does rebuilds only when the pose moves. The
+  /// rebuild waits for `refreshIfStale` or the next `update()`, so a whole
+  /// override map costs one build.
+  void markStale();
+  void refreshIfStale();
 
   /// Re-reads the playhead from the Brain and republishes the frame.
   ///
   /// Every transport call that moves the playhead goes through this, so a seek
-  /// invalidates outstanding buffers exactly the way an `update()` does — JS
-  /// has one rule to follow instead of a list of exceptions. `frameNo_` is a
+  /// republishes the frame the way an `update()` does. `frameNo_` is a
   /// cache of the Brain's playhead and `refreshFrame()` reads the FrameData
   /// *at* it, so skipping this would leave the pose showing the old frame.
   void resync();
@@ -266,45 +327,52 @@ class HybridSsContext final : public HybridSsContextSpec,
   std::shared_ptr<HybridSsResource> resource_;
   void* ctx_ = nullptr;
 
-  /// A verified view over the bound `.ssab`, built once in the constructor.
+  /// A verified view over the bound `.ssab`, taken from `resource_` in the
+  /// constructor.
   ///
   /// Kept rather than rebuilt per query, because building one runs the
-  /// FlatBuffers verifier over the whole pack — 470 us on Ringo — and the
-  /// queries are not all load-time: `resolvePack` asks per instance part, and
-  /// the three event getters ask on every frame carrying an event. It borrows
-  /// through `resource_`, so `release()` clears it.
+  /// FlatBuffers verifier over the whole pack, and the queries are not all
+  /// load-time: `resolvePack` asks per instance part, and the three event
+  /// getters ask on every frame carrying an event. It borrows through
+  /// `resource_`, so `release()` clears it.
   sscore::SsAnimeBinaryView ssab_;
 
   double generation_ = 0;
+  double drawnGeneration_ = -1;
+  bool stale_ = false;
+  /// Set by a track call, cleared once the instance and effect slots have been
+  /// stepped onto the playhead it left: by `refreshIfStale`, or by `update()`,
+  /// which steps them anyway.
+  bool slotsStale_ = false;
   float frameNo_ = 0.0f;
   /// Whether the DISPLAY frame keeps its fraction. On by default: this Player
   /// draws for applications, where interpolating between authored frames is the
   /// point (the game engines default it off). `frameNo_` itself is never
   /// rounded — see `refreshFrame`.
   bool subFrame_ = true;
-  /// Index of the animation `setupAnimation` last selected, or -1.
-  ///
-  /// The Brain reports a passed event as a position in *that* animation's
-  /// `events` vector, so without this the indices cannot be resolved back to
-  /// the keys they name.
-  int32_t animationIndex_ = -1;
   size_t partCount_ = 0;
 
   /// The Brain's FrameData for `frameNo_`, read in place. A raw pointer on
-  /// purpose: it is a borrow into a buffer `libssruntime` recycles on the next
-  /// `update()`, and null whenever there is no frame to read.
+  /// purpose: it is a borrow into a buffer `libssruntime` rewrites on the next
+  /// `ss_runtime_get_frame_data`, and null whenever there is no frame to read.
+  /// `ss_runtime_update` leaves it alone, which is what lets `update()` keep it
+  /// when the pose has not moved.
   const ss::runtime::FrameData* frame_ = nullptr;
+  /// The display frame `frame_` was built at; NaN before the first build, so
+  /// it matches nothing.
+  float builtFrame_ = std::numeric_limits<float>::quiet_NaN();
   sscore::SsSoAPointers soa_;
 
   sscore::SsBaker baker_;
-  /// `drawInto`'s texture table, in the Nitro-free shape `SsSkiaDraw` takes.
-  /// A member so the per-frame repack reuses one allocation.
+  ::ssplayer::SsDrawScratch drawScratch_;
+  /// What `setTextures` was given, held for the paints it keeps alive.
+  std::vector<SsTextureBinding> textures_;
+  /// The same table in the Nitro-free shape `SsSkiaDraw` takes.
   std::vector<::ssplayer::SsPaintBinding> paintBindings_;
 
   /// The static half of masking, read once from the `.ssab` at construction and
   /// indexed by part index. The per-frame half (`mask` / `hide` / the rank) comes
-  /// out of `FrameData` in `maskPlan_`; keeping the two apart is the first thing
-  /// the mask spec asks of a Player.
+  /// out of `FrameData` in `maskPlan_`.
   std::vector<sscore::SsMaskPartFlags> maskFlags_;
   /// Whether any part can write coverage at all — static, so a child with none
   /// is never baked just to find no writers.

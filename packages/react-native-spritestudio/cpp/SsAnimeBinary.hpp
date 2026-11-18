@@ -12,8 +12,8 @@
 // ever crosses into JS.
 //
 // It goes through **flatc's generated accessors** (`cpp/format/ssab.h`,
-// committed; regenerate with `pnpm run generate-fbs-code`), the same arrangement
-// as SSPlayerForGodot — as does the frame path now. This wrapper exists for a
+// committed; regenerate with `pnpm run generate-fbs-code`), as does the frame path.
+// This wrapper exists for a
 // reason that does not apply there: the `.ssab`'s metadata needs real decoding
 // (two texture lists presented as one, hash-keyed embedded assets), whereas
 // `FrameData` is read field-for-field.
@@ -24,6 +24,7 @@
 //
 // Schema: SpriteStudio-SDK/libs/ssab/fbs/ssab.fbs
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -72,8 +73,13 @@ struct SsSoundEntry {
   /// Authored duration in milliseconds.
   uint32_t totalMs = 0;
   /// Whether the pack carries the bytes (`--embedded`), in which case
-  /// `filePath` names a sibling that is not on disk.
+  /// `filePath` names a file that is not on disk.
   bool embedded = false;
+};
+
+struct SsLabelEntry {
+  std::string_view name;
+  int32_t frame = 0;
 };
 
 /// Non-owning view over a `.ssab`. Valid only while the buffer is.
@@ -132,6 +138,36 @@ class SsAnimeBinaryView {
     const float width = size->v1();
     const float height = size->v2();
     return {-pivot->v1() * width - width / 2.0f, pivot->v2() * height - height / 2.0f, width, height};
+  }
+
+  /// Animation `index`'s labels in frame order. The pack keeps them in name-hash
+  /// order, which a section running to the next label cannot use.
+  std::vector<SsLabelEntry> labels(int32_t index) const {
+    std::vector<SsLabelEntry> out;
+    const auto* animations = root_ != nullptr ? root_->animations() : nullptr;
+    if (animations == nullptr || index < 0 || static_cast<uint32_t>(index) >= animations->size()) {
+      return out;
+    }
+    const auto* labels = animations->Get(static_cast<uint32_t>(index))->labels();
+    if (labels == nullptr) return out;
+    out.reserve(labels->size());
+    for (uint32_t i = 0; i < labels->size(); ++i) {
+      const auto* label = labels->Get(i);
+      out.push_back({toView(label->name()), label->time()});
+    }
+    std::stable_sort(out.begin(), out.end(),
+                     [](const SsLabelEntry& a, const SsLabelEntry& b) { return a.frame < b.frame; });
+    return out;
+  }
+
+  /// Animation `index`'s own first and last frame. All zero out of range.
+  std::array<int32_t, 2> frameRange(int32_t index) const noexcept {
+    const auto* animations = root_ != nullptr ? root_->animations() : nullptr;
+    if (animations == nullptr || index < 0 || static_cast<uint32_t>(index) >= animations->size()) {
+      return {};
+    }
+    const auto* animation = animations->Get(static_cast<uint32_t>(index));
+    return {animation->start_frame(), animation->end_frame()};
   }
 
   // --- cellmaps -----------------------------------------------------------
@@ -216,8 +252,6 @@ class SsAnimeBinaryView {
     return n;
   }
 
-  // --- effect -------------------------------------------------------------
-
   // --- instance -----------------------------------------------------------
 
   /// This pack's own `name_hash` — the identity a reference is compared against
@@ -293,7 +327,7 @@ class SsAnimeBinaryView {
     return out;
   }
 
-  // --- mask ---------------------------------------------------------------
+  // --- parts, events, sounds -----------------------------------------------
 
   uint32_t partCount() const noexcept {
     const auto* v = root_ != nullptr ? root_->parts() : nullptr;
@@ -319,10 +353,8 @@ class SsAnimeBinaryView {
   /// deformed art. A rigid (deform-only) mesh, and every non-mesh part, places
   /// the art at its own node and follows correctly, so those are false.
   ///
-  /// The judgement is the cross-player one every sibling shares, keyed off the
-  /// same `.ssab` field so the answers agree
-  /// (SSPlayerForWgpu's `is_part_skinned_mesh`, SSPlayerForWeb's
-  /// `isPartSkinnedMesh`): a `mesh_binding` is present and its `influence_bone`
+  /// The judgement is the one every sibling Player shares, keyed off the same
+  /// `.ssab` field so the answers agree: a `mesh_binding` is present and its `influence_bone`
   /// list is non-empty. False out of range.
   bool isPartSkinnedMesh(uint32_t index) const noexcept {
     const auto* v = root_ != nullptr ? root_->parts() : nullptr;
@@ -431,10 +463,8 @@ class SsAnimeBinaryView {
     out.maskWrite = part->mask_write();
     out.maskInfluence = part->mask_influence();
     out.visibleInsideMask = part->visible_inside_mask();
-    // Every kind `SsBaker` emits geometry for. Shape and Mesh joined when they
-    // were baked — a Shape turned into a pure mask by `draw_as_mask` covers with
-    // its polygon and a Mesh clipping writer with its deformed triangles, which
-    // is what the coverage pass now rasterises rather than a bounding quad.
+    // Every kind `SsBaker` emits geometry for: coverage is rasterised from the real
+    // shape (a Shape's polygon, a Mesh's deformed triangles), not a bounding quad.
     out.bakedGeometry = type == ss::format::PartType_PartTypeNormal ||
                         type == ss::format::PartType_PartTypeMask ||
                         type == ss::format::PartType_PartTypeShape ||
