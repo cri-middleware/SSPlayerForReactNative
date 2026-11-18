@@ -154,7 +154,7 @@ npm view react-native-spritestudio dist-tags      # the version just approved, u
 npm view react-native-spritestudio-ui dist-tags
 ```
 
-A release the run did not stage — a package's first, one dispatched with `publish_npm=false`, one cut on a Mac, or one whose **Stage on npm** failed — is published by hand instead, from the same tarball. `scripts/npm-dist-tag.sh` picks the dist-tag: `latest` for a full release, and for a prerelease while the package's `latest` is not yet a full release; the prerelease's word (`beta`, `rc`) after that. Until npm can take the package, skip this: the Release alone carries the tarball, and these lines publish it from there later. The loop publishes the core first, and stops at the first failure.
+A release the run did not stage — a package's first, one dispatched with `publish_npm=false`, one cut on a Mac, or one whose **Stage on npm** failed — is published by hand instead, from the same tarball. `scripts/npm-dist-tag.sh` picks the dist-tag: `latest` for a full release, and for a prerelease while the package's `latest` is not yet a full release; the prerelease's word (`beta`, `rc`) after that. The loop publishes the core first, and stops at the first failure.
 
 ```bash
 git fetch origin --tags
@@ -403,7 +403,7 @@ npm view react-native-spritestudio dist-tags      # いま承認したバージ�
 npm view react-native-spritestudio-ui dist-tags
 ```
 
-run が stage しなかったリリースは、同じ tarball を手作業で publish します。そのパッケージの最初のバージョン、`publish_npm=false` で実行したもの、Mac で切ったもの、**Stage on npm** が失敗したものがこれにあたります。dist-tag は `scripts/npm-dist-tag.sh` が決めます。正式版は `latest` です。プレリリースも、パッケージの `latest` がまだ正式版でなければ `latest`、正式版になった後はその語（`beta`・`rc`）です。npm に出せるようになるまでは、ここは飛ばします。tarball は Release だけが持ち、あとで同じコマンドでそこから publish できます。ループは core から順に publish し、最初の失敗で止まります。
+run が stage しなかったリリースは、同じ tarball を手作業で publish します。そのパッケージの最初のバージョン、`publish_npm=false` で実行したもの、Mac で切ったもの、**Stage on npm** が失敗したものがこれにあたります。dist-tag は `scripts/npm-dist-tag.sh` が決めます。正式版は `latest` です。プレリリースも、パッケージの `latest` がまだ正式版でなければ `latest`、正式版になった後はその語（`beta`・`rc`）です。ループは core から順に publish し、最初の失敗で止まります。
 
 ```bash
 git fetch origin --tags
