@@ -95,6 +95,15 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: pnpm
 
+      # The runner image's preinstalled Rust can lag behind the SDK's
+      # rust-version, which the example conversion and the host checks build
+      # against.
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          # Pinned by SHA, so the channel must be named explicitly here.
+          toolchain: stable
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
