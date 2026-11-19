@@ -32,7 +32,7 @@ not ship Corepack, so install that pnpm version yourself).
 
 ## Get the Brain
 
-`native/` is gitignored, so a fresh checkout has no native core at all.
+`packages/react-native-spritestudio/native/` is gitignored, so a fresh checkout has no native core at all.
 
 ```bash
 pnpm run download-sdk
@@ -135,24 +135,33 @@ converts into `example/assets/ss/` — run that first. `check-framedata` is also
 A git URL cannot install this package: neither the native core nor the built
 `lib/` is tracked in git, so the install would produce a package whose `main`
 points at a file that is not there and whose native side has nothing to link.
-Build the tarball a release publishes instead, from the pinned Brain:
+Build the tarballs a release publishes instead, from the pinned Brain:
 
 ```bash
 pnpm run download-sdk
-pnpm run build-release        # -> release-dist/npm/<tarball>.tgz
+pnpm run deploy-examples
+pnpm run build-release        # -> release-dist/npm/, a tarball per package
 ```
 
 `build-release` also regenerates the Nitro bindings and requires them to match what is committed, then
 runs the host checks (`check-hidden`, `check-motion`, and on macOS `check-mask` and `check-shader`;
 `check-framedata` too when `flatc` is installed) before it packs. Those need Rust and the packs
-`pnpm run deploy-examples` converts, so run that first; `skip=codegen,checks` packs without them.
-
-Install it in the app (`npm install <checkout>/release-dist/npm/<tarball>.tgz`),
-then prebuild as you would for the published package. `prepack` refuses a Brain
-that is not the pinned release — one from `build-runtime`, or a debug build — so a
-tarball always carries the release's native core. To run a Brain you built
-yourself, use the example app: it takes the package from the workspace, native core
+`deploy-examples` converts; `skip=codegen,checks` packs without them. It packs only the Brain
+`scripts/SDK_VERSION.txt` pins, and `prepack` refuses one built locally or in debug — one from
+`build-runtime`, or a debug build — so a tarball always carries the release's native core. To run a
+Brain you built yourself, use the example app: it takes the package from the workspace, native core
 and all.
+
+In the app, install the dependencies [Installation](/setup/install) lists alongside the package, but
+not the package itself, which `expo install` would fetch from npm; then install the tarball, and the
+UI package's beside it if the app uses `react-native-spritestudio-ui`. From there, build as that page
+goes on, from its step 3.
+
+```bash
+npx expo install react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npm install <checkout>/release-dist/npm/react-native-spritestudio-<version>.tgz
+npm install <checkout>/release-dist/npm/react-native-spritestudio-ui-<version>.tgz   # only with the UI package
+```
 
 ## Checking against the real host {#checking-against-the-real-host}
 
