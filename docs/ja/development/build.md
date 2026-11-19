@@ -24,7 +24,7 @@ submodule は `SpriteStudio-SDK/` — リポジトリ全体で **Brain** と呼�
 
 ## Brain を用意する
 
-`native/` は gitignore 対象なので、clone 直後にはネイティブコアが一切ありません。
+`packages/react-native-spritestudio/native/` は gitignore 対象なので、clone 直後にはネイティブコアが一切ありません。
 
 ```bash
 pnpm run download-sdk
@@ -100,12 +100,19 @@ git の URL ではこのパッケージを入れられません。ネイティ�
 
 ```bash
 pnpm run download-sdk
-pnpm run build-release        # -> release-dist/npm/<tarball>.tgz
+pnpm run deploy-examples
+pnpm run build-release        # -> release-dist/npm/ に、パッケージごとに 1 つ
 ```
 
-`build-release` は固定した Brain の導入に続いて、Nitro バインディングを再生成してコミット済みのものと一致することを確かめ、パックする前にホスト側のチェックを実行します（`check-hidden`、`check-motion`、macOS では `check-mask` と `check-shader`、`flatc` があれば `check-framedata` も）。これらには Rust と、`deploy-examples` が変換したサンプルパックが要るので、先にそれを実行してください。`skip=codegen,checks` を付ければ、それらを省いてパックします。
+`build-release` は固定した Brain の導入に続いて、Nitro バインディングを再生成してコミット済みのものと一致することを確かめ、パックする前にホスト側のチェックを実行します（`check-hidden`、`check-motion`、macOS では `check-mask` と `check-shader`、`flatc` があれば `check-framedata` も）。これらには Rust と、`deploy-examples` が変換したサンプルパックが要ります。`skip=codegen,checks` を付ければ、それらを省いてパックします。パックするのは `scripts/SDK_VERSION.txt` が固定した Brain だけで、`prepack` は手元でビルドした Brain や debug ビルド（`build-runtime` で作ったものなど）を拒むので、tarball には必ずリリースのネイティブコアが入ります。自分でビルドした Brain をアプリで動かすには、サンプルアプリを使ってください。サンプルアプリはパッケージを、ネイティブコアも含めてワークスペースから取ります。
 
-アプリにインストールし（`npm install <checkout>/release-dist/npm/<tarball>.tgz`）、公開版のパッケージと同じように prebuild します。`prepack` は固定したリリースではない Brain（`build-runtime` で作ったものや debug ビルド）を拒むので、tarball には必ずリリースのネイティブコアが入ります。自分でビルドした Brain をアプリで動かすには、サンプルアプリを使ってください。サンプルアプリはパッケージを、ネイティブコアも含めてワークスペースから取ります。
+アプリには、[インストール](/ja/setup/install)がパッケージと一緒に挙げる依存を、パッケージ自身は除いて入れます（`expo install` に含めると npm から取ってきます）。続けて tarball を入れ、`react-native-spritestudio-ui` を使うなら、その隣にある UI パッケージの tarball も入れます。その先は、そのページの手順 3 からと同じようにビルドします。
+
+```bash
+npx expo install react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npm install <checkout>/release-dist/npm/react-native-spritestudio-<version>.tgz
+npm install <checkout>/release-dist/npm/react-native-spritestudio-ui-<version>.tgz   # UI パッケージを使うときだけ
+```
 
 ## 実際のホストで確かめる {#checking-against-the-real-host}
 
