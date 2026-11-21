@@ -1,3 +1,4 @@
+import type { DefaultTheme } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 import llmstxt, { copyOrDownloadAsMarkdownButtons } from 'vitepress-plugin-llms'
 
@@ -6,6 +7,78 @@ const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 // Only ever the published address. `base` below is a path, not an origin, so it
 // cannot build an absolute og:url on its own.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
+
+// The sidebar is a difficulty gradient rather than a table of contents. Reading
+// top to bottom, the effort rises: install and copy a snippet, get one animation
+// playing, then the things a real app needs, then the reference to look names up
+// in, then what to do when it breaks and what this port cannot do at all.
+const DEVELOPERS = 'For Player & SDK Developers'
+const enSidebar: DefaultTheme.SidebarItem[] = [
+  {
+    text: 'Setup',
+    items: [
+      { text: 'Installation', link: '/setup/install' },
+      { text: 'Quick Start', link: '/setup/quickstart' },
+      { text: 'Preparing assets (.sspj → .ssab)', link: '/setup/assets' },
+    ],
+  },
+  {
+    text: 'Usage',
+    items: [
+      { text: 'Basic playback', link: '/usage/basic' },
+      { text: 'Transport', link: '/usage/transport' },
+      { text: 'Motion blending', link: '/usage/motion-blending' },
+      { text: 'Many animations: a scene', link: '/usage/scene' },
+    ],
+  },
+  {
+    text: 'Going further',
+    items: [
+      { text: 'Events & user data', link: '/usage/events' },
+      { text: 'Part overrides & following', link: '/usage/parts' },
+      { text: 'UI buttons', link: '/usage/ui' },
+      { text: 'Textures & resources', link: '/usage/textures' },
+      { text: 'Reanimated', link: '/usage/reanimated' },
+      { text: 'Performance', link: '/usage/performance' },
+    ],
+  },
+  {
+    text: 'API Reference',
+    items: [
+      { text: 'Where to start', link: '/api-guide' },
+      { text: 'Components at a glance', link: '/components' },
+      { text: 'Generated reference', link: '/api/' },
+    ],
+  },
+  {
+    text: 'Troubleshooting & Limits',
+    items: [
+      { text: 'Troubleshooting', link: '/troubleshooting' },
+      { text: 'Limitations & Scope', link: '/limitations' },
+      { text: 'License & notices', link: '/licenses' },
+    ],
+  },
+  {
+    text: DEVELOPERS,
+    items: [
+      { text: 'Build Guide', link: '/development/build' },
+      { text: 'How the Player Is Put Together', link: '/development/architecture' },
+      { text: 'Contributing', link: `${GITHUB}/blob/HEAD/CONTRIBUTING.md` },
+    ],
+  },
+]
+
+// What llms.txt lists: two sections by audience, since a file an assistant reads has no
+// difficulty gradient to follow. The first holds every other section's pages in sidebar
+// order, the second is the developer section as it stands. Derived from `enSidebar`, so a
+// page added there is listed here without a second edit.
+const llmsSidebar: DefaultTheme.SidebarItem[] = [
+  {
+    text: 'Using the Player',
+    items: enSidebar.filter(({ text }) => text !== DEVELOPERS).flatMap(({ items }) => items ?? []),
+  },
+  ...enSidebar.filter(({ text }) => text === DEVELOPERS),
+]
 
 // English at the root, Japanese under /ja/, and the TypeDoc reference shared by
 // both at /api/ because it is language neutral.
@@ -16,11 +89,6 @@ const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 // the id it emits for `プリロード` starts フ+U+309A… and a hand-written
 // `#プリロード` never matches the heading it points at. Nothing catches it
 // either: VitePress's dead-link check does not look at anchors at all.
-//
-// The sidebar is a difficulty gradient rather than a table of contents. Reading
-// top to bottom, the effort rises: install and copy a snippet, get one animation
-// playing, then the things a real app needs, then the reference to look names up
-// in, then what to do when it breaks and what this port cannot do at all.
 export default withMermaid({
   title: 'SpriteStudio Player for React Native',
   description: 'SpriteStudio player for React Native (Nitro Modules + React Native Skia)',
@@ -62,9 +130,15 @@ export default withMermaid({
     // which are most of the reference's bytes. Both keep their own `.md`, so the discovery
     // link in every page resolves. `ja.md` is what the plugin calls the Japanese home page,
     // which `ja/**` misses.
+    // `llms.txt` lists the pages under one heading per audience, each entry with its page's
+    // frontmatter `description`. The plugin reads only a top-level `themeConfig.sidebar`, and
+    // this site's sidebars are per locale, so `sidebar` below hands it `llmsSidebar`; without
+    // that the list is flat and sorted by title. A page the sidebar does not list falls under
+    // Other, and `llms-full.txt` follows the same order.
     plugins: [
       llmstxt({
         domain: new URL(SITE_URL).origin,
+        sidebar: llmsSidebar,
         ignoreFilesPerOutput: {
           llmsTxt: ['ja.md', 'ja/**', 'api/*/**'],
           llmsFullTxt: ['ja.md', 'ja/**', 'api/*/**'],
@@ -74,14 +148,11 @@ export default withMermaid({
           description: 'SpriteStudio player for React Native (Nitro Modules + React Native Skia)',
           details: [
             'React Native player for SpriteStudio on the New Architecture: a `<SpriteStudioView>` component',
-            'over Nitro Modules and React Native Skia. It needs a development build, not Expo Go.',
-            '`setup/install` and `setup/quickstart` get a first animation on screen, `setup/assets`',
-            'converts a `.sspj` into an `.ssab`, `components` is the components at a glance, and `api-guide`',
-            'says where to start in the API. `troubleshooting` is for when it breaks and `limitations` lists',
-            'what is not supported. The generated reference keeps its index page in this file; each class,',
-            'interface, function, type alias and variable has its own page at `api/<kind>/<Name>.md`, where',
-            '`<kind>` is `classes`, `interfaces`, `functions`, `type-aliases` or `variables`. This file is the',
-            'English pages only; each Japanese page is the same path under `ja/` with `.md` appended.',
+            'over Nitro Modules and React Native Skia. It needs a development build, not Expo Go. The',
+            'generated reference keeps its index page in this file; each class, interface, function, type',
+            'alias and variable has its own page at `api/<kind>/<Name>.md`, where `<kind>` is `classes`,',
+            '`interfaces`, `functions`, `type-aliases` or `variables`. This file is the English pages only;',
+            'each Japanese page is the same path under `ja/` with `.md` appended.',
           ].join(' '),
         },
       }),
@@ -143,60 +214,7 @@ export default withMermaid({
           // arrives from a search can reach the portal and the other players.
           { text: 'SpriteStudio Docs', link: 'https://cri-middleware.github.io/SpriteStudio-Docs/' },
         ],
-        sidebar: [
-          {
-            text: 'Setup',
-            items: [
-              { text: 'Installation', link: '/setup/install' },
-              { text: 'Quick Start', link: '/setup/quickstart' },
-              { text: 'Preparing assets (.sspj → .ssab)', link: '/setup/assets' },
-            ],
-          },
-          {
-            text: 'Usage',
-            items: [
-              { text: 'Basic playback', link: '/usage/basic' },
-              { text: 'Transport', link: '/usage/transport' },
-              { text: 'Motion blending', link: '/usage/motion-blending' },
-              { text: 'Many animations: a scene', link: '/usage/scene' },
-            ],
-          },
-          {
-            text: 'Going further',
-            items: [
-              { text: 'Events & user data', link: '/usage/events' },
-              { text: 'Part overrides & following', link: '/usage/parts' },
-              { text: 'UI buttons', link: '/usage/ui' },
-              { text: 'Textures & resources', link: '/usage/textures' },
-              { text: 'Reanimated', link: '/usage/reanimated' },
-              { text: 'Performance', link: '/usage/performance' },
-            ],
-          },
-          {
-            text: 'API Reference',
-            items: [
-              { text: 'Where to start', link: '/api-guide' },
-              { text: 'Components at a glance', link: '/components' },
-              { text: 'Generated reference', link: '/api/' },
-            ],
-          },
-          {
-            text: 'Troubleshooting & Limits',
-            items: [
-              { text: 'Troubleshooting', link: '/troubleshooting' },
-              { text: 'Limitations & Scope', link: '/limitations' },
-              { text: 'License & notices', link: '/licenses' },
-            ],
-          },
-          {
-            text: 'For Player & SDK Developers',
-            items: [
-              { text: 'Build Guide', link: '/development/build' },
-              { text: 'How the Player Is Put Together', link: '/development/architecture' },
-              { text: 'Contributing', link: `${GITHUB}/blob/HEAD/CONTRIBUTING.md` },
-            ],
-          },
-        ],
+        sidebar: enSidebar,
       },
     },
 
