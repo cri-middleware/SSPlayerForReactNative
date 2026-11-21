@@ -6,7 +6,7 @@
 
 **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を React Native の New Architecture 上で再生します。描画は [React Native Skia](https://shopify.github.io/react-native-skia/) によるネイティブ描画で、タイムラインとジオメトリは [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアが担います。
 
-- 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)** — セットアップ、使い方、生成された API リファレンス。このバージョンのセットアップと使い方のページ（英語の Markdown）がパッケージの `docs/` にあり、オフラインで読めます（入口は `docs/README.md`。型とそのコメントは `lib/typescript/` にあります）。同じページは Agent Skill として `skills/react-native-spritestudio/` にもあり、pnpm 12.11 以降では `pnpm approve react-native-spritestudio` のあと、コーディングエージェントの skills ディレクトリにリンクされます
+- 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)** — セットアップ、使い方、生成された API リファレンス。このバージョンのセットアップと使い方のページ（英語の Markdown）がパッケージの `docs/` にあり、オフラインで読めます（入口は `docs/README.md`。型とそのコメントは `lib/typescript/` にあります）。同じページは Agent Skill として `skills/react-native-spritestudio/` にもあり、パッケージマネージャーでコーディングエージェントの skills ディレクトリにリンクする方法は [アシスタントに渡すドキュメント](https://cri-middleware.github.io/SpriteStudio-Docs/ja/ai/docs/#-agent-skill-として) にあります
 - 📦 **[リポジトリ](https://github.com/cri-middleware/SSPlayerForReactNative)** — 詳細版 README、ロードマップ、サンプルアプリ
 - 🌐 **[SpriteStudio Docs（ポータル）](https://cri-middleware.github.io/SpriteStudio-Docs/ja/)** — SDK と各公式プレイヤーの総合案内
 
