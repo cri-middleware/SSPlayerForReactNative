@@ -6,7 +6,7 @@
 
 Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) on React Native's New Architecture, drawing natively through [React Native Skia](https://shopify.github.io/react-native-skia/) with the timeline and geometry in a Rust core under [Nitro Modules](https://nitro.margelo.com/) (JSI).
 
-- 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference. The setup and usage pages for this version are in this package's `docs/` as English Markdown (start at `docs/README.md`), readable offline — the types and their comments are in `lib/typescript/` — and in `skills/react-native-spritestudio/` as an Agent Skill, which pnpm 12.11 or later links into your coding agent's skills directory after `pnpm approve react-native-spritestudio`
+- 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference. The setup and usage pages for this version are in this package's `docs/` as English Markdown (start at `docs/README.md`), readable offline — the types and their comments are in `lib/typescript/` — and in `skills/react-native-spritestudio/` as an Agent Skill; [Docs for Your Assistant](https://cri-middleware.github.io/SpriteStudio-Docs/ai/docs/#-as-an-agent-skill) says how your package manager links it into your coding agent's skills directory
 - 📦 **[Repository](https://github.com/cri-middleware/SSPlayerForReactNative)** — the long-form README, the roadmap and the example app
 - 🌐 **[SpriteStudio Docs (portal)](https://cri-middleware.github.io/SpriteStudio-Docs/)** — the SDK and every official player in one place
 
