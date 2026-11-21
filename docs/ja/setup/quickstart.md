@@ -1,6 +1,6 @@
 ---
 title: クイックスタート
-description: インストール済みの状態から、画面にアニメーションが出るまで。
+description: 変換したパックを Expo の config plugin で同梱し、そのパスを SpriteStudioView に渡して再生するまで。パック名に型を付ける方法も。
 ---
 
 # クイックスタート

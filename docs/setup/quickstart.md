@@ -1,6 +1,6 @@
 ---
 title: Quick Start
-description: From an installed package to an animation on screen.
+description: Shipping a converted pack with the Expo config plugin, playing it with SpriteStudioView by its path, and typing the pack names.
 ---
 
 # Quick Start

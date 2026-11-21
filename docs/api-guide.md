@@ -1,6 +1,6 @@
 ---
 title: API Reference — where to start
-description: Which of the exported names you actually need, and in what order.
+description: The four to start from — SpriteStudioView, SpriteStudioScene with SpriteStudioSprite, SsPlayerProps and SsPlacement — then the names for the player itself, buttons, labels and outlines, loading ahead of time, diagnostics and textures.
 ---
 
 # Where to start

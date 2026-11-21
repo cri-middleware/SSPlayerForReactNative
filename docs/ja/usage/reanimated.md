@@ -1,6 +1,6 @@
 ---
 title: Reanimated
-description: ビューを動かす、パーツに追従する、そしてまだできない 2 つのこと。
+description: Reanimated でビューを動かす、パーツに追従する、そしてまだできない 2 つのこと（shared value から再生を駆動する、フレームループを UI スレッドで回す）。
 ---
 
 # Reanimated
