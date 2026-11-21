@@ -1,6 +1,6 @@
 ---
 title: API リファレンス — どこから見るか
-description: 公開されている名前のうち実際に必要なものと、必要になる順番。
+description: 実際に使う 4 つ（SpriteStudioView、SpriteStudioScene と SpriteStudioSprite、SsPlayerProps、SsPlacement）と、プレイヤー自体、ボタン・ラベル・輪郭、事前の読み込み、診断、テクスチャで使う名前。
 ---
 
 # どこから見るか

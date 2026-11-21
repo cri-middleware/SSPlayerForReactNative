@@ -1,6 +1,6 @@
 ---
 title: Reanimated
-description: Animating the view, following a part, and the two things you cannot do yet.
+description: Animating the view and following a part with Reanimated, and the two things you cannot do yet — driving playback from a shared value and running the frame loop on the UI thread.
 ---
 
 # Reanimated

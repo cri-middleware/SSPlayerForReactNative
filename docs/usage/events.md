@@ -1,6 +1,6 @@
 ---
 title: Events & user data
-description: Reacting to the keys the artist placed on the timeline.
+description: onUserData, onSignal and onAudio for the keys the artist placed on the timeline — the user-data payload, signal params and audio your app plays — plus the start, loop, finish and change callbacks.
 ---
 
 # Events & user data
