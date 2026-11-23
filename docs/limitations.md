@@ -55,7 +55,7 @@ part it is ignored, and the part draws without it.
 | | |
 |---|---|
 | iOS / Android | supported |
-| web | **nothing draws** — but installing the package does not break a web build: the web entry is a stub, so an app shipping both halves still bundles, and only rendering a player there throws. [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) is SpriteStudio on the web. |
+| web | **nothing draws** — but installing the package does not break a web build: the web entry is a stub, so an app shipping both halves still bundles, and only rendering a player there throws. The placement arithmetic, the path helpers and the vocabulary enums are the real ones on web too; only what needs Skia or the native runtime is stubbed. [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) is SpriteStudio on the web. |
 | Windows | no route — neither Nitro nor RN Skia supports react-native-windows. |
 | tvOS / visionOS | no route — the SDK's XCFramework has no tvOS or visionOS slice. |
 

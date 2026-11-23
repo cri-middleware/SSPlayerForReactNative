@@ -40,7 +40,7 @@ Normal パーツへの 13 個の `ss-*` 統合シェーダー。オーバーラ�
 | | |
 |---|---|
 | iOS / Android | サポート対象 |
-| web | **何も描画されません** — ただしこのパッケージを入れても web ビルドは壊れません。web 用のエントリはスタブなので、native と web の両方を出荷するアプリのバンドルは通り、throw するのはそこでプレイヤーを描画したときだけです。web 上の SpriteStudio は [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です。 |
+| web | **何も描画されません** — ただしこのパッケージを入れても web ビルドは壊れません。web 用のエントリはスタブなので、native と web の両方を出荷するアプリのバンドルは通り、throw するのはそこでプレイヤーを描画したときだけです。配置の計算、パスのヘルパー、語彙の enum は web でも実装そのもので、スタブなのは Skia かネイティブランタイムを要する部分だけです。web 上の SpriteStudio は [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です。 |
 | Windows | 手段がありません — Nitro も RN Skia も react-native-windows に対応していません。 |
 | tvOS / visionOS | 手段がありません — SDK の XCFramework に tvOS と visionOS のスライスがありません。 |
 

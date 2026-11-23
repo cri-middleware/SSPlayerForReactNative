@@ -7,14 +7,16 @@ description: 変換したパックを Expo の config plugin で同梱し、そ�
 
 満たすべき条件は 2 つです。パックが端末に届いていること、そしてコンポーネントがそれを名指ししていることです。
 
+## 1. パックを同梱する
+
+`.sspj` は、ブラウザで開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/) で変換します。プロジェクト名のフォルダが ZIP に入って出力され、その中に `.ssab` とテクスチャがあります。ほかのコンバータと、パックがディレクトリである理由は [アセットの準備](/ja/setup/assets) にあります。
+
 ::: tip SpriteStudio のデータが手元に無くても始められます
 [公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら
 [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo)、エフェクトを含むものなら[パーティクル](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample)が手頃です。
 :::
 
-## 1. パックを同梱する
-
-アニメーションは SpriteStudio で作成し、手元のマシンで `.ssab` の**ディレクトリ**へ変換します — [アセットの準備](/ja/setup/assets)を参照してください。ここがつまずきやすいところです。コンバータが書き出したフォルダを、このパッケージの Expo config plugin が同梱するディレクトリ（ここでは `assets/ss/`）に置きます。
+コンバータが書き出したフォルダを、このパッケージの Expo config plugin が同梱するディレクトリ（ここでは `assets/ss/`）に置きます。
 
 ```
 my-app/
@@ -38,7 +40,7 @@ my-app/
 }
 ```
 
-プラグインを追加するとネイティブプロジェクトが変わるので、アプリをビルドし直します。`npx expo prebuild` の後に `npx expo run:ios` か `run:android` を実行してください。
+プラグインはネイティブプロジェクトを変えるので、ここでアプリをビルドします。`npx expo prebuild` の後に `npx expo run:ios` か `run:android` を実行してください。
 
 ## 2. 再生する
 

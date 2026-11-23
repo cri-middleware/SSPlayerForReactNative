@@ -13,15 +13,15 @@ Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.
 ## Install
 
 ```bash
-npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets expo-build-properties
 ```
 
-**Expo Go does not work** — the package contains native code, so a prebuild (Continuous Native Generation) is required: `npx expo prebuild` then `npx expo run:ios` / `run:android`. On Android, `minSdkVersion` has to be 26 ([Installation](https://cri-middleware.github.io/SSPlayerForReactNative/setup/install)).
+**Expo Go does not work** — the package contains native code, so a prebuild (Continuous Native Generation) is required, once your packs are in place below. `expo-build-properties` is for Android, whose `minSdkVersion` has to be 26.
 
 ## Ship your packs
 
 A `.ssab` names its textures and its external packs **by paths relative to itself**, so **a pack is a directory, not a file** — and Metro ships a dependency graph rather than directories. Pack directories go in as native app assets through the Expo config plugin. Put each converter's
-output folder in `assets/ss/` and point the plugin at it:
+output folder in `assets/ss/`, point the plugin at it, and set Android's `minSdkVersion`:
 
 ```
 my-app/
@@ -38,10 +38,15 @@ my-app/
 ```json
 {
   "expo": {
-    "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
+    "plugins": [
+      ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
+      ["react-native-spritestudio", { "assets": ["./assets/ss"] }]
+    ]
   }
 }
 ```
+
+Then build: `npx expo prebuild`, then `npx expo run:ios` / `run:android`.
 
 `.sspj` → `.ssab` conversion happens on your machine — in the browser with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/), with the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI), or with the `ssconverter-cli` from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases). No converter is bundled. No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is; [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
 

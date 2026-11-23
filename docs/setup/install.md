@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Whether this package fits your app, how to install it, and the build it needs.
+description: Whether this package fits your app, how to install it, and getting the native build ready.
 ---
 
 # Installation
@@ -10,8 +10,8 @@ For adding the player to **your own app** — whether you go on to use nothing b
 The install is the same either way. To work on the player or the Rust core
 instead, see the [Build Guide](/development/build).
 
-**Your app needs a native build.** Installing means adding the package *and*
-building your app with it; both halves are below.
+**Your app needs a native build.** This page adds the package and gets the build ready; the
+[Quick Start](/setup/quickstart) builds the app once a pack is in place.
 
 ## 1. Check it fits
 
@@ -48,7 +48,7 @@ further to fetch and no Rust toolchain to install. Install from npm: the native
 core and the built JavaScript are in the published package, not in the git
 repository.
 
-## 3. Build your app
+## 3. Get ready to build
 
 **Expo Go cannot run it.** Expo Go ships a fixed set of native modules and this
 one is not among them, so you need a **development build**. Fast Refresh and the
@@ -69,17 +69,9 @@ default lower. Before the first build, add this entry to the `plugins` array in 
 }
 ```
 
-Then build:
-
-```bash
-npx expo prebuild
-npx expo run:ios     # or run:android
-```
-
-Autolinking picks the package up on both platforms.
-
-Next: [Quick Start](/setup/quickstart) — it ships a pack and plays it. [Preparing assets](/setup/assets)
-explains the conversion behind it.
+The first build comes once a pack is in place: [Quick Start](/setup/quickstart) ships one, builds
+the app and plays it, and autolinking picks the package up on both platforms.
+[Preparing assets](/setup/assets) explains the conversion behind it.
 
 ## Troubleshooting the install
 
