@@ -39,16 +39,15 @@ under [Requirements](#-requirements).
 1. **Install** the package and its peers:
 
    ```bash
-   npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+   npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets expo-build-properties
    ```
 
-   On Android, `minSdkVersion` has to be 26 — [Installation](docs/setup/install.md#3-build-your-app)
-   has the `expo-build-properties` line.
+   `expo-build-properties` is for Android, whose `minSdkVersion` has to be 26: step 2 sets it.
 2. **Convert** your `.sspj` with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)
    in the browser, the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI),
    or the `ssconverter-cli` from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases). Each gives you a folder named after the project (ssconverter-web
-   inside a ZIP), with the `.ssab` and its textures inside. Put that folder in `assets/ss/`, and point the config plugin at
-   `assets/ss` in `app.json`:
+   inside a ZIP), with the `.ssab` and its textures inside. Put that folder in `assets/ss/`. In `app.json`, point the config
+   plugin at `assets/ss` and set Android's `minSdkVersion`:
 
    ```
    my-app/
@@ -65,7 +64,10 @@ under [Requirements](#-requirements).
    ```json
    {
      "expo": {
-       "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
+       "plugins": [
+         ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
+         ["react-native-spritestudio", { "assets": ["./assets/ss"] }]
+       ]
      }
    }
    ```
@@ -105,8 +107,7 @@ No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.we
 | iOS | 15.1+ |
 | Android | API 26+, with Vulkan |
 | Expo | SDK 58, built with `expo prebuild` — packs ship through the Expo config plugin |
-| Peer deps | `react-native`, `react`, `react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated` — and `react-native-worklets`, which Reanimated 4 requires as a peer of its own rather than depending on. The version each one needs lives in [`peerDependencies`](packages/react-native-spritestudio/package.json), and your package manager enforces it at install |
-| SpriteStudio-SDK | pinned in [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) |
+| Peer deps | `react-native`, `react`, `react-native-skia`, `react-native-nitro-modules`, `react-native-reanimated`, `react-native-worklets` — the versions are in [`peerDependencies`](packages/react-native-spritestudio/package.json) |
 
 Drawing goes through React Native Skia 3, published as `react-native-skia`; it
 renders with Skia Graphite and sets the Android floor. `@shopify/react-native-skia`
@@ -116,19 +117,10 @@ tvOS and visionOS are out of scope — see [ROADMAP.md](ROADMAP.md#distribution-
 
 ### Web
 
-**Adding this package does not break your web build.** Importing
-`react-native-spritestudio` under react-native-web is safe and that bundle
-builds, because the entry point web resolves is a *stub* — carried for the app
-that ships web **as well as** native and plays SpriteStudio only on the native
-half. The placement arithmetic, the path helpers and the vocabulary enums are
-the real implementations on both platforms; only the parts that need Skia or the
-native runtime are stubbed, and rendering a player on web throws an error naming
-this package.
-
-**What it does not do is play animations on web.** For SpriteStudio on the web
-the answer is [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb)
-— `@spritestudio/ssplayer-webgl` renders the same `.ssab` with no React Native
-in the way.
+**Nothing plays on web, but adding this package does not break your web build**: an app that
+ships web as well as native still bundles, and only rendering a player there throws
+([Limitations & Scope](docs/limitations.md)). For SpriteStudio on the web, use
+[SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb).
 
 ## ⚙️ Working on the player
 

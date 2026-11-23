@@ -31,11 +31,11 @@
 1. **導入**: パッケージと peer をインストールします。
 
    ```bash
-   npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
+   npx expo install react-native-spritestudio react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets expo-build-properties
    ```
 
-   Android の `minSdkVersion` は 26 にします。`expo-build-properties` の書き方は [インストール](docs/ja/setup/install.md#3-アプリをビルドする) にあります。
-2. **変換**: `.sspj` を、ブラウザで開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを出力し（ssconverter-web は ZIP に入れて）、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置き、`app.json` で config plugin に `assets/ss` を指定します。
+   `expo-build-properties` は Android 用です。Android の `minSdkVersion` は 26 にする必要があり、手順 2 で設定します。
+2. **変換**: `.sspj` を、ブラウザで開く [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップの [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) の `ssconverter-cli` で変換します。どれもプロジェクト名のフォルダを出力し（ssconverter-web は ZIP に入れて）、その中に `.ssab` とテクスチャが入ります。そのフォルダを `assets/ss/` に置きます。`app.json` では config plugin に `assets/ss` を指定し、Android の `minSdkVersion` を設定します。
 
    ```
    my-app/
@@ -52,7 +52,10 @@
    ```json
    {
      "expo": {
-       "plugins": [["react-native-spritestudio", { "assets": ["./assets/ss"] }]]
+       "plugins": [
+         ["expo-build-properties", { "android": { "minSdkVersion": 26 } }],
+         ["react-native-spritestudio", { "assets": ["./assets/ss"] }]
+       ]
      }
    }
    ```
@@ -90,16 +93,13 @@ SpriteStudio のデータが手元に無くても始められます。[公式の
 | iOS | 15.1+ |
 | Android | API 26+、Vulkan |
 | Expo | SDK 58、`expo prebuild` でビルド — パックは Expo config plugin で同梱します |
-| Peer deps | `react-native`、`react`、`react-native-skia`、`react-native-nitro-modules`、`react-native-reanimated` — および `react-native-worklets`（Reanimated 4 が依存ではなく自身の peer として要求するもの）。それぞれ必要なバージョンは [`peerDependencies`](packages/react-native-spritestudio/package.json) にあり、インストール時にパッケージマネージャが検証します |
-| SpriteStudio-SDK | [`scripts/SDK_VERSION.txt`](scripts/SDK_VERSION.txt) で固定 |
+| Peer deps | `react-native`、`react`、`react-native-skia`、`react-native-nitro-modules`、`react-native-reanimated`、`react-native-worklets` — バージョンは [`peerDependencies`](packages/react-native-spritestudio/package.json) にあります |
 
 描画は React Native Skia 3（パッケージ名 `react-native-skia`）を通ります。Skia Graphite で描画し、Android の下限もこれで決まります。`@shopify/react-native-skia`（v2）は代わりにならず、同時にも入れられません。Windows・tvOS・visionOS は対象外です — 理由は [ROADMAP.md](ROADMAP.md#distribution--verification)（Windows）と [ROADMAP.md](ROADMAP.md#needs-sdk)（tvOS・visionOS）を参照してください。
 
 ### Web について
 
-**このパッケージを追加しても web ビルドは壊れません。** react-native-web の下で `react-native-spritestudio` を import しても安全で、そのバンドルはビルドできます。web が解決するエントリポイントが*スタブ*だからです — native に**加えて** web も出荷し、SpriteStudio は native 側でだけ再生するアプリのために持っています。配置の計算、パスのヘルパー、語彙の enum は両プラットフォームで実装そのものであり、スタブになっているのは Skia かネイティブランタイムを必要とする部分だけです。そこでプレイヤーを描画しようとしたときだけ、このパッケージ名を含むエラーが投げられます。
-
-**行わないのは、web でのアニメーション再生です。** web 上の SpriteStudio に対する答えは [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) です — `@spritestudio/ssplayer-webgl` が同じ `.ssab` を、React Native を挟まずに描画します。
+**web では何も再生されませんが、このパッケージを追加しても web ビルドは壊れません。** native に加えて web も出荷するアプリのバンドルはそのまま作れ、エラーになるのはそこでプレイヤーを描画したときだけです（[制約と適用範囲](docs/ja/limitations.md)）。web 上の SpriteStudio には [SpriteStudio Player for Web](https://github.com/cri-middleware/SSPlayerForWeb) を使ってください。
 
 ## ⚙️ プレイヤーを開発する場合
 

@@ -8,6 +8,13 @@ description: Shipping a converted pack with the Expo config plugin, playing it w
 Two things have to be true: the pack has to reach the device, and the component
 has to name it.
 
+## 1. Ship the pack
+
+Convert your `.sspj` in the browser with
+[ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/): it gives you a
+ZIP holding a folder named after the project, with the `.ssab` and its textures inside. The other
+converters, and why a pack is a directory, are in [Preparing assets](/setup/assets).
+
 ::: tip No SpriteStudio data of your own yet?
 The [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)
 works as-is — that page is Japanese only, but the downloads themselves are
@@ -17,12 +24,8 @@ character sample, and
 if you want effects.
 :::
 
-## 1. Ship the pack
-
-Animations are authored in SpriteStudio and converted on your machine to a
-`.ssab` **directory** — see [Preparing assets](/setup/assets), which is the part
-that surprises people. Put the converter's output folder in a directory the package's Expo
-config plugin ships — `assets/ss/` here:
+Put the converter's output folder in a directory the package's Expo config plugin ships —
+`assets/ss/` here:
 
 ```
 my-app/
@@ -46,8 +49,8 @@ and add the plugin's entry to the `plugins` array of `app.json`:
 }
 ```
 
-Adding the plugin changes the native projects, so build the app again: `npx expo prebuild`,
-then `npx expo run:ios` or `run:android`.
+The plugin changes the native projects, so build the app now: `npx expo prebuild`, then
+`npx expo run:ios` or `run:android`.
 
 ## 2. Play it
 
