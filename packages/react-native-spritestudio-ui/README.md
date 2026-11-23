@@ -4,6 +4,8 @@
 
 **A SpriteStudio animation as a button in a React Native app.**
 
+[SpriteStudio](https://www.webtech.co.jp/eng/spritestudio/) is a 2D animation tool: an artist adds bones, mesh deformation and effects to their own illustrations to make them move.
+
 `<SpriteStudioButton>` is a [`react-native-spritestudio`](https://www.npmjs.com/package/react-native-spritestudio) view that is a button: press, hover, keyboard focus and `disabled` each play a section of one animation, a press can be made to count only on some of its parts, and under reduced motion each state holds still.
 
 - 📖 **[UI buttons](https://cri-middleware.github.io/SSPlayerForReactNative/usage/ui)** — the guide

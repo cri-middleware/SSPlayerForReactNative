@@ -2,9 +2,9 @@
 
 # SpriteStudio Player for React Native
 
-**Drop artist-authored 2D raster animation into your React Native app — one component, no animation code, no video files.**
+**Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
 
-A player that renders **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio is a professional 2D **raster** (sprite) animation editor: an artist rigs the PNG art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
+A player that renders **[SpriteStudio](https://www.webtech.co.jp/eng/spritestudio/)** animations (`.ssab`) in [React Native](https://reactnative.dev/), on the New Architecture. SpriteStudio is a professional 2D animation editor: an artist rigs the **raster** (PNG) art you already have — bones, mesh deformation, masks, particle effects — and exports one file. This package plays that file, drawing it natively through [React Native Skia](https://shopify.github.io/react-native-skia/). No spritesheet to slice, no timeline to hand-write, no video to decode.
 
 ## ✨ Why use SpriteStudio with React Native?
 
@@ -94,7 +94,7 @@ under [Requirements](#-requirements).
 
    Playback starts on load and loops forever; `loop={1}` plays once.
 
-No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is — the page is in Japanese, the downloads are not. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
+No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is — the page is in Japanese, the downloads are not. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with. To make your own, you use SpriteStudio itself — see [its site](https://www.webtech.co.jp/eng/spritestudio/).
 
 **Read next:** [Basic playback](docs/usage/basic.md) · [Components at a glance](docs/components.md) · [UI buttons](docs/usage/ui.md) (`react-native-spritestudio-ui`) ·
 [Limitations & Scope](docs/limitations.md) · [Troubleshooting](docs/troubleshooting.md)
