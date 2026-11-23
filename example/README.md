@@ -109,7 +109,7 @@ here shows it and the check does not read it.
 
 It is third-party sample art and the licence to redistribute it is not ours to
 give. Download **SpriteStudio Basic Samples** from
-[the SpriteStudio site](https://www.webtech.co.jp/spritestudio/) and copy its
+[the SpriteStudio site](https://www.webtech.co.jp/eng/spritestudio/) and copy its
 `Mask` project in:
 
 ```

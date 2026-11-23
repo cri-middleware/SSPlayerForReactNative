@@ -4,6 +4,8 @@
 
 **SpriteStudio のアニメーションを React Native アプリのボタンにします。**
 
+[SpriteStudio](https://www.webtech.co.jp/spritestudio/) は、手持ちのイラストにボーン・メッシュ・エフェクトを付けて動かす 2D アニメーションツールです。
+
 `<SpriteStudioButton>` はボタンになった [`react-native-spritestudio`](https://www.npmjs.com/package/react-native-spritestudio) のビューです。押下・ホバー・キーボードのフォーカス・`disabled` のそれぞれで 1 つのアニメーションの区間を再生し、押下を一部のパーツの上だけに絞れ、reduced motion では各状態が止まります。
 
 - 📖 **[UI ボタン](https://cri-middleware.github.io/SSPlayerForReactNative/ja/usage/ui)** — ガイド

@@ -4,7 +4,7 @@
 
 **アーティストが作った 2D アニメーションを React Native アプリへ — コンポーネント 1 つ、アニメーションのコードなし、動画ファイルなし。**
 
-**[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を React Native の New Architecture 上で再生します。描画は [React Native Skia](https://shopify.github.io/react-native-skia/) によるネイティブ描画で、タイムラインとジオメトリは [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアが担います。
+**[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** のアニメーション（`.ssab`）を React Native の New Architecture 上で再生します。描画は [React Native Skia](https://shopify.github.io/react-native-skia/) によるネイティブ描画で、タイムラインとジオメトリは [Nitro Modules](https://nitro.margelo.com/)（JSI）越しの Rust コアが担います。SpriteStudio は、手持ちのイラストにボーン・メッシュ・エフェクトを付けて動かす 2D アニメーションツールです。
 
 - 📖 **[ドキュメント](https://cri-middleware.github.io/SSPlayerForReactNative/ja/)** — セットアップ、使い方、生成された API リファレンス。このバージョンのセットアップと使い方のページ（英語の Markdown）がパッケージの `docs/` にあり、オフラインで読めます（入口は `docs/README.md`。型とそのコメントは `lib/typescript/` にあります）。同じページは Agent Skill として `skills/react-native-spritestudio/` にもあり、パッケージマネージャーでコーディングエージェントの skills ディレクトリにリンクする方法は [アシスタントに渡すドキュメント](https://cri-middleware.github.io/SpriteStudio-Docs/ja/ai/docs/#-agent-skill-として) にあります
 - 📦 **[リポジトリ](https://github.com/cri-middleware/SSPlayerForReactNative)** — 詳細版 README、ロードマップ、サンプルアプリ
@@ -47,7 +47,7 @@ my-app/
 
 そのうえでビルドします。`npx expo prebuild` の後に `npx expo run:ios` / `run:android` を実行してください。
 
-`.sspj` → `.ssab` の変換は手元のマシンで、ブラウザ上の [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) の `ssconverter-cli` で行います。コンバータは同梱していません。SpriteStudio のデータが手元に無くても、[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。
+`.sspj` → `.ssab` の変換は手元のマシンで、ブラウザ上の [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/)、デスクトップ版 [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI)、または [SpriteStudio-SDK の Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases) の `ssconverter-cli` で行います。コンバータは同梱していません。SpriteStudio のデータが手元に無くても、[公式のサンプルデータ](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)がそのまま使えます。キャラクターなら [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) が手頃です。自分のアニメーションを作るには SpriteStudio 本体を使います（[製品サイト](https://www.webtech.co.jp/spritestudio/)）。
 
 ## 再生する
 

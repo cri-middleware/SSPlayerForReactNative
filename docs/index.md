@@ -6,7 +6,7 @@ description: SpriteStudio animation in React Native — one component, no animat
 hero:
   name: SpriteStudio Player
   text: for React Native
-  tagline: Drop artist-authored 2D raster animation into your app — one component, no animation code, no video files.
+  tagline: Drop artist-authored 2D animation into your app — one component, no animation code, no video files.
   actions:
     - theme: brand
       text: Quick Start
@@ -21,7 +21,7 @@ hero:
 features:
   - title: Zero animation code
     details: The motion is authored visually in SpriteStudio — bone rigs, mesh deform, masks, particles — and the player plays the exported file. No Animated or Reanimated timeline per part, no spritesheet to slice.
-  - title: Raster art, smooth at any refresh rate
+  - title: Painted art, smooth at any refresh rate
     details: It animates hand-painted raster (PNG/bitmap) sprite art — a different fit from vector animation tools, and lighter than a .gif or .mp4 — with a float playhead evaluated at draw time so motion follows your display's refresh rate and playback speed.
   - title: No vertex passes through JavaScript
     details: The timeline, the geometry and the Skia draw calls happen in a Rust core and C++ under Nitro Modules (JSI), and a frame costs no React render. JavaScript makes the same few native calls per frame however complex the animation is.
@@ -30,6 +30,9 @@ features:
   - title: Blend animations instead of cutting
     details: Crossfade between animations with `transitionMs`, layer tracks over what is playing, mixed in or added on top (e.g. a facial expression or hit reaction over an idle loop), and mix track weights at runtime.
 ---
+
+[SpriteStudio](https://www.webtech.co.jp/eng/spritestudio/) is a 2D animation tool: an artist adds bones, mesh deformation and effects to
+their own illustrations, and this player plays the result in your app.
 
 ## Related Repositories
 

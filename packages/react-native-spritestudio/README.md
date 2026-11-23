@@ -4,7 +4,7 @@
 
 **Drop artist-authored 2D animation into your React Native app — one component, no animation code, no video files.**
 
-Plays **[SpriteStudio](https://www.webtech.co.jp/spritestudio/)** animations (`.ssab`) on React Native's New Architecture, drawing natively through [React Native Skia](https://shopify.github.io/react-native-skia/) with the timeline and geometry in a Rust core under [Nitro Modules](https://nitro.margelo.com/) (JSI).
+Plays **[SpriteStudio](https://www.webtech.co.jp/eng/spritestudio/)** animations (`.ssab`) on React Native's New Architecture, drawing natively through [React Native Skia](https://shopify.github.io/react-native-skia/) with the timeline and geometry in a Rust core under [Nitro Modules](https://nitro.margelo.com/) (JSI). SpriteStudio is a 2D animation tool: an artist adds bones, mesh deformation and effects to their own illustrations, and this package plays the result.
 
 - 📖 **[Documentation](https://cri-middleware.github.io/SSPlayerForReactNative/)** — setup, usage, the generated API reference. The setup and usage pages for this version are in this package's `docs/` as English Markdown (start at `docs/README.md`), readable offline — the types and their comments are in `lib/typescript/` — and in `skills/react-native-spritestudio/` as an Agent Skill; [Docs for Your Assistant](https://cri-middleware.github.io/SpriteStudio-Docs/ai/docs/#-as-an-agent-skill) says how your package manager links it into your coding agent's skills directory
 - 📦 **[Repository](https://github.com/cri-middleware/SSPlayerForReactNative)** — the long-form README, the roadmap and the example app
@@ -48,7 +48,7 @@ my-app/
 
 Then build: `npx expo prebuild`, then `npx expo run:ios` / `run:android`.
 
-`.sspj` → `.ssab` conversion happens on your machine — in the browser with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/), with the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI), or with the `ssconverter-cli` from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases). No converter is bundled. No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is; [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with.
+`.sspj` → `.ssab` conversion happens on your machine — in the browser with [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/), with the desktop [SSConverterGUI](https://github.com/cri-middleware/SSConverterGUI), or with the `ssconverter-cli` from the [SpriteStudio-SDK Releases](https://github.com/cri-middleware/SpriteStudio-SDK/releases). No converter is bundled. No `.sspj` of your own yet? SpriteStudio's [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/) works as-is; [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good character to start with. To make your own, you use SpriteStudio itself — see [its site](https://www.webtech.co.jp/eng/spritestudio/).
 
 ## Play
 
