@@ -86,9 +86,10 @@ const llmsSidebar: DefaultTheme.SidebarItem[] = [
 // **Every linked Japanese heading carries an explicit ASCII id**, the same one
 // its English page uses — `## プリロード {#preloading}`. This is not a style
 // choice. VitePress slugifies through NFKD, which *decomposes* voiced kana, so
-// the id it emits for `プリロード` starts フ+U+309A… and a hand-written
-// `#プリロード` never matches the heading it points at. Nothing catches it
-// either: VitePress's dead-link check does not look at anchors at all.
+// the id it emits for `プリロード` starts フ+U+309A…. A link inside these pages
+// goes through the same slugify and lands, but one from anywhere else (the
+// portal, another repo's README) is typed in NFC and never matches. Nothing
+// catches it either: VitePress's dead-link check does not look at anchors at all.
 export default withMermaid({
   title: 'SpriteStudio Player for React Native',
   description: 'SpriteStudio player for React Native (Nitro Modules + React Native Skia)',
@@ -113,7 +114,7 @@ export default withMermaid({
   // the plugin imports it from inside node_modules, where Vite's scan does not look.
   // Left out, the dev server hands the browser the raw CJS file and the import of
   // its default export throws at module scope — the whole site renders blank, not
-  // just the diagrams. `vitepress build` is unaffected, since Rollup handles CJS:
+  // just the diagrams. `vitepress build` is unaffected, since Rolldown handles CJS:
   // this is one of the few faults a green build cannot see.
   //
   // Name mermaid, not its dependencies: pnpm does not hoist them, so they do not
