@@ -3,18 +3,15 @@ packages:
   - "example"
   - "docs"
 
-# vitepress-plugin-mermaid 2.0.17 is the latest and its peer range stops at 11,
-# but the three calls it makes into mermaid (initialize, render,
-# registerExternalDiagrams) are the same in 12. Drop this once its range widens.
+# vitepress-plugin-mermaid 2.0.17 is the latest, and its peer ranges stop at
+# mermaid 11 and vitepress 1. The three calls it makes into mermaid (initialize,
+# render, registerExternalDiagrams) are the same in 12, and from vitepress it
+# takes only useData and the markdown.config hook, both unchanged in 2. Drop
+# each entry once its range widens.
 peerDependencyRules:
   allowedVersions:
     "vitepress-plugin-mermaid>mermaid": "12"
-
-# Install scripts run only when listed here, and pnpm stops on one it has not
-# been told about. esbuild's only checks the binary its optional dependency
-# already placed; nothing here needs it.
-allowBuilds:
-  esbuild: false
+    "vitepress-plugin-mermaid>vitepress": "^2.0.0-alpha.21"
 
 # pnpm adds an entry when a version is inside its minimum release age. Nothing
 # else needs it: drop each entry once its version has aged out.

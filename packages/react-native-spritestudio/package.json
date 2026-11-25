@@ -76,7 +76,7 @@
     "react-native-nitro-modules": "^0.37.2",
     "react-test-renderer": "19.3.0",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "homepage": "https://github.com/cri-middleware/SSPlayerForReactNative/tree/main/packages/react-native-spritestudio#readme",
   "bugs": {
