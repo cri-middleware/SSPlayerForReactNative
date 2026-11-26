@@ -1,7 +1,7 @@
 {
   "name": "react-native-spritestudio-ui",
   "version": "7.0.0-beta.1",
-  "description": "SpriteStudio Player for React Native, as UI: a SpriteStudio animation as a button whose states play its labels, pressable on its parts.",
+  "description": "SpriteStudio Player for React Native, as UI: a SpriteStudio animation as a button whose states play its labels, pressable on its parts. SpriteStudio is a 2D animation tool: an artist adds bones, mesh deformation and effects to their own illustrations.",
   "license": "BSD-3-Clause",
   "main": "lib/module/index.js",
   "types": "lib/typescript/index.d.ts",
