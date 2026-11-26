@@ -18,9 +18,9 @@ converters, and why a pack is a directory, are in [Preparing assets](/setup/asse
 ::: tip No SpriteStudio data of your own yet?
 The [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)
 works as-is — that page is Japanese only, but the downloads themselves are
-language-neutral. [Ringo](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#ringo) is a good
+language-neutral. [Ringo](https://www.webtech.co.jp/spritestudio/ss6user/download/OPTPiX_SpriteStudio_Ringo_Sample_20220121.zip) is a good
 character sample, and
-[Particle](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/#Perticle_sample) is a good one
+[Particle](https://www.webtech.co.jp/spritestudio/ss6user/download/OPTPiX_SpriteStudio_ParticleEffect_Sample_20191025.zip) is a good one
 if you want effects.
 :::
 
