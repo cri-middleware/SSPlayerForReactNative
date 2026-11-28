@@ -8,10 +8,10 @@ description: Building SpriteStudio Player for React Native from a checkout, usin
 For whoever works on SpriteStudio Player for React Native, or changes it for an app of their own:
 anyone changing this package or the Rust core underneath it. How the layers fit together, and why
 the player is built the way it is, is on
-[How the Player Is Put Together](/development/architecture).
+[How the Player Is Put Together](./architecture.md).
 
 If you only want to *use* the package in your own app, you want
-[Installation](/setup/install) instead — nothing on this page is part of that.
+[Installation](../setup/install.md) instead — nothing on this page is part of that.
 
 ## Clone it
 
@@ -152,7 +152,7 @@ runs the host checks (`check-hidden`, `check-motion`, and on macOS `check-mask` 
 Brain you built yourself, use the example app: it takes the package from the workspace, native core
 and all.
 
-In the app, install the dependencies [Installation](/setup/install) lists alongside the package, but
+In the app, install the dependencies [Installation](../setup/install.md) lists alongside the package, but
 not the package itself, which `expo install` would fetch from npm; then install the tarball, and the
 UI package's beside it if the app uses `react-native-spritestudio-ui`. From there, build as that page
 goes on, from its step 3.
@@ -203,4 +203,4 @@ Metro nor a dev launcher is involved; what is left is looking at the screen.
   and run `deploy-examples`.
 
 The layers, the native side and the reasons that span them are on
-[How the Player Is Put Together](/development/architecture).
+[How the Player Is Put Together](./architecture.md).

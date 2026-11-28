@@ -52,7 +52,7 @@ parts={{
 
 ::: info `cell` は 1 パーツ、`setCellmapTexture` はアトラスまるごと
 この 2 つは別のツールで、混同しないことが大切です。ここでの `cell` は**パーツ単位**のオーバーライドで、*1 つの*パーツが参照するセルを、アトラスに既にあるセルの中から変えます（口の形、目の状態など）。セルマップが描画に使う**テクスチャそのもの**を差し替える — そのセルマップを使う全パーツをまとめて色替えする、衣装アトラスに入れ替える — なら、代わりに
-[`player.setCellmapTexture`](/ja/usage/textures#from-code-at-runtime) を使います。一方は同じ画像の別の領域を選び、もう一方は別の画像を渡します。
+[`player.setCellmapTexture`](./textures.md#from-code-at-runtime) を使います。一方は同じ画像の別の領域を選び、もう一方は別の画像を渡します。
 :::
 
 ### オーバーライドはどれだけ持続するか {#how-long-an-override-lasts}
@@ -67,7 +67,7 @@ parts={{
 | `holdUntilNextAnimation` | キーフレームは越えますが、別のアニメーションが設定されると解除されます。**既定値。** |
 | `permanent` | アニメーションの切り替えを越えて保持されます。 |
 
-オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用されます。アニメーションの設定がオーバーライドレイヤーを他のすべてと一緒にリセットするためです — [再生の制御](/ja/usage/transport#what-setup-animation-resets)を参照してください。
+オーバーライドは priority に関わらず、新しく設定されたアニメーションのたびに再適用されます。アニメーションの設定がオーバーライドレイヤーを他のすべてと一緒にリセットするためです — [再生の制御](./transport.md#what-setup-animation-resets)を参照してください。
 
 ## パーツに追従する {#following-a-part}
 

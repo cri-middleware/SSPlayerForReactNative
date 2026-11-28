@@ -24,7 +24,7 @@ animation lifecycle; motion blending (tracks, crossfades, weighted sources); `fi
 **Instance and effect children are not layered.** Tracks blend the character whose player you
 hold; a part that plays another animation runs its own playback from the frame the root
 composes, and which key drives it across a crossfade on track 0 is outside motion blending.
-See [Motion blending](/usage/motion-blending#two-limits).
+See [Motion blending](./usage/motion-blending.md#two-limits).
 
 ## Seeking and reverse playback
 
@@ -84,4 +84,4 @@ at runtime, serve it over a channel you control.
 
 ## Audio
 
-Reported, not played — see [Events](/usage/events#audio-is-reported-not-played).
+Reported, not played — see [Events](./usage/events.md#audio-is-reported-not-played).

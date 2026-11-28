@@ -21,7 +21,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 Unlike a view, a scene has no size of its own: give it `flex: 1` or a `width` and `height`, or its
 canvas is 0 high and nothing draws.
 
-One canvas, one clock, one frame: each player's `advance(dt)` ([the clock](/usage/transport#the-clock))
+One canvas, one clock, one frame: each player's `advance(dt)` ([the clock](./transport.md#the-clock))
 takes its time from outside, so a whole tree can tick off one loop.
 
 A sprite **renders nothing of its own**. Its entire job is to hold a player,
@@ -70,7 +70,7 @@ ref.current?.player?.setAnimation('attack')
 ref.current?.player?.play() // setAnimation selects; play() starts it
 ```
 
-The same player as a view's, with the same [transport](/usage/transport).
+The same player as a view's, with the same [transport](./transport.md).
 
 ::: warning A sprite outside a scene draws nothing
 It warns to the console and renders nothing, rather than silently producing an
@@ -81,5 +81,5 @@ for it to draw into.
 ::: tip One throw stops the whole scene
 Events are delivered inside the scene's single `advance()` pass, so an exception
 from one sprite's handler stops the clock for **every** sprite in the scene —
-see [Troubleshooting](/troubleshooting#the-animation-froze-mid-play).
+see [Troubleshooting](../troubleshooting.md#the-animation-froze-mid-play).
 :::

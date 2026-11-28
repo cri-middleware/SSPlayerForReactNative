@@ -31,7 +31,7 @@ A signal's `params` is a list of `{ id, type, boolValue, intValue, floatValue, t
 value, `index` and `integer` both in `intValue`.
 
 Each also carries `source`: the handle of the animation source that fired it. Without
-[motion blending](/usage/motion-blending#events) that is always track 0’s main animation, and
+[motion blending](./motion-blending.md#events) that is always track 0’s main animation, and
 `frameNo` is a frame of whichever animation fired. On a crossfade of track 0 the incoming
 animation’s keys fire from the moment the fade begins, and the outgoing one’s stop.
 

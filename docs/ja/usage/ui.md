@@ -66,7 +66,7 @@ import { SpriteStudioButton } from 'react-native-spritestudio-ui'
 
 ## 押せる範囲 {#the-pressable-area}
 
-既定では箱全体が押下を受けます。`hitParts` は指定したパーツの輪郭に、`hitOnArtwork` は輪郭を持つすべてのパーツに絞ります（[パーツの輪郭と当たり判定](/ja/usage/parts#part-outline)）。どれの上でも始まらなかったタッチは押下にならず、ボタンは `pressed` の状態を示しません。
+既定では箱全体が押下を受けます。`hitParts` は指定したパーツの輪郭に、`hitOnArtwork` は輪郭を持つすべてのパーツに絞ります（[パーツの輪郭と当たり判定](./parts.md#part-outline)）。どれの上でも始まらなかったタッチは押下にならず、ボタンは `pressed` の状態を示しません。
 
 絞るのはタッチだけです。キーボードのフォーカスと読み上げからの操作はこれまでどおりボタンに届き、ホバーも箱全体で数えます。ボタンが受けなかったタッチは、ほかの React Native のビューと同じく、後ろにあるビューにも届きません。
 
@@ -93,4 +93,4 @@ driver.show(ssUiStateOf({ pressed, hovered, focused, disabled }), reducedMotion)
 
 ドライバーはプレイヤーの再生を握るので、ビューには `playing={false}` を渡してください（ボタンはそうしています）。`show` はプレイヤーがパックを読み込むまで何もせず、呼び出しも覚えません。パックの読み込み後にもう一度呼んでください — `onLoad` か、`player.addListener` で足したリスナーからです。
 
-区間の再生には、プレイヤーの `getLabelTable` と `setAnimationSection` を使います。ラベルで区間を指定する呼び出しは `react-native-spritestudio` にもあります（[再生の制御](/ja/usage/transport)）。
+区間の再生には、プレイヤーの `getLabelTable` と `setAnimationSection` を使います。ラベルで区間を指定する呼び出しは `react-native-spritestudio` にもあります（[再生の制御](./transport.md)）。

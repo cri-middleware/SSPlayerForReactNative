@@ -14,7 +14,7 @@ description: SpriteStudioView の prop、source に指定できるもの、そ�
 />
 ```
 
-`<SpriteStudioView>` は、たまたま Skia のキャンバスとフレームループを内包しているだけの、ごく普通の React Native ビューです。他のビューと同じように配置し、サイズを決め、クリップし、アニメーションさせられます。`testID`・アクセシビリティ系の prop・`pointerEvents`・`onLayout` は `<View>` と同じようにビューへ届きます。**複数**のアニメーションを同時に扱うなら[シーン](/ja/usage/scene)を使ってください — ビュー 20 個はキャンバス 20 枚とクロック
+`<SpriteStudioView>` は、たまたま Skia のキャンバスとフレームループを内包しているだけの、ごく普通の React Native ビューです。他のビューと同じように配置し、サイズを決め、クリップし、アニメーションさせられます。`testID`・アクセシビリティ系の prop・`pointerEvents`・`onLayout` は `<View>` と同じようにビューへ届きます。**複数**のアニメーションを同時に扱うなら[シーン](./scene.md)を使ってください — ビュー 20 個はキャンバス 20 枚とクロック
 20 個です。
 
 ## `source` に指定できるもの
@@ -25,11 +25,11 @@ description: SpriteStudioView の prop、source に指定できるもの、そ�
 | ファイルシステムのパス、`file://` URI | ダウンロード、展開済みバンドル |
 | `http(s)` URL | 開発サーバー、CDN |
 
-パックが指すファイル — テクスチャ、Instance パーツが参照する外部パック — の解決はいずれの形式でも同じです。`require()` したモジュールは source としては**使えません**。[アセットの準備](/ja/setup/assets)を参照してください。
+パックが指すファイル — テクスチャ、Instance パーツが参照する外部パック — の解決はいずれの形式でも同じです。`require()` したモジュールは source としては**使えません**。[アセットの準備](../setup/assets.md)を参照してください。
 
 ::: tip リモートの `.ssab` は信頼できない入力です
 バッファはネイティブランタイムに渡る前に検証されるので、途中で切れたダウンロードはパースされずに拒否されます。検証*されない*のは参照グラフの方です —
-[制約と適用範囲](/ja/limitations#untrusted-packs)を参照してください。
+[制約と適用範囲](../limitations.md#untrusted-packs)を参照してください。
 :::
 
 ## 再生の制御
@@ -42,13 +42,13 @@ ref.current?.player?.setAnimation('walk')
 ref.current?.player?.play() // setAnimation は選ぶだけ。開始は play()
 ```
 
-再生状態を所有しているのはプレイヤーで、その上の層はそれを複製しません — prop は素通しです。シークや再生方向、ピンポン再生、そして直感に反する挙動については[再生の制御](/ja/usage/transport)が扱います。
+再生状態を所有しているのはプレイヤーで、その上の層はそれを複製しません — prop は素通しです。シークや再生方向、ピンポン再生、そして直感に反する挙動については[再生の制御](./transport.md)が扱います。
 
 ## サイズ {#size}
 
 サイズを指定しなければ、ビューはボックスの大きさになります — 作者のキャンバスを 1 単位 1 ポイントで。バンドルした画像を表示する `<Image>` と同じです。`width` と `height` の片方だけを指定すると、もう片方はボックスの縦横比で決まります。両方、または `flex` を指定したときは style だけで決まります。
 
-`SsAssets` は `npx react-native-spritestudio assets` が生成する型付きマニフェストで、各値がそうしたパスです（[クイックスタート](/ja/setup/quickstart)）。
+`SsAssets` は `npx react-native-spritestudio assets` が生成する型付きマニフェストで、各値がそうしたパスです（[クイックスタート](../setup/quickstart.md)）。
 
 ```tsx
 <SpriteStudioView source={SsAssets['Ringo/Ringo']} />                          // 800×600
@@ -92,4 +92,4 @@ ref.current?.player?.play() // setAnimation は選ぶだけ。開始は play()
 ```
 
 `onLoad` はパックの準備ができたときに発火し、プレイヤーを渡します。`getAnimationNames()` は ref なしでそこで読めます。`onError` は準備できなかったときに発火し、渡していなければエラーは `console.error` に出ます。この待ち時間を気にならない程度まで短くする方法が
-[`ssPreload`](/ja/usage/textures#preloading) です。
+[`ssPreload`](./textures.md#preloading) です。

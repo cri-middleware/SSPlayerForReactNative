@@ -5,9 +5,9 @@ description: SpriteStudio Player for React Native をチェックアウトから
 
 # ビルドガイド
 
-SpriteStudio Player for React Native を開発する人と、自分のアプリのために改造する人に向けたページです。このパッケージや、その下の Rust コアを変更する人が対象です。層の組み合わせと、この作りになっている理由は[プレイヤーの構成](/ja/development/architecture)にあります。
+SpriteStudio Player for React Native を開発する人と、自分のアプリのために改造する人に向けたページです。このパッケージや、その下の Rust コアを変更する人が対象です。層の組み合わせと、この作りになっている理由は[プレイヤーの構成](./architecture.md)にあります。
 
-自分のアプリでパッケージを*使う*だけなら、必要なのは[インストール](/ja/setup/install)の方です。このページの内容はそこには一切含まれません。
+自分のアプリでパッケージを*使う*だけなら、必要なのは[インストール](../setup/install.md)の方です。このページの内容はそこには一切含まれません。
 
 ## clone する
 
@@ -106,7 +106,7 @@ pnpm run build-release        # -> release-dist/npm/ に、パッケージごと
 
 `build-release` は固定した Brain の導入に続いて、Nitro バインディングを再生成してコミット済みのものと一致することを確かめ、パックする前にホスト側のチェックを実行します（`check-hidden`、`check-motion`、macOS では `check-mask` と `check-shader`、`flatc` があれば `check-framedata` も）。これらには Rust と、`deploy-examples` が変換したサンプルパックが要ります。`skip=codegen,checks` を付ければ、それらを省いてパックします。パックするのは `scripts/SDK_VERSION.txt` が固定した Brain だけで、`prepack` は手元でビルドした Brain や debug ビルド（`build-runtime` で作ったものなど）を拒むので、tarball には必ずリリースのネイティブコアが入ります。自分でビルドした Brain をアプリで動かすには、サンプルアプリを使ってください。サンプルアプリはパッケージを、ネイティブコアも含めてワークスペースから取ります。
 
-アプリには、[インストール](/ja/setup/install)がパッケージと一緒に挙げる依存を、パッケージ自身は除いて入れます（`expo install` に含めると npm から取ってきます）。続けて tarball を入れ、`react-native-spritestudio-ui` を使うなら、その隣にある UI パッケージの tarball も入れます。その先は、そのページの手順 3 からと同じようにビルドします。
+アプリには、[インストール](../setup/install.md)がパッケージと一緒に挙げる依存を、パッケージ自身は除いて入れます（`expo install` に含めると npm から取ってきます）。続けて tarball を入れ、`react-native-spritestudio-ui` を使うなら、その隣にある UI パッケージの tarball も入れます。その先は、そのページの手順 3 からと同じようにビルドします。
 
 ```bash
 npx expo install react-native-skia react-native-nitro-modules react-native-reanimated react-native-worklets
@@ -127,4 +127,4 @@ npm install <checkout>/release-dist/npm/react-native-spritestudio-ui-<version>.t
 - **ビルドが通っても、Skia が入ったとは限りません。** RN Skia が見つからないと、ビルドは何も言わずに `SSPLAYER_ENABLE_SKIA_DIRECT=0` にします。RN Skia を上げたら、Android は `.cxx/**/compile_commands.json` に、iOS は DerivedData の `SsPlayer.build/**/*-common-args.resp` に `SSPLAYER_ENABLE_SKIA_DIRECT=1` があるかを見てください。
 - **ホストのチェックが「`.ssab` failed verification」で落ちたら、データが古いのです。** Skia のせいではなく、サンプルのパックが Brain より古くなっています。サブモジュールを固定の版にそろえて `deploy-examples` を実行してください。
 
-層、ネイティブ側、それらをまたぐ設計の理由は[プレイヤーの構成](/ja/development/architecture)にあります。
+層、ネイティブ側、それらをまたぐ設計の理由は[プレイヤーの構成](./architecture.md)にあります。

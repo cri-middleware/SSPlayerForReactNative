@@ -43,7 +43,7 @@ Measure a **release** build: a debug bundle swamps everything described here.
 canvases and twenty clocks, on top of what the twenty players cost anyway.
 `<SpriteStudioScene>` draws a whole cast into **one canvas off one clock**, and
 a sprite renders nothing of its own — see
-[Many animations: a scene](/usage/scene), which also has the `paused` prop worth
+[Many animations: a scene](./scene.md), which also has the `paused` prop worth
 wiring to your app going to the background.
 
 ## A player that holds still costs next to nothing
@@ -76,7 +76,7 @@ boundary (the name is resolved once per animation), and the shared value is
 written only when the pose changes. A player that stands still shows no new
 frame, so its followers cost nothing. In a scene, every member's followers are
 read whenever any member moves, because the scene redraws them all. See
-[Part overrides & following](/usage/parts).
+[Part overrides & following](./parts.md).
 
 ## Loading is where the wait actually is
 
@@ -88,16 +88,16 @@ its `placeholder` while it happens. A decoded atlas then takes width × height �
 4 bytes of memory for as long as a player holds it.
 
 - **Warm the cache before the navigation** with `ssPreload` —
-  [Preloading](/usage/textures#preloading).
+  [Preloading](./textures.md#preloading).
 - **Players of one pack share its atlases.** The `.ssab` is parsed once and each atlas decoded once
-  however many players mount it — [Textures & resources](/usage/textures).
+  however many players mount it — [Textures & resources](./textures.md).
 - **Remember what an Embedded pack costs.** Its encoded bytes stay resident for
   the life of the resource, on top of the decoded texture. A Reference pack
   keeps one file per texture and shares it between packs naming the same
-  cellmap — [Reference and Embedded packs](/setup/assets#reference-and-embedded-packs).
+  cellmap — [Reference and Embedded packs](../setup/assets.md#reference-and-embedded-packs).
 
 ## Measuring the box is not free either
 
 Fitting against the authored canvas, the default, costs nothing. Measuring the
 box instead (`frameScope`) walks the animation, baking a frame at a time, and
-`'pack'` pays that walk per animation. Both are in [Basic playback](/usage/basic).
+`'pack'` pays that walk per animation. Both are in [Basic playback](./basic.md).

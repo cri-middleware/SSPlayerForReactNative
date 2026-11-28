@@ -13,7 +13,7 @@ has to name it.
 Convert your `.sspj` in the browser with
 [ssconverter-web](https://cri-middleware.github.io/SSPlayerForWeb/ssconverter/): it gives you a
 ZIP holding a folder named after the project, with the `.ssab` and its textures inside. The other
-converters, and why a pack is a directory, are in [Preparing assets](/setup/assets).
+converters, and why a pack is a directory, are in [Preparing assets](./assets.md).
 
 ::: tip No SpriteStudio data of your own yet?
 The [official sample data](https://www.webtech.co.jp/help/ja/spritestudio7/download/sample/)
@@ -75,7 +75,7 @@ export function Character() {
 That is the whole integration. The textures come with it: for a **Reference**
 pack the loader resolves each `image_path` next to the `.ssab`, and for an
 **Embedded** one it reads the atlas out of the file. See
-[Preparing assets](/setup/assets#reference-and-embedded-packs).
+[Preparing assets](./assets.md#reference-and-embedded-packs).
 
 Playback starts on load and loops forever by default. `playing`, `speed` and
 `loop` are props — `loop={1}` plays once.

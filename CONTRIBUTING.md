@@ -182,8 +182,8 @@ checks out without submodules. The build fails on a dead page link but **does no
 `#anchors`**: a link to a heading that does not exist still builds green, so verify those by hand.
 
 The English pages also ship in the package's `docs/`: `build` and `prepack` run
-`packages/react-native-spritestudio/scripts/copy-docs.mjs`, which turns the site paths between pages
-into relative links and adds `scripts/docs-README.md` beside it as the folder's front door. It writes
+`packages/react-native-spritestudio/scripts/copy-docs.mjs`, which points links to the pages it leaves
+out at the site and adds `scripts/docs-README.md` beside it as the folder's front door. It writes
 the same pages to `skills/react-native-spritestudio/` as an Agent Skill, with the front door as its
 `SKILL.md`. Renaming a page the front door links to means editing it too; `build-release` refuses a
 link that goes nowhere.
@@ -330,7 +330,7 @@ pnpm run build-docs     # TypeDoc + VitePress を docs/.vitepress/dist へ
 Brain も Rust も必要としません（TypeDoc は TypeScript を、VitePress は Markdown を読むだけです）。そのためこのワークフローは submodule 無しでチェックアウトします。リンク切れではビルドが失敗しますが、
 **`#anchor` は検査しません**。存在しない見出しへのリンクは緑のまま通るので、手で確認してください。
 
-英語のページはパッケージの `docs/` にも入ります。`build` と `prepack` が `packages/react-native-spritestudio/scripts/copy-docs.mjs` を実行し、ページ間のサイトのパスを相対リンクに書き換え、隣の `scripts/docs-README.md` を入口ページとして加えます。同じページを Agent Skill として `skills/react-native-spritestudio/` にも書き、入口ページをその `SKILL.md` にします。入口ページが指すページを改名したら入口ページも直してください（行き先の無いリンクは `build-release` が拒否します）。
+英語のページはパッケージの `docs/` にも入ります。`build` と `prepack` が `packages/react-native-spritestudio/scripts/copy-docs.mjs` を実行し、入れないページへのリンクをサイトに向け、隣の `scripts/docs-README.md` を入口ページとして加えます。同じページを Agent Skill として `skills/react-native-spritestudio/` にも書き、入口ページをその `SKILL.md` にします。入口ページが指すページを改名したら入口ページも直してください（行き先の無いリンクは `build-release` が拒否します）。
 
 ## コーディング規約
 

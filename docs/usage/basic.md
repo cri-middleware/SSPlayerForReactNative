@@ -18,7 +18,7 @@ description: The props on SpriteStudioView, what a source may be, and how the ar
 Skia canvas and a frame loop. Position, size, clip and animate it like any
 other; `testID`, the accessibility props, `pointerEvents` and `onLayout` reach
 the view as they would a `<View>`. For **many** animations at once, reach for
-[a scene](/usage/scene) instead — twenty views is twenty canvases and twenty
+[a scene](./scene.md) instead — twenty views is twenty canvases and twenty
 clocks.
 
 ## What a `source` may be
@@ -31,12 +31,12 @@ clocks.
 
 The files a pack names — textures, the external packs Instance parts reach — resolve the same
 way in all three. A `require()`d module is **not** a source; see
-[Preparing assets](/setup/assets).
+[Preparing assets](../setup/assets.md).
 
 ::: tip A remote `.ssab` is untrusted input
 The buffer is verified before the native runtime sees it, so a truncated
 download is rejected rather than parsed. What is *not* checked is the reference
-graph — see [Limitations](/limitations#untrusted-packs).
+graph — see [Limitations](../limitations.md#untrusted-packs).
 :::
 
 ## Transport
@@ -52,7 +52,7 @@ ref.current?.player?.play() // setAnimation selects; play() starts it
 ```
 
 The player owns the playback state and nothing above it mirrors that — the props
-are passthrough. [Transport](/usage/transport) covers seeking, direction,
+are passthrough. [Transport](./transport.md) covers seeking, direction,
 ping-pong and the semantics that are not the obvious ones.
 
 ## Size
@@ -63,7 +63,7 @@ to a point — as an `<Image>` of a bundled file is. Given one of `width` and
 style decides alone.
 
 `SsAssets` is the typed manifest `npx react-native-spritestudio assets` generates; each value is such a
-path ([Quick Start](/setup/quickstart)).
+path ([Quick Start](../setup/quickstart.md)).
 
 ```tsx
 <SpriteStudioView source={SsAssets['Ringo/Ringo']} />                          // 800×600
@@ -125,4 +125,4 @@ not a blank rectangle:
 `onLoad` fires when the pack is ready and hands over the player, so
 `getAnimationNames()` can be read there with no ref. `onError` fires when it is
 not; without one, the error goes to `console.error`. The way to make that window
-short enough not to matter is [`ssPreload`](/usage/textures#preloading).
+short enough not to matter is [`ssPreload`](./textures.md#preloading).

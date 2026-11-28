@@ -107,7 +107,7 @@ console.log(player.lastTextureReport?.unresolved)
 // ['characters/ringo.png']
 ```
 
-[トラブルシューティング](/ja/troubleshooting#a-part-is-missing-or-nothing-draws)を参照してください。
+[トラブルシューティング](../troubleshooting.md#a-part-is-missing-or-nothing-draws)を参照してください。
 
 ## リークを確認する
 

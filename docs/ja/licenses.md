@@ -29,7 +29,7 @@ description: このパッケージが、あなたの公開するアプリの中�
 これらの本文を、アプリが既に持っているライセンス画面や謝辞ファイルに転記してください。その画面を自動生成する仕組みはありません。
 
 ::: tip npm ではなくチェックアウトから作業している場合
-`native/` の 2 ファイルは**リポジトリには入っていません**。`pnpm run download-sdk` は両方を置きます。`pnpm run build-runtime` がコピーするのは `LICENSE.md` で、クレート一覧は SDK の `scripts/generate-licenses.sh` が先に生成していた場合にだけ取り込みます。そのためローカルビルドのあとは `THIRD-PARTY-LICENSES.ssruntime.md` が無いことがあり、見落としやすい点です（無いと `prepack` はパックを拒否します）。[ビルドガイド](/ja/development/build)を参照してください。
+`native/` の 2 ファイルは**リポジトリには入っていません**。`pnpm run download-sdk` は両方を置きます。`pnpm run build-runtime` がコピーするのは `LICENSE.md` で、クレート一覧は SDK の `scripts/generate-licenses.sh` が先に生成していた場合にだけ取り込みます。そのためローカルビルドのあとは `THIRD-PARTY-LICENSES.ssruntime.md` が無いことがあり、見落としやすい点です（無いと `prepack` はパックを拒否します）。[ビルドガイド](./development/build.md)を参照してください。
 :::
 
 ## このページが代弁しないもの

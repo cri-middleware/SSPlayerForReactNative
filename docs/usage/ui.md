@@ -88,7 +88,7 @@ once on the console, and the state plays as if it had none.
 
 By default the whole box takes a press. `hitParts` narrows it to the outlines of
 the parts named, and `hitOnArtwork` to the outline of any part — see
-[A part's outline and hit testing](/usage/parts#part-outline). A touch that
+[A part's outline and hit testing](./parts.md#part-outline). A touch that
 starts on none of them is not a press, and the button shows no `pressed` state
 for it.
 
@@ -133,4 +133,4 @@ the pack has loaded — from `onLoad`, or from a listener added with `player.add
 
 It plays the sections through the player's `getLabelTable` and
 `setAnimationSection`, which `react-native-spritestudio` exposes for
-any section named by labels — see [Transport](/usage/transport#the-imperative-half).
+any section named by labels — see [Transport](./transport.md#the-imperative-half).

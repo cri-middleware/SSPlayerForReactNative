@@ -24,7 +24,7 @@ const SOURCE = SsAssets['overall/UserData']
 
 シグナルの `params` は `{ id, type, boolValue, intValue, floatValue, textValue }` のリストです。値が入っているフィールドは `type`（`SsSignalParamType`：`bool`・`index`・`integer`・`floating`・`text`・`none`）で決まり、`index` と `integer` はどちらも `intValue` に入ります。
 
-どのイベントも `source` も持ちます。発火したアニメーションのソースのハンドルです。[モーションブレンディング](/ja/usage/motion-blending#events)を使わなければ常にトラック 0 の主アニメーションで、`frameNo` は発火したアニメーションのフレームです。トラック 0 をクロスフェードすると、フェードを始めた時点から入ってくる側のキーが発火し、出ていく側は止まります。
+どのイベントも `source` も持ちます。発火したアニメーションのソースのハンドルです。[モーションブレンディング](./motion-blending.md#events)を使わなければ常にトラック 0 の主アニメーションで、`frameNo` は発火したアニメーションのフレームです。トラック 0 をクロスフェードすると、フェードを始めた時点から入ってくる側のキーが発火し、出ていく側は止まります。
 
 ハンドラが受け取るのは、設置されている間に再生ヘッドが通ったキーです。あとからハンドラを渡しても、それ以前のキーは再送されません。インラインのアロー関数を渡しても問題ありません — ロードをやり直したりはしません。
 

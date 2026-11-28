@@ -42,7 +42,7 @@ flowchart BT
     setup --> t0 --> t1 --> t2 --> out
 ```
 
-**トラック 0 は特別です。** `setAnimation` が載せるのがこれで、プレイヤーが報告するのもトラック 0 のアニメーションです。`currentAnimation`・`isPlaying`・`isFinished`・`justLooped`・フレーム・イベント・`canvasBox` は、すべてこれに従います（ビューが合わせる箱は、ロードで開始したアニメーションのキャンバスのままです。[基本の再生](/ja/usage/basic)を参照）。その上のトラックはオーバーレイです。
+**トラック 0 は特別です。** `setAnimation` が載せるのがこれで、プレイヤーが報告するのもトラック 0 のアニメーションです。`currentAnimation`・`isPlaying`・`isFinished`・`justLooped`・フレーム・イベント・`canvasBox` は、すべてこれに従います（ビューが合わせる箱は、ロードで開始したアニメーションのキャンバスのままです。[基本の再生](./basic.md)を参照）。その上のトラックはオーバーレイです。
 
 | ブレンドモード | 内容 |
 |---|---|
