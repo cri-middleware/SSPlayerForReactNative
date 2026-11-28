@@ -43,9 +43,9 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | A `<View>`'s own | `testID`, the accessibility props, `pointerEvents`, `onLayout` |
 
 Given no size, it lays out like an `<Image>` of the authored canvas — see
-[Basic playback](/usage/basic#size).
+[Basic playback](./usage/basic.md#size).
 
-`ref.current.player` is the [`SpriteStudioPlayer`](/usage/transport) —
+`ref.current.player` is the [`SpriteStudioPlayer`](./usage/transport.md) —
 seek, switch animation, read the content box.
 
 ::: warning Twenty of these is twenty canvases
@@ -95,7 +95,7 @@ Everything about *which animation and how it plays* is shared with
 `align`, `scale`, `flipX`, `flipY`, `z`.
 
 Outside a scene it warns and draws nothing. See
-[Many animations: a scene](/usage/scene).
+[Many animations: a scene](./usage/scene.md).
 
 ## `<SpriteStudioPartAnchor>`
 
@@ -117,7 +117,7 @@ that view's player; anywhere else, pass one as `player`.
 | `rotation` | `true` | Turn with the part. |
 | `scale` | `false` | Scale with the part. |
 
-See [Part overrides & following](/usage/parts#following-a-part).
+See [Part overrides & following](./usage/parts.md#following-a-part).
 
 ## `<SpriteStudioButton>`
 
@@ -141,7 +141,7 @@ import { SpriteStudioButton } from 'react-native-spritestudio-ui'
 
 The view's props that load and place the animation apply, and so do a
 `<Pressable>`'s; `playing`, `loop` and `transitionMs` do not. See
-[UI buttons](/usage/ui).
+[UI buttons](./usage/ui.md).
 
 ## Hooks
 
@@ -160,8 +160,8 @@ const transform = useSsPartTransform(player, 'head')
 ```
 
 Returns `SharedValue<SsPartScreenTransform>` in **view pixels, root transform
-applied**. See [Part overrides & following](/usage/parts#following-a-part)
-and [Reanimated](/usage/reanimated).
+applied**. See [Part overrides & following](./usage/parts.md#following-a-part)
+and [Reanimated](./usage/reanimated.md).
 
 ### `useSsViewPlayer`
 
@@ -178,7 +178,7 @@ prop, exported for callers who want the decoded images themselves. Returns
 const images = useSsTextures({ Ringo: require('./winter.png') })
 ```
 
-See [Textures & resources](/usage/textures#replacing-a-texture).
+See [Textures & resources](./usage/textures.md#replacing-a-texture).
 
 ### `useSpriteStudioPlayer`
 
@@ -205,4 +205,4 @@ an empty box.
 The exported surface beyond this — `SpriteStudioPlayer`, `SsInternalPlayer`,
 `SsTextureRegistry`, the caches, `ssPreload`, `ssCheckForLeaks`, the override
 vocabulary, `SsRuntimeModule` — is covered by
-[Where to start](/api-guide) and the [generated reference](/api/).
+[Where to start](./api-guide.md) and the [generated reference](https://cri-middleware.github.io/SSPlayerForReactNative/api/).

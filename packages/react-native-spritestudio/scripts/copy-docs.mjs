@@ -13,11 +13,11 @@
 // leaves the folder resolves against the agent's directory instead — the pages
 // are copied rather than pointed at.
 //
-// The pages are VitePress's, which links between them by site path
-// (`/usage/textures`). Those are rewritten as they are copied, so they resolve as
-// files: a page the folder has becomes a relative `.md` link, `/` becomes the
-// front door, and anything else — the TypeDoc API pages, the page on building
-// from a checkout — becomes its URL on the site, as does an HTML `href`.
+// The pages link each other by relative `.md` path, and the layout is kept, so
+// those resolve here as they do in the repository. Only a link to a page left out
+// is rewritten as it is copied: the home page becomes the front door, and anything
+// else — the page on building from a checkout, a page under ja/ — becomes its URL
+// on the site. The TypeDoc API pages are already linked by their URL on the site.
 //
 // Left out of the repository's docs/: index.md (the home page), ja/ (the site has
 // it), api/ (TypeDoc's output from the comments src/ and lib/typescript/ carry),
@@ -47,28 +47,22 @@ const pages = readdirSync(src, { recursive: true })
   .sort()
 const have = new Set(pages)
 
-// A site path (`/usage/textures#anchor`) as seen from <page>, in a folder whose
-// front door is <front>.
-function rewriteSitePath(target, page, front) {
+// A relative link to a page (`../usage/textures.md#anchor`) as seen from <page>,
+// in a folder whose front door is <front>.
+function rewritePageLink(target, page, front) {
   const [path, anchor] = target.split(/(?=#)/)
   const hash = anchor ?? ''
-  if (path === '/') return posix.relative(posix.dirname(page), front) + hash
-  const bare = path.slice(1).replace(/\.md$/, '').replace(/\/$/, '')
-  for (const file of [`${bare}.md`, `${bare}/index.md`]) {
-    if (have.has(file)) return posix.relative(posix.dirname(page), file) + hash
-  }
-  return SITE + path.slice(1).replace(/\.md$/, '') + hash
+  const file = posix.join(posix.dirname(page), path)
+  if (have.has(file)) return target
+  if (file === 'index.md') return posix.relative(posix.dirname(page), front) + hash
+  return SITE + file.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '') + hash
 }
 
 function rewrite(text, page, front) {
-  // The URL the site serves this page at (cleanUrls), for HTML's relative hrefs.
-  const pageUrl = SITE + page.replace(/\.md$/, '')
-  return text
-    .replace(/\]\((\/[^)\s]*)\)/g, (_, target) => `](${rewriteSitePath(target, page, front)})`)
-    .replace(/href="([^"#:]*)"/g, (whole, target) => {
-      if (target === '') return whole
-      return `href="${target.startsWith('/') ? SITE + target.slice(1) : new URL(target, pageUrl).href}"`
-    })
+  return text.replace(
+    /\]\(([^)\s:#]*\.md(?:#[^)\s]*)?)\)/g,
+    (_, target) => `](${rewritePageLink(target, page, front)})`,
+  )
 }
 
 function copyPages(out, front, frontText) {

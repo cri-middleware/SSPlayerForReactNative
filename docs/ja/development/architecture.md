@@ -5,7 +5,7 @@ description: 4 つのレイヤー、ネイティブ側、この作りになっ�
 
 # プレイヤーの構成
 
-SpriteStudio Player for React Native を開発する人と、自分のアプリのために改造する人に向けたページです。部品をその役割で説明します。チェックアウトを動かす手順、変更したパッケージをアプリで使う方法、シミュレータや実機での確かめ方は[ビルドガイド](/ja/development/build)に、制約は [CONTRIBUTING](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/CONTRIBUTING.md) にあります。
+SpriteStudio Player for React Native を開発する人と、自分のアプリのために改造する人に向けたページです。部品をその役割で説明します。チェックアウトを動かす手順、変更したパッケージをアプリで使う方法、シミュレータや実機での確かめ方は[ビルドガイド](./build.md)に、制約は [CONTRIBUTING](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/CONTRIBUTING.md) にあります。
 
 SpriteStudio の Player に共通すること（再生・モーションブレンド・サウンドキー・パーツトラッキングの振る舞い）は、SDK の [Player Porting Guide](https://github.com/cri-middleware/SpriteStudio-SDK/blob/HEAD/libs/ssruntime/docs/README.md) に一度だけ書いてあります。
 
@@ -61,7 +61,7 @@ flowchart TD
 - **tick の判断**は、プレイヤーの更新が描くものを変えうるか、つまり tick を続けるかを決めます。
 - **`.ssab` の読み取り**は、描画に要るのに Brain が渡さないものを読みます。**アセットの探索**は、パックが変換時の配置を保つ、アプリのネイティブアセットのディレクトリを見つけます。
 
-**周辺:** Expo の config plugin が、パックのディレクトリをネイティブアセットとして同梱し、アーキテクチャを絞ります。Brain とそのヘッダーは `download-sdk` か `build-runtime` が置くもので、git には無いものです。ホスト側のチェックは、組み立て・マスク・tick の判断をホストの Brain とリンクして確かめます（[ビルドガイド](/ja/development/build#checks)の `check-*` コマンド）。
+**周辺:** Expo の config plugin が、パックのディレクトリをネイティブアセットとして同梱し、アーキテクチャを絞ります。Brain とそのヘッダーは `download-sdk` か `build-runtime` が置くもので、git には無いものです。ホスト側のチェックは、組み立て・マスク・tick の判断をホストの Brain とリンクして確かめます（[ビルドガイド](./build.md#checks)の `check-*` コマンド）。
 
 ## この作りになっている理由 {#why-it-is-built-the-way-it-is}
 

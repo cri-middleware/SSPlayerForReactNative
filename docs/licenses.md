@@ -38,7 +38,7 @@ already ships. Nothing generates that screen for you.
 The two `native/` files are **not in the repository**. `pnpm run download-sdk` brings both.
 `pnpm run build-runtime` copies `LICENSE.md` and picks up the crate list only if the SDK's
 `scripts/generate-licenses.sh` has produced it, so after a local build `THIRD-PARTY-LICENSES.ssruntime.md`
-can be missing — easy to miss, and `prepack` refuses to pack without it. See the [Build Guide](/development/build).
+can be missing — easy to miss, and `prepack` refuses to pack without it. See the [Build Guide](./development/build.md).
 :::
 
 ## What this page does not speak for

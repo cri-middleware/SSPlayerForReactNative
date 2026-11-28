@@ -73,7 +73,7 @@ Instance パーツは**外部パックを名前で**参照します。テクス�
 <SpriteStudioSprite> must be inside a <SpriteStudioScene>.
 ```
 
-シーンのキャンバスを通して描画するので、その外には描き込む先がありません。[複数アニメーション: シーン](/ja/usage/scene)を参照してください。
+シーンのキャンバスを通して描画するので、その外には描き込む先がありません。[複数アニメーション: シーン](./usage/scene.md)を参照してください。
 
 ## パーツのオーバーライドが効かない
 
@@ -84,7 +84,7 @@ react-native-spritestudio: no part called 'hatt' in 'walk' — its override is i
 ```
 
 名前が正しいのに少し経つと元に戻ってしまう場合は `priority` です —
-[パーツの上書き](/ja/usage/parts#how-long-an-override-lasts)を参照してください。
+[パーツの上書き](./usage/parts.md#how-long-an-override-lasts)を参照してください。
 
 ## 再生が途中で固まった {#the-animation-froze-mid-play}
 
@@ -132,4 +132,4 @@ web バンドルをビルドできるようにするためです。web 上の Sp
 
 ## 音が出ない
 
-`onAudio` は何を再生すべきかを通知するだけで、再生は一切しません。[オーディオは通知されるだけで、再生はされません](/ja/usage/events#audio-is-reported-not-played)を参照してください。
+`onAudio` は何を再生すべきかを通知するだけで、再生は一切しません。[オーディオは通知されるだけで、再生はされません](./usage/events.md#audio-is-reported-not-played)を参照してください。

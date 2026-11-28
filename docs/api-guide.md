@@ -5,15 +5,15 @@ description: The four to start from — SpriteStudioView, SpriteStudioScene with
 
 # Where to start
 
-The [generated reference](/api/) has everything. This page says which of it you
+The [generated reference](https://cri-middleware.github.io/SSPlayerForReactNative/api/) has everything. This page says which of it you
 need, and in roughly the order you will need it.
 
 ## The four you will use
 
 | | |
 |---|---|
-| [`SpriteStudioView`](/api/) | One animation, its own canvas and frame loop. The default. |
-| [`SpriteStudioScene`](/api/) + `SpriteStudioSprite` | Many animations, one canvas and one clock. |
+| [`SpriteStudioView`](https://cri-middleware.github.io/SSPlayerForReactNative/api/) | One animation, its own canvas and frame loop. The default. |
+| [`SpriteStudioScene`](https://cri-middleware.github.io/SSPlayerForReactNative/api/) + `SpriteStudioSprite` | Many animations, one canvas and one clock. |
 | `SsPlayerProps` | Everything about *which animation and how it plays* — shared by both components, so they cannot drift. |
 | `SsPlacement` | Everything about *where it is drawn* — `fit`, `align`, `frame`, `frameScope`, `offset`, `scale`, `flipX`, `flipY`. |
 
@@ -27,17 +27,17 @@ It is also where the imperative-only calls live — the ones with no prop. Runti
 texture replacement is one: `setCellmapTexture(name, image)` swaps the atlas a
 cellmap draws from (and `null` restores the pack's own), `getCellmapTexture(name)`
 reads back the swap, and `getReplaceableTextureNames()` lists what you may pass.
-See [Textures](/usage/textures#from-code-at-runtime).
+See [Textures](./usage/textures.md#from-code-at-runtime).
 
 ## Buttons, labels and outlines
 
 `SpriteStudioButton`, from `react-native-spritestudio-ui`, makes the view a
-button whose states play label sections — see [UI buttons](/usage/ui), and
+button whose states play label sections — see [UI buttons](./usage/ui.md), and
 `SsUiStateDriver` for its state rule without the component. It is built on
 calls the player has for any app: `getLabelTable(animation?)` and
 `setAnimationSectionByLabel(startLabel, endLabel)` for a section named by
 labels, and `getPartQuad(part)` and `hitTestPart(x, y, parts?)` for where a part
-is drawn ([A part's outline and hit testing](/usage/parts#part-outline)).
+is drawn ([A part's outline and hit testing](./usage/parts.md#part-outline)).
 
 ## Loading ahead of time
 

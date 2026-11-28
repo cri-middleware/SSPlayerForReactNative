@@ -122,7 +122,7 @@ rebuild — not a fresh `prebuild`.
 ::: warning Assets do not Fast Refresh
 Changing a shipped pack means a native build: the file is an app asset, not a bundle entry. A pack read
 from an `http(s)` URL is the exception — it is fetched from there and needs no rebuild
-([Basic playback](/usage/basic#what-a-source-may-be)).
+([Basic playback](../usage/basic.md#what-a-source-may-be)).
 :::
 
 ## Reference and Embedded packs

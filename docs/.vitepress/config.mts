@@ -5,7 +5,7 @@ import llmstxt, { copyOrDownloadAsMarkdownButtons } from 'vitepress-plugin-llms'
 const GITHUB = 'https://github.com/cri-middleware/SSPlayerForReactNative'
 
 // Only ever the published address. `base` below is a path, not an origin, so it
-// cannot build an absolute og:url on its own.
+// cannot build an absolute og:url, llms.txt or a link that works on GitHub on its own.
 const SITE_URL = 'https://cri-middleware.github.io/SSPlayerForReactNative'
 
 // The sidebar is a difficulty gradient rather than a table of contents. Reading
@@ -160,11 +160,35 @@ export default withMermaid({
     ],
   },
 
-  // The Copy as Markdown button, inserted after each page's first heading. The component
-  // itself is registered in theme/index.ts.
   markdown: {
     config(md) {
+      // The Copy as Markdown button, inserted after each page's first heading. The component
+      // itself is registered in theme/index.ts.
       md.use(copyOrDownloadAsMarkdownButtons)
+
+      // The pages are read on GitHub as well as here, so every link must resolve in both.
+      // Between pages that is a relative `.md` path, which VitePress turns into the page's
+      // URL. The TypeDoc reference exists only on the published site (docs/api/ is
+      // generated, not committed), so it is linked by its SITE_URL address. A site path
+      // (`/usage/textures`) resolves here and nowhere on GitHub, so it fails the build. API
+      // addresses are turned back into site paths here, so VitePress still checks them
+      // against the generated pages and opens them in the tab.
+      md.core.ruler.push('github-readable-links', (state) => {
+        const page: string | undefined = state.env?.relativePath
+        if (page?.startsWith('api/')) return
+        for (const token of state.tokens.flatMap((t) => t.children ?? [])) {
+          if (token.type !== 'link_open') continue
+          const href = token.attrGet('href') ?? ''
+          if (href.startsWith(`${SITE_URL}/api/`)) {
+            token.attrSet('href', href.slice(SITE_URL.length))
+          } else if (href.startsWith('/')) {
+            throw new Error(
+              `${page}: "${href}" is a site path, which goes nowhere on GitHub. Link a page by ` +
+                `its relative .md path, and the API reference by its ${SITE_URL}/ address.`,
+            )
+          }
+        }
+      })
     },
   },
 

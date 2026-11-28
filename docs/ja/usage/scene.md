@@ -19,7 +19,7 @@ import { SpriteStudioScene, SpriteStudioSprite } from 'react-native-spritestudio
 
 ビューと違い、シーンは自分のサイズを持ちません。`flex: 1`、または `width` と `height` を与えてください。与えないとキャンバスの高さが 0 になり、何も描かれません。
 
-キャンバス 1 枚、クロック 1 つ、フレーム 1 つ。各プレイヤーの `advance(dt)`（[クロック](/ja/usage/transport#the-clock)）は時間を外から受け取るので、ツリー全体を 1 つのループで進められます。
+キャンバス 1 枚、クロック 1 つ、フレーム 1 つ。各プレイヤーの `advance(dt)`（[クロック](./transport.md#the-clock)）は時間を外から受け取るので、ツリー全体を 1 つのループで進められます。
 
 スプライトは**自分では何も描画しません**。その仕事はプレイヤーを保持し、ルートトランスフォームを最新に保ち、シーンに登録され続けることだけです。すべてが描き込むキャンバスを所有しているのはシーンの方です。
 
@@ -57,7 +57,7 @@ ref.current?.player?.setAnimation('attack')
 ref.current?.player?.play() // setAnimation は選ぶだけ。開始は play()
 ```
 
-ビューのものと同じプレイヤーで、[再生の制御](/ja/usage/transport)も同じです。
+ビューのものと同じプレイヤーで、[再生の制御](./transport.md)も同じです。
 
 ::: warning シーンの外のスプライトは何も描きません
 コンソールに警告を出し、何もレンダリングしません。空のボックスを黙って生成することはしません。シーンのキャンバスを通して描画するので、その外には描き込む先が無いためです。
@@ -65,5 +65,5 @@ ref.current?.player?.play() // setAnimation は選ぶだけ。開始は play()
 
 ::: tip 1 つの例外がシーン全体を止めます
 イベントはシーンのただ 1 つの `advance()` パスの中で配送されるので、あるスプライトのハンドラからの例外は、そのシーンの**すべての**スプライトのクロックを止めます —
-[トラブルシューティング](/ja/troubleshooting#the-animation-froze-mid-play)を参照してください。
+[トラブルシューティング](../troubleshooting.md#the-animation-froze-mid-play)を参照してください。
 :::

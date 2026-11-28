@@ -20,7 +20,7 @@ props are passthrough: the player holds the one copy.
 | Prop | Default | Means |
 |---|---|---|
 | `animation` | the pack's first | Which animation in the pack. |
-| `transitionMs` | `0` | Milliseconds to crossfade over when `animation` changes; `0` switches outright. See [Motion blending](/usage/motion-blending). |
+| `transitionMs` | `0` | Milliseconds to crossfade over when `animation` changes; `0` switches outright. See [Motion blending](./motion-blending.md). |
 | `playing` | `true` | `false` holds it — on its first frame when it mounts false, where it stands when it goes false later. |
 | `speed` | `1` | Multiplier on the authored frame rate. |
 | `loop` | `0` | How many times to play. **`0` is forever**, `1` plays once. |

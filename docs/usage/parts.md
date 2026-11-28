@@ -63,7 +63,7 @@ a **per-part** override — it changes which cell *one* part samples, from the
 cells already in the atlas (a mouth shape, an eye state). To replace the **whole
 texture** a cellmap draws from — recolour every part that uses it at once, or
 swap in a costume atlas — reach for
-[`player.setCellmapTexture`](/usage/textures#from-code-at-runtime) instead. One
+[`player.setCellmapTexture`](./textures.md#from-code-at-runtime) instead. One
 picks a different region of the same image; the other hands over a different
 image.
 :::
@@ -84,7 +84,7 @@ map is re-applied onto every newly set-up animation.
 
 Overrides are replayed onto each newly set-up animation whatever the priority,
 because setting up an animation resets the override layer along with everything else —
-see [Transport](/usage/transport#what-setup-animation-resets).
+see [Transport](./transport.md#what-setup-animation-resets).
 
 ## Following a part
 

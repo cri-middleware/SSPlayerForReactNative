@@ -94,7 +94,7 @@ it has to be in the output directory beside the `.ssab` that names it. An
 ```
 
 It draws through the scene's canvas, so outside one there is nothing to draw
-into. See [Many animations: a scene](/usage/scene).
+into. See [Many animations: a scene](./usage/scene.md).
 
 ## A part override does nothing
 
@@ -105,7 +105,7 @@ react-native-spritestudio: no part called 'hatt' in 'walk' — its override is i
 ```
 
 If the name is right and the override still reverts a moment later, it is
-`priority` — see [Part overrides](/usage/parts#how-long-an-override-lasts).
+`priority` — see [Part overrides](./usage/parts.md#how-long-an-override-lasts).
 
 ## The animation froze mid-play
 
@@ -163,4 +163,4 @@ bundle. For SpriteStudio on the web, use
 ## No sound
 
 `onAudio` reports what to play; it never plays it. See
-[Audio is reported, not played](/usage/events#audio-is-reported-not-played).
+[Audio is reported, not played](./usage/events.md#audio-is-reported-not-played).

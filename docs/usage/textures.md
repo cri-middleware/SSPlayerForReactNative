@@ -151,7 +151,7 @@ console.log(player.lastTextureReport?.unresolved)
 // ['characters/ringo.png']
 ```
 
-See [Troubleshooting](/troubleshooting#a-part-is-missing-or-nothing-draws).
+See [Troubleshooting](../troubleshooting.md#a-part-is-missing-or-nothing-draws).
 
 ## Checking for leaks
 

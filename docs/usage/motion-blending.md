@@ -56,7 +56,7 @@ flowchart BT
 **Track 0 is special.** It is what `setAnimation` lays, and its animation is the one the player
 reports: `currentAnimation`, `isPlaying`, `isFinished`, `justLooped`, the frame, the events and
 `canvasBox` all follow it (the box a view fits against stays the canvas of the animation the load
-started on — see [Basic playback](/usage/basic#where-the-box-comes-from)). The tracks above it are overlays.
+started on — see [Basic playback](./basic.md#where-the-box-comes-from)). The tracks above it are overlays.
 
 | Blend mode | What it does |
 |---|---|

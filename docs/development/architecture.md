@@ -6,7 +6,7 @@ description: The four layers, the native side, and why the player is built the w
 # How the Player Is Put Together
 
 For whoever works on SpriteStudio Player for React Native, or changes it for an app of their own.
-It describes the parts by what they do; the [Build Guide](/development/build) gets a checkout
+It describes the parts by what they do; the [Build Guide](./build.md) gets a checkout
 running, uses a changed package in an app and checks it on a simulator or a device, and
 [CONTRIBUTING](https://github.com/cri-middleware/SSPlayerForReactNative/blob/HEAD/CONTRIBUTING.md)
 has the constraints.
@@ -88,7 +88,7 @@ and runs the draw. Under the context:
 narrows the architectures; the Brain and its headers come from `download-sdk` or
 `build-runtime` and are not in git; and the host-side checks link the bake, the mask
 code and the tick decision against the host Brain (the `check-*` commands on the
-[Build Guide](/development/build#checks)).
+[Build Guide](./build.md#checks)).
 
 ## Why it is built the way it is {#why-it-is-built-the-way-it-is}
 

@@ -40,9 +40,9 @@ import { SpriteStudioView } from 'react-native-spritestudio'
 | 上に重ねる | `children`（アニメーションの箱に重なります） |
 | `<View>` 自身のもの | `testID`・アクセシビリティ系の prop・`pointerEvents`・`onLayout` |
 
-サイズを指定しなければ、作者のキャンバスを表示する `<Image>` と同じように並びます。[基本的な再生](/ja/usage/basic#size)を参照してください。
+サイズを指定しなければ、作者のキャンバスを表示する `<Image>` と同じように並びます。[基本的な再生](./usage/basic.md#size)を参照してください。
 
-`ref.current.player` が [`SpriteStudioPlayer`](/ja/usage/transport) です —
+`ref.current.player` が [`SpriteStudioPlayer`](./usage/transport.md) です —
 シーク、アニメーション切り替え、コンテンツボックスの読み取り。
 
 ::: warning これを 20 個置けばキャンバスが 20 枚
@@ -86,7 +86,7 @@ import { SsAssets } from './ss-assets' // クイックスタートで生成す�
 
 *どのアニメーションをどう再生するか*に関するものは `<SpriteStudioView>` と共通です。違うのは配置で、`x`・`y`・`width`・`height`・`align`・`scale`・`flipX`・`flipY`・`z`。
 
-シーンの外では警告を出して何も描きません。[複数アニメーション: シーン](/ja/usage/scene)を参照してください。
+シーンの外では警告を出して何も描きません。[複数アニメーション: シーン](./usage/scene.md)を参照してください。
 
 ## `<SpriteStudioPartAnchor>`
 
@@ -107,7 +107,7 @@ import { SsAssets } from './ss-assets' // クイックスタートで生成す�
 | `rotation` | `true` | パーツと一緒に回ります。 |
 | `scale` | `false` | パーツと一緒に拡縮します。 |
 
-[パーツの上書きと追従](/ja/usage/parts#following-a-part)を参照してください。
+[パーツの上書きと追従](./usage/parts.md#following-a-part)を参照してください。
 
 ## `<SpriteStudioButton>`
 
@@ -126,7 +126,7 @@ import { SpriteStudioButton } from 'react-native-spritestudio-ui'
 | `reducedMotion` | 各状態を止めます。省略すると OS の設定に従います。 |
 | `accessibilityLabel` | ボタンとして読み上げられます。無ければ装飾です。 |
 
-アニメーションを読み込んで配置するビューの props と、`<Pressable>` の props が使えます。`playing`・`loop`・`transitionMs` は使えません。[UI ボタン](/ja/usage/ui)を参照してください。
+アニメーションを読み込んで配置するビューの props と、`<Pressable>` の props が使えます。`playing`・`loop`・`transitionMs` は使えません。[UI ボタン](./usage/ui.md)を参照してください。
 
 ## フック
 
@@ -143,8 +143,8 @@ const transform = useSsPartTransform(player, 'head')
 ```
 
 **ビューピクセル・ルートトランスフォーム適用済み**の
-`SharedValue<SsPartScreenTransform>` を返します。[パーツの上書きと追従](/ja/usage/parts#following-a-part)と
-[Reanimated](/ja/usage/reanimated)を参照してください。
+`SharedValue<SsPartScreenTransform>` を返します。[パーツの上書きと追従](./usage/parts.md#following-a-part)と
+[Reanimated](./usage/reanimated.md)を参照してください。
 
 ### `useSsViewPlayer`
 
@@ -158,7 +158,7 @@ const transform = useSsPartTransform(player, 'head')
 const images = useSsTextures({ Ringo: require('./winter.png') })
 ```
 
-[テクスチャとリソース](/ja/usage/textures#replacing-a-texture)を参照してください。
+[テクスチャとリソース](./usage/textures.md#replacing-a-texture)を参照してください。
 
 ### `useSpriteStudioPlayer`
 
@@ -179,4 +179,4 @@ const { player, measured, ready } = useSpriteStudioPlayer(props)
 ## それ以外
 
 ここに挙げた以外の公開 API — `SpriteStudioPlayer`・`SsInternalPlayer`・
-`SsTextureRegistry`・各キャッシュ・`ssPreload`・`ssCheckForLeaks`・オーバーライドの語彙・`SsRuntimeModule` — は[どこから見るか](/ja/api-guide)と[生成リファレンス](/api/)が扱います。
+`SsTextureRegistry`・各キャッシュ・`ssPreload`・`ssCheckForLeaks`・オーバーライドの語彙・`SsRuntimeModule` — は[どこから見るか](./api-guide.md)と[生成リファレンス](https://cri-middleware.github.io/SSPlayerForReactNative/api/)が扱います。
